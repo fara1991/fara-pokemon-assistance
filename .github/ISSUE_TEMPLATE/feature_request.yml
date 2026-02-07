@@ -1,0 +1,28 @@
+name: 新機能のリクエスト
+description: 新しい機能の追加をリクエストします
+labels: ["feature"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 機能の説明
+      description: 追加したい機能について詳しく説明してください
+      placeholder: どのような機能を追加したいですか？
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 期待する動作
+      description: この機能がどのように動作することを期待していますか？
+      placeholder: 機能の期待される動作を説明してください
+    validations:
+      required: true
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: 追加情報
+      description: その他、参考になる情報があれば記載してください
+      placeholder: 関連するリンク、参考資料、代替案など
+    validations:
+      required: false

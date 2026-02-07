@@ -1,0 +1,253 @@
+@page "/damage-calculator"
+@using FaraPokemonBattleApi.Models
+@using FaraPokemonBattleApi.Services
+@inject IPokemonDataService PokemonService
+@inject IMoveDataService MoveService
+@inject IItemDataService ItemService
+@inject IDamageCalculationService DamageService
+@inject IGenerationService GenerationService
+
+<PageTitle>ダメージ計算機</PageTitle>
+
+<h3>ダメージ計算機</h3>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="form-group mb-3">
+            <label for="generation">世代:</label>
+            <select id="generation" class="form-control" @bind="selectedGeneration" @onchange="OnGenerationChanged">
+                @foreach (var gen in availableGenerations)
+                {
+                    <option value="@gen">第@(gen)世代</option>
+                }
+            </select>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>攻撃側</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-group mb-3">
+                    <label>ポケモン:</label>
+                    <select class="form-control" @bind="request.AttackerPokemonId">
+                        <option value="0">選択してください</option>
+                        @foreach (var pokemon in pokemonList)
+                        {
+                            <option value="@pokemon.Id">@pokemon.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label>技:</label>
+                    <select class="form-control" @bind="request.MoveId">
+                        <option value="0">選択してください</option>
+                        @foreach (var move in moveList)
+                        {
+                            <option value="@move.Id">@move.Name (@move.Type, @move.Power威力)</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label>レベル:</label>
+                    <input type="number" class="form-control" @bind="request.Attacker.Level" min="1" max="100" />
+                </div>
+                <div class="form-group mb-3">
+                    <label>性格:</label>
+                    <select class="form-control" @bind="request.Attacker.Nature">
+                        @foreach (var nature in natureList)
+                        {
+                            <option value="@nature.Name">@nature.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label>持ち物:</label>
+                    <select class="form-control" @bind="request.Attacker.ItemId">
+                        <option value="">なし</option>
+                        @foreach (var item in itemList)
+                        {
+                            <option value="@item.Id">@item.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>防御側</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-group mb-3">
+                    <label>ポケモン:</label>
+                    <select class="form-control" @bind="request.DefenderPokemonId">
+                        <option value="0">選択してください</option>
+                        @foreach (var pokemon in pokemonList)
+                        {
+                            <option value="@pokemon.Id">@pokemon.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label>レベル:</label>
+                    <input type="number" class="form-control" @bind="request.Defender.Level" min="1" max="100" />
+                </div>
+                <div class="form-group mb-3">
+                    <label>性格:</label>
+                    <select class="form-control" @bind="request.Defender.Nature">
+                        @foreach (var nature in natureList)
+                        {
+                            <option value="@nature.Name">@nature.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label>持ち物:</label>
+                    <select class="form-control" @bind="request.Defender.ItemId">
+                        <option value="">なし</option>
+                        @foreach (var item in itemList)
+                        {
+                            <option value="@item.Id">@item.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-md-12">
+        <button class="btn btn-primary" @onclick="CalculateDamage" disabled="@isCalculating">
+            @if (isCalculating)
+            {
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                <span>計算中...</span>
+            }
+            else
+            {
+                <span>ダメージを計算</span>
+            }
+        </button>
+    </div>
+</div>
+
+@if (result != null)
+{
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>計算結果</h5>
+                </div>
+                <div class="card-body">
+                    <h6>@result.Summary</h6>
+                    <p><strong>ダメージ範囲:</strong> @result.MinDamage - @result.MaxDamage</p>
+                    <p><strong>タイプ相性:</strong> @(result.TypeEffectiveness)倍</p>
+                    <p><strong>攻撃実数値:</strong> @result.AttackerStats</p>
+                    <p><strong>防御実数値:</strong> @result.DefenderStats</p>
+                    @if (result.Modifiers.Any())
+                    {
+                        <p><strong>適用された補正:</strong></p>
+                        <ul>
+                            @foreach (var modifier in result.Modifiers)
+                            {
+                                <li>@modifier</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger mt-3">
+        @errorMessage
+    </div>
+}
+
+@code {
+    private DamageCalculationRequest request = new();
+    private DamageCalculationResult? result;
+    private List<Pokemon> pokemonList = new();
+    private List<Move> moveList = new();
+    private List<Item> itemList = new();
+    private List<Nature> natureList = new();
+    private List<int> availableGenerations = new();
+    private int selectedGeneration = 9;
+    private bool isCalculating = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        availableGenerations = GenerationService.GetAvailableGenerations();
+        if (availableGenerations.Any())
+        {
+            selectedGeneration = availableGenerations.Last();
+            request.Generation = selectedGeneration;
+        }
+        
+        await LoadData();
+        natureList = await GenerationService.GetNaturesAsync();
+    }
+
+    private async Task OnGenerationChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var gen))
+        {
+            selectedGeneration = gen;
+            request.Generation = gen;
+            await LoadData();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            pokemonList = await PokemonService.GetPokemonAsync(selectedGeneration);
+            moveList = await MoveService.GetMovesAsync(selectedGeneration);
+            itemList = await ItemService.GetItemsAsync(selectedGeneration);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"データの読み込みに失敗しました: {ex.Message}";
+        }
+    }
+
+    private async Task CalculateDamage()
+    {
+        if (request.AttackerPokemonId == 0 || request.DefenderPokemonId == 0 || request.MoveId == 0)
+        {
+            errorMessage = "ポケモンと技を選択してください。";
+            return;
+        }
+
+        isCalculating = true;
+        errorMessage = string.Empty;
+        
+        try
+        {
+            result = await DamageService.CalculateDamageAsync(request);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"計算エラー: {ex.Message}";
+            result = null;
+        }
+        finally
+        {
+            isCalculating = false;
+        }
+    }
+}

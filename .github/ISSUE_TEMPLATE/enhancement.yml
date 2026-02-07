@@ -1,0 +1,36 @@
+name: 改善提案
+description: 既存機能の改善を提案します
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: current-feature
+    attributes:
+      label: 改善したい機能
+      description: どの機能を改善したいですか？
+      placeholder: 現在の機能について説明してください
+    validations:
+      required: true
+  - type: textarea
+    id: improvement-suggestion
+    attributes:
+      label: 提案内容
+      description: どのような改善を提案しますか？
+      placeholder: 具体的な改善案を説明してください
+    validations:
+      required: true
+  - type: textarea
+    id: benefits
+    attributes:
+      label: 改善によるメリット
+      description: この改善によってどのようなメリットがありますか？
+      placeholder: ユーザビリティ向上、パフォーマンス改善など
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 追加情報
+      description: その他、参考になる情報があれば記載してください
+      placeholder: 関連するリンク、参考資料、実装案など
+    validations:
+      required: false

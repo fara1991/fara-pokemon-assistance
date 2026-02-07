@@ -1,0 +1,59 @@
+name: バグ報告
+description: バグを報告します
+labels: ["bug"]
+body:
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: バグの説明
+      description: 発生しているバグについて簡潔に説明してください
+      placeholder: どのようなバグが発生していますか？
+    validations:
+      required: true
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: 再現手順
+      description: バグを再現するための手順を記載してください
+      placeholder: |
+        1. '...'へ移動
+        2. '....'をクリック
+        3. '....'まで下にスクロール
+        4. エラーを確認
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 期待する動作
+      description: 何が起こることを期待していましたか？
+      placeholder: 期待していた動作を説明してください
+    validations:
+      required: true
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: 実際の動作
+      description: 実際に何が起こりましたか？
+      placeholder: 実際に発生した動作を説明してください
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境情報
+      description: バグが発生した環境について教えてください
+      placeholder: |
+        - OS: [例: Windows 11]
+        - ブラウザ: [例: Chrome 91.0.4472.124]
+        - .NET バージョン: [例: .NET 8.0]
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: スクリーンショット
+      description: 可能であれば、問題を示すスクリーンショットを添付してください
+      placeholder: スクリーンショットをここにドラッグ&ドロップしてください
+    validations:
+      required: false

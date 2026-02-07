@@ -1,0 +1,9 @@
+Id,Name,Type,Power,Accuracy,PP,Category,Description
+1,たいあたり,Normal,40,100,35,Physical,相手に体当たりして攻撃する
+2,でんきショック,Electric,40,100,30,Special,電気を相手に浴びせて攻撃する
+3,かみつく,Dark,60,100,25,Physical,鋭い歯で噛みついて攻撃する
+4,はっぱカッター,Grass,55,95,25,Physical,はっぱを飛ばして相手を切りつけて攻撃する
+5,かえんほうしゃ,Fire,90,100,15,Special,激しい炎を相手に発射して攻撃する
+6,なみのり,Water,90,100,15,Special,大きな波で自分の周りにいるポケモンを攻撃する
+7,10まんボルト,Electric,90,100,15,Special,強い電撃を相手に浴びせて攻撃する
+8,じしん,Ground,100,100,10,Physical,地震の衝撃で自分の周りにいるポケモンを攻撃する
