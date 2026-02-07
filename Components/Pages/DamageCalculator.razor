@@ -15,7 +15,7 @@
     <div class="col-md-12">
         <div class="form-group mb-3">
             <label for="generation">世代:</label>
-            <select id="generation" class="form-control" @bind="selectedGeneration" @onchange="OnGenerationChanged">
+            <select id="generation" class="form-control" @bind="selectedGeneration" @bind:after="OnGenerationChanged">
                 @foreach (var gen in availableGenerations)
                 {
                     <option value="@gen">第@(gen)世代</option>
@@ -48,7 +48,7 @@
                         <option value="0">選択してください</option>
                         @foreach (var move in moveList)
                         {
-                            <option value="@move.Id">@move.Name (@move.Type, @move.Power威力)</option>
+                            <option value="@move.Id">@move.Name (@move.Type, @move.Power)</option>
                         }
                     </select>
                 </div>
@@ -201,14 +201,10 @@
         natureList = await GenerationService.GetNaturesAsync();
     }
 
-    private async Task OnGenerationChanged(ChangeEventArgs e)
+    private async Task OnGenerationChanged()
     {
-        if (int.TryParse(e.Value?.ToString(), out var gen))
-        {
-            selectedGeneration = gen;
-            request.Generation = gen;
-            await LoadData();
-        }
+        request.Generation = selectedGeneration;
+        await LoadData();
     }
 
     private async Task LoadData()
