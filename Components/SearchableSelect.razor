@@ -1,0 +1,102 @@
+@typeparam TItem
+
+<div class="searchable-select" @onfocusout="OnFocusOut">
+    <input type="text"
+           class="form-control"
+           placeholder="@Placeholder"
+           @bind-value="searchText"
+           @bind-value:event="oninput"
+           @onfocusin="OnFocusIn"
+           @onkeydown="@OnKeyDown"
+           autocomplete="off" />
+    @if (showDropdown && FilteredItems.Any())
+    {
+        <div class="searchable-select-dropdown">
+            @foreach (var item in FilteredItems.Take(50))
+            {
+                <div class="searchable-select-item" @onmousedown="() => SelectItem(item)" @onmousedown:preventDefault>
+                    @DisplayText(item)
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IEnumerable<TItem> Items { get; set; } = Enumerable.Empty<TItem>();
+    [Parameter] public Func<TItem, string> DisplayText { get; set; } = _ => "";
+    [Parameter] public Func<TItem, string> ValueSelector { get; set; } = _ => "";
+    [Parameter] public string SelectedValue { get; set; } = "";
+    [Parameter] public EventCallback<string> SelectedValueChanged { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "入力して検索...";
+
+    private string searchText = "";
+    private bool showDropdown = false;
+
+    private IEnumerable<TItem> FilteredItems =>
+        string.IsNullOrWhiteSpace(searchText)
+            ? Items
+            : Items.Where(item => DisplayText(item).Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrEmpty(SelectedValue) && SelectedValue != "0" && SelectedValue != "")
+        {
+            var selected = Items.FirstOrDefault(item => ValueSelector(item) == SelectedValue);
+            if (selected != null)
+            {
+                searchText = DisplayText(selected);
+            }
+        }
+    }
+
+    private async Task SelectItem(TItem item)
+    {
+        searchText = DisplayText(item);
+        showDropdown = false;
+        await SelectedValueChanged.InvokeAsync(ValueSelector(item));
+    }
+
+    private void OnFocusIn()
+    {
+        showDropdown = true;
+        searchText = "";
+    }
+
+    private async Task OnFocusOut()
+    {
+        await Task.Delay(200);
+        showDropdown = false;
+
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            await SelectedValueChanged.InvokeAsync("");
+            return;
+        }
+
+        var match = Items.FirstOrDefault(item => DisplayText(item) == searchText);
+        if (match == null)
+        {
+            if (!string.IsNullOrEmpty(SelectedValue) && SelectedValue != "0")
+            {
+                var selected = Items.FirstOrDefault(item => ValueSelector(item) == SelectedValue);
+                if (selected != null)
+                    searchText = DisplayText(selected);
+                else
+                    searchText = "";
+            }
+            else
+            {
+                searchText = "";
+            }
+        }
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            showDropdown = false;
+        }
+    }
+}

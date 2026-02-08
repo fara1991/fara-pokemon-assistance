@@ -1,4 +1,4 @@
-namespace FaraPokemonBattleApi.Models
+namespace FaraPokemonTools.Models
 {
     public class Pokemon
     {
@@ -7,6 +7,7 @@ namespace FaraPokemonBattleApi.Models
         public string Type1 { get; set; } = string.Empty;
         public string Type2 { get; set; } = string.Empty;
         public BaseStats BaseStats { get; set; } = new();
+        public string Icon { get; set; } = string.Empty;
     }
 
     public class BaseStats

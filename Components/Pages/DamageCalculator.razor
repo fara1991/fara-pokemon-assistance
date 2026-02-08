@@ -1,11 +1,12 @@
 @page "/damage-calculator"
-@using FaraPokemonBattleApi.Models
-@using FaraPokemonBattleApi.Services
+@using FaraPokemonTools.Models
+@using FaraPokemonTools.Services
 @inject IPokemonDataService PokemonService
 @inject IMoveDataService MoveService
 @inject IItemDataService ItemService
 @inject IDamageCalculationService DamageService
 @inject IGenerationService GenerationService
+@inject IUsageDataService UsageService
 
 <PageTitle>ダメージ計算機</PageTitle>
 
@@ -25,8 +26,8 @@
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-6">
+<div class="row gx-4">
+    <div class="col-6">
         <div class="card">
             <div class="card-header">
                 <h5>攻撃側</h5>
@@ -34,23 +35,23 @@
             <div class="card-body">
                 <div class="form-group mb-3">
                     <label>ポケモン:</label>
-                    <select class="form-control" @bind="request.AttackerPokemonId">
-                        <option value="0">選択してください</option>
-                        @foreach (var pokemon in pokemonList)
-                        {
-                            <option value="@pokemon.Id">@pokemon.Name</option>
-                        }
-                    </select>
+                    <SearchableSelect TItem="Pokemon"
+                        Items="pokemonList"
+                        DisplayText="@(p => FormatPokemon(p))"
+                        ValueSelector="@(p => p.Id.ToString())"
+                        SelectedValue="@request.AttackerPokemonId.ToString()"
+                        SelectedValueChanged="@OnAttackerPokemonChanged"
+                        Placeholder="ポケモン名を入力..." />
                 </div>
                 <div class="form-group mb-3">
                     <label>技:</label>
-                    <select class="form-control" @bind="request.MoveId">
-                        <option value="0">選択してください</option>
-                        @foreach (var move in moveList)
-                        {
-                            <option value="@move.Id">@move.Name (@move.Type, @move.Power)</option>
-                        }
-                    </select>
+                    <SearchableSelect TItem="Move"
+                        Items="attackerMoveList"
+                        DisplayText="@(m => $"{m.Name} ({m.Type}, {m.Power})")"
+                        ValueSelector="@(m => m.Id.ToString())"
+                        SelectedValue="@request.MoveId.ToString()"
+                        SelectedValueChanged="@(v => request.MoveId = int.TryParse(v, out var id) ? id : 0)"
+                        Placeholder="技名を入力..." />
                 </div>
                 <div class="form-group mb-3">
                     <label>レベル:</label>
@@ -58,28 +59,29 @@
                 </div>
                 <div class="form-group mb-3">
                     <label>性格:</label>
-                    <select class="form-control" @bind="request.Attacker.Nature">
-                        @foreach (var nature in natureList)
-                        {
-                            <option value="@nature.Name">@nature.Name</option>
-                        }
-                    </select>
+                    <SearchableSelect TItem="Nature"
+                        Items="natureList"
+                        DisplayText="@(n => FormatNature(n))"
+                        ValueSelector="@(n => n.Name)"
+                        SelectedValue="@request.Attacker.Nature"
+                        SelectedValueChanged="@(v => request.Attacker.Nature = v)"
+                        Placeholder="性格を入力..." />
                 </div>
                 <div class="form-group mb-3">
                     <label>持ち物:</label>
-                    <select class="form-control" @bind="request.Attacker.ItemId">
-                        <option value="">なし</option>
-                        @foreach (var item in itemList)
-                        {
-                            <option value="@item.Id">@item.Name</option>
-                        }
-                    </select>
+                    <SearchableSelect TItem="Item"
+                        Items="itemList"
+                        DisplayText="@(i => i.Name)"
+                        ValueSelector="@(i => i.Id.ToString())"
+                        SelectedValue="@(request.Attacker.ItemId?.ToString() ?? "")"
+                        SelectedValueChanged="@(v => request.Attacker.ItemId = int.TryParse(v, out var id) ? id : null)"
+                        Placeholder="持ち物を入力..." />
                 </div>
             </div>
         </div>
     </div>
-    
-    <div class="col-md-6">
+
+    <div class="col-6">
         <div class="card">
             <div class="card-header">
                 <h5>防御側</h5>
@@ -87,13 +89,13 @@
             <div class="card-body">
                 <div class="form-group mb-3">
                     <label>ポケモン:</label>
-                    <select class="form-control" @bind="request.DefenderPokemonId">
-                        <option value="0">選択してください</option>
-                        @foreach (var pokemon in pokemonList)
-                        {
-                            <option value="@pokemon.Id">@pokemon.Name</option>
-                        }
-                    </select>
+                    <SearchableSelect TItem="Pokemon"
+                        Items="pokemonList"
+                        DisplayText="@(p => FormatPokemon(p))"
+                        ValueSelector="@(p => p.Id.ToString())"
+                        SelectedValue="@request.DefenderPokemonId.ToString()"
+                        SelectedValueChanged="@(v => request.DefenderPokemonId = int.TryParse(v, out var id) ? id : 0)"
+                        Placeholder="ポケモン名を入力..." />
                 </div>
                 <div class="form-group mb-3">
                     <label>レベル:</label>
@@ -101,22 +103,23 @@
                 </div>
                 <div class="form-group mb-3">
                     <label>性格:</label>
-                    <select class="form-control" @bind="request.Defender.Nature">
-                        @foreach (var nature in natureList)
-                        {
-                            <option value="@nature.Name">@nature.Name</option>
-                        }
-                    </select>
+                    <SearchableSelect TItem="Nature"
+                        Items="natureList"
+                        DisplayText="@(n => FormatNature(n))"
+                        ValueSelector="@(n => n.Name)"
+                        SelectedValue="@request.Defender.Nature"
+                        SelectedValueChanged="@(v => request.Defender.Nature = v)"
+                        Placeholder="性格を入力..." />
                 </div>
                 <div class="form-group mb-3">
                     <label>持ち物:</label>
-                    <select class="form-control" @bind="request.Defender.ItemId">
-                        <option value="">なし</option>
-                        @foreach (var item in itemList)
-                        {
-                            <option value="@item.Id">@item.Name</option>
-                        }
-                    </select>
+                    <SearchableSelect TItem="Item"
+                        Items="itemList"
+                        DisplayText="@(i => i.Name)"
+                        ValueSelector="@(i => i.Id.ToString())"
+                        SelectedValue="@(request.Defender.ItemId?.ToString() ?? "")"
+                        SelectedValueChanged="@(v => request.Defender.ItemId = int.TryParse(v, out var id) ? id : null)"
+                        Placeholder="持ち物を入力..." />
                 </div>
             </div>
         </div>
@@ -124,7 +127,7 @@
 </div>
 
 <div class="row mt-3">
-    <div class="col-md-12">
+    <div class="col-12">
         <button class="btn btn-primary" @onclick="CalculateDamage" disabled="@isCalculating">
             @if (isCalculating)
             {
@@ -139,10 +142,17 @@
     </div>
 </div>
 
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger mt-3">
+        @errorMessage
+    </div>
+}
+
 @if (result != null)
 {
-    <div class="row mt-4">
-        <div class="col-md-12">
+    <div class="row mt-3">
+        <div class="col-12">
             <div class="card">
                 <div class="card-header">
                     <h5>計算結果</h5>
@@ -169,24 +179,40 @@
     </div>
 }
 
-@if (!string.IsNullOrEmpty(errorMessage))
-{
-    <div class="alert alert-danger mt-3">
-        @errorMessage
-    </div>
-}
-
 @code {
     private DamageCalculationRequest request = new();
     private DamageCalculationResult? result;
     private List<Pokemon> pokemonList = new();
     private List<Move> moveList = new();
+    private List<Move> attackerMoveList = new();
+    private List<Item> allItems = new();
     private List<Item> itemList = new();
     private List<Nature> natureList = new();
     private List<int> availableGenerations = new();
     private int selectedGeneration = 9;
     private bool isCalculating = false;
     private string errorMessage = string.Empty;
+
+    private static readonly Dictionary<string, string> StatNameMap = new()
+    {
+        { "Attack", "攻撃" }, { "Defense", "防御" }, { "Speed", "素早さ" },
+        { "SpAttack", "特攻" }, { "SpDefense", "特防" }
+    };
+
+    private string FormatNature(Nature n)
+    {
+        if (string.IsNullOrEmpty(n.IncreasedStat))
+            return $"{n.Name}（補正無し）";
+        var up = StatNameMap.GetValueOrDefault(n.IncreasedStat, n.IncreasedStat);
+        var down = StatNameMap.GetValueOrDefault(n.DecreasedStat, n.DecreasedStat);
+        return $"{n.Name}（{up}↑{down}↓）";
+    }
+
+    private string FormatPokemon(Pokemon p)
+    {
+        var types = string.IsNullOrEmpty(p.Type2) ? p.Type1 : $"{p.Type1}、{p.Type2}";
+        return $"{p.Name}（タイプ：{types}）";
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -213,11 +239,76 @@
         {
             pokemonList = await PokemonService.GetPokemonAsync(selectedGeneration);
             moveList = await MoveService.GetMovesAsync(selectedGeneration);
-            itemList = await ItemService.GetItemsAsync(selectedGeneration);
+            attackerMoveList = moveList;
+            allItems = await ItemService.GetItemsAsync(selectedGeneration);
+            itemList = allItems;
+
+            var ranking = await UsageService.GetPokemonRankingAsync(selectedGeneration);
+            pokemonList = pokemonList.OrderBy(p => ranking.TryGetValue(p.Id, out var rank) ? rank : int.MaxValue).ToList();
         }
         catch (Exception ex)
         {
             errorMessage = $"データの読み込みに失敗しました: {ex.Message}";
+        }
+    }
+
+    private async Task OnAttackerPokemonChanged(string value)
+    {
+        request.AttackerPokemonId = int.TryParse(value, out var id) ? id : 0;
+        request.MoveId = 0;
+        await UpdateAttackerMoveList();
+        await UpdateAttackerItemList();
+    }
+
+    private async Task UpdateAttackerMoveList()
+    {
+        if (request.AttackerPokemonId == 0)
+        {
+            attackerMoveList = moveList;
+            return;
+        }
+
+        var learnset = await MoveService.GetLearnsetAsync(request.AttackerPokemonId, selectedGeneration);
+        if (learnset.Count == 0)
+        {
+            attackerMoveList = moveList;
+            return;
+        }
+
+        var learnsetSet = new HashSet<int>(learnset);
+        var filtered = moveList.Where(m => learnsetSet.Contains(m.Id)).ToList();
+
+        var moveUsage = await UsageService.GetMoveUsageOrderAsync(request.AttackerPokemonId, selectedGeneration);
+        if (moveUsage.Count > 0)
+        {
+            var moveOrder = new Dictionary<int, int>();
+            for (int i = 0; i < moveUsage.Count; i++)
+                moveOrder[moveUsage[i]] = i;
+            filtered = filtered.OrderBy(m => moveOrder.TryGetValue(m.Id, out var order) ? order : int.MaxValue).ToList();
+        }
+
+        attackerMoveList = filtered;
+    }
+
+    private async Task UpdateAttackerItemList()
+    {
+        if (request.AttackerPokemonId == 0)
+        {
+            itemList = allItems;
+            return;
+        }
+
+        var itemUsage = await UsageService.GetItemUsageOrderAsync(request.AttackerPokemonId, selectedGeneration);
+        if (itemUsage.Count > 0)
+        {
+            var itemOrder = new Dictionary<int, int>();
+            for (int i = 0; i < itemUsage.Count; i++)
+                itemOrder[itemUsage[i]] = i;
+            itemList = allItems.OrderBy(item => itemOrder.TryGetValue(item.Id, out var order) ? order : int.MaxValue).ToList();
+        }
+        else
+        {
+            itemList = allItems;
         }
     }
 

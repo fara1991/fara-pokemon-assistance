@@ -1,7 +1,7 @@
 using CsvHelper;
 using System.Globalization;
 
-namespace FaraPokemonBattleApi.Services
+namespace FaraPokemonTools.Services
 {
     public class TypeEffectivenessService : ITypeEffectivenessService
     {

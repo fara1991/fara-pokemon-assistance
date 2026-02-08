@@ -1,8 +1,8 @@
 using CsvHelper;
-using FaraPokemonBattleApi.Models;
+using FaraPokemonTools.Models;
 using System.Globalization;
 
-namespace FaraPokemonBattleApi.Services
+namespace FaraPokemonTools.Services
 {
     public class PokemonDataService : IPokemonDataService
     {
@@ -35,7 +35,8 @@ namespace FaraPokemonBattleApi.Services
                     SpAttack = int.Parse(r.SpAttack),
                     SpDefense = int.Parse(r.SpDefense),
                     Speed = int.Parse(r.Speed)
-                }
+                },
+                Icon = ((IDictionary<string, object>)r).ContainsKey("Icon") ? (r.Icon ?? "") : ""
             }).ToList();
 
             _pokemonCache[generation] = pokemon;

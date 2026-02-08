@@ -1,8 +1,8 @@
 using CsvHelper;
-using FaraPokemonBattleApi.Models;
+using FaraPokemonTools.Models;
 using System.Globalization;
 
-namespace FaraPokemonBattleApi.Services
+namespace FaraPokemonTools.Services
 {
     public class GenerationService : IGenerationService
     {

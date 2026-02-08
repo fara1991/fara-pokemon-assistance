@@ -1,4 +1,4 @@
-namespace FaraPokemonBattleApi.Services
+namespace FaraPokemonTools.Services
 {
     public interface ITypeEffectivenessService
     {

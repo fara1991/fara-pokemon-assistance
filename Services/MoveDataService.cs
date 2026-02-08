@@ -1,12 +1,13 @@
 using CsvHelper;
-using FaraPokemonBattleApi.Models;
+using FaraPokemonTools.Models;
 using System.Globalization;
 
-namespace FaraPokemonBattleApi.Services
+namespace FaraPokemonTools.Services
 {
     public class MoveDataService : IMoveDataService
     {
         private readonly Dictionary<int, List<Move>> _moveCache = new();
+        private readonly Dictionary<int, Dictionary<int, List<int>>> _learnsetCache = new();
 
         public async Task<List<Move>> GetMovesAsync(int generation)
         {
@@ -41,6 +42,38 @@ namespace FaraPokemonBattleApi.Services
         {
             var moves = await GetMovesAsync(generation);
             return moves.FirstOrDefault(m => m.Id == id);
+        }
+
+        public async Task<List<int>> GetLearnsetAsync(int pokemonId, int generation)
+        {
+            if (!_learnsetCache.ContainsKey(generation))
+            {
+                var filePath = Path.Combine("Data", $"Gen{generation}", "learnsets.csv");
+                if (!File.Exists(filePath))
+                {
+                    _learnsetCache[generation] = new Dictionary<int, List<int>>();
+                }
+                else
+                {
+                    var dict = new Dictionary<int, List<int>>();
+                    var lines = await File.ReadAllLinesAsync(filePath);
+                    foreach (var line in lines.Skip(1))
+                    {
+                        var parts = line.Split(',', 2);
+                        if (parts.Length < 2 || !int.TryParse(parts[0], out var pid))
+                            continue;
+                        var moveIds = parts[1]
+                            .Split(';', StringSplitOptions.RemoveEmptyEntries)
+                            .Where(s => int.TryParse(s, out _))
+                            .Select(int.Parse)
+                            .ToList();
+                        dict[pid] = moveIds;
+                    }
+                    _learnsetCache[generation] = dict;
+                }
+            }
+
+            return _learnsetCache[generation].TryGetValue(pokemonId, out var list) ? list : new List<int>();
         }
     }
 }

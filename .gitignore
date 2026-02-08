@@ -22,12 +22,18 @@ x86/
 ## IDE
 .idea/
 .vs/
-.claude/
 *.swp
 *~
+
+## Claude Code
+.claude/
+CLAUDE.md
 
 ## OS
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 .DS_Store
+
+## Logs
+*.log

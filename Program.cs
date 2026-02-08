@@ -1,4 +1,4 @@
-using FaraPokemonBattleApi.Services;
+using FaraPokemonTools.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,15 +18,13 @@ builder.Services.AddScoped<IItemDataService, ItemDataService>();
 builder.Services.AddScoped<ITypeEffectivenessService, TypeEffectivenessService>();
 builder.Services.AddScoped<IDamageCalculationService, DamageCalculationService>();
 builder.Services.AddScoped<IGenerationService, GenerationService>();
+builder.Services.AddSingleton<IUsageDataService, UsageDataService>();
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
