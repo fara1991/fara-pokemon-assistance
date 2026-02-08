@@ -2,64 +2,39 @@ namespace FaraPokemonTools.Services
 {
     public interface IUsageDataService
     {
-        Task<Dictionary<int, int>> GetPokemonRankingAsync(int generation);
-        Task<List<int>> GetMoveUsageOrderAsync(int pokemonId, int generation);
-        Task<List<int>> GetItemUsageOrderAsync(int pokemonId, int generation);
+        Task<Dictionary<int, int>> GetPokemonRankingAsync(int generation, string battleFormat = "singles");
+        Task<List<int>> GetMoveUsageOrderAsync(int pokemonId, int generation, string battleFormat = "singles");
+        Task<List<int>> GetItemUsageOrderAsync(int pokemonId, int generation, string battleFormat = "singles");
+        Task<List<int>> GetNatureUsageOrderAsync(int pokemonId, int generation, string battleFormat = "singles");
     }
 
     public class UsageDataService : IUsageDataService
     {
-        private readonly Dictionary<int, Dictionary<int, int>> _pokemonRankCache = new();
-        private readonly Dictionary<int, Dictionary<int, List<int>>> _moveUsageCache = new();
-        private readonly Dictionary<int, Dictionary<int, List<int>>> _itemUsageCache = new();
+        private readonly Dictionary<string, Dictionary<int, int>> _pokemonRankCache = new();
+        private readonly Dictionary<string, Dictionary<int, List<int>>> _moveUsageCache = new();
+        private readonly Dictionary<string, Dictionary<int, List<int>>> _itemUsageCache = new();
+        private readonly Dictionary<string, Dictionary<int, List<int>>> _natureUsageCache = new();
         private readonly Dictionary<int, Dictionary<int, int>> _speciesMapCache = new();
 
-        private static readonly Dictionary<string, int> ItemNameToId = new(StringComparer.OrdinalIgnoreCase)
-        {
-            { "Choice Band", 1 },
-            { "Choice Specs", 2 },
-            { "Focus Sash", 3 },
-            { "Life Orb", 4 },
-            { "Expert Belt", 5 },
-            { "Light Ball", 6 },
-            { "Zap Plate", 7 },
-            { "Splash Plate", 8 },
-            { "Flame Plate", 9 },
-            { "Meadow Plate", 10 },
-            { "Icicle Plate", 11 },
-            { "Fist Plate", 12 },
-            { "Toxic Plate", 13 },
-            { "Earth Plate", 14 },
-            { "Sky Plate", 15 },
-            { "Mind Plate", 16 },
-            { "Insect Plate", 17 },
-            { "Stone Plate", 18 },
-            { "Spooky Plate", 19 },
-            { "Draco Plate", 20 },
-            { "Dread Plate", 21 },
-            { "Iron Plate", 22 },
-            { "Pixie Plate", 23 },
-            { "Choice Scarf", 24 },
-            { "Assault Vest", 25 },
-            { "Eviolite", 26 },
-            { "Rocky Helmet", 27 },
-            { "Leftovers", 28 },
-            { "Sitrus Berry", 29 },
-            { "Lum Berry", 30 },
-            { "Booster Energy", 31 },
-            { "Clear Amulet", 32 },
-            { "Covert Cloak", 33 },
-            { "Wise Glasses", 34 },
-            { "Muscle Band", 35 },
-        };
+        private static string CacheKey(int generation, string format) => $"{generation}_{format}";
 
-        public async Task<Dictionary<int, int>> GetPokemonRankingAsync(int generation)
+        public void ClearCache()
         {
-            if (_pokemonRankCache.ContainsKey(generation))
-                return _pokemonRankCache[generation];
+            _pokemonRankCache.Clear();
+            _moveUsageCache.Clear();
+            _itemUsageCache.Clear();
+            _natureUsageCache.Clear();
+            _speciesMapCache.Clear();
+        }
+
+        public async Task<Dictionary<int, int>> GetPokemonRankingAsync(int generation, string battleFormat = "singles")
+        {
+            var key = CacheKey(generation, battleFormat);
+            if (_pokemonRankCache.ContainsKey(key))
+                return _pokemonRankCache[key];
 
             var speciesMap = await LoadSpeciesMapAsync(generation);
-            var filePath = Path.Combine("Data", $"Gen{generation}", "usage_pokemon.csv");
+            var filePath = Path.Combine("Data", $"Gen{generation}", $"usage_pokemon_{battleFormat}.csv");
             var ranking = new Dictionary<int, int>();
 
             if (File.Exists(filePath))
@@ -82,16 +57,17 @@ namespace FaraPokemonTools.Services
                     ranking[formId] = ranking[speciesId];
             }
 
-            _pokemonRankCache[generation] = ranking;
+            _pokemonRankCache[key] = ranking;
             return ranking;
         }
 
-        public async Task<List<int>> GetMoveUsageOrderAsync(int pokemonId, int generation)
+        public async Task<List<int>> GetMoveUsageOrderAsync(int pokemonId, int generation, string battleFormat = "singles")
         {
-            if (!_moveUsageCache.ContainsKey(generation))
+            var key = CacheKey(generation, battleFormat);
+            if (!_moveUsageCache.ContainsKey(key))
             {
                 var speciesMap = await LoadSpeciesMapAsync(generation);
-                var filePath = Path.Combine("Data", $"Gen{generation}", "usage_moves.csv");
+                var filePath = Path.Combine("Data", $"Gen{generation}", $"usage_moves_{battleFormat}.csv");
                 var cache = new Dictionary<int, List<int>>();
 
                 if (File.Exists(filePath))
@@ -115,18 +91,19 @@ namespace FaraPokemonTools.Services
                         cache[formId] = cache[speciesId];
                 }
 
-                _moveUsageCache[generation] = cache;
+                _moveUsageCache[key] = cache;
             }
 
-            return _moveUsageCache[generation].TryGetValue(pokemonId, out var list) ? list : new List<int>();
+            return _moveUsageCache[key].TryGetValue(pokemonId, out var list) ? list : new List<int>();
         }
 
-        public async Task<List<int>> GetItemUsageOrderAsync(int pokemonId, int generation)
+        public async Task<List<int>> GetItemUsageOrderAsync(int pokemonId, int generation, string battleFormat = "singles")
         {
-            if (!_itemUsageCache.ContainsKey(generation))
+            var key = CacheKey(generation, battleFormat);
+            if (!_itemUsageCache.ContainsKey(key))
             {
                 var speciesMap = await LoadSpeciesMapAsync(generation);
-                var filePath = Path.Combine("Data", $"Gen{generation}", "usage_items.csv");
+                var filePath = Path.Combine("Data", $"Gen{generation}", $"usage_items_{battleFormat}.csv");
                 var cache = new Dictionary<int, List<int>>();
 
                 if (File.Exists(filePath))
@@ -135,15 +112,11 @@ namespace FaraPokemonTools.Services
                     foreach (var line in lines.Skip(1))
                     {
                         var parts = line.Split(',');
-                        if (parts.Length >= 2 && int.TryParse(parts[0], out var speciesId))
+                        if (parts.Length >= 2 && int.TryParse(parts[0], out var speciesId) && int.TryParse(parts[1], out var itemId))
                         {
-                            var itemName = parts[1];
-                            if (ItemNameToId.TryGetValue(itemName, out var itemId))
-                            {
-                                if (!cache.ContainsKey(speciesId))
-                                    cache[speciesId] = new List<int>();
-                                cache[speciesId].Add(itemId);
-                            }
+                            if (!cache.ContainsKey(speciesId))
+                                cache[speciesId] = new List<int>();
+                            cache[speciesId].Add(itemId);
                         }
                     }
                 }
@@ -154,10 +127,46 @@ namespace FaraPokemonTools.Services
                         cache[formId] = cache[speciesId];
                 }
 
-                _itemUsageCache[generation] = cache;
+                _itemUsageCache[key] = cache;
             }
 
-            return _itemUsageCache[generation].TryGetValue(pokemonId, out var list) ? list : new List<int>();
+            return _itemUsageCache[key].TryGetValue(pokemonId, out var list) ? list : new List<int>();
+        }
+
+        public async Task<List<int>> GetNatureUsageOrderAsync(int pokemonId, int generation, string battleFormat = "singles")
+        {
+            var key = CacheKey(generation, battleFormat);
+            if (!_natureUsageCache.ContainsKey(key))
+            {
+                var speciesMap = await LoadSpeciesMapAsync(generation);
+                var filePath = Path.Combine("Data", $"Gen{generation}", $"usage_natures_{battleFormat}.csv");
+                var cache = new Dictionary<int, List<int>>();
+
+                if (File.Exists(filePath))
+                {
+                    var lines = await File.ReadAllLinesAsync(filePath);
+                    foreach (var line in lines.Skip(1))
+                    {
+                        var parts = line.Split(',');
+                        if (parts.Length >= 2 && int.TryParse(parts[0], out var speciesId) && int.TryParse(parts[1], out var natureId))
+                        {
+                            if (!cache.ContainsKey(speciesId))
+                                cache[speciesId] = new List<int>();
+                            cache[speciesId].Add(natureId);
+                        }
+                    }
+                }
+
+                foreach (var (formId, speciesId) in speciesMap)
+                {
+                    if (cache.ContainsKey(speciesId) && !cache.ContainsKey(formId))
+                        cache[formId] = cache[speciesId];
+                }
+
+                _natureUsageCache[key] = cache;
+            }
+
+            return _natureUsageCache[key].TryGetValue(pokemonId, out var list) ? list : new List<int>();
         }
 
         private async Task<Dictionary<int, int>> LoadSpeciesMapAsync(int generation)

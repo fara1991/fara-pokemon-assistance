@@ -19,6 +19,7 @@ builder.Services.AddScoped<ITypeEffectivenessService, TypeEffectivenessService>(
 builder.Services.AddScoped<IDamageCalculationService, DamageCalculationService>();
 builder.Services.AddScoped<IGenerationService, GenerationService>();
 builder.Services.AddSingleton<IUsageDataService, UsageDataService>();
+builder.Services.AddHostedService<HomeDataUpdateService>();
 
 var app = builder.Build();
 

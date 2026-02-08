@@ -12,8 +12,8 @@
 
 <h3>ダメージ計算機</h3>
 
-<div class="row">
-    <div class="col-md-12">
+<div class="split-row">
+    <div class="split-half">
         <div class="form-group mb-3">
             <label for="generation">世代:</label>
             <select id="generation" class="form-control" @bind="selectedGeneration" @bind:after="OnGenerationChanged">
@@ -24,10 +24,19 @@
             </select>
         </div>
     </div>
+    <div class="split-half">
+        <div class="form-group mb-3">
+            <label for="battleFormat">バトル形式:</label>
+            <select id="battleFormat" class="form-control" @bind="selectedBattleFormat" @bind:after="OnBattleFormatChanged">
+                <option value="singles">シングル</option>
+                <option value="doubles">ダブル</option>
+            </select>
+        </div>
+    </div>
 </div>
 
-<div class="row gx-4">
-    <div class="col-6">
+<div class="split-row">
+    <div class="split-half">
         <div class="card">
             <div class="card-header">
                 <h5>攻撃側</h5>
@@ -47,7 +56,7 @@
                     <label>技:</label>
                     <SearchableSelect TItem="Move"
                         Items="attackerMoveList"
-                        DisplayText="@(m => $"{m.Name} ({m.Type}, {m.Power})")"
+                        DisplayText="@(m => $"{m.Name} ({TypeToJapanese(m.Type)}, {m.Power})")"
                         ValueSelector="@(m => m.Id.ToString())"
                         SelectedValue="@request.MoveId.ToString()"
                         SelectedValueChanged="@(v => request.MoveId = int.TryParse(v, out var id) ? id : 0)"
@@ -70,7 +79,7 @@
                 <div class="form-group mb-3">
                     <label>持ち物:</label>
                     <SearchableSelect TItem="Item"
-                        Items="itemList"
+                        Items="attackerItemList"
                         DisplayText="@(i => i.Name)"
                         ValueSelector="@(i => i.Id.ToString())"
                         SelectedValue="@(request.Attacker.ItemId?.ToString() ?? "")"
@@ -81,7 +90,7 @@
         </div>
     </div>
 
-    <div class="col-6">
+    <div class="split-half">
         <div class="card">
             <div class="card-header">
                 <h5>防御側</h5>
@@ -94,7 +103,7 @@
                         DisplayText="@(p => FormatPokemon(p))"
                         ValueSelector="@(p => p.Id.ToString())"
                         SelectedValue="@request.DefenderPokemonId.ToString()"
-                        SelectedValueChanged="@(v => request.DefenderPokemonId = int.TryParse(v, out var id) ? id : 0)"
+                        SelectedValueChanged="@OnDefenderPokemonChanged"
                         Placeholder="ポケモン名を入力..." />
                 </div>
                 <div class="form-group mb-3">
@@ -114,7 +123,7 @@
                 <div class="form-group mb-3">
                     <label>持ち物:</label>
                     <SearchableSelect TItem="Item"
-                        Items="itemList"
+                        Items="defenderItemList"
                         DisplayText="@(i => i.Name)"
                         ValueSelector="@(i => i.Id.ToString())"
                         SelectedValue="@(request.Defender.ItemId?.ToString() ?? "")"
@@ -126,20 +135,36 @@
     </div>
 </div>
 
-<div class="row mt-3">
-    <div class="col-12">
-        <button class="btn btn-primary" @onclick="CalculateDamage" disabled="@isCalculating">
-            @if (isCalculating)
+@if (attackerPokemon != null || defenderPokemon != null)
+{
+    <div class="split-row mt-3">
+        <div class="split-half">
+            @if (attackerPokemon != null)
             {
-                <span class="spinner-border spinner-border-sm" role="status"></span>
-                <span>計算中...</span>
+                @RenderStatsSummary(attackerPokemon, request.Attacker)
             }
-            else
+        </div>
+        <div class="split-half">
+            @if (defenderPokemon != null)
             {
-                <span>ダメージを計算</span>
+                @RenderStatsSummary(defenderPokemon, request.Defender)
             }
-        </button>
+        </div>
     </div>
+}
+
+<div class="mt-3">
+    <button class="btn btn-primary" @onclick="CalculateDamage" disabled="@isCalculating">
+        @if (isCalculating)
+        {
+            <span class="spinner-border spinner-border-sm" role="status"></span>
+            <span>計算中...</span>
+        }
+        else
+        {
+            <span>ダメージを計算</span>
+        }
+    </button>
 </div>
 
 @if (!string.IsNullOrEmpty(errorMessage))
@@ -151,29 +176,27 @@
 
 @if (result != null)
 {
-    <div class="row mt-3">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5>計算結果</h5>
-                </div>
-                <div class="card-body">
-                    <h6>@result.Summary</h6>
-                    <p><strong>ダメージ範囲:</strong> @result.MinDamage - @result.MaxDamage</p>
-                    <p><strong>タイプ相性:</strong> @(result.TypeEffectiveness)倍</p>
-                    <p><strong>攻撃実数値:</strong> @result.AttackerStats</p>
-                    <p><strong>防御実数値:</strong> @result.DefenderStats</p>
-                    @if (result.Modifiers.Any())
-                    {
-                        <p><strong>適用された補正:</strong></p>
-                        <ul>
-                            @foreach (var modifier in result.Modifiers)
-                            {
-                                <li>@modifier</li>
-                            }
-                        </ul>
-                    }
-                </div>
+    <div class="mt-3">
+        <div class="card">
+            <div class="card-header">
+                <h5>計算結果</h5>
+            </div>
+            <div class="card-body">
+                <h6>@result.Summary</h6>
+                <p><strong>ダメージ範囲:</strong> @result.MinDamage - @result.MaxDamage</p>
+                <p><strong>タイプ相性:</strong> @(result.TypeEffectiveness)倍</p>
+                <p><strong>攻撃実数値:</strong> @result.AttackerStats</p>
+                <p><strong>防御実数値:</strong> @result.DefenderStats</p>
+                @if (result.Modifiers.Any())
+                {
+                    <p><strong>適用された補正:</strong></p>
+                    <ul>
+                        @foreach (var modifier in result.Modifiers)
+                        {
+                            <li>@modifier</li>
+                        }
+                    </ul>
+                }
             </div>
         </div>
     </div>
@@ -186,18 +209,43 @@
     private List<Move> moveList = new();
     private List<Move> attackerMoveList = new();
     private List<Item> allItems = new();
-    private List<Item> itemList = new();
+    private List<Item> attackerItemList = new();
+    private List<Item> defenderItemList = new();
     private List<Nature> natureList = new();
     private List<int> availableGenerations = new();
     private int selectedGeneration = 9;
+    private string selectedBattleFormat = "singles";
     private bool isCalculating = false;
     private string errorMessage = string.Empty;
+    private Pokemon? attackerPokemon;
+    private Pokemon? defenderPokemon;
+
+    private static readonly Dictionary<string, string> TypeNameMap = new()
+    {
+        { "Normal", "ノーマル" }, { "Fire", "ほのお" }, { "Water", "みず" },
+        { "Electric", "でんき" }, { "Grass", "くさ" }, { "Ice", "こおり" },
+        { "Fighting", "かくとう" }, { "Poison", "どく" }, { "Ground", "じめん" },
+        { "Flying", "ひこう" }, { "Psychic", "エスパー" }, { "Bug", "むし" },
+        { "Rock", "いわ" }, { "Ghost", "ゴースト" }, { "Dragon", "ドラゴン" },
+        { "Dark", "あく" }, { "Steel", "はがね" }, { "Fairy", "フェアリー" }
+    };
 
     private static readonly Dictionary<string, string> StatNameMap = new()
     {
         { "Attack", "攻撃" }, { "Defense", "防御" }, { "Speed", "素早さ" },
         { "SpAttack", "特攻" }, { "SpDefense", "特防" }
     };
+
+    private static readonly string[] NatureNames = {
+        "がんばりや", "さみしがり", "ゆうかん", "いじっぱり", "やんちゃ",
+        "ずぶとい", "すなお", "のんき", "わんぱく", "のうてんき",
+        "おくびょう", "せっかち", "まじめ", "ようき", "むじゃき",
+        "ひかえめ", "おっとり", "れいせい", "てれや", "うっかりや",
+        "おだやか", "おとなしい", "なまいき", "しんちょう", "きまぐれ"
+    };
+
+    private static string TypeToJapanese(string type) =>
+        TypeNameMap.GetValueOrDefault(type, type);
 
     private string FormatNature(Nature n)
     {
@@ -210,9 +258,70 @@
 
     private string FormatPokemon(Pokemon p)
     {
-        var types = string.IsNullOrEmpty(p.Type2) ? p.Type1 : $"{p.Type1}、{p.Type2}";
-        return $"{p.Name}（タイプ：{types}）";
+        var t1 = TypeToJapanese(p.Type1);
+        var types = string.IsNullOrEmpty(p.Type2) ? t1 : $"{t1}、{TypeToJapanese(p.Type2)}";
+        var s = p.BaseStats;
+        return $"{p.Name}（{types}）H{s.HP}-A{s.Attack}-B{s.Defense}-C{s.SpAttack}-D{s.SpDefense}-S{s.Speed}";
     }
+
+    private string FormatStats(BaseStats s) =>
+        $"H{s.HP}-A{s.Attack}-B{s.Defense}-C{s.SpAttack}-D{s.SpDefense}-S{s.Speed}";
+
+    private Nature? FindNature(string name) =>
+        natureList.FirstOrDefault(n => n.Name == name);
+
+    private static int CalcHp(int baseStat, int iv, int ev, int level) =>
+        (int)Math.Floor((2.0 * baseStat + iv + Math.Floor(ev / 4.0)) * level / 100.0) + level + 10;
+
+    private static int CalcStat(int baseStat, int iv, int ev, int level, double natureModifier) =>
+        (int)Math.Floor(((int)Math.Floor((2.0 * baseStat + iv + Math.Floor(ev / 4.0)) * level / 100.0) + 5) * natureModifier);
+
+    private record StatEntry(string Label, int Value, string Color);
+
+    private List<StatEntry> CalcActualStats(Pokemon pokemon, PokemonInstance inst)
+    {
+        var b = pokemon.BaseStats;
+        var iv = inst.IVs;
+        var ev = inst.EVs;
+        var lv = inst.Level;
+        var nature = FindNature(inst.Nature);
+        var up = nature?.IncreasedStat ?? "";
+        var down = nature?.DecreasedStat ?? "";
+
+        string Color(string statName) => statName == up ? "stat-up" : statName == down ? "stat-down" : "";
+        double Mod(string statName) => statName == up ? 1.1 : statName == down ? 0.9 : 1.0;
+
+        return new()
+        {
+            new("H", CalcHp(b.HP, iv.HP, ev.HP, lv), ""),
+            new("A", CalcStat(b.Attack, iv.Attack, ev.Attack, lv, Mod("Attack")), Color("Attack")),
+            new("B", CalcStat(b.Defense, iv.Defense, ev.Defense, lv, Mod("Defense")), Color("Defense")),
+            new("C", CalcStat(b.SpAttack, iv.SpAttack, ev.SpAttack, lv, Mod("SpAttack")), Color("SpAttack")),
+            new("D", CalcStat(b.SpDefense, iv.SpDefense, ev.SpDefense, lv, Mod("SpDefense")), Color("SpDefense")),
+            new("S", CalcStat(b.Speed, iv.Speed, ev.Speed, lv, Mod("Speed")), Color("Speed")),
+        };
+    }
+
+    private RenderFragment RenderStatsSummary(Pokemon pokemon, PokemonInstance inst) => __builder =>
+    {
+        var nature = FindNature(inst.Nature);
+        var stats = CalcActualStats(pokemon, inst);
+
+        <div class="stats-summary">
+            <div><strong>@(pokemon.Name)：</strong>Lv@(inst.Level)</div>
+            <div>種族値：@FormatStats(pokemon.BaseStats)</div>
+            <div>努力値：@FormatStats(inst.EVs)</div>
+            <div>個体値：@FormatStats(inst.IVs)</div>
+            <div>性格：@(nature != null ? FormatNature(nature) : inst.Nature)</div>
+            <div>
+                実数値：@foreach (var (entry, i) in stats.Select((e, i) => (e, i)))
+                {
+                    if (i > 0) { <span>-</span> }
+                    <span class="@entry.Color">@(entry.Label)@(entry.Value)</span>
+                }
+            </div>
+        </div>
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -222,7 +331,7 @@
             selectedGeneration = availableGenerations.Last();
             request.Generation = selectedGeneration;
         }
-        
+
         await LoadData();
         natureList = await GenerationService.GetNaturesAsync();
     }
@@ -230,6 +339,11 @@
     private async Task OnGenerationChanged()
     {
         request.Generation = selectedGeneration;
+        await LoadData();
+    }
+
+    private async Task OnBattleFormatChanged()
+    {
         await LoadData();
     }
 
@@ -241,9 +355,10 @@
             moveList = await MoveService.GetMovesAsync(selectedGeneration);
             attackerMoveList = moveList;
             allItems = await ItemService.GetItemsAsync(selectedGeneration);
-            itemList = allItems;
+            attackerItemList = allItems;
+            defenderItemList = allItems;
 
-            var ranking = await UsageService.GetPokemonRankingAsync(selectedGeneration);
+            var ranking = await UsageService.GetPokemonRankingAsync(selectedGeneration, selectedBattleFormat);
             pokemonList = pokemonList.OrderBy(p => ranking.TryGetValue(p.Id, out var rank) ? rank : int.MaxValue).ToList();
         }
         catch (Exception ex)
@@ -255,9 +370,50 @@
     private async Task OnAttackerPokemonChanged(string value)
     {
         request.AttackerPokemonId = int.TryParse(value, out var id) ? id : 0;
-        request.MoveId = 0;
+        attackerPokemon = pokemonList.FirstOrDefault(p => p.Id == request.AttackerPokemonId);
+
         await UpdateAttackerMoveList();
         await UpdateAttackerItemList();
+        await SetAttackerDefaults();
+    }
+
+    private async Task OnDefenderPokemonChanged(string value)
+    {
+        request.DefenderPokemonId = int.TryParse(value, out var id) ? id : 0;
+        defenderPokemon = pokemonList.FirstOrDefault(p => p.Id == request.DefenderPokemonId);
+
+        await UpdateDefenderItemList();
+        await SetDefenderDefaults();
+    }
+
+    private async Task SetAttackerDefaults()
+    {
+        if (request.AttackerPokemonId == 0) return;
+
+        var moveUsage = await UsageService.GetMoveUsageOrderAsync(request.AttackerPokemonId, selectedGeneration, selectedBattleFormat);
+        if (moveUsage.Count > 0)
+            request.MoveId = attackerMoveList.FirstOrDefault(m => m.Id == moveUsage[0])?.Id ?? 0;
+
+        var natureUsage = await UsageService.GetNatureUsageOrderAsync(request.AttackerPokemonId, selectedGeneration, selectedBattleFormat);
+        if (natureUsage.Count > 0 && natureUsage[0] >= 0 && natureUsage[0] < NatureNames.Length)
+            request.Attacker.Nature = NatureNames[natureUsage[0]];
+
+        var itemUsage = await UsageService.GetItemUsageOrderAsync(request.AttackerPokemonId, selectedGeneration, selectedBattleFormat);
+        if (itemUsage.Count > 0)
+            request.Attacker.ItemId = itemUsage[0];
+    }
+
+    private async Task SetDefenderDefaults()
+    {
+        if (request.DefenderPokemonId == 0) return;
+
+        var natureUsage = await UsageService.GetNatureUsageOrderAsync(request.DefenderPokemonId, selectedGeneration, selectedBattleFormat);
+        if (natureUsage.Count > 0 && natureUsage[0] >= 0 && natureUsage[0] < NatureNames.Length)
+            request.Defender.Nature = NatureNames[natureUsage[0]];
+
+        var itemUsage = await UsageService.GetItemUsageOrderAsync(request.DefenderPokemonId, selectedGeneration, selectedBattleFormat);
+        if (itemUsage.Count > 0)
+            request.Defender.ItemId = itemUsage[0];
     }
 
     private async Task UpdateAttackerMoveList()
@@ -278,7 +434,7 @@
         var learnsetSet = new HashSet<int>(learnset);
         var filtered = moveList.Where(m => learnsetSet.Contains(m.Id)).ToList();
 
-        var moveUsage = await UsageService.GetMoveUsageOrderAsync(request.AttackerPokemonId, selectedGeneration);
+        var moveUsage = await UsageService.GetMoveUsageOrderAsync(request.AttackerPokemonId, selectedGeneration, selectedBattleFormat);
         if (moveUsage.Count > 0)
         {
             var moveOrder = new Dictionary<int, int>();
@@ -294,21 +450,43 @@
     {
         if (request.AttackerPokemonId == 0)
         {
-            itemList = allItems;
+            attackerItemList = allItems;
             return;
         }
 
-        var itemUsage = await UsageService.GetItemUsageOrderAsync(request.AttackerPokemonId, selectedGeneration);
+        var itemUsage = await UsageService.GetItemUsageOrderAsync(request.AttackerPokemonId, selectedGeneration, selectedBattleFormat);
         if (itemUsage.Count > 0)
         {
             var itemOrder = new Dictionary<int, int>();
             for (int i = 0; i < itemUsage.Count; i++)
                 itemOrder[itemUsage[i]] = i;
-            itemList = allItems.OrderBy(item => itemOrder.TryGetValue(item.Id, out var order) ? order : int.MaxValue).ToList();
+            attackerItemList = allItems.OrderBy(item => itemOrder.TryGetValue(item.Id, out var order) ? order : int.MaxValue).ToList();
         }
         else
         {
-            itemList = allItems;
+            attackerItemList = allItems;
+        }
+    }
+
+    private async Task UpdateDefenderItemList()
+    {
+        if (request.DefenderPokemonId == 0)
+        {
+            defenderItemList = allItems;
+            return;
+        }
+
+        var itemUsage = await UsageService.GetItemUsageOrderAsync(request.DefenderPokemonId, selectedGeneration, selectedBattleFormat);
+        if (itemUsage.Count > 0)
+        {
+            var itemOrder = new Dictionary<int, int>();
+            for (int i = 0; i < itemUsage.Count; i++)
+                itemOrder[itemUsage[i]] = i;
+            defenderItemList = allItems.OrderBy(item => itemOrder.TryGetValue(item.Id, out var order) ? order : int.MaxValue).ToList();
+        }
+        else
+        {
+            defenderItemList = allItems;
         }
     }
 
@@ -322,7 +500,7 @@
 
         isCalculating = true;
         errorMessage = string.Empty;
-        
+
         try
         {
             result = await DamageService.CalculateDamageAsync(request);

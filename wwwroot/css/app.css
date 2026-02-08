@@ -125,6 +125,31 @@ main {
     background-color: #e9ecef;
 }
 
+.split-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.split-half {
+    flex: 1;
+    min-width: 0;
+}
+
+.stats-summary {
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.stat-up {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.stat-down {
+    color: #0d6efd;
+    font-weight: bold;
+}
+
 #blazor-error-ui {
     background: lightyellow;
     bottom: 0;

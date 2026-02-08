@@ -36,7 +36,26 @@
     private IEnumerable<TItem> FilteredItems =>
         string.IsNullOrWhiteSpace(searchText)
             ? Items
-            : Items.Where(item => DisplayText(item).Contains(searchText, StringComparison.OrdinalIgnoreCase));
+            : Items.Where(item => KanaContains(DisplayText(item), searchText));
+
+    private static bool KanaContains(string text, string query)
+    {
+        var normalizedText = ToHiragana(text);
+        var normalizedQuery = ToHiragana(query);
+        return normalizedText.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ToHiragana(string input)
+    {
+        var chars = input.ToCharArray();
+        for (int i = 0; i < chars.Length; i++)
+        {
+            // Katakana (U+30A1-U+30F6) -> Hiragana (U+3041-U+3096)
+            if (chars[i] >= '\u30A1' && chars[i] <= '\u30F6')
+                chars[i] = (char)(chars[i] - 0x60);
+        }
+        return new string(chars);
+    }
 
     protected override void OnParametersSet()
     {
