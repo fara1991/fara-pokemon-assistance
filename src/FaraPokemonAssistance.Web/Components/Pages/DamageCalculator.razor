@@ -91,7 +91,32 @@
         </div>
     </div>
 
-    <div class="mt-3 d-flex align-items-center gap-3 flex-wrap">
+    <div class="split-row mt-3">
+        <div class="split-half">
+            <div class="form-group mb-3">
+                <label for="weather">天候:</label>
+                <select id="weather" class="form-control" @bind="weather">
+                    @foreach (var w in Enum.GetValues<Weather>())
+                    {
+                        <option value="@w">@FieldNames.Japanese(w)</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="split-half">
+            <div class="form-group mb-3">
+                <label for="terrain">フィールド:</label>
+                <select id="terrain" class="form-control" @bind="terrain">
+                    @foreach (var t in Enum.GetValues<Terrain>())
+                    {
+                        <option value="@t">@FieldNames.Japanese(t)</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-3 flex-wrap">
         <button class="btn btn-primary" @onclick="Calculate">ダメージを計算</button>
         <div class="form-check">
             <input class="form-check-input" type="checkbox" id="crit" @bind="isCritical" />
@@ -117,7 +142,11 @@
                         <span class="ms-2 badge bg-secondary">@result.EffectivenessText</span>
                     }
                 </p>
-                <p class="mb-1"><strong>防御側 HP:</strong> @result.DefenderHP　<strong>攻撃実数値:</strong> @result.AttackStat　<strong>防御実数値:</strong> @result.DefenseStat　<strong>威力:</strong> @result.BasePower</p>
+                <p class="mb-1"><strong>防御側 HP:</strong> @result.DefenderHP　<strong>攻撃実数値:</strong> @result.AttackStat　<strong>防御実数値:</strong> @result.DefenseStat　<strong>威力:</strong> @result.BasePower（@TypeNames.ToJapanese(result.MoveType)）</p>
+                @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
+                {
+                    <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>
+                }
                 <p class="mb-1"><strong>乱数:</strong> <span class="font-monospace">@string.Join(" ", result.Rolls)</span></p>
                 @if (result.Modifiers.Count > 0)
                 {
@@ -149,6 +178,8 @@
     private PokemonBuild? defender;
     private Move? selectedMove;
     private bool isCritical;
+    private Weather weather = Weather.None;
+    private Terrain terrain = Terrain.None;
     private DamageResult? result;
     private DamageRequest? lastRequest;
 
@@ -216,7 +247,12 @@
             attackerMoves = data?.Moves ?? Array.Empty<Move>();
             return;
         }
-        attacker = new PokemonBuild(pokemon) { Nature = usage?.TopNature(pokemon.Id) ?? NeutralNature(), Item = usage?.TopItem(pokemon.Id) };
+        attacker = new PokemonBuild(pokemon)
+        {
+            Nature = usage?.TopNature(pokemon.Id) ?? NeutralNature(),
+            Item = usage?.TopItem(pokemon.Id),
+            Ability = usage?.TopAbility(pokemon) ?? data?.AbilitiesOf(pokemon).FirstOrDefault(),
+        };
         RefreshAttackerLists();
         selectedMove = usage?.TopMove(pokemon.Id) ?? attackerMoves.FirstOrDefault(m => m.IsDamaging);
         ApplyDefaultEvs(attacker, selectedMove, true);
@@ -230,9 +266,23 @@
             defender = null;
             return;
         }
-        defender = new PokemonBuild(pokemon) { Nature = usage?.TopNature(pokemon.Id) ?? NeutralNature(), Item = usage?.TopItem(pokemon.Id) };
+        defender = new PokemonBuild(pokemon)
+        {
+            Nature = usage?.TopNature(pokemon.Id) ?? NeutralNature(),
+            Item = usage?.TopItem(pokemon.Id),
+            Ability = usage?.TopAbility(pokemon) ?? data?.AbilitiesOf(pokemon).FirstOrDefault(),
+        };
         RefreshDefenderLists();
         ApplyDefaultEvs(defender, selectedMove, false);
+    }
+
+    /// 自分の特性を先頭に、残りの特性を後ろに並べる
+    private IReadOnlyList<Ability> AbilityChoices(Pokemon pokemon)
+    {
+        if (data is null) return Array.Empty<Ability>();
+        var own = data.AbilitiesOf(pokemon);
+        var ownIds = new HashSet<int>(own.Select(a => a.Id));
+        return own.Concat(data.Abilities.Where(a => !ownIds.Contains(a.Id))).ToList();
     }
 
     private Nature? NeutralNature() => data?.FindNature("まじめ") ?? data?.Natures.FirstOrDefault(n => n.IsNeutral);
@@ -266,7 +316,8 @@
         var t1 = TypeNames.ToJapanese(p.Type1);
         var types = string.IsNullOrEmpty(p.Type2) ? t1 : $"{t1}、{TypeNames.ToJapanese(p.Type2)}";
         var s = p.BaseStats;
-        return $"{p.Name}（{types}）H{s.HP}-A{s.Attack}-B{s.Defense}-C{s.SpAttack}-D{s.SpDefense}-S{s.Speed}";
+        var note = p.IsProvisional ? "※未収録" : "";
+        return $"{p.Name}{note}（{types}）H{s.HP}-A{s.Attack}-B{s.Defense}-C{s.SpAttack}-D{s.SpDefense}-S{s.Speed}";
     }
 
     private RenderFragment RenderBuildEditor(PokemonBuild build, IReadOnlyList<Item> items, bool isAttacker) => __builder =>
@@ -295,6 +346,26 @@
                 SelectedValue="@(build.Item?.Id.ToString() ?? "")"
                 SelectedValueChanged="@(v => build.Item = data.FindItem(ParseId(v)))"
                 Placeholder="持ち物を入力..." />
+        </div>
+        <div class="form-group mb-3">
+            <label>特性:</label>
+            <SearchableSelect TItem="Ability"
+                Items="AbilityChoices(build.Pokemon)"
+                DisplayText="@(a => a.Name)"
+                ValueSelector="@(a => a.Id.ToString())"
+                SelectedValue="@(build.Ability?.Id.ToString() ?? "")"
+                SelectedValueChanged="@(v => build.Ability = data.FindAbility(ParseId(v)))"
+                Placeholder="特性を入力..." />
+        </div>
+        <div class="form-group mb-3">
+            <label>テラスタル:</label>
+            <select class="form-control" value="@(build.TeraType ?? "")" @onchange="@(e => build.TeraType = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())">
+                <option value="">なし</option>
+                @foreach (var t in TypeNames.All)
+                {
+                    <option value="@t">@TypeNames.ToJapanese(t)</option>
+                }
+            </select>
         </div>
         <div class="form-group mb-2">
             <label>努力値:</label>
@@ -374,6 +445,8 @@
                 Defender = defender,
                 Format = selectedFormat,
                 IsCritical = isCritical,
+                Weather = weather,
+                Terrain = terrain,
             };
             result = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart).Calculate(lastRequest);
         }

@@ -9,6 +9,9 @@ public sealed class PokemonBuild
     public StatSet EVs { get; set; } = new();
     public Nature? Nature { get; set; }
     public Item? Item { get; set; }
+    public Ability? Ability { get; set; }
+    /// <summary>テラスタル中のタイプ。null ならテラスタルしていない。</summary>
+    public string? TeraType { get; set; }
     /// <summary>ランク補正（-6〜+6）。HP は使わない。</summary>
     public StatSet Boosts { get; set; } = new();
 
@@ -17,6 +20,15 @@ public sealed class PokemonBuild
         Pokemon = pokemon;
     }
 
+    public bool IsTerastallized => !string.IsNullOrEmpty(TeraType);
+
+    /// <summary>防御側として受けるタイプ（テラスタル中はテラスタイプのみ）。</summary>
+    public IReadOnlyList<string> DefensiveTypes =>
+        IsTerastallized ? new[] { TeraType! } : Pokemon.Types.ToList();
+
+    public bool HasAbility(string identifier) =>
+        Ability is not null && Ability.Identifier == identifier;
+
     public PokemonBuild Clone() => new(Pokemon)
     {
         Level = Level,
@@ -24,15 +36,19 @@ public sealed class PokemonBuild
         EVs = EVs.Clone(),
         Nature = Nature,
         Item = Item,
+        Ability = Ability,
+        TeraType = TeraType,
         Boosts = Boosts.Clone(),
     };
 
-    /// <summary>チャット向けの短い説明（例: <c>C252 ひかえめ こだわりメガネ</c>）。</summary>
+    /// <summary>チャット向けの短い説明（例: <c>C252 ひかえめ こだわりメガネ サイコメイカー</c>）。</summary>
     public string DescribeShort()
     {
         var parts = new List<string> { EVs.ToShortString() };
         if (Nature is not null) parts.Add(Nature.Name);
         if (Item is not null) parts.Add(Item.Name);
+        if (Ability is not null) parts.Add(Ability.Name);
+        if (IsTerastallized) parts.Add($"テラス{TypeNames.ToJapanese(TeraType!)}");
         var boosts = new List<string>();
         foreach (var stat in new[] { Stat.Attack, Stat.Defense, Stat.SpAttack, Stat.SpDefense, Stat.Speed })
         {
@@ -52,6 +68,8 @@ public sealed class DamageRequest
     public required PokemonBuild Defender { get; init; }
     public BattleFormat Format { get; init; } = BattleFormat.Singles;
     public bool IsCritical { get; init; }
+    public Weather Weather { get; init; } = Weather.None;
+    public Terrain Terrain { get; init; } = Terrain.None;
 }
 
 /// <summary>確定数。<see cref="Hits"/> 発で倒せる確率が <see cref="Probability"/>。</summary>
@@ -80,6 +98,8 @@ public sealed class DamageResult
     public required int AttackStat { get; init; }
     public required int DefenseStat { get; init; }
     public required int BasePower { get; init; }
+    /// <summary>実際に判定に使われた技タイプ（スキン系特性で変わる）。</summary>
+    public string MoveType { get; init; } = "";
     public required KnockOut KnockOut { get; init; }
     public required IReadOnlyList<string> Modifiers { get; init; }
 

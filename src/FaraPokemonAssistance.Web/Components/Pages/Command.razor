@@ -28,7 +28,7 @@
 
 <div class="input-group mb-3">
     <span class="input-group-text">!dmg</span>
-    <input class="form-control" placeholder="イエッサン♂ ワイドフォース メガリザードンX" @bind="input" @bind:event="oninput" @onkeydown="OnKeyDown" />
+    <input class="form-control" placeholder="イエッサン♂ ワイドフォース メガリザードンX サイコ" @bind="input" @bind:event="oninput" @onkeydown="OnKeyDown" />
     <button class="btn btn-primary" @onclick="Run" disabled="@running">実行</button>
 </div>
 
@@ -48,7 +48,10 @@
             <li>持ち物はとつげきチョッキ・しんかのきせきが防御側、それ以外は攻撃側に付きます。</li>
             <li><code>攻:</code> / <code>防:</code> を前に付けると側を明示できます（例: <code>防:ずぶとい</code>）。</li>
             <li><code>+2</code> で攻撃側のランク、<code>防:+1</code> で防御側のランク。<code>急所</code>、<code>ダブル</code>、<code>Lv100</code>、<code>無振り</code> も使えます。</li>
-            <li>指定が無い項目は「攻撃側 252 振り、防御側 H252、性格と持ち物は使用率 1 位」で補われ、結果に明記されます。</li>
+            <li>特性名（ちからもち など）はそのポケモンが持てる側に付きます。<code>テラス</code>（技タイプにテラスタル）、<code>テラスほのお</code>、<code>防:テラスみず</code>。</li>
+            <li>天候: <code>晴れ</code> <code>雨</code> <code>砂</code> <code>雪</code>、フィールド: <code>エレキ</code> <code>グラス</code> <code>サイコ</code> <code>ミスト</code>。</li>
+            <li>指定が無い項目は「攻撃側 252 振り、防御側 H252、性格・持ち物・特性は使用率 1 位（無ければ第 1 特性）」で補われ、結果に明記されます。</li>
+            <li>チャンピオンズに未収録のポケモンは第9世代のデータで計算し、その旨を注記します。</li>
         </ul>
     </div>
 </div>

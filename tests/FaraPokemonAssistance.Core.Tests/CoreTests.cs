@@ -100,6 +100,93 @@ public class DamageCalculatorTests
         Assert.Equal(0, result.KnockOut.Hits);
     }
 
+    private static Ability Ab(int id, string identifier, string name) => new() { Id = id, Identifier = identifier, Name = name };
+
+    [Fact]
+    public void Huge_power_doubles_attack()
+    {
+        var a = MakePokemon(1, "A", "Water", "", 100, 50, 100, 100, 100, 100);
+        var d = MakePokemon(2, "D", "Normal", "", 100, 100, 100, 100, 100, 100);
+        var move = new Move { Id = 1, Name = "M", Type = "Normal", Power = 80, Category = MoveCategory.Physical };
+        var calc = new DamageCalculator(TypeChart.Empty);
+        var plain = calc.Calculate(new DamageRequest { Attacker = new PokemonBuild(a), Move = move, Defender = new PokemonBuild(d) });
+        var huge = calc.Calculate(new DamageRequest { Attacker = new PokemonBuild(a) { Ability = Ab(37, "huge-power", "ちからもち") }, Move = move, Defender = new PokemonBuild(d) });
+        Assert.Equal(plain.AttackStat * 2, huge.AttackStat);
+        Assert.True(huge.MaxDamage > plain.MaxDamage * 1.8);
+    }
+
+    [Fact]
+    public void Pixilate_converts_normal_move_to_fairy()
+    {
+        var a = MakePokemon(1, "A", "Fairy", "", 100, 100, 100, 100, 100, 100);
+        var d = MakePokemon(2, "D", "Dragon", "", 100, 100, 100, 100, 100, 100);
+        var move = new Move { Id = 1, Name = "ハイパーボイス", Type = "Normal", Power = 90, Category = MoveCategory.Special, Flags = new HashSet<string> { "Sound" } };
+        var chart = TypeChart.Parse("AttackType,DefenseType,Multiplier\nFairy,Dragon,2\n");
+        var result = new DamageCalculator(chart).Calculate(new DamageRequest
+        {
+            Attacker = new PokemonBuild(a) { Ability = Ab(182, "pixilate", "フェアリースキン") },
+            Move = move,
+            Defender = new PokemonBuild(d),
+        });
+        Assert.Equal("Fairy", result.MoveType);
+        Assert.Equal(2.0, result.TypeEffectiveness);
+        Assert.True(result.IsStab);
+    }
+
+    [Fact]
+    public void Tera_changes_defensive_type_and_adds_stab()
+    {
+        var a = MakePokemon(1, "A", "Normal", "", 100, 100, 100, 100, 100, 100);
+        var d = MakePokemon(2, "D", "Fire", "", 100, 100, 100, 100, 100, 100);
+        var move = new Move { Id = 1, Name = "M", Type = "Water", Power = 80, Category = MoveCategory.Special };
+        var chart = TypeChart.Parse("AttackType,DefenseType,Multiplier\nWater,Fire,2\nWater,Water,0.5\n");
+        var calc = new DamageCalculator(chart);
+        var plain = calc.Calculate(new DamageRequest { Attacker = new PokemonBuild(a), Move = move, Defender = new PokemonBuild(d) });
+        Assert.Equal(2.0, plain.TypeEffectiveness);
+        Assert.False(plain.IsStab);
+
+        var tera = calc.Calculate(new DamageRequest
+        {
+            Attacker = new PokemonBuild(a) { TeraType = "Water" },
+            Move = move,
+            Defender = new PokemonBuild(d) { TeraType = "Water" },
+        });
+        Assert.Equal(0.5, tera.TypeEffectiveness);
+        Assert.True(tera.IsStab);
+    }
+
+    [Fact]
+    public void Sun_boosts_fire_and_levitate_blocks_ground()
+    {
+        var a = MakePokemon(1, "A", "Fire", "", 100, 100, 100, 100, 100, 100);
+        var d = MakePokemon(2, "D", "Normal", "", 100, 100, 100, 100, 100, 100);
+        var fire = new Move { Id = 1, Name = "F", Type = "Fire", Power = 80, Category = MoveCategory.Special };
+        var ground = new Move { Id = 2, Name = "G", Type = "Ground", Power = 80, Category = MoveCategory.Physical };
+        var calc = new DamageCalculator(TypeChart.Empty);
+        var normal = calc.Calculate(new DamageRequest { Attacker = new PokemonBuild(a), Move = fire, Defender = new PokemonBuild(d) });
+        var sun = calc.Calculate(new DamageRequest { Attacker = new PokemonBuild(a), Move = fire, Defender = new PokemonBuild(d), Weather = Weather.Sun });
+        Assert.True(sun.MaxDamage > normal.MaxDamage);
+
+        var blocked = calc.Calculate(new DamageRequest { Attacker = new PokemonBuild(a), Move = ground, Defender = new PokemonBuild(d) { Ability = Ab(26, "levitate", "ふゆう") } });
+        Assert.Equal(0, blocked.MaxDamage);
+        Assert.Contains(blocked.Modifiers, m => m.Contains("ふゆう"));
+    }
+
+    [Fact]
+    public void Expanding_force_on_psychic_terrain_is_boosted_and_spreads()
+    {
+        var a = MakePokemon(1, "A", "Psychic", "", 100, 100, 100, 100, 100, 100);
+        var d = MakePokemon(2, "D", "Normal", "", 100, 100, 100, 100, 100, 100);
+        var move = new Move { Id = 797, Name = "ワイドフォース", Type = "Psychic", Power = 80, Category = MoveCategory.Special };
+        var calc = new DamageCalculator(TypeChart.Empty);
+        var plain = calc.Calculate(new DamageRequest { Attacker = new PokemonBuild(a), Move = move, Defender = new PokemonBuild(d) });
+        var terrain = calc.Calculate(new DamageRequest { Attacker = new PokemonBuild(a), Move = move, Defender = new PokemonBuild(d), Terrain = Terrain.Psychic });
+        Assert.True(terrain.MaxDamage > plain.MaxDamage * 1.5);
+        var doubles = calc.Calculate(new DamageRequest { Attacker = new PokemonBuild(a), Move = move, Defender = new PokemonBuild(d), Terrain = Terrain.Psychic, Format = BattleFormat.Doubles });
+        Assert.True(doubles.MaxDamage < terrain.MaxDamage);
+        Assert.Contains(doubles.Modifiers, m => m.Contains("複数対象"));
+    }
+
     [Fact]
     public void PokeRound_rounds_half_down()
     {
@@ -192,6 +279,37 @@ public class DataAndCommandTests
         Assert.True(req.IsCritical);
         Assert.Equal(BattleFormat.Doubles, req.Format);
         Assert.NotNull(req.Attacker.Nature);
+    }
+
+    [Fact]
+    public async Task Champions_provisional_pokemon_is_calculated_with_note()
+    {
+        var command = new DamageCommand(TestData.Catalog());
+        var result = await command.ExecuteAsync("イエッサン♂ ワイドフォース メガリザードンX サイコ", new DamageCommandOptions { DataSetKey = "Champions" });
+        Assert.True(result.Success, result.Message);
+        Assert.Equal("イエッサン", result.Request!.Attacker.Pokemon.Name);
+        Assert.Equal(Terrain.Psychic, result.Request.Terrain);
+        Assert.Contains("未収録", result.Message);
+        Assert.NotNull(result.Request.Attacker.Ability);
+    }
+
+    [Fact]
+    public async Task Field_tera_and_ability_tokens()
+    {
+        var command = new DamageCommand(TestData.Catalog());
+        var result = await command.ExecuteAsync("ガブリアス じしん ハバタクカミ 晴れ テラスじめん 防:こだいかっせい");
+        Assert.True(result.Success, result.Message);
+        var req = result.Request!;
+        Assert.Equal(Weather.Sun, req.Weather);
+        Assert.Equal("Ground", req.Attacker.TeraType);
+        Assert.Equal("protosynthesis", req.Defender.Ability?.Identifier);
+        Assert.True(result.Damage!.MaxDamage > 0);
+
+        // ふゆう はどちらも持てないので「防御的な特性」として防御側に付き、じしんが無効になる
+        var immune = await command.ExecuteAsync("ガブリアス じしん ハバタクカミ ふゆう");
+        Assert.True(immune.Success, immune.Message);
+        Assert.Equal("levitate", immune.Request!.Defender.Ability?.Identifier);
+        Assert.Equal(0, immune.Damage!.MaxDamage);
     }
 
     [Fact]

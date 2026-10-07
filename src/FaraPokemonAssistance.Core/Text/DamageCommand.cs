@@ -42,6 +42,9 @@ public sealed class DamageCommandResult
 /// <item><c>攻:</c> / <c>防:</c> を前に付けると側を明示（例: <c>防:ずぶとい 防:たべのこし</c>）</item>
 /// <item><c>+1</c>〜<c>+6</c>、<c>-1</c>〜<c>-6</c> … 攻撃側の攻撃ランク（<c>防:+1</c> で防御側の防御ランク）</item>
 /// <item><c>急所</c>、<c>ダブル</c> / <c>シングル</c>、<c>Lv100</c>、<c>無振り</c>（防御側の努力値を 0 に）</item>
+/// <item>特性名（ちからもち 等）… そのポケモンが持てる側に付く。両方持てるなら防御的な特性は防御側</item>
+/// <item><c>テラス</c>（技タイプにテラスタル）、<c>テラスほのお</c> / <c>ほのおテラス</c>、<c>防:テラスみず</c></item>
+/// <item>天候: <c>晴れ</c> <c>雨</c> <c>砂</c> <c>雪</c>、フィールド: <c>エレキ</c> <c>グラス</c> <c>サイコ</c> <c>ミスト</c></item>
 /// </list>
 /// </summary>
 public sealed class DamageCommand
@@ -60,7 +63,7 @@ public sealed class DamageCommand
     }
 
     public static string Usage =>
-        "使い方: !dmg 攻撃側 技 防御側 [A252 H252 性格 持ち物 +1 急所 ダブル ...]  例: !dmg イエッサン♂ ワイドフォース メガリザードンX";
+        "使い方: !dmg 攻撃側 技 防御側 [A252 H252 性格 持ち物 特性 テラスほのお 晴れ サイコ +1 急所 ダブル ...]  例: !dmg イエッサン♂ ワイドフォース メガリザードンX サイコ";
 
     public async Task<DamageCommandResult> ExecuteAsync(string argumentText, DamageCommandOptions? options = null, CancellationToken ct = default)
     {
@@ -105,6 +108,7 @@ public sealed class DamageCommand
         var moveResolver = new NameResolver<Move>(data.Moves, m => m.Name);
         var itemResolver = new NameResolver<Item>(data.Items, i => i.Name);
         var natureResolver = new NameResolver<Nature>(data.Natures, n => n.Name);
+        var abilityResolver = new NameResolver<Ability>(data.Abilities, a => a.Name);
 
         var attackerMatch = pokemonResolver.Resolve(tokens[0]);
         if (!attackerMatch.IsResolved) return Fail(NotFound("ポケモン", tokens[0], attackerMatch.Candidates.Select(p => p.Name)));
@@ -128,6 +132,11 @@ public sealed class DamageCommand
         var attackerItemSet = false;
         var defenderItemSet = false;
         var defenderNoEv = false;
+        var attackerAbilitySet = false;
+        var defenderAbilitySet = false;
+        var weather = Weather.None;
+        var terrain = Terrain.None;
+        var attackerTeraToMoveType = false;
         var warnings = new List<string>();
 
         var isPhysical = move.Category == MoveCategory.Physical;
@@ -154,6 +163,19 @@ public sealed class DamageCommand
             if (normalized is "急所" or "きゅうしょ" or "crit")
             {
                 isCritical = true;
+                continue;
+            }
+            if (TryParseWeather(normalized) is { } w) { weather = w; continue; }
+            if (TryParseTerrain(normalized) is { } t) { terrain = t; continue; }
+            if (TryParseTera(normalized, out var teraType))
+            {
+                if (teraType is null)
+                {
+                    if (forcedAttacker == false) warnings.Add("防御側のテラスタイプを指定してください（例: 防:テラスみず）");
+                    else attackerTeraToMoveType = true;
+                }
+                else if (forcedAttacker == false) defender.TeraType = teraType;
+                else attacker.TeraType = teraType;
                 continue;
             }
             if (normalized is "ダブル" or "だぶる" or "double" or "doubles" or "dbl") { format = BattleFormat.Doubles; continue; }
@@ -224,6 +246,20 @@ public sealed class DamageCommand
                 continue;
             }
 
+            var ability = abilityResolver.Resolve(token);
+            if (ability.IsResolved)
+            {
+                var ab = ability.Value!;
+                var attackerCan = attacker.Pokemon.AbilityIds.Contains(ab.Id);
+                var defenderCan = defender.Pokemon.AbilityIds.Contains(ab.Id);
+                var toAttacker = forcedAttacker ?? (attackerCan && !defenderCan ? true
+                    : defenderCan && !attackerCan ? false
+                    : !AbilityEffects.IsDefensive(ab.Identifier));
+                if (toAttacker) { attacker.Ability = ab; attackerAbilitySet = true; }
+                else { defender.Ability = ab; defenderAbilitySet = true; }
+                continue;
+            }
+
             warnings.Add($"「{rawToken}」は無視");
         }
 
@@ -255,9 +291,20 @@ public sealed class DamageCommand
             attacker.Item = usage.TopItem(attacker.Pokemon.Id);
         if (!defenderItemSet && usage is not null)
             defender.Item = usage.TopItem(defender.Pokemon.Id);
+        if (!attackerAbilitySet)
+            attacker.Ability = usage?.TopAbility(attacker.Pokemon) ?? data.AbilitiesOf(attacker.Pokemon).FirstOrDefault();
+        if (!defenderAbilitySet)
+            defender.Ability = usage?.TopAbility(defender.Pokemon) ?? data.AbilitiesOf(defender.Pokemon).FirstOrDefault();
+        if (attackerTeraToMoveType)
+            attacker.TeraType = AbilityEffects.SkinType(attacker.Ability?.Identifier ?? "") is { } skin && move.Type == "Normal" ? skin : move.Type;
 
         if (!data.CanLearn(attacker.Pokemon.Id, move.Id))
             warnings.Add($"{attacker.Pokemon.Name}は{move.Name}を覚えません");
+        foreach (var b in new[] { attacker, defender })
+        {
+            if (b.Pokemon.IsProvisional)
+                warnings.Add($"{b.Pokemon.Name}は{data.Info.Name}未収録のため第9世代データで計算");
+        }
 
         var request = new DamageRequest
         {
@@ -266,6 +313,8 @@ public sealed class DamageCommand
             Defender = defender,
             Format = format,
             IsCritical = isCritical,
+            Weather = weather,
+            Terrain = terrain,
         };
         var result = new DamageCalculator(data.TypeChart).Calculate(request);
 
@@ -283,12 +332,55 @@ public sealed class DamageCommand
         var tags = new List<string>();
         if (result.TypeEffectiveness != 1.0) tags.Add(result.EffectivenessText);
         if (request.IsCritical) tags.Add("急所");
+        if (request.Weather != Weather.None) tags.Add(FieldNames.Japanese(request.Weather));
+        if (request.Terrain != Terrain.None) tags.Add(FieldNames.Japanese(request.Terrain));
         if (request.Format == BattleFormat.Doubles) tags.Add("ダブル");
         var tagText = tags.Count > 0 ? $" [{string.Join(" ", tags)}]" : "";
         var warnText = warnings is { Count: > 0 } ? $" ※{string.Join("、", warnings)}" : "";
 
         return $"{a.Pokemon.Name}({a.DescribeShort()}) {request.Move.Name} → {d.Pokemon.Name}({d.DescribeShort()} HP{result.DefenderHP}): " +
                $"{result.RangeText} {result.KnockOut}{tagText}{warnText}";
+    }
+
+    private static Weather? TryParseWeather(string n) => n switch
+    {
+        "晴れ" or "はれ" or "にほんばれ" or "日本晴れ" or "sun" or "sunny" => Weather.Sun,
+        "雨" or "あめ" or "あまごい" or "雨乞い" or "rain" => Weather.Rain,
+        "砂" or "すな" or "すなあらし" or "砂嵐" or "sand" => Weather.Sand,
+        "雪" or "ゆき" or "ゆきげしき" or "あられ" or "snow" or "hail" => Weather.Snow,
+        _ => null,
+    };
+
+    private static Terrain? TryParseTerrain(string n) => n switch
+    {
+        "えれき" or "えれきふぃーるど" or "ef" or "electric" => Terrain.Electric,
+        "ぐらす" or "ぐらすふぃーるど" or "gf" or "grassy" => Terrain.Grassy,
+        "さいこ" or "さいこふぃーるど" or "pf" or "psychic" => Terrain.Psychic,
+        "みすと" or "みすとふぃーるど" or "mf" or "misty" => Terrain.Misty,
+        _ => null,
+    };
+
+    /// <summary>「テラス」「テラスほのお」「ほのおテラス」「tera:fire」を解釈する。テラスだけなら type は null。</summary>
+    private static bool TryParseTera(string n, out string? type)
+    {
+        type = null;
+        const string word = "てらす";
+        string? rest = null;
+        if (n.StartsWith(word)) rest = n[word.Length..];
+        else if (n.EndsWith(word)) rest = n[..^word.Length];
+        else if (n.StartsWith("tera")) rest = n[4..];
+        else return false;
+        rest = rest.TrimStart(':', '：', 'た', 'る');
+        if (rest.Length == 0) return true;
+        foreach (var t in TypeNames.All)
+        {
+            if (NameNormalizer.Normalize(TypeNames.ToJapanese(t)) == rest || t.Equals(rest, StringComparison.OrdinalIgnoreCase))
+            {
+                type = t;
+                return true;
+            }
+        }
+        return false;
     }
 
     private static readonly (string Prefix, bool IsAttacker)[] SidePrefixes =
