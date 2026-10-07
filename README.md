@@ -38,7 +38,7 @@ fara-pokemon-assistance/
 
 - ポケモン・技・持ち物・覚える技・タイプ相性は [PokeAPI の CSV ダンプ](https://github.com/PokeAPI/pokeapi/tree/master/data/v2/csv) から生成します。REST API は叩きません（週 1 回のバルク取得のみ）。
 - ID は PokeAPI と同じです。フォルム違い（メガリザードンX = 10034、イエッサン(♀) = 10186 など）も PokeAPI の ID をそのまま使います。
-- チャンピオンズは PokeAPI の収録（`version_group = champions`）が段階的に増えている途中です。未収録のポケモンはスカーレット・バイオレットのデータで補完し、`Provisional=1` を付けて画面・コマンドに「未収録」と注記します（`tools/datasets.json` の `supplement_version_groups`）。
+- チャンピオンズの収録ポケモンは PokeAPI の **チャンピオンズ図鑑（pokedex 36、231 種）** とそのメガシンカ・性別差・種族値やタイプの違うフォルムです。チャンピオンズ用の技データがまだ無いポケモンは SV の技で補います（`tools/datasets.json` の `learnset_fallback_version_groups`）。図鑑に無いポケモンは表示しません。
 - 第9世代の `usage_*.csv` は HOME のランクバトル最新シーズンから生成します。チャンピオンズの使用率は取得元が確定していないため、現状は未設定です（`tools/datasets.json` の `home` に設定を足せば同じスクリプトで取得できます）。
 - 手動で更新する場合: `python tools/sync_data.py`（HOME を飛ばすなら `--skip-home`）。
 

@@ -282,15 +282,20 @@ public class DataAndCommandTests
     }
 
     [Fact]
-    public async Task Champions_provisional_pokemon_is_calculated_with_note()
+    public async Task Champions_roster_comes_from_pokedex()
     {
         var command = new DamageCommand(TestData.Catalog());
         var result = await command.ExecuteAsync("イエッサン♂ ワイドフォース メガリザードンX サイコ", new DamageCommandOptions { DataSetKey = "Champions" });
         Assert.True(result.Success, result.Message);
         Assert.Equal("イエッサン", result.Request!.Attacker.Pokemon.Name);
         Assert.Equal(Terrain.Psychic, result.Request.Terrain);
-        Assert.Contains("未収録", result.Message);
+        Assert.DoesNotContain("未収録", result.Message);
         Assert.NotNull(result.Request.Attacker.Ability);
+
+        var data = await TestData.Catalog().GetDataSetAsync("Champions");
+        Assert.DoesNotContain(data.Pokemon, p => p.IsProvisional);
+        Assert.Contains(data.Pokemon, p => p.Name == "イエッサン(♀)");
+        Assert.True(data.Pokemon.Count(p => p.Name.StartsWith("メガ")) >= 40);
     }
 
     [Fact]

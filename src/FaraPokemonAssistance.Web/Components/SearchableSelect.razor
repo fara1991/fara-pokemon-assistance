@@ -12,11 +12,15 @@
     @if (showDropdown && FilteredItems.Any())
     {
         <div class="searchable-select-dropdown">
-            @foreach (var item in FilteredItems.Take(50))
+            @foreach (var item in FilteredItems.Take(MaxVisible))
             {
                 <div class="searchable-select-item" @onmousedown="() => SelectItem(item)" @onmousedown:preventDefault>
                     @DisplayText(item)
                 </div>
+            }
+            @if (FilteredItems.Skip(MaxVisible).Any())
+            {
+                <div class="searchable-select-item text-muted">…ほか @(FilteredItems.Count() - MaxVisible) 件。入力して絞り込んでください</div>
             }
         </div>
     }
@@ -29,6 +33,8 @@
     [Parameter] public string SelectedValue { get; set; } = "";
     [Parameter] public EventCallback<string> SelectedValueChanged { get; set; }
     [Parameter] public string Placeholder { get; set; } = "入力して検索...";
+    /// <summary>一度に表示する最大件数。</summary>
+    [Parameter] public int MaxVisible { get; set; } = 400;
 
     private string searchText = "";
     private bool showDropdown = false;
