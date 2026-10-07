@@ -1,4 +1,4 @@
-namespace FaraPokemonTools.Models
+namespace FaraPokemonAssistance.Models
 {
     public class Item
     {

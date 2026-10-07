@@ -1,4 +1,4 @@
-# FaraPokemonBattleApi
+# FaraPokemonAssistance
 
 ポケモンダメージ計算を行うC#/.NET Blazor APIプロジェクト
 
@@ -29,8 +29,8 @@
 
 1. リポジトリをクローン
 ```bash
-git clone https://github.com/yourusername/FaraPokemonBattleApi.git
-cd FaraPokemonBattleApi
+git clone https://github.com/fara1991/fara-pokemon-assistance.git
+cd fara-pokemon-assistance
 ```
 
 2. 依存関係の復元
@@ -45,7 +45,7 @@ dotnet build
 
 4. アプリケーションの実行
 ```bash
-dotnet run --project FaraPokemonBattleApi
+dotnet run
 ```
 
 5. ブラウザで以下のURLにアクセス
@@ -129,7 +129,7 @@ GET /api/items?generation=9
 ## プロジェクト構造
 
 ```
-FaraPokemonBattleApi/
+fara-pokemon-assistance/
 ├── Controllers/         # API コントローラー
 ├── Models/             # データモデル
 ├── Services/           # ビジネスロジック

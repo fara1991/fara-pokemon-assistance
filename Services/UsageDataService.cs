@@ -1,4 +1,4 @@
-namespace FaraPokemonTools.Services
+namespace FaraPokemonAssistance.Services
 {
     public interface IUsageDataService
     {

@@ -1,6 +1,6 @@
-using FaraPokemonTools.Models;
+using FaraPokemonAssistance.Models;
 
-namespace FaraPokemonTools.Services
+namespace FaraPokemonAssistance.Services
 {
     public class DamageCalculationService : IDamageCalculationService
     {

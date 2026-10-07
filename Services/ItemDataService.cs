@@ -1,8 +1,8 @@
 using CsvHelper;
-using FaraPokemonTools.Models;
+using FaraPokemonAssistance.Models;
 using System.Globalization;
 
-namespace FaraPokemonTools.Services
+namespace FaraPokemonAssistance.Services
 {
     public class ItemDataService : IItemDataService
     {

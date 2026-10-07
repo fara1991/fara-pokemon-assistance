@@ -1,4 +1,4 @@
-using FaraPokemonTools.Services;
+using FaraPokemonAssistance.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

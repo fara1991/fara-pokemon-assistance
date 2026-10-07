@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace FaraPokemonTools.Services
+namespace FaraPokemonAssistance.Services
 {
     public class HomeDataUpdateService : BackgroundService
     {
@@ -96,7 +96,7 @@ namespace FaraPokemonTools.Services
             try
             {
                 using var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Add("User-Agent", "FaraPokemonTools/1.0");
+                httpClient.DefaultRequestHeaders.Add("User-Agent", "FaraPokemonAssistance/1.0");
                 httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
 
                 var seasonData = await FetchSeasonListAsync(httpClient, ct);

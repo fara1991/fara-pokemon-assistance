@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using FaraPokemonTools.Services;
+using FaraPokemonAssistance.Services;
 
-namespace FaraPokemonTools.Controllers
+namespace FaraPokemonAssistance.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
