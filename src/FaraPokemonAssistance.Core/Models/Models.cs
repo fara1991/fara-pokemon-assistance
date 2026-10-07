@@ -31,6 +31,48 @@ public enum BattleFormat
     Doubles,
 }
 
+public enum Weather
+{
+    None,
+    Sun,
+    Rain,
+    Sand,
+    Snow,
+}
+
+public enum Terrain
+{
+    None,
+    Electric,
+    Grassy,
+    Psychic,
+    Misty,
+}
+
+public static class FieldNames
+{
+    public static string Japanese(Weather w) => w switch
+    {
+        Weather.Sun => "晴れ", Weather.Rain => "雨", Weather.Sand => "砂嵐", Weather.Snow => "雪", _ => "なし",
+    };
+
+    public static string Japanese(Terrain t) => t switch
+    {
+        Terrain.Electric => "エレキフィールド", Terrain.Grassy => "グラスフィールド",
+        Terrain.Psychic => "サイコフィールド", Terrain.Misty => "ミストフィールド", _ => "なし",
+    };
+}
+
+public sealed class Ability
+{
+    public int Id { get; init; }
+    /// <summary>PokeAPI の識別子（例: <c>huge-power</c>）。計算ロジックはこれで判定する。</summary>
+    public string Identifier { get; init; } = "";
+    public string Name { get; init; } = "";
+
+    public override string ToString() => Name;
+}
+
 /// <summary>H/A/B/C/D/S の 6 値。種族値・個体値・努力値・実数値・ランク補正のいずれにも使う。</summary>
 public sealed class StatSet
 {
@@ -148,9 +190,22 @@ public sealed class Pokemon
     public int SpeciesId { get; init; }
     /// <summary>進化前（しんかのきせき対象）なら true。</summary>
     public bool NotFullyEvolved { get; init; }
+    /// <summary>持ちうる特性の ID（通常特性の順、隠れ特性が最後）。</summary>
+    public IReadOnlyList<int> AbilityIds { get; init; } = Array.Empty<int>();
+    /// <summary>このデータセットに正式収録されておらず、他のデータで補完したポケモンなら true。</summary>
+    public bool IsProvisional { get; init; }
 
     public bool HasType(string type) =>
         !string.IsNullOrEmpty(type) && (Type1 == type || Type2 == type);
+
+    public IEnumerable<string> Types
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(Type1)) yield return Type1;
+            if (!string.IsNullOrEmpty(Type2)) yield return Type2;
+        }
+    }
 
     public override string ToString() => Name;
 }
@@ -166,9 +221,16 @@ public sealed class Move
     public MoveCategory Category { get; init; }
     public MoveTarget Target { get; init; }
     public int Priority { get; init; }
+    /// <summary>技フラグ（Contact, Sound, Punch, Bite, Bullet, Pulse, Powder, Recharge）。</summary>
+    public IReadOnlySet<string> Flags { get; init; } = new HashSet<string>();
+    /// <summary>追加効果の発生率（%）。ちからずくの判定に使う。</summary>
+    public int EffectChance { get; init; }
     public string Description { get; init; } = "";
 
     public bool IsDamaging => Category != MoveCategory.Status && Power > 0;
+    public bool HasFlag(string flag) => Flags.Contains(flag);
+    public bool IsContact => HasFlag("Contact");
+    public bool IsSound => HasFlag("Sound");
 
     public override string ToString() => Name;
 }

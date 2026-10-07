@@ -16,12 +16,14 @@ public sealed class PokemonDataSet
     public IReadOnlyList<Pokemon> Pokemon { get; private set; } = Array.Empty<Pokemon>();
     public IReadOnlyList<Move> Moves { get; private set; } = Array.Empty<Move>();
     public IReadOnlyList<Item> Items { get; private set; } = Array.Empty<Item>();
+    public IReadOnlyList<Ability> Abilities { get; private set; } = Array.Empty<Ability>();
     public IReadOnlyList<Nature> Natures { get; }
     public TypeChart TypeChart { get; private set; } = TypeChart.Empty;
 
     private Dictionary<int, Pokemon> _pokemonById = new();
     private Dictionary<int, Move> _moveById = new();
     private Dictionary<int, Item> _itemById = new();
+    private Dictionary<int, Ability> _abilityById = new();
     private Dictionary<int, int[]> _learnsets = new();
     private Dictionary<int, int> _speciesMap = new();
 
@@ -42,6 +44,21 @@ public sealed class PokemonDataSet
         var learnText = await _source.ReadTextAsync($"{dir}/learnsets.csv", ct).ConfigureAwait(false) ?? "";
         var speciesText = await _source.ReadTextAsync($"{dir}/species_map.csv", ct).ConfigureAwait(false) ?? "";
         var typeText = await _source.ReadTextAsync($"{dir}/type_effectiveness.csv", ct).ConfigureAwait(false) ?? "";
+        var abilityText = await _source.ReadTextAsync($"{dir}/abilities.csv", ct).ConfigureAwait(false) ?? "";
+
+        var abilityTable = CsvTable.Parse(abilityText);
+        var abilities = new List<Ability>();
+        foreach (var row in abilityTable.Rows)
+        {
+            abilities.Add(new Ability
+            {
+                Id = abilityTable.GetInt(row, "Id"),
+                Identifier = abilityTable.Get(row, "Identifier"),
+                Name = abilityTable.Get(row, "Name"),
+            });
+        }
+        Abilities = abilities;
+        _abilityById = abilities.ToDictionary(a => a.Id);
 
         var speciesMap = new Dictionary<int, int>();
         var speciesTable = CsvTable.Parse(speciesText);
@@ -68,6 +85,8 @@ public sealed class PokemonDataSet
                     ? pokemonTable.GetInt(row, "SpeciesId", id)
                     : speciesMap.GetValueOrDefault(id, id),
                 NotFullyEvolved = pokemonTable.GetInt(row, "NotFullyEvolved") == 1,
+                AbilityIds = ParseIdList(pokemonTable.Get(row, "Abilities")),
+                IsProvisional = pokemonTable.GetInt(row, "Provisional") == 1,
             });
         }
         Pokemon = pokemon;
@@ -88,6 +107,8 @@ public sealed class PokemonDataSet
                 Category = Enum.TryParse<MoveCategory>(moveTable.Get(row, "Category"), true, out var cat) ? cat : MoveCategory.Status,
                 Target = Enum.TryParse<MoveTarget>(moveTable.Get(row, "Target"), true, out var target) ? target : MoveTarget.Single,
                 Priority = moveTable.GetInt(row, "Priority"),
+                Flags = new HashSet<string>(moveTable.Get(row, "Flags").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
+                EffectChance = moveTable.GetInt(row, "EffectChance"),
                 Description = moveTable.Get(row, "Description"),
             });
         }
@@ -120,19 +141,25 @@ public sealed class PokemonDataSet
         var learnsets = new Dictionary<int, int[]>();
         foreach (var row in learnTable.Rows)
         {
-            var ids = learnTable.Get(row, "MoveIds")
-                .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(s => int.TryParse(s, out var v) ? v : -1)
-                .Where(v => v > 0)
-                .ToArray();
-            learnsets[learnTable.GetInt(row, "PokemonId")] = ids;
+            learnsets[learnTable.GetInt(row, "PokemonId")] = ParseIdList(learnTable.Get(row, "MoveIds"));
         }
         _learnsets = learnsets;
 
         TypeChart = TypeChart.Parse(typeText);
     }
 
+    private static int[] ParseIdList(string text) => text
+        .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(s => int.TryParse(s, out var v) ? v : -1)
+        .Where(v => v > 0)
+        .ToArray();
+
     public Pokemon? FindPokemon(int id) => _pokemonById.GetValueOrDefault(id);
+    public Ability? FindAbility(int id) => _abilityById.GetValueOrDefault(id);
+
+    /// <summary>そのポケモンが持ちうる特性（通常 → 隠れ特性の順）。</summary>
+    public IReadOnlyList<Ability> AbilitiesOf(Pokemon pokemon) =>
+        pokemon.AbilityIds.Select(FindAbility).Where(a => a is not null).Select(a => a!).ToList();
     public Move? FindMove(int id) => _moveById.GetValueOrDefault(id);
     public Item? FindItem(int id) => _itemById.GetValueOrDefault(id);
     public Nature? FindNature(int id) => Natures.FirstOrDefault(n => n.Id == id);
@@ -204,12 +231,14 @@ public sealed class UsageData
     private readonly Dictionary<int, List<int>> _moves;
     private readonly Dictionary<int, List<int>> _items;
     private readonly Dictionary<int, List<int>> _natures;
+    private readonly Dictionary<int, List<int>> _abilities;
     private readonly PokemonDataSet _dataSet;
 
     public bool IsEmpty => PokemonRank.Count == 0;
 
     private UsageData(BattleFormat format, PokemonDataSet dataSet, Dictionary<int, int> rank,
-        Dictionary<int, List<int>> moves, Dictionary<int, List<int>> items, Dictionary<int, List<int>> natures)
+        Dictionary<int, List<int>> moves, Dictionary<int, List<int>> items, Dictionary<int, List<int>> natures,
+        Dictionary<int, List<int>> abilities)
     {
         Format = format;
         _dataSet = dataSet;
@@ -217,6 +246,7 @@ public sealed class UsageData
         _moves = moves;
         _items = items;
         _natures = natures;
+        _abilities = abilities;
     }
 
     internal static async Task<UsageData> LoadAsync(IDataSource source, string dir, BattleFormat format, PokemonDataSet dataSet, CancellationToken ct)
@@ -244,7 +274,8 @@ public sealed class UsageData
         var moves = await LoadListAsync($"usage_moves_{suffix}.csv", "MoveId").ConfigureAwait(false);
         var items = await LoadListAsync($"usage_items_{suffix}.csv", "ItemId").ConfigureAwait(false);
         var natures = await LoadListAsync($"usage_natures_{suffix}.csv", "NatureId").ConfigureAwait(false);
-        return new UsageData(format, dataSet, rank, moves, items, natures);
+        var abilities = await LoadListAsync($"usage_abilities_{suffix}.csv", "AbilityId").ConfigureAwait(false);
+        return new UsageData(format, dataSet, rank, moves, items, natures, abilities);
     }
 
     public int RankOf(int pokemonId) =>
@@ -260,6 +291,15 @@ public sealed class UsageData
     public IReadOnlyList<int> MoveOrder(int pokemonId) => Lookup(_moves, pokemonId, _dataSet.SpeciesIdOf(pokemonId));
     public IReadOnlyList<int> ItemOrder(int pokemonId) => Lookup(_items, pokemonId, _dataSet.SpeciesIdOf(pokemonId));
     public IReadOnlyList<int> NatureOrder(int pokemonId) => Lookup(_natures, pokemonId, _dataSet.SpeciesIdOf(pokemonId));
+    public IReadOnlyList<int> AbilityOrder(int pokemonId) => Lookup(_abilities, pokemonId, _dataSet.SpeciesIdOf(pokemonId));
+
+    /// <summary>使用率 1 位の特性。使用率データが無ければそのポケモンの第 1 特性。</summary>
+    public Ability? TopAbility(Pokemon pokemon)
+    {
+        var allowed = new HashSet<int>(pokemon.AbilityIds);
+        var top = AbilityOrder(pokemon.Id).Where(allowed.Contains).Select(_dataSet.FindAbility).FirstOrDefault(a => a is not null);
+        return top ?? _dataSet.AbilitiesOf(pokemon).FirstOrDefault();
+    }
 
     public Move? TopMove(int pokemonId) =>
         MoveOrder(pokemonId).Select(_dataSet.FindMove).FirstOrDefault(m => m is not null && m.IsDamaging && _dataSet.CanLearn(pokemonId, m.Id));

@@ -14,14 +14,29 @@ public static class NameNormalizer
     public static string Normalize(string text)
     {
         var sb = new StringBuilder(text.Length);
-        foreach (var raw in text.Normalize(NormalizationForm.FormKC))
+        foreach (var raw in text)
         {
-            var c = raw;
-            if (c >= 'ァ' && c <= 'ヶ') c = (char)(c - 0x60); // カタカナ → ひらがな
+            var c = FoldWidth(raw);
+            if (c >= '\u30A1' && c <= '\u30F6') c = (char)(c - 0x60); // カタカナ → ひらがな
             if (char.IsWhiteSpace(c) || Ignored.Contains(c)) continue;
             sb.Append(char.ToLowerInvariant(c));
         }
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// 全角英数記号を半角に折り畳む。<c>string.Normalize(FormKC)</c> は Blazor WebAssembly で
+    /// PlatformNotSupportedException になるため自前で行う。
+    /// </summary>
+    private static char FoldWidth(char c)
+    {
+        if (c >= '\uFF01' && c <= '\uFF5E') return (char)(c - 0xFEE0); // ！〜～ → !〜~
+        return c switch
+        {
+            '\u3000' => ' ',
+            '\u2019' or '\u2018' => '\'',
+            _ => c,
+        };
     }
 }
 

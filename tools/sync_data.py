@@ -51,6 +51,11 @@ MOVE_TARGETS = {
     "14": "AllOthers",       # all-pokemon
 }
 DAMAGE_CLASS = {"1": "Status", "2": "Physical", "3": "Special"}
+# 計算に関係する技フラグだけ残す（特性・持ち物の判定に使う）
+MOVE_FLAGS_KEPT = {
+    "contact": "Contact", "sound": "Sound", "punch": "Punch", "bite": "Bite",
+    "ballistics": "Bullet", "pulse": "Pulse", "powder": "Powder", "recharge": "Recharge",
+}
 STAT_KEYS = {"1": "HP", "2": "Attack", "3": "Defense", "4": "SpAttack", "5": "SpDefense", "6": "Speed"}
 
 # HOME nature ids follow the in-game order; keep in sync with natures.csv.
@@ -155,6 +160,18 @@ class Builder:
             self.game_index_to_item[int(r["generation_id"])][int(r["game_index"])] = r["item_id"]
         with (TOOLS / "item_effects.csv").open(encoding="utf-8", newline="") as f:
             self.item_effects = {r["Identifier"]: r for r in csv.DictReader(f)}
+        flag_names = {r["id"]: r["identifier"] for r in api.table("move_flags")}
+        self.move_flags: dict[str, set[str]] = defaultdict(set)
+        for r in api.table("move_flag_map"):
+            flag = flag_names.get(r["move_flag_id"], "")
+            if flag in MOVE_FLAGS_KEPT:
+                self.move_flags[r["move_id"]].add(MOVE_FLAGS_KEPT[flag])
+        self.ability_names = {(r["ability_id"], r["local_language_id"]): r["name"] for r in api.table("ability_names")}
+        self.abilities = {r["id"]: r for r in api.table("abilities") if r["is_main_series"] == "1"}
+        self.pokemon_abilities: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
+        for r in api.table("pokemon_abilities"):
+            # 通常特性をスロット順に、隠れ特性を最後に
+            self.pokemon_abilities[r["pokemon_id"]].append((int(r["is_hidden"]), int(r["slot"]), r["ability_id"]))
         self.learnsets_by_vg: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
         for r in api.table("pokemon_moves"):
             self.learnsets_by_vg[r["version_group_id"]][r["pokemon_id"]].add(r["move_id"])
@@ -209,6 +226,16 @@ class Builder:
         if not pokemon_ids:
             raise SystemExit(f"{ds['key']}: no pokemon found for version groups {vgs}")
 
+        # 収録が追いついていないデータセット（チャンピオンズ）は別のバージョングループで補完し、
+        # 補完したポケモンには Provisional=1 を立てる。
+        provisional: set[str] = set()
+        for vg in (str(v) for v in ds.get("supplement_version_groups", [])):
+            for pid, moves in self.learnsets_by_vg.get(vg, {}).items():
+                if pid in self.pokemon and pid not in learnset:
+                    learnset[pid] = set(moves)
+                    provisional.add(pid)
+        pokemon_ids = sorted(learnset, key=int)
+
         # Pokemon forms that share a species but have no learnset of their own
         # (e.g. mega forms in some games) inherit the default form's moves.
         default_of_species = {p["species_id"]: pid for pid, p in self.pokemon.items() if p["is_default"] == "1"}
@@ -227,16 +254,18 @@ class Builder:
             p = self.pokemon[pid]
             types = self.ptypes.get(pid, {})
             nfe = 1 if p["species_id"] in self.evolves_from else 0
+            abilities = ";".join(aid for _, _, aid in sorted(self.pokemon_abilities.get(pid, []))
+                                 if aid in self.abilities)
             pokemon_rows.append([
                 pid, name, types.get("1", ""), types.get("2", ""),
                 st["HP"], st["Attack"], st["Defense"], st["SpAttack"], st["SpDefense"], st["Speed"],
-                SPRITE_URL.format(id=pid), p["species_id"], nfe,
+                SPRITE_URL.format(id=pid), p["species_id"], nfe, abilities, 1 if pid in provisional else 0,
             ])
             if p["is_default"] != "1":
                 species_rows.append([pid, p["species_id"]])
         write_csv(out_dir / "pokemon.csv",
                   ["Id", "Name", "Type1", "Type2", "HP", "Attack", "Defense", "SpAttack", "SpDefense", "Speed",
-                   "Icon", "SpeciesId", "NotFullyEvolved"], pokemon_rows)
+                   "Icon", "SpeciesId", "NotFullyEvolved", "Abilities", "Provisional"], pokemon_rows)
         write_csv(out_dir / "species_map.csv", ["FormId", "SpeciesId"], species_rows)
 
         kept = {row[0] for row in pokemon_rows}
@@ -255,10 +284,13 @@ class Builder:
                 DAMAGE_CLASS.get(m["damage_class_id"], "Status"),
                 MOVE_TARGETS.get(m["target_id"], "Single"),
                 m["priority"] or 0,
+                ";".join(sorted(self.move_flags.get(mid, ()))),
+                m["effect_chance"] or 0,
                 self.move_description(mid, [int(v) for v in vgs]),
             ])
         write_csv(out_dir / "moves.csv",
-                  ["Id", "Name", "Type", "Power", "Accuracy", "PP", "Category", "Target", "Priority", "Description"],
+                  ["Id", "Name", "Type", "Power", "Accuracy", "PP", "Category", "Target", "Priority", "Flags",
+                   "EffectChance", "Description"],
                   move_rows)
         valid_moves = {row[0] for row in move_rows}
         write_csv(out_dir / "learnsets.csv", ["PokemonId", "MoveIds"],
@@ -267,6 +299,17 @@ class Builder:
 
         self.write_items(ds, out_dir, generation)
         self.write_type_chart(out_dir)
+        self.write_abilities(out_dir, kept)
+
+    def write_abilities(self, out_dir: Path, pokemon_ids: set[str]) -> None:
+        used = {aid for pid in pokemon_ids for _, _, aid in self.pokemon_abilities.get(pid, [])}
+        rows = []
+        for aid in sorted(used, key=int):
+            a = self.abilities.get(aid)
+            name = pick_name(self.ability_names, aid)
+            if a and name:
+                rows.append([aid, a["identifier"], name])
+        write_csv(out_dir / "abilities.csv", ["Id", "Identifier", "Name"], rows)
 
     def write_items(self, ds: dict, out_dir: Path, generation: int) -> None:
         wanted: dict[str, dict] = {}
@@ -346,7 +389,7 @@ def sync_home(builder: Builder, ds: dict, out_dir: Path) -> None:
                 pokemon_rows.append([len(pokemon_rows) + 1, sid])
         write_csv(out_dir / f"usage_pokemon_{fmt}.csv", ["Rank", "SpeciesId"], pokemon_rows)
 
-        move_rows, item_rows, nature_rows, done = [], [], [], set()
+        move_rows, item_rows, nature_rows, ability_rows, done = [], [], [], [], set()
         for i in range(1, 7):
             try:
                 detail = json.loads(fetch(f"{base}/pdetail-{i}"))
@@ -372,10 +415,14 @@ def sync_home(builder: Builder, ds: dict, out_dir: Path) -> None:
                     for n in temoti.get("seikaku", []):
                         if str(n.get("id", "")).isdigit():
                             nature_rows.append([sid, int(n["id"])])
+                    for t in temoti.get("tokusei", []):
+                        if str(t.get("id", "")).isdigit():
+                            ability_rows.append([sid, int(t["id"])])
                     break  # first form only
         write_csv(out_dir / f"usage_moves_{fmt}.csv", ["SpeciesId", "MoveId"], move_rows)
         write_csv(out_dir / f"usage_items_{fmt}.csv", ["SpeciesId", "ItemId"], item_rows)
         write_csv(out_dir / f"usage_natures_{fmt}.csv", ["SpeciesId", "NatureId"], nature_rows)
+        write_csv(out_dir / f"usage_abilities_{fmt}.csv", ["SpeciesId", "AbilityId"], ability_rows)
 
 
 # --------------------------------------------------------------------------- main
