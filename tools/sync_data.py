@@ -368,12 +368,14 @@ def sync_home(builder: Builder, ds: dict, out_dir: Path) -> None:
     body = json.dumps({"soft": home["soft"]}).encode()
     seasons = json.loads(fetch(HOME_LIST_URL, data=body,
                                headers={"Content-Type": "application/json", "Accept": "application/json"}))
+    # list は { "41": { "<cId>": {rule, rst, cId, ts2, ...}, ... }, "40": {...} } という形。
     # 新しいシーズンから順に見て、形式ごとに「集計済み (rst == 2)」の最新シーズンを選ぶ。
-    # 一番新しいシーズンは開催中で集計が無いことが多い。
+    # 一番新しいシーズンは開催中 (rst == 0) で集計が無い。
     rules: dict[str, dict] = {}
     for _, season in sorted(((int(k), v) for k, v in seasons.get("list", {}).items() if k.isdigit()), reverse=True):
-        for rule in season.get("rule", []):
-            if rule.get("rst") != 2:
+        entries = list(season.values()) if isinstance(season, dict) else list(season)
+        for rule in entries:
+            if not isinstance(rule, dict) or rule.get("rst") != 2:
                 continue
             fmt = "singles" if rule.get("rule") == 0 else "doubles"
             rules.setdefault(fmt, rule)
@@ -382,7 +384,8 @@ def sync_home(builder: Builder, ds: dict, out_dir: Path) -> None:
     if not rules:
         log("  HOME: no completed season found; season list summary follows (season: rule/rst/cId)")
         for num, season in sorted(((int(k), v) for k, v in seasons.get("list", {}).items() if k.isdigit()), reverse=True)[:6]:
-            summary = ", ".join(f"{r.get('rule')}/{r.get('rst')}/{r.get('cId')}" for r in season.get("rule", [])) or str(season)[:300]
+            entries = list(season.values()) if isinstance(season, dict) else list(season)
+            summary = ", ".join(f"{r.get('rule')}/{r.get('rst')}/{r.get('cId')}" for r in entries if isinstance(r, dict)) or str(season)[:300]
             log(f"    {num}: {summary}")
         top_keys = sorted(seasons.keys()) if isinstance(seasons, dict) else type(seasons).__name__
         log(f"    response top-level keys: {top_keys}")
