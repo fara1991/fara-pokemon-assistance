@@ -55,7 +55,7 @@ public sealed class HttpDataSource : IDataSource
 }
 
 /// <summary>
-/// 別のデータソースの結果をローカルにキャッシュする。<paramref name="maxAge"/> を過ぎたファイルは取り直す。
+/// 別のデータソースの結果をローカルにキャッシュする。保持期間を過ぎたファイルは取り直す。
 /// 取り直しに失敗した場合は古いキャッシュをそのまま使う（配信中にネットワークが落ちても計算は続けられる）。
 /// </summary>
 public sealed class CachingDataSource : IDataSource

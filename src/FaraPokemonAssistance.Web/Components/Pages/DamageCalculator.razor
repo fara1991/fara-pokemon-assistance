@@ -330,7 +330,7 @@
         <div class="stats-summary">
             <div>種族値：@FormatStats(build.Pokemon.BaseStats)</div>
             <div>
-                実数値：@foreach (var (stat, i) in Enum.GetValues<Stat>().Select((s, i) => (s, i)))
+                実数値：@foreach (var (stat, i) in Enum.GetValues<Stat>().Select((st, idx) => (st, idx)))
                 {
                     if (i > 0) { <span>-</span> }
                     <span class="@StatColor(build, stat)">@(StatNames.Letter(stat))@(stats[stat])</span>
@@ -375,7 +375,7 @@
                 Format = selectedFormat,
                 IsCritical = isCritical,
             };
-            result = new DamageCalculator(data.TypeChart).Calculate(lastRequest);
+            result = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart).Calculate(lastRequest);
         }
         catch (Exception ex)
         {
