@@ -297,14 +297,19 @@ public class DataAndCommandTests
     public async Task Field_tera_and_ability_tokens()
     {
         var command = new DamageCommand(TestData.Catalog());
-        var result = await command.ExecuteAsync("ガブリアス じしん ハバタクカミ 晴れ テラスじめん 防:こだいかっせい ふゆう");
+        var result = await command.ExecuteAsync("ガブリアス じしん ハバタクカミ 晴れ テラスじめん 防:こだいかっせい");
         Assert.True(result.Success, result.Message);
         var req = result.Request!;
         Assert.Equal(Weather.Sun, req.Weather);
         Assert.Equal("Ground", req.Attacker.TeraType);
         Assert.Equal("protosynthesis", req.Defender.Ability?.Identifier);
+        Assert.True(result.Damage!.MaxDamage > 0);
+
         // ふゆう はどちらも持てないので「防御的な特性」として防御側に付き、じしんが無効になる
-        Assert.Equal(0, result.Damage!.MaxDamage);
+        var immune = await command.ExecuteAsync("ガブリアス じしん ハバタクカミ ふゆう");
+        Assert.True(immune.Success, immune.Message);
+        Assert.Equal("levitate", immune.Request!.Defender.Ability?.Identifier);
+        Assert.Equal(0, immune.Damage!.MaxDamage);
     }
 
     [Fact]
