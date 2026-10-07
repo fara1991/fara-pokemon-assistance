@@ -33,12 +33,13 @@
         32
       ],
       "home": null,
-      "supplement_version_groups": [
+      "pokedex_id": 36,
+      "learnset_fallback_version_groups": [
         25,
         26,
         27
       ],
-      "supplement_note": "PokeAPI の champions 収録が追いつくまで、未収録のポケモンはスカーレット・バイオレットのデータで補完する（Provisional=1）"
+      "note": "収録ポケモンは PokeAPI の champions 図鑑 (pokedex 36)。champions の技データが無いポケモンは SV の技で補う。"
     }
   ]
 }

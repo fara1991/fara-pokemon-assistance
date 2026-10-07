@@ -172,10 +172,29 @@ class Builder:
         for r in api.table("pokemon_abilities"):
             # 通常特性をスロット順に、隠れ特性を最後に
             self.pokemon_abilities[r["pokemon_id"]].append((int(r["is_hidden"]), int(r["slot"]), r["ability_id"]))
+        self.dex_species: dict[str, set[str]] = defaultdict(set)
+        for r in api.table("pokemon_dex_numbers"):
+            self.dex_species[r["pokedex_id"]].add(r["species_id"])
         self.learnsets_by_vg: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
         for r in api.table("pokemon_moves"):
             self.learnsets_by_vg[r["version_group_id"]][r["pokemon_id"]].add(r["move_id"])
         self._flavor: dict[str, dict[int, str]] | None = None
+
+    # -- forms -----------------------------------------------------------------------------
+    EXCLUDED_FORM_WORDS = ("gmax", "totem", "starter", "cap", "cosplay", "partner", "eternamax", "-ash", "-eternal", "-belle", "-libre", "-phd", "-pop-star", "-rock-star")
+
+    def is_battle_form(self, pid: str) -> bool:
+        """対戦で意味のある別フォルムか（メガシンカ、性別差、種族値かタイプが違うフォルム）。"""
+        p = self.pokemon[pid]
+        if any(w in p["identifier"] for w in self.EXCLUDED_FORM_WORDS):
+            return False
+        form = self.forms_by_pokemon.get(pid)
+        if form and (form["is_mega"] == "1" or form["form_identifier"] in ("male", "female")):
+            return True
+        default = next((q for q in self.pokemon.values() if q["species_id"] == p["species_id"] and q["is_default"] == "1"), None)
+        if default is None:
+            return False
+        return self.stats.get(pid) != self.stats.get(default["id"]) or self.ptypes.get(pid) != self.ptypes.get(default["id"])
 
     # -- names -----------------------------------------------------------------------------
     def display_name(self, pid: str) -> str | None:
@@ -226,16 +245,33 @@ class Builder:
         if not pokemon_ids:
             raise SystemExit(f"{ds['key']}: no pokemon found for version groups {vgs}")
 
-        # 収録が追いついていないデータセット（チャンピオンズ）は別のバージョングループで補完し、
-        # 補完したポケモンには Provisional=1 を立てる。
         provisional: set[str] = set()
-        for vg in (str(v) for v in ds.get("supplement_version_groups", [])):
-            for pid, moves in self.learnsets_by_vg.get(vg, {}).items():
-                if pid in self.pokemon and pid not in learnset:
-                    learnset[pid] = set(moves)
-                    provisional.add(pid)
+        if ds.get("pokedex_id"):
+            # 図鑑を持つデータセット（チャンピオンズ）は図鑑に載っている種族をすべて収録する。
+            # 技データがまだ無いポケモンは learnset_fallback_version_groups（SV）の技で補う。
+            roster_species = self.dex_species.get(str(ds["pokedex_id"]), set())
+            fallback: dict[str, set[str]] = defaultdict(set)
+            for vg in (str(v) for v in ds.get("learnset_fallback_version_groups", [])):
+                for pid, moves in self.learnsets_by_vg.get(vg, {}).items():
+                    fallback[pid] |= moves
+            for pid, p in self.pokemon.items():
+                if p["species_id"] not in roster_species or pid in learnset:
+                    continue
+                if p["is_default"] != "1" and not self.is_battle_form(pid):
+                    continue
+                learnset[pid] = set(fallback.get(pid, ()))
+            # 図鑑に無い種族は（技データがあっても）収録しない
+            for pid in list(learnset):
+                if self.pokemon[pid]["species_id"] not in roster_species:
+                    del learnset[pid]
+        elif ds.get("supplement_version_groups"):
+            # 収録が追いついていないデータセットを別のバージョングループで補完し、Provisional=1 を立てる
+            for vg in (str(v) for v in ds["supplement_version_groups"]):
+                for pid, moves in self.learnsets_by_vg.get(vg, {}).items():
+                    if pid in self.pokemon and pid not in learnset:
+                        learnset[pid] = set(moves)
+                        provisional.add(pid)
         pokemon_ids = sorted(learnset, key=int)
-
         # Pokemon forms that share a species but have no learnset of their own
         # (e.g. mega forms in some games) inherit the default form's moves.
         default_of_species = {p["species_id"]: pid for pid, p in self.pokemon.items() if p["is_default"] == "1"}
@@ -368,19 +404,27 @@ def sync_home(builder: Builder, ds: dict, out_dir: Path) -> None:
     body = json.dumps({"soft": home["soft"]}).encode()
     seasons = json.loads(fetch(HOME_LIST_URL, data=body,
                                headers={"Content-Type": "application/json", "Accept": "application/json"}))
+    # list は { "41": { "<cId>": {rule, rst, cId, ts2, ...}, ... }, "40": {...} } という形。
     # 新しいシーズンから順に見て、形式ごとに「集計済み (rst == 2)」の最新シーズンを選ぶ。
-    # 一番新しいシーズンは開催中で集計が無いことが多い。
+    # 一番新しいシーズンは開催中 (rst == 0) で集計が無い。
     rules: dict[str, dict] = {}
     for _, season in sorted(((int(k), v) for k, v in seasons.get("list", {}).items() if k.isdigit()), reverse=True):
-        for rule in season.get("rule", []):
-            if rule.get("rst") != 2:
+        entries = list(season.values()) if isinstance(season, dict) else list(season)
+        for rule in entries:
+            if not isinstance(rule, dict) or rule.get("rst") != 2:
                 continue
             fmt = "singles" if rule.get("rule") == 0 else "doubles"
             rules.setdefault(fmt, rule)
         if len(rules) == 2:
             break
     if not rules:
-        log("  HOME: no completed season found")
+        log("  HOME: no completed season found; season list summary follows (season: rule/rst/cId)")
+        for num, season in sorted(((int(k), v) for k, v in seasons.get("list", {}).items() if k.isdigit()), reverse=True)[:6]:
+            entries = list(season.values()) if isinstance(season, dict) else list(season)
+            summary = ", ".join(f"{r.get('rule')}/{r.get('rst')}/{r.get('cId')}" for r in entries if isinstance(r, dict)) or str(season)[:300]
+            log(f"    {num}: {summary}")
+        top_keys = sorted(seasons.keys()) if isinstance(seasons, dict) else type(seasons).__name__
+        log(f"    response top-level keys: {top_keys}")
         return
     for fmt, rule in rules.items():
         base = HOME_RESOURCE_URL.format(resource=home["resource"], cid=rule["cId"], rst=rule["rst"], ts2=rule["ts2"])
