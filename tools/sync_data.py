@@ -380,7 +380,12 @@ def sync_home(builder: Builder, ds: dict, out_dir: Path) -> None:
         if len(rules) == 2:
             break
     if not rules:
-        log("  HOME: no completed season found")
+        log("  HOME: no completed season found; season list summary follows (season: rule/rst/cId)")
+        for num, season in sorted(((int(k), v) for k, v in seasons.get("list", {}).items() if k.isdigit()), reverse=True)[:6]:
+            summary = ", ".join(f"{r.get('rule')}/{r.get('rst')}/{r.get('cId')}" for r in season.get("rule", [])) or str(season)[:300]
+            log(f"    {num}: {summary}")
+        top_keys = sorted(seasons.keys()) if isinstance(seasons, dict) else type(seasons).__name__
+        log(f"    response top-level keys: {top_keys}")
         return
     for fmt, rule in rules.items():
         base = HOME_RESOURCE_URL.format(resource=home["resource"], cid=rule["cId"], rst=rule["rst"], ts2=rule["ts2"])
