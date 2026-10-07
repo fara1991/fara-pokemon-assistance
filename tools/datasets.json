@@ -1,0 +1,25 @@
+{
+  "datasets": [
+    {
+      "key": "Gen8",
+      "name": "第8世代（ソード・シールド）",
+      "generation": 8,
+      "version_groups": [20, 21, 22],
+      "home": null
+    },
+    {
+      "key": "Gen9",
+      "name": "第9世代（スカーレット・バイオレット）",
+      "generation": 9,
+      "version_groups": [25, 26, 27],
+      "home": { "soft": "Sw", "resource": "scvi" }
+    },
+    {
+      "key": "Champions",
+      "name": "ポケモンチャンピオンズ",
+      "generation": 9,
+      "version_groups": [32],
+      "home": null
+    }
+  ]
+}
