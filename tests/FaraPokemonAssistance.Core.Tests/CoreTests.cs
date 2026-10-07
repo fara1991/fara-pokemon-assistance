@@ -167,10 +167,11 @@ public class DataAndCommandTests
     public async Task Champions_command_example()
     {
         var command = new DamageCommand(TestData.Catalog());
-        var result = await command.ExecuteAsync("イエッサン♂ ワイドフォース メガリザードンX", new DamageCommandOptions { DataSetKey = "Champions" });
+        // PokeAPI の champions データに収録済みのポケモンで確認する（収録は段階的に増える）
+        var result = await command.ExecuteAsync("ガブ じしん メガリザX", new DamageCommandOptions { DataSetKey = "Champions" });
         Assert.True(result.Success, result.Message);
         Assert.NotNull(result.Damage);
-        Assert.Equal("イエッサン", result.Request!.Attacker.Pokemon.Name);
+        Assert.Equal("ガブリアス", result.Request!.Attacker.Pokemon.Name);
         Assert.Equal("メガリザードンX", result.Request.Defender.Pokemon.Name);
         Assert.True(result.Damage!.MinDamage > 0);
         Assert.True(result.Damage.MaxPercent > result.Damage.MinPercent);
@@ -197,8 +198,9 @@ public class DataAndCommandTests
     public async Task Dataset_word_switches_dataset()
     {
         var command = new DamageCommand(TestData.Catalog());
-        var result = await command.ExecuteAsync("champions イエッサン ワイドフォース メガリザードンX");
+        var result = await command.ExecuteAsync("champions ガブリアス じしん メガリザードンX");
         Assert.True(result.Success, result.Message);
+        Assert.Equal("メガリザードンX", result.Request!.Defender.Pokemon.Name);
     }
 
     [Fact]
