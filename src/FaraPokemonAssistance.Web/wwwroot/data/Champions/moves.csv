@@ -83,7 +83,6 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 105,じこさいせい,Normal,0,0,5,Status,Single,0,,0,細胞を 再生させて 自分の 最大ＨＰの 半分の ＨＰを 回復する。
 106,かたくなる,Normal,0,0,30,Status,Single,0,,0,全身に 力を こめて 体を 硬くして 自分の 防御を あげる。
 107,ちいさくなる,Normal,0,0,10,Status,Single,0,,0,体を ちぢめて 小さく みせて 自分の 回避率を ぐーんと あげる。
-108,えんまく,Normal,0,100,20,Status,Single,0,,0,煙や 墨などを 吹きかけて 相手の 命中率を さげる。
 109,あやしいひかり,Ghost,0,100,10,Status,Single,0,,0,怪しい 光を 相手に みせて まどわせる。 相手を 混乱させる。
 111,まるくなる,Normal,0,0,40,Status,Single,0,,0,体を まるめて ちぢこまり 自分の 防御を あげる。
 113,ひかりのかべ,Psychic,0,0,30,Status,Single,0,,0,５ターンの 間 不思議な かべで 相手から 受ける 特殊攻撃の ダメージを 弱める。

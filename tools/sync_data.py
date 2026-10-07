@@ -181,7 +181,7 @@ class Builder:
         self._flavor: dict[str, dict[int, str]] | None = None
 
     # -- forms -----------------------------------------------------------------------------
-    EXCLUDED_FORM_WORDS = ("gmax", "totem", "starter", "cap", "cosplay", "partner", "eternamax", "-belle", "-libre", "-phd", "-pop-star", "-rock-star")
+    EXCLUDED_FORM_WORDS = ("gmax", "totem", "starter", "cap", "cosplay", "partner", "eternamax", "-ash", "-eternal", "-belle", "-libre", "-phd", "-pop-star", "-rock-star")
 
     def is_battle_form(self, pid: str) -> bool:
         """対戦で意味のある別フォルムか（メガシンカ、性別差、種族値かタイプが違うフォルム）。"""

@@ -289,7 +289,6 @@ Id,Name,Type1,Type2,HP,Attack,Defense,SpAttack,SpDefense,Speed,Icon,SpeciesId,No
 10100,ライチュウ(アローラのすがた),Electric,Psychic,60,85,50,95,85,110,https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10100.png,26,0,207,0
 10104,キュウコン(アローラのすがた),Ice,Fairy,73,67,75,81,100,109,https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10104.png,38,0,81;117,0
 10108,ペルシアン(アローラのすがた),Dark,,65,60,60,75,65,115,https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10108.png,53,0,169;101;155,0
-10117,サトシゲッコウガ,Water,Dark,72,145,67,153,71,132,https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10117.png,658,0,210,0
 10126,ルガルガン(まよなかのすがた),Rock,,85,115,75,55,75,82,https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10126.png,745,0,51;72;99,0
 10143,ミミッキュ(ばれたすがた),Ghost,Fairy,55,90,80,50,105,96,https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10143.png,778,0,209,0
 10152,ルガルガン(たそがれのすがた),Rock,,75,117,65,55,65,110,https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10152.png,745,0,181,0
