@@ -368,16 +368,21 @@ def sync_home(builder: Builder, ds: dict, out_dir: Path) -> None:
     body = json.dumps({"soft": home["soft"]}).encode()
     seasons = json.loads(fetch(HOME_LIST_URL, data=body,
                                headers={"Content-Type": "application/json", "Accept": "application/json"}))
-    latest = max(((int(k), v) for k, v in seasons.get("list", {}).items() if k.isdigit()), default=None)
-    if latest is None:
-        log("  HOME: season list empty")
-        return
-    rules = [r for r in latest[1].get("rule", []) if r.get("rst") == 2]
+    # 新しいシーズンから順に見て、形式ごとに「集計済み (rst == 2)」の最新シーズンを選ぶ。
+    # 一番新しいシーズンは開催中で集計が無いことが多い。
+    rules: dict[str, dict] = {}
+    for _, season in sorted(((int(k), v) for k, v in seasons.get("list", {}).items() if k.isdigit()), reverse=True):
+        for rule in season.get("rule", []):
+            if rule.get("rst") != 2:
+                continue
+            fmt = "singles" if rule.get("rule") == 0 else "doubles"
+            rules.setdefault(fmt, rule)
+        if len(rules) == 2:
+            break
     if not rules:
-        log("  HOME: no completed season in the latest entry")
+        log("  HOME: no completed season found")
         return
-    for rule in rules:
-        fmt = "singles" if rule["rule"] == 0 else "doubles"
+    for fmt, rule in rules.items():
         base = HOME_RESOURCE_URL.format(resource=home["resource"], cid=rule["cId"], rst=rule["rst"], ts2=rule["ts2"])
         log(f"  HOME {fmt}: {base}")
         ranking = json.loads(fetch(base + "/pokemon"))

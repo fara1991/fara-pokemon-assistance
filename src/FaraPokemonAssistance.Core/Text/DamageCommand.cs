@@ -90,7 +90,7 @@ public sealed class DamageCommand
 
         // データセット名はトークンのどこにあっても拾う（例: !dmg champions ...）
         var dataSets = await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false);
-        var dataSetKey = options.DataSetKey;
+        var dataSetKey = await _catalog.ResolveDefaultKeyAsync(options.DataSetKey, ct).ConfigureAwait(false);
         var dataSetWords = DataSetWords(dataSets);
         for (var i = tokens.Count - 1; i >= 0; i--)
         {
@@ -111,11 +111,13 @@ public sealed class DamageCommand
         var abilityResolver = new NameResolver<Ability>(data.Abilities, a => a.Name);
 
         var attackerMatch = pokemonResolver.Resolve(tokens[0]);
-        if (!attackerMatch.IsResolved) return Fail(NotFound("ポケモン", tokens[0], attackerMatch.Candidates.Select(p => p.Name)));
+        if (!attackerMatch.IsResolved)
+            return Fail(NotFound("ポケモン", tokens[0], attackerMatch.Candidates.Select(p => p.Name)) + await ElsewhereHintAsync(tokens[0], data, dataSets, ct).ConfigureAwait(false));
         var moveMatch = moveResolver.Resolve(tokens[1]);
         if (!moveMatch.IsResolved) return Fail(NotFound("技", tokens[1], moveMatch.Candidates.Select(m => m.Name)));
         var defenderMatch = pokemonResolver.Resolve(tokens[2]);
-        if (!defenderMatch.IsResolved) return Fail(NotFound("ポケモン", tokens[2], defenderMatch.Candidates.Select(p => p.Name)));
+        if (!defenderMatch.IsResolved)
+            return Fail(NotFound("ポケモン", tokens[2], defenderMatch.Candidates.Select(p => p.Name)) + await ElsewhereHintAsync(tokens[2], data, dataSets, ct).ConfigureAwait(false));
 
         var move = moveMatch.Value!;
         if (!move.IsDamaging)
@@ -431,6 +433,22 @@ public sealed class DamageCommand
         {
             if (byName.Contains(name)) yield return (alias, name);
         }
+    }
+
+    /// <summary>別のデータセットにその名前があれば、切り替え方を案内する。</summary>
+    private async Task<string> ElsewhereHintAsync(string query, PokemonDataSet current, IReadOnlyList<DataSetInfo> dataSets, CancellationToken ct)
+    {
+        foreach (var info in dataSets.Reverse())
+        {
+            if (info.Key == current.Info.Key) continue;
+            PokemonDataSet other;
+            try { other = await _catalog.GetDataSetAsync(info.Key, ct).ConfigureAwait(false); }
+            catch { continue; }
+            var match = new NameResolver<Pokemon>(other.Pokemon, p => p.Name, PokemonAliases(other)).Resolve(query);
+            if (match.IsResolved)
+                return $"（{match.Value!.Name}は「{info.Name}」のデータにあります。現在は「{current.Info.Name}」です。コマンドに {info.Key.ToLowerInvariant()} を足すか、データを切り替えてください）";
+        }
+        return "";
     }
 
     private static string NotFound(string kind, string query, IEnumerable<string> candidates)
