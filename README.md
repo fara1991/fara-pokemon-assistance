@@ -1,163 +1,103 @@
 # FaraPokemonAssistance
 
-ポケモンダメージ計算を行うC#/.NET Blazor APIプロジェクト
+ポケモンのダメージ計算を **ブラウザ**（GitHub Pages）と **Twitch チャットのコマンド**（FaraBotModerator）の両方から使えるようにするプロジェクトです。
 
-## 機能
+- Web: https://fara1991.github.io/fara-pokemon-assistance/
+- チャット: `!dmg イエッサン♂ ワイドフォース メガリザードンX` → `イエッサン(C252 ひかえめ こだわりメガネ) ワイドフォース → メガリザードンX(H252 いじっぱり HP185): 61.6〜72.9% (114〜135) 確定2発 [効果抜群(2倍)]` のような 1 行が返ります。
 
-- CSVファイルベースのデータ管理（データベース不要）
-- 持ち物効果の考慮
-- タイプ相性（弱点・効果なし・いまひとつ）の計算
-- ポケモンの種族値・個体値・努力値を考慮した実数値計算
-- 世代別データ対応（Gen1-9）
-- RESTful API エンドポイント
-
-## 技術スタック
-
-- C# / .NET 8.0
-- ASP.NET Core Web API
-- Blazor Server（管理画面用）
-- CSV データファイル
-
-## セットアップ手順
-
-### 前提条件
-
-- .NET 8.0 SDK
-- Git
-
-### インストール
-
-1. リポジトリをクローン
-```bash
-git clone https://github.com/fara1991/fara-pokemon-assistance.git
-cd fara-pokemon-assistance
-```
-
-2. 依存関係の復元
-```bash
-dotnet restore
-```
-
-3. プロジェクトのビルド
-```bash
-dotnet build
-```
-
-4. アプリケーションの実行
-```bash
-dotnet run
-```
-
-5. ブラウザで以下のURLにアクセス
-- API Swagger: `https://localhost:5001/swagger`
-- Blazor管理画面: `https://localhost:5001`
-
-## API エンドポイント
-
-### ダメージ計算
-
-```http
-POST /api/damage/calculate
-Content-Type: application/json
-
-{
-  "attackerPokemonId": 1,
-  "defenderPokemonId": 2,
-  "moveId": 1,
-  "generation": 9,
-  "attacker": {
-    "level": 50,
-    "ivs": { "hp": 31, "attack": 31, "defense": 31, "spAttack": 31, "spDefense": 31, "speed": 31 },
-    "evs": { "hp": 0, "attack": 252, "defense": 0, "spAttack": 0, "spDefense": 0, "speed": 252 },
-    "nature": "Adamant",
-    "itemId": 1
-  },
-  "defender": {
-    "level": 50,
-    "ivs": { "hp": 31, "attack": 31, "defense": 31, "spAttack": 31, "spDefense": 31, "speed": 31 },
-    "evs": { "hp": 252, "attack": 0, "defense": 252, "spAttack": 0, "spDefense": 0, "speed": 0 },
-    "nature": "Bold",
-    "itemId": 2
-  }
-}
-```
-
-### ポケモン一覧取得
-
-```http
-GET /api/pokemon?generation=9
-```
-
-### 技一覧取得
-
-```http
-GET /api/moves?generation=9
-```
-
-### アイテム一覧取得
-
-```http
-GET /api/items?generation=9
-```
-
-## データ構造
-
-### CSVファイル構成
-
-- `Data/Gen{X}/pokemon.csv` - ポケモンの基本情報・種族値
-- `Data/Gen{X}/moves.csv` - 技の情報
-- `Data/Gen{X}/items.csv` - アイテム情報
-- `Data/Gen{X}/type_effectiveness.csv` - タイプ相性表
-- `Data/natures.csv` - 性格補正（全世代共通）
-
-### ダメージ計算式
-
-第9世代の計算式を基準とし、世代に応じて調整：
-
-```
-ダメージ = ((((レベル × 2 ÷ 5 + 2) × 威力 × 攻撃 ÷ 防御) ÷ 50) + 2) × 補正
-```
-
-補正要素：
-- タイプ相性
-- タイプ一致ボーナス
-- 急所
-- 乱数（0.85~1.00）
-- アイテム効果
-- その他の効果
-
-## プロジェクト構造
+## 構成
 
 ```
 fara-pokemon-assistance/
-├── Controllers/         # API コントローラー
-├── Models/             # データモデル
-├── Services/           # ビジネスロジック
-├── Data/               # CSV データファイル
-│   ├── Gen1/
-│   ├── Gen2/
-│   └── ...
-├── Components/         # Blazor コンポーネント
-└── Pages/              # Blazor ページ
+├── src/
+│   ├── FaraPokemonAssistance.Core/   計算ロジック・CSV 読み込み・名前解決・!dmg コマンド解析（クラスライブラリ）
+│   ├── FaraPokemonAssistance.Web/    Blazor WebAssembly（GitHub Pages に公開）
+│   │   └── wwwroot/data/             ★ データ CSV。Web もボットもこのファイルを読む
+│   └── FaraPokemonAssistance.Cli/    コマンドをターミナルで試す / ボット組み込み前の動作確認用
+├── tests/FaraPokemonAssistance.Core.Tests/
+├── tools/
+│   ├── sync_data.py                  PokeAPI と ポケモン HOME からデータを再生成するスクリプト
+│   ├── datasets.json                 データセット定義（世代・バージョングループ・HOME 設定）
+│   └── item_effects.csv              持ち物の効果（手入力）
+└── .github/workflows/
+    ├── build.yml                     ビルド・テスト・NuGet パッケージ化
+    ├── pages.yml                     master へ push されたら GitHub Pages に公開
+    └── update-data.yml               毎週月曜にデータを再生成してコミット
 ```
+
+サーバーは存在しません。計算は Web ではブラウザ内、ボットでは FaraBotModerator のプロセス内で行います。
+ボットは `Core` を参照し、データは GitHub Pages 上の CSV（週 1 回自動更新）を取得してローカルにキャッシュします。
+
+## データ
+
+| データセット | 内容 | 元データ |
+|---|---|---|
+| `Gen8` | ソード・シールド（鎧の孤島・冠の雪原含む） | PokeAPI |
+| `Gen9` | スカーレット・バイオレット（DLC 含む） | PokeAPI + ポケモン HOME ランクバトル使用率 |
+| `Champions` | ポケモンチャンピオンズ（メガシンカ含む） | PokeAPI（`version_group = champions`） |
+
+- ポケモン・技・持ち物・覚える技・タイプ相性は [PokeAPI の CSV ダンプ](https://github.com/PokeAPI/pokeapi/tree/master/data/v2/csv) から生成します。REST API は叩きません（週 1 回のバルク取得のみ）。
+- ID は PokeAPI と同じです。フォルム違い（メガリザードンX = 10034、イエッサン(♀) = 10186 など）も PokeAPI の ID をそのまま使います。
+- 第9世代の `usage_*.csv` は HOME のランクバトル最新シーズンから生成します。チャンピオンズの使用率は取得元が確定していないため、現状は未設定です（`tools/datasets.json` の `home` に設定を足せば同じスクリプトで取得できます）。
+- 手動で更新する場合: `python tools/sync_data.py`（HOME を飛ばすなら `--skip-home`）。
+
+## チャットコマンド `!dmg`
+
+```
+!dmg 攻撃側 技 防御側 [オプション...]
+```
+
+| 書き方 | 意味 |
+|---|---|
+| `A252` `C252` `S4` | 攻撃側の努力値 |
+| `H252` `B4` `D252` | 防御側の努力値 |
+| `いじっぱり` などの性格 | 上昇補正が攻撃・特攻・素早さなら攻撃側、防御・特防なら防御側 |
+| `こだわりメガネ` などの持ち物 | とつげきチョッキ・しんかのきせきは防御側、それ以外は攻撃側 |
+| `攻:` / `防:` | 側を明示（例: `防:ずぶとい` `防:たべのこし` `防:+1`） |
+| `+1`〜`+6` / `-1`〜`-6` | 攻撃側の攻撃ランク |
+| `急所` `ダブル` `シングル` `Lv100` `無振り` | そのまま |
+| `champions` `SV` `剣盾` | データセットの切り替え |
+
+指定しなかった項目は「攻撃側は攻撃技に応じて A or C に 252、防御側は H252、性格と持ち物は使用率 1 位」で埋め、結果の括弧内に明記します。
+名前はカタカナ・ひらがな・前方一致・略称（`メガリザX`、`ガブ` など）で解決し、曖昧なときは候補を返します。
+
+ブラウザの「チャットコマンド」ページで同じ文字列を試せます。ターミナルなら:
+
+```bash
+dotnet run --project src/FaraPokemonAssistance.Cli -- champions イエッサン♂ ワイドフォース メガリザードンX
+```
+
+## FaraBotModerator への組み込み
+
+[docs/bot-integration.md](docs/bot-integration.md) を参照してください。要点:
+
+1. `FaraBotModerator.csproj` から `FaraPokemonAssistance.Core` を参照する（隣に clone して `ProjectReference`、または CI の成果物 `.nupkg`）。
+2. 起動時に `DataCatalog` を 1 つ作る。データ元は GitHub Pages の URL + ローカルキャッシュ。
+3. `OnMessageReceived` で `!dmg` を見つけたら `DamageCommand.ExecuteAsync` の結果をそのまま `SendMessage`。
 
 ## 開発
 
-### 新しい世代の追加
+```bash
+dotnet build FaraPokemonAssistance.sln
+dotnet test tests/FaraPokemonAssistance.Core.Tests
+dotnet run --project src/FaraPokemonAssistance.Web      # http://localhost:5xxx
+```
 
-1. `Data/Gen{X}/` フォルダを作成
-2. 必要なCSVファイルを配置
-3. `GenerationService` を更新
+### 計算で考慮しているもの
 
-### カスタム計算式の追加
+実数値（種族値・個体値・努力値・性格 1.1/0.9 倍）、ランク補正、急所、タイプ一致、タイプ相性、ダブルの複数対象 0.75 倍、
+持ち物（こだわり系・いのちのたま・たつじんのおび・タイプ強化・プレート・ちからのハチマキ・ものしりメガネ・とつげきチョッキ・しんかのきせき・でんきだま・ふといホネ）、五捨五超入。
+乱数 16 通りをすべて計算し、確定数（乱数 N 発の確率は畳み込みで厳密に算出）を出します。
 
-`Services/DamageCalculationService.cs` を編集してください。
+### まだ無いもの
+
+特性、天候・フィールド、テラスタル、やけど、壁、きのみ・回復を考慮した確定数。
+
+## GitHub Pages の初回設定
+
+リポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** にしてください。
+以後は `master` への push で `pages.yml` が自動デプロイします。
 
 ## ライセンス
 
-MIT License
-
-## 貢献
-
-Pull Request や Issue の報告を歓迎します。
-GitHub Actions により、Issue作成時に自動的に機能実装のPRが作成されます。
+MIT License。ポケモンのデータは [PokeAPI](https://pokeapi.co/)（BSD-3）および株式会社ポケモンの公開情報に基づきます。

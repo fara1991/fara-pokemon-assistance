@@ -1,0 +1,45 @@
+name: Update Pokémon data
+
+on:
+  schedule:
+    # 毎週月曜 03:17 UTC（12:17 JST）。HOME のシーズン集計は月初めに切り替わるが週次で十分追従できる。
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      skip_home:
+        description: "Pokémon HOME の使用率取得をスキップする"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync data from PokeAPI and Pokémon HOME
+        run: |
+          if [ "${{ inputs.skip_home }}" = "true" ]; then
+            python tools/sync_data.py --skip-home
+          else
+            python tools/sync_data.py
+          fi
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/FaraPokemonAssistance.Web/wwwroot/data
+          if git diff --cached --quiet; then
+            echo "No data changes."
+            exit 0
+          fi
+          git commit -m "data: weekly sync from PokeAPI / Pokémon HOME ($(date -u +%Y-%m-%d))"
+          git push

@@ -1,0 +1,37 @@
+name: Build and test
+
+on:
+  push:
+    branches-ignore: [gh-pages]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore FaraPokemonAssistance.sln
+
+      - name: Build
+        run: dotnet build FaraPokemonAssistance.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test tests/FaraPokemonAssistance.Core.Tests --configuration Release --no-build --logger "trx;LogFileName=results.trx"
+
+      - name: Publish web (sanity check)
+        run: dotnet publish src/FaraPokemonAssistance.Web --configuration Release --no-build --output artifacts/web
+
+      - name: Pack Core
+        run: dotnet pack src/FaraPokemonAssistance.Core --configuration Release --no-build --output artifacts/nuget
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FaraPokemonAssistance.Core-nupkg
+          path: artifacts/nuget/*.nupkg

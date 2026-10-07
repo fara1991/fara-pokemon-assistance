@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>FaraPokemonAssistance.Core</RootNamespace>
+    <PackageId>FaraPokemonAssistance.Core</PackageId>
+    <Version>0.2.0</Version>
+    <Authors>Fara</Authors>
+    <Description>ポケモンのダメージ計算・データ読み込み・チャットコマンド解析（Web とボットの共通ライブラリ）</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/fara1991/fara-pokemon-assistance</RepositoryUrl>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+</Project>
