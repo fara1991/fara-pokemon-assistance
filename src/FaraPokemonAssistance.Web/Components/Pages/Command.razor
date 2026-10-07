@@ -68,8 +68,7 @@
     protected override async Task OnInitializedAsync()
     {
         dataSets = await Catalog.GetDataSetsAsync();
-        if (dataSets.Count > 0 && dataSets.All(d => d.Key != dataSetKey))
-            dataSetKey = dataSets[^1].Key;
+        dataSetKey = await Catalog.ResolveDefaultKeyAsync();
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)

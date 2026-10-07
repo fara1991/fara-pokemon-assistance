@@ -190,8 +190,7 @@
         try
         {
             dataSets = await Catalog.GetDataSetsAsync();
-            if (dataSets.Count > 0 && dataSets.All(d => d.Key != selectedDataSet))
-                selectedDataSet = dataSets[^1].Key;
+            selectedDataSet = await Catalog.ResolveDefaultKeyAsync();
             await LoadDataSet();
         }
         catch (Exception ex)

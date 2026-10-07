@@ -15,8 +15,20 @@ public sealed class DataCatalog
     private Task<IReadOnlyList<Nature>>? _natures;
     private readonly Dictionary<string, Task<PokemonDataSet>> _loaded = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>何も指定されなかったときに使うデータセットのキー。</summary>
-    public const string DefaultDataSetKey = "Gen9";
+    /// <summary>何も指定されなかったときに使うデータセットのキー（存在しなければ <see cref="ResolveDefaultKeyAsync"/> が別のものを返す）。</summary>
+    public const string DefaultDataSetKey = "Champions";
+
+    /// <summary>既定キーが存在すればそれ、無ければ一覧の最後（最新）のキー。</summary>
+    public async Task<string> ResolveDefaultKeyAsync(string? preferred = null, CancellationToken ct = default)
+    {
+        var sets = await GetDataSetsAsync(ct).ConfigureAwait(false);
+        foreach (var key in new[] { preferred, DefaultDataSetKey })
+        {
+            if (key is not null && sets.Any(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase)))
+                return key;
+        }
+        return sets.Count > 0 ? sets[^1].Key : DefaultDataSetKey;
+    }
 
     public DataCatalog(IDataSource source)
     {

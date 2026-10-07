@@ -269,7 +269,7 @@ public class DataAndCommandTests
     public async Task Gen9_command_uses_usage_defaults_and_options()
     {
         var command = new DamageCommand(TestData.Catalog());
-        var result = await command.ExecuteAsync("ガブリアス じしん ハバタクカミ 防:ずぶとい H252 B252 +2 急所 ダブル");
+        var result = await command.ExecuteAsync("ガブリアス じしん ハバタクカミ 防:ずぶとい H252 B252 +2 急所 ダブル", new DamageCommandOptions { DataSetKey = "Gen9" });
         Assert.True(result.Success, result.Message);
         var req = result.Request!;
         Assert.Equal(252, req.Defender.EVs.HP);
@@ -297,7 +297,8 @@ public class DataAndCommandTests
     public async Task Field_tera_and_ability_tokens()
     {
         var command = new DamageCommand(TestData.Catalog());
-        var result = await command.ExecuteAsync("ガブリアス じしん ハバタクカミ 晴れ テラスじめん 防:こだいかっせい");
+        var gen9 = new DamageCommandOptions { DataSetKey = "Gen9" };
+        var result = await command.ExecuteAsync("ガブリアス じしん ハバタクカミ 晴れ テラスじめん 防:こだいかっせい", gen9);
         Assert.True(result.Success, result.Message);
         var req = result.Request!;
         Assert.Equal(Weather.Sun, req.Weather);
@@ -306,7 +307,7 @@ public class DataAndCommandTests
         Assert.True(result.Damage!.MaxDamage > 0);
 
         // ふゆう はどちらも持てないので「防御的な特性」として防御側に付き、じしんが無効になる
-        var immune = await command.ExecuteAsync("ガブリアス じしん ハバタクカミ ふゆう");
+        var immune = await command.ExecuteAsync("ガブリアス じしん ハバタクカミ ふゆう", gen9);
         Assert.True(immune.Success, immune.Message);
         Assert.Equal("levitate", immune.Request!.Defender.Ability?.Identifier);
         Assert.Equal(0, immune.Damage!.MaxDamage);
@@ -319,6 +320,24 @@ public class DataAndCommandTests
         var result = await command.ExecuteAsync("champions ガブリアス じしん メガリザードンX");
         Assert.True(result.Success, result.Message);
         Assert.Equal("メガリザードンX", result.Request!.Defender.Pokemon.Name);
+    }
+
+    [Fact]
+    public async Task Missing_name_hints_other_dataset()
+    {
+        var command = new DamageCommand(TestData.Catalog());
+        var result = await command.ExecuteAsync("ガブリアス じしん メガリザードンX", new DamageCommandOptions { DataSetKey = "Gen9" });
+        Assert.False(result.Success);
+        Assert.Contains("ポケモンチャンピオンズ", result.Message);
+        Assert.Contains("champions", result.Message);
+    }
+
+    [Fact]
+    public async Task Default_dataset_is_champions()
+    {
+        var command = new DamageCommand(TestData.Catalog());
+        var result = await command.ExecuteAsync("ガブリアス じしん メガリザードンX");
+        Assert.True(result.Success, result.Message);
     }
 
     [Fact]
