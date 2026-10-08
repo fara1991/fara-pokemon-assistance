@@ -30,11 +30,10 @@ jobs:
       - name: Publish Blazor WebAssembly
         run: dotnet publish src/FaraPokemonAssistance.Web --configuration Release --output publish
 
-      # GitHub Pages serves the site under /<repository>/ so the <base href> must match.
-      - name: Rewrite base href for project pages
+      # The site is served from the root of the custom domain (pokemon.app-fara.com),
+      # so the default <base href="/" /> is kept as-is.
+      - name: Prepare SPA fallback
         run: |
-          REPO_NAME="${GITHUB_REPOSITORY#*/}"
-          sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/\" />|" publish/wwwroot/index.html
           cp publish/wwwroot/index.html publish/wwwroot/404.html
           touch publish/wwwroot/.nojekyll
 
