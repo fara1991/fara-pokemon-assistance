@@ -81,25 +81,39 @@ public sealed class CachingDataSource : IDataSource
         if (File.Exists(missingMarker) && DateTime.UtcNow - File.GetLastWriteTimeUtc(missingMarker) < _maxAge)
             return null;
 
+        string? text;
         try
         {
-            var text = await _inner.ReadTextAsync(relativePath, cancellationToken).ConfigureAwait(false);
-            Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
-            if (text is null)
-            {
-                await File.WriteAllTextAsync(missingMarker, string.Empty, cancellationToken).ConfigureAwait(false);
-                return null;
-            }
-            await File.WriteAllTextAsync(cachePath, text, cancellationToken).ConfigureAwait(false);
-            if (File.Exists(missingMarker))
-                File.Delete(missingMarker);
-            return text;
+            text = await _inner.ReadTextAsync(relativePath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (IsTransient(ex, cancellationToken) && File.Exists(cachePath))
         {
             // ネットワーク断・HttpClient のタイムアウト（TaskCanceledException）などは古いキャッシュで続行する。
             return await File.ReadAllTextAsync(cachePath, cancellationToken).ConfigureAwait(false);
         }
+
+        // 取得できたらキャッシュを更新する。書き込みに失敗しても取得した内容はそのまま返す。
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
+            if (text is null)
+            {
+                await File.WriteAllTextAsync(missingMarker, string.Empty, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await File.WriteAllTextAsync(cachePath, text, cancellationToken).ConfigureAwait(false);
+                if (File.Exists(missingMarker))
+                    File.Delete(missingMarker);
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+        return text;
     }
 
     /// <summary>

@@ -689,12 +689,12 @@ public class DataSourceTests
     {
         var real = new FileDataSource(TestData.DataDirectory);
         var inner = new ScriptedSource { Handler = (path, ct) => real.ReadTextAsync(path, ct) };
-        var catalog = new DataCatalog(inner, TimeSpan.FromMilliseconds(500));
+        var catalog = new DataCatalog(inner, TimeSpan.FromSeconds(2));
         await catalog.GetNaturesAsync();
         await catalog.GetNaturesAsync();
         Assert.Equal(1, inner.Calls);
 
-        await Task.Delay(700);
+        await Task.Delay(3000);
         await catalog.GetNaturesAsync();
         Assert.Equal(2, inner.Calls);
     }

@@ -15,16 +15,18 @@ public sealed class DataCatalog
     private Task<IReadOnlyList<Nature>>? _natures;
     private readonly Dictionary<string, Task<PokemonDataSet>> _loaded = new(StringComparer.OrdinalIgnoreCase);
     private readonly TimeSpan? _reloadInterval;
-    private DateTime _loadedAtUtc = DateTime.UtcNow;
+    private long _loadedAtTicks = Environment.TickCount64;
 
     /// <summary>
-    /// <paramref name="reloadInterval"/> を指定すると、最後に読み込みを始めてからその時間が経過した次の呼び出しで
+    /// <paramref name="reloadInterval"/> を指定すると、生成（または前回の破棄）からその時間が経過した次の呼び出しで
     /// 全データを読み直す（長時間起動するボットが週次更新のデータを取り込めるようにする）。
     /// 読み込み中に例外になったデータは保持せず、次の呼び出しで再試行する。
     /// </summary>
     public DataCatalog(IDataSource source, TimeSpan? reloadInterval)
         : this(source)
     {
+        if (reloadInterval is { } v && v <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(reloadInterval), "再読み込み間隔は正の値にしてください");
         _reloadInterval = reloadInterval;
     }
 
@@ -98,13 +100,13 @@ public sealed class DataCatalog
         _dataSets = null;
         _natures = null;
         _loaded.Clear();
-        _loadedAtUtc = DateTime.UtcNow;
+        _loadedAtTicks = Environment.TickCount64;
     }
 
     /// <summary>_gate を取った状態で呼ぶ。再読み込み間隔を過ぎていればキャッシュを捨てる。</summary>
     private void ExpireIfDue()
     {
-        if (_reloadInterval is { } interval && DateTime.UtcNow - _loadedAtUtc >= interval)
+        if (_reloadInterval is { } interval && Environment.TickCount64 - _loadedAtTicks >= (long)interval.TotalMilliseconds)
             InvalidateCore();
     }
 
