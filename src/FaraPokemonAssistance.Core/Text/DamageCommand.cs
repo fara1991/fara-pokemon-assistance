@@ -76,7 +76,7 @@ public sealed class DamageCommand
         new(data.Pokemon, p => p.Name, PokemonAliases(data));
 
     public static string Usage =>
-        "使い方: !dmg 攻撃側 技 防御側 [A252 H252 性格 持ち物 特性 テラスほのお 晴れ サイコ +1 急所 ダブル ...]  例: !dmg イエッサン♂ ワイドフォース メガリザードンX サイコ";
+        "使い方: !dmg 攻撃側 技 防御側 [A252 H252 性格 持ち物 特性 テラスほのお 晴れ サイコフィールド +1 急所 ダブル ...]  例: !dmg イエッサン♂ ワイドフォース メガリザードンX サイコフィールド";
 
     public async Task<DamageCommandResult> ExecuteAsync(string argumentText, DamageCommandOptions? options = null, CancellationToken ct = default)
     {

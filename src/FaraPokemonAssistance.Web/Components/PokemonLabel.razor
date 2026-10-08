@@ -1,16 +1,16 @@
 @* ポケモンの画像・名前・タイプアイコンを 1 行で表示する。 *@
-@if (Pokemon is not null)
+@if (Shown is not null)
 {
     <span class="poke-label">
-        <PokemonIcon Pokemon="Pokemon" Small="@Small" />
-        <strong>@Pokemon.Name</strong>
+        <PokemonIcon Pokemon="Shown" Small="@Small" />
+        <strong>@Shown.Name</strong>
         @if (Build is not null)
         {
             <PokemonTypes Build="Build" Small="true" />
         }
         else
         {
-            <PokemonTypes Pokemon="Pokemon" Small="true" />
+            <PokemonTypes Pokemon="Shown" Small="true" />
         }
     </span>
 }
@@ -20,8 +20,6 @@
     [Parameter] public PokemonBuild? Build { get; set; }
     [Parameter] public bool Small { get; set; }
 
-    protected override void OnParametersSet()
-    {
-        if (Pokemon is null && Build is not null) Pokemon = Build.Pokemon;
-    }
+    // 毎回 Build から求める（パラメーターに代入すると、次に Build が変わっても前のポケモンが残る）
+    private Pokemon? Shown => Build?.Pokemon ?? Pokemon;
 }
