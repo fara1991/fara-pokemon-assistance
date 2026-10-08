@@ -39,13 +39,14 @@
         32
       ],
       "home": null,
+      "usage_fallback": "Gen9",
       "pokedex_id": 36,
       "learnset_fallback_version_groups": [
         25,
         26,
         27
       ],
-      "note": "収録ポケモンは champions 図鑑 (pokedex 36)。champions の技データが無いポケモンは SV の技で補う。",
+      "note": "収録ポケモンは champions 図鑑 (pokedex 36)。champions の技データが無いポケモンは SV の技で補う。使用率は HOME に無いので SV のものを並び順に使う。",
       "ev_system": "Points",
       "command_prefix": "pokech",
       "gimmick": "None"

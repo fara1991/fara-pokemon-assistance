@@ -147,6 +147,7 @@ public sealed class DataCatalog
                 EvSystem = evSystem,
                 CommandPrefix = prefix,
                 Gimmick = gimmick,
+                UsageFallback = table.HasColumn("UsageFallback") ? table.Get(row, "UsageFallback") : "",
             };
         }).ToList();
     }

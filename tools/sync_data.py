@@ -554,9 +554,10 @@ def main() -> None:
     api = PokeApi(Path(args.cache))
     builder = Builder(api)
 
-    write_csv(OUT_ROOT / "datasets.csv", ["Key", "Name", "Generation", "EvSystem", "CommandPrefix", "Gimmick"],
+    write_csv(OUT_ROOT / "datasets.csv",
+              ["Key", "Name", "Generation", "EvSystem", "CommandPrefix", "Gimmick", "UsageFallback"],
               [[d["key"], d["name"], d["generation"], d.get("ev_system", "Classic"), d.get("command_prefix", ""),
-                d.get("gimmick", "None")]
+                d.get("gimmick", "None"), d.get("usage_fallback", "")]
                for d in config["datasets"]])
     # 最終更新日時（ホーム画面に表示する）
     (OUT_ROOT / "updated.txt").write_text(
