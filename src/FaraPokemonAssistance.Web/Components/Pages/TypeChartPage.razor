@@ -54,16 +54,16 @@
 
 <div class="matchup-panel">
     <div class="card">
-        <div class="card-header"><h5>ポケモンとの相性 <Help Title="ポケモンとの相性">選んだポケモンを相手にしたとき、タイプ一致技で抜群を取れて抜群を取られないポケモンを「強い」、抜群を取られて抜群を取れないポケモンを「弱い」として出します。倍率の大きい順、同じ倍率なら使用率の高い順です。特性・持ち物・テラスタルやタイプ一致でない技は考えていません。</Help></h5></div>
+        <div class="card-header"><h5>ポケモンとの相性 <Help Title="ポケモンとの相性">選んだポケモンから見て、タイプ一致技で抜群を取れて抜群を取られない相手を「強い相手」、抜群を取られて抜群を取れない相手を「弱い相手」として出します。倍率の大きい順、同じ倍率なら使用率の高い順です。特性・持ち物・テラスタルやタイプ一致でない技は考えていません。</Help></h5></div>
         <div class="card-body">
             <div class="form-group mb-2">
-                <label>相手のポケモン</label>
+                <label>ポケモン</label>
                 <SearchableSelect TItem="Pokemon"
                     Items="pokemonList"
                     DisplayText="@(p => p.Name)"
                     ValueSelector="@(p => p.Id.ToString())"
-                    SelectedValue="@(target?.Id.ToString() ?? "")"
-                    SelectedValueChanged="@OnTargetChanged"
+                    SelectedValue="@(selected?.Id.ToString() ?? "")"
+                    SelectedValueChanged="@OnSelectedChanged"
                     Placeholder="ポケモン名を入力...">
                     <ItemTemplate Context="p">
                         <PokemonIcon Pokemon="p" Small="true" />
@@ -72,15 +72,15 @@
                     </ItemTemplate>
                 </SearchableSelect>
             </div>
-            @if (target is not null && chart is not null)
+            @if (selected is not null && chart is not null)
             {
-                <div class="mb-3"><PokemonLabel Pokemon="target" /></div>
-                @MatchupList("強いポケモン", "相手に抜群を取れて、抜群を取られない", strong, e => $"与 {Times(e.Offense)} / 受 {Times(e.Defense)}")
-                @MatchupList("弱いポケモン", "相手に抜群を取られて、抜群を取れない", weak, e => $"受 {Times(e.Defense)} / 与 {Times(e.Offense)}")
+                <div class="mb-3"><PokemonLabel Pokemon="selected" /></div>
+                @MatchupList("強い相手", "抜群を取れて、抜群を取られない", advantage, e => $"与 {Times(e.Offense)} / 受 {Times(e.Defense)}")
+                @MatchupList("弱い相手", "抜群を取られて、抜群を取れない", disadvantage, e => $"受 {Times(e.Defense)} / 与 {Times(e.Offense)}")
             }
             else
             {
-                <p class="text-muted small mb-0">ポケモンを選ぶと、そのポケモンに強いポケモンと弱いポケモンが表示されます。</p>
+                <p class="text-muted small mb-0">ポケモンを選ぶと、そのポケモンが強い相手と弱い相手が表示されます。</p>
             }
         </div>
     </div>
@@ -91,7 +91,7 @@
     private sealed class State
     {
         public string DataSetKey { get; set; } = "";
-        public int TargetId { get; set; }
+        public int PokemonId { get; set; }
     }
 
     private State s = new();
@@ -99,9 +99,9 @@
     private string? hoverRow;
     private string? hoverCol;
     private IReadOnlyList<Pokemon> pokemonList = Array.Empty<Pokemon>();
-    private Pokemon? target;
-    private IReadOnlyList<TypeMatchup.Entry> strong = Array.Empty<TypeMatchup.Entry>();
-    private IReadOnlyList<TypeMatchup.Entry> weak = Array.Empty<TypeMatchup.Entry>();
+    private Pokemon? selected;
+    private IReadOnlyList<TypeMatchup.Entry> advantage = Array.Empty<TypeMatchup.Entry>();
+    private IReadOnlyList<TypeMatchup.Entry> disadvantage = Array.Empty<TypeMatchup.Entry>();
 
     protected override Task OnAppReadyAsync()
     {
@@ -122,23 +122,23 @@
         if (s.DataSetKey != App.DataSetKey)
         {
             s.DataSetKey = App.DataSetKey;
-            s.TargetId = 0;
+            s.PokemonId = 0;
         }
         Refresh();
     }
 
-    private void OnTargetChanged(string value)
+    private void OnSelectedChanged(string value)
     {
-        s.TargetId = int.TryParse(value, out var id) ? id : 0;
+        s.PokemonId = int.TryParse(value, out var id) ? id : 0;
         Refresh();
     }
 
     private void Refresh()
     {
-        target = pokemonList.FirstOrDefault(p => p.Id == s.TargetId);
-        (strong, weak) = target is null || chart is null
+        selected = pokemonList.FirstOrDefault(p => p.Id == s.PokemonId);
+        (advantage, disadvantage) = selected is null || chart is null
             ? (Array.Empty<TypeMatchup.Entry>(), Array.Empty<TypeMatchup.Entry>())
-            : TypeMatchup.Against(chart, target, pokemonList);
+            : TypeMatchup.For(chart, selected, pokemonList);
     }
 
     private RenderFragment MatchupList(string title, string note, IReadOnlyList<TypeMatchup.Entry> entries, Func<TypeMatchup.Entry, string> detail) => __builder =>
@@ -155,9 +155,9 @@
                 @foreach (var e in entries)
                 {
                     <li>
-                        <PokemonIcon Pokemon="e.Pokemon" Small="true" />
-                        <span>@e.Pokemon.Name</span>
-                        <PokemonTypes Pokemon="e.Pokemon" Small="true" />
+                        <PokemonIcon Pokemon="e.Opponent" Small="true" />
+                        <span>@e.Opponent.Name</span>
+                        <PokemonTypes Pokemon="e.Opponent" Small="true" />
                         <span class="ms-auto small text-muted text-nowrap">@detail(e)</span>
                     </li>
                 }
