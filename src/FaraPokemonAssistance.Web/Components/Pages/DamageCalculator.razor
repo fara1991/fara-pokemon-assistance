@@ -249,7 +249,7 @@
         }
     }
 
-    private static int ParseId(string value) => int.TryParse(value, out var id) ? id : 0;
+    private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var id) ? id : 0;
 
     private async Task OnDataSetChanged()
     {
