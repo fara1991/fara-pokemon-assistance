@@ -1,0 +1,27 @@
+@* ポケモンの画像・名前・タイプアイコンを 1 行で表示する。 *@
+@if (Pokemon is not null)
+{
+    <span class="poke-label">
+        <PokemonIcon Pokemon="Pokemon" Small="@Small" />
+        <strong>@Pokemon.Name</strong>
+        @if (Build is not null)
+        {
+            <PokemonTypes Build="Build" Small="true" />
+        }
+        else
+        {
+            <PokemonTypes Pokemon="Pokemon" Small="true" />
+        }
+    </span>
+}
+
+@code {
+    [Parameter] public Pokemon? Pokemon { get; set; }
+    [Parameter] public PokemonBuild? Build { get; set; }
+    [Parameter] public bool Small { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Pokemon is null && Build is not null) Pokemon = Build.Pokemon;
+    }
+}

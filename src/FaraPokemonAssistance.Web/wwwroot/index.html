@@ -1,13 +1,20 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" data-bs-theme="light">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FaraPokemonAssistance</title>
+    <title>ポケモン ダメージ計算</title>
     <base href="/" />
     <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
     <link href="FaraPokemonAssistance.Web.styles.css" rel="stylesheet" />
+    <script>
+        // 読み込み中の画面でもテーマを合わせる（保存済みの設定を先に反映する）
+        try {
+            var s = JSON.parse(localStorage.getItem("fara-pokemon-assistance.settings") || "{}");
+            if (s.Theme === "dark") document.documentElement.setAttribute("data-bs-theme", "dark");
+        } catch (e) { }
+    </script>
 </head>
 <body>
     <div id="app">

@@ -1,10 +1,13 @@
 @page "/types"
+@inherits AppPageBase
 @inject DataCatalog Catalog
 
 <PageTitle>タイプ相性表</PageTitle>
 
-<h3>タイプ相性表</h3>
-<p class="text-muted">縦が攻撃側、横が防御側。<span class="badge bg-danger">2</span> 効果抜群、<span class="badge bg-success">½</span> いまひとつ、<span class="badge bg-dark">0</span> 効果なし。アイコンにカーソルを合わせるとタイプ名が出ます。</p>
+<div class="page-header">
+    <h3>タイプ相性表 <Help Title="タイプ相性表の見方">縦が攻撃する技のタイプ、横が受けるポケモンのタイプです。2 つのタイプを持つポケモンは、両方の倍率を掛け合わせます（例: 2 × ½ = 等倍）。</Help></h3>
+    <p class="text-muted mb-0">縦が攻撃側、横が防御側。<span class="badge type-weak">2</span> 効果抜群、<span class="badge type-resist">½</span> いまひとつ、<span class="badge type-immune">0</span> 効果なし。アイコンにカーソルを合わせるとタイプ名が出ます。</p>
+</div>
 
 @if (chart is not null)
 {
@@ -39,10 +42,13 @@
 @code {
     private TypeChart? chart;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnAppReadyAsync() => LoadAsync();
+
+    protected override Task OnAppChangedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
-        var key = await Catalog.ResolveDefaultKeyAsync();
-        chart = (await Catalog.GetDataSetAsync(key)).TypeChart;
+        chart = (await Catalog.GetDataSetAsync(App.DataSetKey)).TypeChart;
     }
 
     private static string MultText(double m) => m switch

@@ -29,6 +29,24 @@ public sealed class DamageCalculator
         _typeChart = typeChart;
     }
 
+    /// <summary>ダイマックス技の威力（かくとう・どくは低めの表）。</summary>
+    public static int MaxMovePower(Move move)
+    {
+        var bp = move.Power;
+        if (bp <= 0) return bp;
+        var low = move.Type is "Fighting" or "Poison";
+        return bp switch
+        {
+            <= 40 => low ? 70 : 90,
+            <= 50 => low ? 75 : 100,
+            <= 60 => low ? 80 : 110,
+            <= 70 => low ? 85 : 120,
+            <= 100 => low ? 90 : 130,
+            <= 140 => low ? 95 : 140,
+            _ => low ? 100 : 150,
+        };
+    }
+
     public DamageResult Calculate(DamageRequest request)
     {
         var attacker = request.Attacker;
@@ -36,6 +54,11 @@ public sealed class DamageCalculator
         var move = request.Move;
         var modifiers = new List<string>();
         var defenderHp = StatCalculator.Calculate(defender, Stat.HP);
+        if (defender.IsDynamax)
+        {
+            defenderHp *= 2;
+            modifiers.Add("防御側ダイマックス(HP2倍)");
+        }
 
         if (!move.IsDamaging)
             return Empty(defenderHp, 1.0, move.Type, "変化技");
@@ -50,8 +73,9 @@ public sealed class DamageCalculator
         }
 
         var isPhysical = move.Category == MoveCategory.Physical;
-        var attackStatKind = isPhysical ? Stat.Attack : Stat.SpAttack;
-        var defenseStatKind = isPhysical ? Stat.Defense : Stat.SpDefense;
+        var attackStatKind = move.AttackStatUsed;
+        var defenseStatKind = move.DefenseStatUsed;
+        if (move.UsesPhysicalDefense) modifiers.Add($"{move.Name}(相手の防御で計算)");
 
         // --- 技タイプ（スキン系）
         var moveType = move.Type;
@@ -90,6 +114,11 @@ public sealed class DamageCalculator
 
         // --- 威力
         var power = move.Power;
+        if (attacker.IsDynamax)
+        {
+            power = MaxMovePower(move);
+            modifiers.Add($"ダイマックス技(威力{power})");
+        }
         var isTeraStab = attacker.IsTerastallized && attacker.TeraType == moveType;
         if (isTeraStab && power < 60 && move.Priority == 0)
         {

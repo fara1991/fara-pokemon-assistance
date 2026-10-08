@@ -18,6 +18,7 @@ Hand-maintained inputs live next to this script: datasets.json, item_effects.csv
 from __future__ import annotations
 
 import argparse
+import datetime
 import csv
 import io
 import json
@@ -287,6 +288,7 @@ class Builder:
                     learnset[pid] = set(learnset[base])
 
         pokemon_rows, species_rows = [], []
+        mega_stones: dict[str, tuple[str, str]] = {}
         for pid in pokemon_ids:
             name = self.display_name(pid)
             st = self.stats.get(pid)
@@ -297,16 +299,25 @@ class Builder:
             nfe = 1 if p["species_id"] in self.evolves_from else 0
             abilities = ";".join(aid for _, _, aid in sorted(self.pokemon_abilities.get(pid, []))
                                  if aid in self.abilities)
+            stone = self.mega_stone(pid)
+            if stone:
+                mega_stones[pid] = stone
             pokemon_rows.append([
                 pid, name, types.get("1", ""), types.get("2", ""),
                 st["HP"], st["Attack"], st["Defense"], st["SpAttack"], st["SpDefense"], st["Speed"],
                 SPRITE_URL.format(id=pid), p["species_id"], nfe, abilities, 1 if pid in provisional else 0,
+                stone[0] if stone else "",
             ])
             if p["is_default"] != "1":
                 species_rows.append([pid, p["species_id"]])
+        # 性別でフォルムが分かれる種族（イエッサン等）は基本フォルムにも (♂) を付けて区別できるようにする
+        female_species = {row[1][:-3] for row in pokemon_rows if row[1].endswith("(♀)")}
+        for row in pokemon_rows:
+            if row[1] in female_species:
+                row[1] = f"{row[1]}(♂)"
         write_csv(out_dir / "pokemon.csv",
                   ["Id", "Name", "Type1", "Type2", "HP", "Attack", "Defense", "SpAttack", "SpDefense", "Speed",
-                   "Icon", "SpeciesId", "NotFullyEvolved", "Abilities", "Provisional"], pokemon_rows)
+                   "Icon", "SpeciesId", "NotFullyEvolved", "Abilities", "Provisional", "MegaStoneId"], pokemon_rows)
         write_csv(out_dir / "species_map.csv", ["FormId", "SpeciesId"], species_rows)
 
         kept = {row[0] for row in pokemon_rows}
@@ -338,7 +349,7 @@ class Builder:
                   [[pid, ";".join(sorted((m for m in learnset[pid] if m in valid_moves), key=int))]
                    for pid in pokemon_ids if pid in kept])
 
-        self.write_items(ds, out_dir, generation)
+        self.write_items(ds, out_dir, generation, mega_stones)
         self.write_type_chart(out_dir)
         self.write_abilities(out_dir, kept)
 
@@ -352,7 +363,42 @@ class Builder:
                 rows.append([aid, a["identifier"], name])
         write_csv(out_dir / "abilities.csv", ["Id", "Identifier", "Name"], rows)
 
-    def write_items(self, ds: dict, out_dir: Path, generation: int) -> None:
+    MEGA_STONE_CATEGORY = "44"
+
+    def mega_stone(self, pid: str) -> tuple[str, str] | None:
+        """メガシンカ後のフォルムなら (持ち物 ID, 名前)。データに無いメガストーンは種族名から作る。"""
+        form = self.forms_by_pokemon.get(pid)
+        p = self.pokemon[pid]
+        if not form or form["is_mega"] != "1":
+            return None
+        ident = p["identifier"]  # charizard-mega-x
+        base, _, suffix = ident.partition("-mega")
+        suffix = suffix.strip("-")  # "x" / "y" / ""
+        best: tuple[int, str] | None = None
+        for iid, item in self.items.items():
+            if item["category_id"] != self.MEGA_STONE_CATEGORY:
+                continue
+            sid = item["identifier"]
+            stone_suffix = sid[-1] if sid.endswith(("-x", "-y")) else ""
+            if stone_suffix != suffix:
+                continue
+            n = 0
+            while n < min(len(base), len(sid)) and base[n] == sid[n]:
+                n += 1
+            if n >= 4 and (best is None or n > best[0]):
+                best = (n, iid)
+        if best:
+            name = pick_name(self.item_names, best[1])
+            if name:
+                return best[1], half_width(name)
+        species = pick_name(self.species_names, p["species_id"]) or ""
+        stem = species.rstrip("ー")
+        if stem.endswith("ナ"):
+            stem = stem[:-1]
+        return str(100000 + int(pid)), f"{stem}ナイト{suffix.upper()}"
+
+    def write_items(self, ds: dict, out_dir: Path, generation: int,
+                    mega_stones: dict[str, tuple[str, str]] | None = None) -> None:
         wanted: dict[str, dict] = {}
         for identifier, eff in self.item_effects.items():
             iid = self.item_by_identifier.get(identifier)
@@ -379,6 +425,14 @@ class Builder:
                 eff.get("SpAttackMultiplier", "1.0"), eff.get("SpDefenseMultiplier", "1.0"),
                 eff.get("DamageMultiplier", "1.0"), eff.get("TypeBoost", ""), eff.get("TypeBoostMultiplier", "1.0"),
             ])
+        # メガストーン（メガシンカ後のフォルム専用。計算には影響しない）
+        seen = {row[0] for row in rows}
+        for pid, (iid, name) in sorted((mega_stones or {}).items(), key=lambda kv: int(kv[0])):
+            if iid in seen:
+                continue
+            seen.add(iid)
+            holder = self.display_name(pid) or ""
+            rows.append([iid, name, "MegaStone", f"{holder}のメガシンカに必要", "1.0", "1.0", "1.0", "1.0", "1.0", "", "1.0"])
         write_csv(out_dir / "items.csv",
                   ["Id", "Name", "Category", "Effect", "AttackMultiplier", "DefenseMultiplier", "SpAttackMultiplier",
                    "SpDefenseMultiplier", "DamageMultiplier", "TypeBoost", "TypeBoostMultiplier"], rows)
@@ -500,9 +554,13 @@ def main() -> None:
     api = PokeApi(Path(args.cache))
     builder = Builder(api)
 
-    write_csv(OUT_ROOT / "datasets.csv", ["Key", "Name", "Generation", "EvSystem", "CommandPrefix"],
-              [[d["key"], d["name"], d["generation"], d.get("ev_system", "Classic"), d.get("command_prefix", "")]
+    write_csv(OUT_ROOT / "datasets.csv", ["Key", "Name", "Generation", "EvSystem", "CommandPrefix", "Gimmick"],
+              [[d["key"], d["name"], d["generation"], d.get("ev_system", "Classic"), d.get("command_prefix", ""),
+                d.get("gimmick", "None")]
                for d in config["datasets"]])
+    # 最終更新日時（ホーム画面に表示する）
+    (OUT_ROOT / "updated.txt").write_text(
+        datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") + "\n", encoding="utf-8")
     write_csv(OUT_ROOT / "natures.csv", ["Id", "Name", "IncreasedStat", "DecreasedStat"],
               [[i, n, up, down] for i, (n, up, down) in enumerate(NATURES)])
 
