@@ -1,6 +1,8 @@
 ## .NET
 bin/
 obj/
+bin.unix/
+obj.unix/
 
 ## User-specific files
 *.user

@@ -12,7 +12,9 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 var baseAddress = builder.HostEnvironment.BaseAddress;
-builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(baseAddress) });
+// シングルトンの DataCatalog から使うので、HttpClient もシングルトンにする
+// （Scoped だと Development 環境のスコープ検証で起動時に例外になる）
+builder.Services.AddSingleton(_ => new HttpClient { BaseAddress = new Uri(baseAddress) });
 builder.Services.AddSingleton(sp => new DataCatalog(new HttpDataSource(sp.GetRequiredService<HttpClient>(), baseAddress + "data/")));
 builder.Services.AddSingleton<IRosterStore>(sp => new BrowserRosterStore(sp.GetRequiredService<IJSRuntime>()));
 builder.Services.AddSingleton(sp => new RosterRepository(sp.GetRequiredService<IRosterStore>()));
