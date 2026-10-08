@@ -57,7 +57,7 @@
                     {
                         <div class="mb-2"><PokemonLabel Build="s.Mine" /></div>
                         <div class="form-group mb-2">
-                            <label>S @EvRules.Label(dataSet.EvSystem) <Help Title="素早さの@(EvRules.Label(dataSet.EvSystem))">素早さに振る@(EvRules.Label(dataSet.EvSystem))です（0〜@(EvRules.MaxPerStat(dataSet.EvSystem))）。ボタンで 0 と最大を入れられます。</Help></label>
+                            <label>S @EvRules.Label(dataSet.EvSystem) <Help Title="@($"素早さの{EvRules.Label(dataSet.EvSystem)}")">素早さに振る@(EvRules.Label(dataSet.EvSystem))です（0〜@(EvRules.MaxPerStat(dataSet.EvSystem))）。ボタンで 0 と最大を入れられます。</Help></label>
                             <div class="ev-grid">
                                 <div class="ev-cell">
                                     <input type="number" class="form-control form-control-sm" min="0" max="@EvRules.MaxPerStat(dataSet.EvSystem)" step="@EvRules.Step(dataSet.EvSystem)"
