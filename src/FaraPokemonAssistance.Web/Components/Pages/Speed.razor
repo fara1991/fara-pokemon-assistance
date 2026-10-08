@@ -12,7 +12,7 @@
     <div class="split-half">
         <div class="form-group mb-3">
             <label for="dataset">データ:</label>
-            <select id="dataset" class="form-control" @bind="selectedDataSet" @bind:after="LoadAsync">
+            <select id="dataset" class="form-select" @bind="selectedDataSet" @bind:after="LoadAsync">
                 @foreach (var ds in dataSets)
                 {
                     <option value="@ds.Key">@ds.Name</option>
@@ -24,10 +24,10 @@
         <div class="form-group mb-3">
             <label for="weather">天候 / フィールド:</label>
             <div class="d-flex gap-2">
-                <select id="weather" class="form-control" @bind="weather">
+                <select id="weather" class="form-select" @bind="weather">
                     @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w)</option> }
                 </select>
-                <select class="form-control" @bind="terrain">
+                <select class="form-select" @bind="terrain">
                     @foreach (var t in Enum.GetValues<Terrain>()) { <option value="@t">@FieldNames.Japanese(t)</option> }
                 </select>
             </div>
@@ -46,7 +46,7 @@
                     {
                         <div class="form-group mb-2">
                             <label>使用チームから:</label>
-                            <select class="form-control" @onchange="OnTeamMemberSelected">
+                            <select class="form-select" @onchange="OnTeamMemberSelected">
                                 <option value="">（選択）</option>
                                 @foreach (var (entry, item) in teamMembers)
                                 {
@@ -79,13 +79,17 @@
                         </div>
                         <div class="form-group mb-2">
                             <label>特性:</label>
-                            <select class="form-control" value="@(mine.Ability?.Id.ToString() ?? "")" @onchange="@(e => mine.Ability = data.FindAbility(ParseId(e.Value)))">
+                            <select class="form-select" value="@(mine.Ability?.Id.ToString() ?? "")" @onchange="@(e => mine.Ability = data.FindAbility(ParseId(e.Value)))">
                                 @foreach (var a in data.AbilitiesOf(mine.Pokemon)) { <option value="@a.Id">@a.Name</option> }
                             </select>
                         </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="minePara" checked="@(mine.Status == StatusCondition.Paralysis)" @onchange="@(e => mine.Status = e.Value is true ? StatusCondition.Paralysis : StatusCondition.None)" />
+                            <label class="form-check-label" for="minePara">まひ（素早さ 0.5 倍）</label>
+                        </div>
                         <div class="form-group mb-2">
                             <label>ランク:</label>
-                            <select class="form-control" value="@mine.Boosts.Speed" @onchange="@(e => mine.Boosts[Stat.Speed] = Math.Clamp(ParseId(e.Value), -6, 6))">
+                            <select class="form-select" value="@mine.Boosts.Speed" @onchange="@(e => mine.Boosts[Stat.Speed] = Math.Clamp(ParseId(e.Value), -6, 6))">
                                 @for (var s = 6; s >= -6; s--) { <option value="@s">@(s > 0 ? "+" + s : s.ToString())</option> }
                             </select>
                         </div>
@@ -102,6 +106,10 @@
                         <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
                             SelectedValue="@(opponent?.Id.ToString() ?? "")" SelectedValueChanged="@(v => opponent = data.FindPokemon(ParseId(v)))" Placeholder="ポケモン名を入力..." />
                     </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="oppPara" @bind="opponentParalyzed" />
+                        <label class="form-check-label" for="oppPara">相手がまひ（素早さ 0.5 倍）</label>
+                    </div>
                     <p class="small text-muted mb-0">相手の努力値・性格は不明として、無振り / 準速 / 最速 / スカーフ最速 / 最遅 を並べます。</p>
                 </div>
             </div>
@@ -111,15 +119,15 @@
     @if (mine is not null && opponent is not null)
     {
         var (mySpeed, myNotes) = SpeedCalculator.Effective(mine, weather, terrain);
-        var reference = SpeedCalculator.OpponentReference(opponent, dataSet.EvSystem, data.Items.FirstOrDefault(i => i.Id == 264));
+        var reference = SpeedCalculator.OpponentReference(opponent, dataSet.EvSystem, data.Items.FirstOrDefault(i => i.Id == 264), opponentParalyzed);
         <div class="card mt-3">
             <div class="card-header"><h5>結果</h5></div>
             <div class="card-body">
-                <p class="fs-5"><strong>@mine.Pokemon.Name S@(mySpeed)</strong> @(myNotes.Count > 0 ? $"（{string.Join("、", myNotes)}）" : "")</p>
+                <p class="fs-5"><strong>@mine.Pokemon.Name</strong><PokemonTypes Build="mine" Small="true" /> <strong>S@(mySpeed)</strong> @(myNotes.Count > 0 ? $"（{string.Join("、", myNotes)}）" : "")</p>
                 <table class="table table-sm" style="max-width: 520px;">
-                    <thead><tr><th>@opponent.Name</th><th>S</th><th>判定</th></tr></thead>
+                    <thead><tr><th>@opponent.Name<PokemonTypes Pokemon="opponent" Small="true" />@(opponentParalyzed ? "（まひ）" : "")</th><th>S</th><th>判定</th></tr></thead>
                     <tbody>
-                    @foreach (var line in reference)
+                    @foreach (var line in reference.Where(r => r.Label != "状態"))
                     {
                         var verdict = mySpeed > line.Value ? "自分が先手" : mySpeed < line.Value ? "相手が先手" : "同速";
                         var cls = mySpeed > line.Value ? "text-success" : mySpeed < line.Value ? "text-danger" : "text-warning";
@@ -143,6 +151,7 @@
     private Pokemon? opponent;
     private Weather weather = Weather.None;
     private Terrain terrain = Terrain.None;
+    private bool opponentParalyzed;
 
     protected override async Task OnInitializedAsync()
     {

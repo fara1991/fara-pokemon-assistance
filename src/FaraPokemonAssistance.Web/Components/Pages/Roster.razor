@@ -10,7 +10,7 @@
 
 <div class="form-group mb-3" style="max-width: 420px;">
     <label for="dataset">データ:</label>
-    <select id="dataset" class="form-control" @bind="selectedDataSet" @bind:after="LoadAsync">
+    <select id="dataset" class="form-select" @bind="selectedDataSet" @bind:after="LoadAsync">
         @foreach (var ds in dataSets)
         {
             <option value="@ds.Key">@ds.Name</option>
@@ -66,7 +66,7 @@
                     </div>
                     <div class="form-group mb-3">
                         <label>特性:</label>
-                        <select class="form-control" value="@(newAbility?.Id.ToString() ?? "")" @onchange="@(e => newAbility = data.FindAbility(ParseId(e.Value)))">
+                        <select class="form-select" value="@(newAbility?.Id.ToString() ?? "")" @onchange="@(e => newAbility = data.FindAbility(ParseId(e.Value)))">
                             @if (newPokemon is not null)
                             {
                                 @foreach (var a in data.AbilitiesOf(newPokemon))
@@ -126,7 +126,7 @@
                         </div>
                         <div class="col-8">
                             <label class="form-label">登録ポケモン</label>
-                            <select class="form-control" @bind="teamEntryId">
+                            <select class="form-select" @bind="teamEntryId">
                                 <option value="0">選択...</option>
                                 @foreach (var e in roster.Pokemon)
                                 {

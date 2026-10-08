@@ -16,6 +16,8 @@ public sealed class PokemonBuild
     public string? TeraType { get; set; }
     /// <summary>ランク補正（-6〜+6）。HP は使わない。</summary>
     public StatSet Boosts { get; set; } = new();
+    /// <summary>状態異常。</summary>
+    public StatusCondition Status { get; set; } = StatusCondition.None;
 
     public PokemonBuild(Pokemon pokemon)
     {
@@ -46,6 +48,7 @@ public sealed class PokemonBuild
         Ability = Ability,
         TeraType = TeraType,
         Boosts = Boosts.Clone(),
+        Status = Status,
     };
 
     /// <summary>チャット向けの短い説明（例: <c>C252 ひかえめ こだわりメガネ サイコメイカー</c>）。</summary>
@@ -56,6 +59,7 @@ public sealed class PokemonBuild
         if (Item is not null) parts.Add(Item.Name);
         if (Ability is not null) parts.Add(Ability.Name);
         if (IsTerastallized) parts.Add($"テラス{TypeNames.ToJapanese(TeraType!)}");
+        if (Status != StatusCondition.None) parts.Add(StatusNames.Japanese(Status));
         var boosts = new List<string>();
         foreach (var stat in new[] { Stat.Attack, Stat.Defense, Stat.SpAttack, Stat.SpDefense, Stat.Speed })
         {

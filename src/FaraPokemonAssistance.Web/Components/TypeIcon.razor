@@ -1,0 +1,10 @@
+@* タイプのアイコン。alt / title に日本語名を入れるので、画像が無い環境でも意味が分かる。 *@
+@if (!string.IsNullOrEmpty(Type))
+{
+    <img src="img/types/@(Type).png" alt="@TypeNames.ToJapanese(Type)" title="@TypeNames.ToJapanese(Type)" class="type-icon @(Small ? "type-icon-sm" : "")" />
+}
+
+@code {
+    [Parameter] public string? Type { get; set; }
+    [Parameter] public bool Small { get; set; }
+}

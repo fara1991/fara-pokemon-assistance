@@ -52,7 +52,26 @@ public sealed class PokeCommand
         var rest = space < 0 ? "" : text[(space + 1)..];
         var sets = await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false);
         var ds = sets.FirstOrDefault(d => d.CommandPrefix.Equals(head, StringComparison.OrdinalIgnoreCase));
+        if (ds is null && head.Equals(GenericPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            // !poke … は既定データセット（チャンピオンズ）として扱う
+            var key = await _catalog.ResolveDefaultKeyAsync(null, ct).ConfigureAwait(false);
+            ds = sets.FirstOrDefault(d => d.Key == key);
+        }
         return ds is null ? null : (ds, rest);
+    }
+
+    /// <summary>データセットを選ばない共通接頭辞（<c>!poke cmd ls</c> など）。</summary>
+    public const string GenericPrefix = "poke";
+
+    /// <summary>使えるコマンドの一覧（<c>cmd ls</c>）。</summary>
+    public static string CommandList(IEnumerable<DataSetInfo> dataSets)
+    {
+        var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
+        return "登録: add 名前 H A B C D S 性格 [特性] / ls [名前] / more ID / rm ID ｜ " +
+               "チーム: add team 番号 ID [持ち物] / rm team 番号 [名前] / use team 番号 / ls team / more team 番号 ｜ " +
+               "計算: dmg 攻撃 技±ランク 防御 [努力値 性格 持ち物 特性 急所 やけど どく まひ 天候 …] / calc 攻撃 技 防御 ダメージ[%] / diff 自分 相手 [まひ] ｜ " +
+               $"接頭辞: {prefixes}（!poke はチャンピオンズ）";
     }
 
     public async Task<DamageCommandResult> ExecuteAsync(string message, PokeCommandOptions? options = null, CancellationToken ct = default)
@@ -102,7 +121,8 @@ public sealed class PokeCommand
             case "dmg" or "damage": return await DamageAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "calc" or "ev": return await CalcAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "diff" or "speed" or "spd": return await DiffAsync(ds, data, args, options, ct).ConfigureAwait(false);
-            case "help" or "?" or "ヘルプ": return Ok(Usage(ds.CommandPrefix));
+            case "cmd" or "cmds" or "commands" or "help" or "?" or "ヘルプ":
+                return Ok(CommandList(await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false)));
             default: return Fail($"不明なサブコマンド「{tokens[0]}」。{Usage(ds.CommandPrefix)}");
         }
     }
@@ -282,7 +302,48 @@ public sealed class PokeCommand
         var message = normal.Message;
         if (crit.Success && crit.Damage is not null && crit.Damage.MaxDamage > 0)
             message += $" ｜急所: {crit.Damage.RangeText} {crit.Damage.KnockOut}";
-        return new DamageCommandResult { Success = true, Message = message, Request = normal.Request, Damage = normal.Damage };
+
+        // 相手（防御側）の特性が不明なら、特性でダメージが変わる場合に特性ごとの結果を添える
+        var request = normal.Request!;
+        if (provider(request.Defender.Pokemon, false) is null && !MentionsAbility(args, data, request.Defender.Pokemon))
+        {
+            var variants = AbilityVariants(data, request, normal.Damage!);
+            if (variants.Count > 0)
+                message += " ｜特性別: " + string.Join(" / ", variants);
+        }
+        return new DamageCommandResult { Success = true, Message = message, Request = request, Damage = normal.Damage };
+    }
+
+    /// <summary>防御側の特性候補ごとに計算し、基準と結果が違うものを「特性名: 結果」で返す。</summary>
+    private static List<string> AbilityVariants(PokemonDataSet data, DamageRequest request, DamageResult baseline)
+    {
+        var variants = new List<string>();
+        var abilities = data.AbilitiesOf(request.Defender.Pokemon);
+        if (abilities.Count <= 1) return variants;
+        var calc = new DamageCalculator(data.TypeChart);
+        var distinct = false;
+        var lines = new List<string>();
+        foreach (var ability in abilities)
+        {
+            var defender = request.Defender.Clone();
+            defender.Ability = ability;
+            var result = calc.Calculate(new DamageRequest
+            {
+                Attacker = request.Attacker, Move = request.Move, Defender = defender,
+                Format = request.Format, IsCritical = request.IsCritical, Weather = request.Weather, Terrain = request.Terrain,
+            });
+            if (result.MinDamage != baseline.MinDamage || result.MaxDamage != baseline.MaxDamage) distinct = true;
+            lines.Add(result.MaxDamage == 0
+                ? $"{ability.Name}: 無効"
+                : $"{ability.Name}: {result.RangeText} {result.KnockOut}");
+        }
+        return distinct ? lines : variants;
+    }
+
+    private static bool MentionsAbility(IEnumerable<string> args, PokemonDataSet data, Pokemon pokemon)
+    {
+        var names = new HashSet<string>(data.AbilitiesOf(pokemon).Select(a => NameNormalizer.Normalize(a.Name)));
+        return args.Any(a => names.Contains(NameNormalizer.Normalize(a.Replace("防:", "").Replace("攻:", ""))));
     }
 
     private async Task<DamageCommandResult> CalcAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
@@ -313,15 +374,59 @@ public sealed class PokeCommand
 
         var request = baseline.Request;
         request.Defender.Item = null; // 相手の持ち物は不明
-        var estimate = new EvEstimator(data.TypeChart).Run(request, observed, asPercent);
-        var text = EvEstimator.Format(estimate, request.Defender.Pokemon, request.Move, ds.EvSystem);
+        var estimator = new EvEstimator(data.TypeChart);
         var attackerText = $"{request.Attacker.Pokemon.Name}({request.Attacker.DescribeShort()})";
-        return new DamageCommandResult { Success = estimate.HasResult, Message = $"{attackerText}の{text} ※相手は持ち物なし・特性{request.Defender.Ability?.Name ?? "不明"}想定", Request = request };
+
+        // 相手の特性が指定されていなければ、持ちうる特性ごとに推定し、結果が違うときは特性別に出す
+        var abilities = MentionsAbility(args, data, request.Defender.Pokemon) || request.Defender.Ability is null
+            ? new List<Ability?> { request.Defender.Ability }
+            : data.AbilitiesOf(request.Defender.Pokemon).Cast<Ability?>().ToList();
+        var results = new List<(Ability? Ability, EvEstimator.Estimate Estimate)>();
+        foreach (var ability in abilities)
+        {
+            var defender = request.Defender.Clone();
+            defender.Ability = ability;
+            var req = new DamageRequest
+            {
+                Attacker = request.Attacker, Move = request.Move, Defender = defender,
+                Format = request.Format, IsCritical = request.IsCritical, Weather = request.Weather, Terrain = request.Terrain,
+            };
+            results.Add((ability, estimator.Run(req, observed, asPercent)));
+        }
+
+        string Summary(EvEstimator.Estimate e) => string.Join("|", e.Bands.Select(b => $"{b.Label}{b.MinEv}-{b.MaxEv}")) + $"/{e.MinDefenseStat}-{e.MaxDefenseStat}";
+        var allSame = results.Select(r => Summary(r.Estimate)).Distinct().Count() == 1;
+        if (allSame || results.Count == 1)
+        {
+            var e = results[0].Estimate;
+            var text = EvEstimator.Format(e, request.Defender.Pokemon, request.Move, ds.EvSystem);
+            var abilityNote = results.Count == 1 ? $"特性{results[0].Ability?.Name ?? "不明"}想定" : "特性による差なし";
+            return new DamageCommandResult { Success = e.HasResult, Message = $"{attackerText}の{text} ※相手は持ち物なし・{abilityNote}", Request = request };
+        }
+
+        var parts = results.Select(r =>
+        {
+            var e = r.Estimate;
+            if (!e.HasResult) return $"{r.Ability?.Name}: 該当なし";
+            var unit = ds.EvSystem == EvSystem.Points ? "pt" : "";
+            var letter = StatNames.Letter(e.DefenseStat);
+            var bands = string.Join(" / ", e.Bands.Select(b => b.MinEv == b.MaxEv ? $"{b.Label}:{letter}{b.MinEv}{unit}" : $"{b.Label}:{letter}{b.MinEv}〜{b.MaxEv}{unit}"));
+            var hp = e.HpEvRange is { } h ? $" H{h.MinEv}〜{h.MaxEv}{unit}" : "";
+            return $"{r.Ability?.Name}: {bands}{hp}";
+        });
+        var observedText = asPercent ? $"{observed:0.#}%" : $"{observed:0}";
+        var any = results.Any(r => r.Estimate.HasResult);
+        return new DamageCommandResult
+        {
+            Success = any,
+            Message = $"{attackerText}の{request.Move.Name}で{request.Defender.Pokemon.Name}に{observedText}ダメージ → 特性別: " + string.Join(" ｜ ", parts) + " ※相手は持ち物なし想定",
+            Request = request,
+        };
     }
 
     private async Task<DamageCommandResult> DiffAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (args.Count < 2) return Fail($"書式: !{ds.CommandPrefix} diff 自分のポケモン 相手のポケモン [+1 晴れ など]");
+        if (args.Count < 2) return Fail($"書式: !{ds.CommandPrefix} diff 自分のポケモン 相手のポケモン [+1 晴れ まひ 自:まひ など]");
         var resolver = DamageCommand.CreatePokemonResolver(data);
         var mineMatch = resolver.Resolve(args[0]);
         if (!mineMatch.IsResolved) return Fail(NotFound("ポケモン", args[0], mineMatch.Candidates.Select(p => p.Name)));
@@ -346,11 +451,14 @@ public sealed class PokeCommand
         }
         var weather = Weather.None;
         var terrain = Terrain.None;
+        var opponentParalyzed = false;
         foreach (var token in args.Skip(2))
         {
             var n = NameNormalizer.Normalize(token);
             var (_, rank) = DamageCommand.SplitRankSuffix("x" + token);
             if (rank != 0 && token.Length <= 2) { mine.Boosts[Stat.Speed] = rank; continue; }
+            if (n is "まひ" or "相手まひ" or "相手:まひ" or "防:まひ") { opponentParalyzed = true; continue; }
+            if (n is "自まひ" or "自分まひ" or "自:まひ" or "攻:まひ" or "自分:まひ") { mine.Status = StatusCondition.Paralysis; continue; }
             if (n is "晴れ" or "はれ") weather = Weather.Sun;
             else if (n is "雨" or "あめ") weather = Weather.Rain;
             else if (n is "砂" or "すなあらし" or "砂嵐") weather = Weather.Sand;
@@ -362,10 +470,11 @@ public sealed class PokeCommand
         var (mySpeed, myNotes) = SpeedCalculator.Effective(mine, weather, terrain);
         var oppBuild = provider(oppMatch.Value!, false);
         var scarf = data.Items.FirstOrDefault(i => i.Id == 264);
-        var reference = SpeedCalculator.OpponentReference(oppMatch.Value!, ds.EvSystem, scarf);
+        var reference = SpeedCalculator.OpponentReference(oppMatch.Value!, ds.EvSystem, scarf, opponentParalyzed);
         string text;
         if (oppBuild is not null)
         {
+            if (opponentParalyzed) { oppBuild = oppBuild.Clone(); oppBuild.Status = StatusCondition.Paralysis; }
             var (os, oNotes) = SpeedCalculator.Effective(oppBuild, weather, terrain);
             text = SpeedCalculator.Format(mine, mySpeed, myNotes, oppMatch.Value!, oppBuild, os, oNotes, reference);
         }
