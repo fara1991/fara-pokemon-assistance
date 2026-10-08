@@ -189,11 +189,20 @@ public sealed class PokemonDataSet
         {
             if (!_usage.TryGetValue(format, out var task))
             {
-                task = UsageData.LoadAsync(_source, Info.Key, format, this, ct);
+                task = LoadUsageAsync(format, ct);
                 _usage[format] = task;
             }
             return task;
         }
+    }
+
+    private async Task<UsageData> LoadUsageAsync(BattleFormat format, CancellationToken ct)
+    {
+        var usage = await UsageData.LoadAsync(_source, Info.Key, format, this, ct).ConfigureAwait(false);
+        // 使用率が公開されていないゲームは、別のゲームの使用率で並び順だけ代用する（ID は PokeAPI 基準で共通）
+        if (usage.IsEmpty && !string.IsNullOrEmpty(Info.UsageFallback))
+            usage = await UsageData.LoadAsync(_source, Info.UsageFallback, format, this, ct).ConfigureAwait(false);
+        return usage;
     }
 }
 
@@ -229,6 +238,8 @@ public sealed class TypeChart
 public sealed class UsageData
 {
     public BattleFormat Format { get; }
+    /// <summary>使用率を読み込んだデータセットのキー。代用したときは元のデータセットと異なる。</summary>
+    public string SourceKey { get; }
     public IReadOnlyDictionary<int, int> PokemonRank { get; }
     private readonly Dictionary<int, List<int>> _moves;
     private readonly Dictionary<int, List<int>> _items;
@@ -238,11 +249,12 @@ public sealed class UsageData
 
     public bool IsEmpty => PokemonRank.Count == 0;
 
-    private UsageData(BattleFormat format, PokemonDataSet dataSet, Dictionary<int, int> rank,
+    private UsageData(BattleFormat format, string sourceKey, PokemonDataSet dataSet, Dictionary<int, int> rank,
         Dictionary<int, List<int>> moves, Dictionary<int, List<int>> items, Dictionary<int, List<int>> natures,
         Dictionary<int, List<int>> abilities)
     {
         Format = format;
+        SourceKey = sourceKey;
         _dataSet = dataSet;
         PokemonRank = rank;
         _moves = moves;
@@ -277,7 +289,7 @@ public sealed class UsageData
         var items = await LoadListAsync($"usage_items_{suffix}.csv", "ItemId").ConfigureAwait(false);
         var natures = await LoadListAsync($"usage_natures_{suffix}.csv", "NatureId").ConfigureAwait(false);
         var abilities = await LoadListAsync($"usage_abilities_{suffix}.csv", "AbilityId").ConfigureAwait(false);
-        return new UsageData(format, dataSet, rank, moves, items, natures, abilities);
+        return new UsageData(format, dir, dataSet, rank, moves, items, natures, abilities);
     }
 
     public int RankOf(int pokemonId) =>

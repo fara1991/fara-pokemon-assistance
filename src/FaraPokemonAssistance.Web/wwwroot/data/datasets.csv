@@ -1,4 +1,4 @@
-Key,Name,Generation,EvSystem,CommandPrefix,Gimmick
-Gen8,第8世代（ソード・シールド）,8,Classic,pokess,Dynamax
-Gen9,第9世代（スカーレット・バイオレット）,9,Classic,pokesv,Terastal
-Champions,ポケモンチャンピオンズ,9,Points,pokech,None
+Key,Name,Generation,EvSystem,CommandPrefix,Gimmick,UsageFallback
+Gen8,第8世代（ソード・シールド）,8,Classic,pokess,Dynamax,
+Gen9,第9世代（スカーレット・バイオレット）,9,Classic,pokesv,Terastal,
+Champions,ポケモンチャンピオンズ,9,Points,pokech,None,Gen9

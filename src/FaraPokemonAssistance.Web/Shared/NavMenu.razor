@@ -19,6 +19,10 @@
                 <option value="@ds.Key">@ds.Name</option>
             }
         </select>
+        @if (UsageFallbackName is { } fallbackName)
+        {
+            <div class="side-note">使用率は公開されていないため、@(fallbackName) の使用率で並べています</div>
+        }
         <label class="side-label mt-2" for="side-format">バトル形式 <Help Title="バトル形式">ダブルバトルでは全体技の威力が 0.75 倍になります。使用率の既定値（技・持ち物・性格）もシングル / ダブルで切り替わります。</Help></label>
         <select id="side-format" class="form-select form-select-sm" value="@App.Format" @onchange="@(e => App.SetFormatAsync(Enum.TryParse<BattleFormat>(e.Value?.ToString(), out var f) ? f : BattleFormat.Singles))">
             <option value="@BattleFormat.Singles">シングル</option>
@@ -68,4 +72,10 @@
     private void CollapseNavMenu() => collapseNavMenu = true;
 
     public void Dispose() => App.Changed -= OnChanged;
+
+    // 使用率データの無いゲームでは、代わりに使っているゲームの名前（並び順の根拠を示す）
+    private string? UsageFallbackName =>
+        App.DataSet is { UsageFallback.Length: > 0 } ds
+            ? App.DataSets.FirstOrDefault(d => d.Key == ds.UsageFallback)?.Name ?? ds.UsageFallback
+            : null;
 }
