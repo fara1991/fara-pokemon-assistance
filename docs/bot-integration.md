@@ -40,7 +40,7 @@ using FaraPokemonAssistance.Core.Text;
 
 public sealed class PokemonAssistService
 {
-    private const string DataUrl = "https://fara1991.github.io/fara-pokemon-assistance/data/";
+    private const string DataUrl = "https://pokemon.app-fara.com/data/";
 
     private readonly PokeCommand _command;
 
@@ -99,10 +99,10 @@ private async void TwitchClientOnMessageReceived(object? sender, OnMessageReceiv
 
 ```bash
 dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコフィールド"
-dotnet run --project src/FaraPokemonAssistance.Cli -- --data https://fara1991.github.io/fara-pokemon-assistance/data/ "!pokesv diff ガブリアス ハバタクカミ"
+dotnet run --project src/FaraPokemonAssistance.Cli -- --data https://pokemon.app-fara.com/data/ "!pokesv diff ガブリアス ハバタクカミ"
 ```
 
-ブラウザ: https://fara1991.github.io/fara-pokemon-assistance/command
+ブラウザ: https://pokemon.app-fara.com/command
 
 ## 注意
 
