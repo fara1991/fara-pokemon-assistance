@@ -162,8 +162,18 @@ public sealed class RosterRepository
         var removed = roster.Pokemon.RemoveAll(p => p.Id == entryId) > 0;
         foreach (var team in roster.Teams)
             team.Slots.RemoveAll(s => s.EntryId == entryId);
+        RemoveEmptyTeams(roster);
         if (removed) await SaveAsync(ct).ConfigureAwait(false);
         return removed;
+    }
+
+    /// <summary>0 体になったチームを削除する（使用中なら使用も解除）。削除したチーム番号を返す。</summary>
+    public static IReadOnlyList<int> RemoveEmptyTeams(DataSetRoster roster)
+    {
+        var empty = roster.Teams.Where(t => t.Slots.Count == 0).Select(t => t.Number).ToList();
+        roster.Teams.RemoveAll(t => t.Slots.Count == 0);
+        if (roster.ActiveTeam is { } active && empty.Contains(active)) roster.ActiveTeam = null;
+        return empty;
     }
 
     // ---- チーム
@@ -201,6 +211,7 @@ public sealed class RosterRepository
         if (team is null) return false;
         var byId = roster.Pokemon.ToDictionary(p => p.Id);
         var removed = team.Slots.RemoveAll(s => byId.TryGetValue(s.EntryId, out var p) && predicate(p)) > 0;
+        RemoveEmptyTeams(roster);
         if (removed) await SaveAsync(ct).ConfigureAwait(false);
         return removed;
     }
@@ -219,6 +230,16 @@ public sealed class RosterRepository
         var roster = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey);
         if (roster.Teams.All(t => t.Number != teamNumber)) return false;
         roster.ActiveTeam = teamNumber;
+        await SaveAsync(ct).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>使用チームを解除する。解除したら true（もともと無ければ false）。</summary>
+    public async Task<bool> ClearActiveTeamAsync(string dataSetKey, CancellationToken ct = default)
+    {
+        var roster = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey);
+        if (roster.ActiveTeam is null) return false;
+        roster.ActiveTeam = null;
         await SaveAsync(ct).ConfigureAwait(false);
         return true;
     }

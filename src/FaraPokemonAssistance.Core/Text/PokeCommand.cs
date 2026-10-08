@@ -40,7 +40,7 @@ public sealed class PokeCommand
     }
 
     public static string Usage(string prefix) =>
-        $"!{prefix} add 名前 H A B C D S 性格 | ls [名前] | more ID | rm ID | add team 番号 ID [持ち物] | rm team 番号 [名前] | use team 番号 | ls team | more team 番号 | dmg 攻撃 技±ランク 防御 | calc 攻撃 技 防御 ダメージ | diff 自分 相手";
+        $"!{prefix} add 名前 H A B C D S 性格 | ls [名前] | more ID | rm ID | add team 番号 ID [持ち物] | rm team 番号 [名前] | use team 番号 | unuse team | ls team | more team 番号 | dmg 攻撃 技±ランク 防御 | calc 攻撃 技 防御 ダメージ | diff 自分 相手";
 
     /// <summary>メッセージがこのコマンド群のものかを判定し、接頭辞と残りを返す。</summary>
     public async Task<(DataSetInfo DataSet, string Arguments)?> MatchAsync(string message, CancellationToken ct = default)
@@ -69,7 +69,7 @@ public sealed class PokeCommand
     {
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
         return "登録: add 名前 H A B C D S 性格 [特性] / ls [名前] / more ID / rm ID ｜ " +
-               "チーム: add team 番号 ID [持ち物] / rm team 番号 [名前] / use team 番号 / ls team / more team 番号 ｜ " +
+               "チーム: add team 番号 ID [持ち物] / rm team 番号 [名前] / use team 番号 / unuse team / ls team / more team 番号 ｜ " +
                "計算: dmg 攻撃 技±ランク 防御 [努力値 性格 持ち物 特性 急所 やけど どく まひ 天候 …] / calc 攻撃 技 防御 ダメージ[%] / diff 自分 相手 [まひ] ｜ " +
                $"接頭辞: {prefixes}（!poke はチャンピオンズ）";
     }
@@ -117,6 +117,7 @@ public sealed class PokeCommand
             case "more" or "show" or "info": return await MoreAsync(ds, data, args, ct).ConfigureAwait(false);
             case "rm" or "del" or "remove" when isTeam: return await RemoveTeamAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "rm" or "del" or "remove": return await RemoveAsync(ds, args, options, ct).ConfigureAwait(false);
+            case "unuse" or "release" or "clear" when isTeam || args.Count == 0: return await UnuseTeamAsync(ds, options, ct).ConfigureAwait(false);
             case "use" when isTeam || args.Count > 0: return await UseTeamAsync(ds, args, options, ct).ConfigureAwait(false);
             case "dmg" or "damage": return await DamageAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "calc" or "ev": return await CalcAsync(ds, data, args, options, ct).ConfigureAwait(false);
@@ -203,8 +204,11 @@ public sealed class PokeCommand
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == id);
         if (entry is null) return Fail($"登録ID {id} はありません");
+        var teamsBefore = roster.Teams.Select(t => t.Number).ToList();
         await _roster.RemovePokemonAsync(ds.Key, id, ct).ConfigureAwait(false);
-        return Ok($"#{id} {entry.PokemonName} を削除しました（チームからも外しました）");
+        var deleted = teamsBefore.Except(roster.Teams.Select(t => t.Number)).ToList();
+        var note = deleted.Count > 0 ? $"。0 体になった{string.Join("・", deleted.Select(n => $"チーム{n}"))}を削除しました" : "";
+        return Ok($"#{id} {entry.PokemonName} を削除しました（チームからも外しました{note}）");
     }
 
     // ------------------------------------------------------------------ チーム
@@ -243,7 +247,17 @@ public sealed class PokeCommand
         var match = DamageCommand.CreatePokemonResolver(data).Resolve(args[1]);
         if (!match.IsResolved) return Fail(NotFound("ポケモン", args[1], match.Candidates.Select(p => p.Name)));
         var removed = await _roster.RemoveFromTeamAsync(ds.Key, teamNo, e => e.PokemonId == match.Value!.Id, ct).ConfigureAwait(false);
-        return removed ? Ok($"チーム{teamNo} から {match.Value!.Name} を外しました") : Fail($"チーム{teamNo} に {match.Value!.Name} はいません");
+        if (!removed) return Fail($"チーム{teamNo} に {match.Value!.Name} はいません");
+        var stillThere = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key).Teams.Any(t => t.Number == teamNo);
+        return Ok($"チーム{teamNo} から {match.Value!.Name} を外しました" + (stillThere ? "" : "（0 体になったのでチームを削除しました）"));
+    }
+
+    private async Task<DamageCommandResult> UnuseTeamAsync(DataSetInfo ds, PokeCommandOptions options, CancellationToken ct)
+    {
+        if (!options.AllowMutations) return Fail("使用チームの変更は配信者・モデレーターのみ行えます");
+        return await _roster.ClearActiveTeamAsync(ds.Key, ct).ConfigureAwait(false)
+            ? Ok("使用チームを解除しました。以降の dmg / calc / diff は使用率に基づく既定値で計算します")
+            : Ok("使用中のチームはありません");
     }
 
     private async Task<DamageCommandResult> UseTeamAsync(DataSetInfo ds, List<string> args, PokeCommandOptions options, CancellationToken ct)
@@ -330,7 +344,7 @@ public sealed class PokeCommand
             var result = calc.Calculate(new DamageRequest
             {
                 Attacker = request.Attacker, Move = request.Move, Defender = defender,
-                Format = request.Format, IsCritical = request.IsCritical, Weather = request.Weather, Terrain = request.Terrain,
+                Format = request.Format, IsCritical = request.IsCritical, Weather = request.Weather, Terrain = request.Terrain, Screen = request.Screen,
             });
             if (result.MinDamage != baseline.MinDamage || result.MaxDamage != baseline.MaxDamage) distinct = true;
             lines.Add(result.MaxDamage == 0
@@ -389,7 +403,7 @@ public sealed class PokeCommand
             var req = new DamageRequest
             {
                 Attacker = request.Attacker, Move = request.Move, Defender = defender,
-                Format = request.Format, IsCritical = request.IsCritical, Weather = request.Weather, Terrain = request.Terrain,
+                Format = request.Format, IsCritical = request.IsCritical, Weather = request.Weather, Terrain = request.Terrain, Screen = request.Screen,
             };
             results.Add((ability, estimator.Run(req, observed, asPercent)));
         }
