@@ -417,7 +417,7 @@ public class PokeCommandTests
 
         var ls = await cmd.ExecuteAsync("!pokech ls");
         Assert.Contains("ガブリアス(ようき)", ls.Message);
-        var lsFiltered = await cmd.ExecuteAsync("!pokech ls ハバタクカミ");
+        var lsFiltered = await cmd.ExecuteAsync("!pokech ls ピカチュウ");
         Assert.Contains("登録されたポケモンはありません", lsFiltered.Message);
 
         var more = await cmd.ExecuteAsync("!pokech more 1");
@@ -446,7 +446,7 @@ public class PokeCommandTests
     {
         var cmd = NewCommand(out _);
         Assert.True((await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき")).Success);
-        Assert.True((await cmd.ExecuteAsync("!pokech add ハバタクカミ 0 0 0 32 2 32 おくびょう")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech add リザードン 0 0 0 32 2 32 おくびょう")).Success);
 
         var addTeam = await cmd.ExecuteAsync("!pokech add team 1 1 こだわりスカーフ");
         Assert.True(addTeam.Success, addTeam.Message);
@@ -461,7 +461,7 @@ public class PokeCommandTests
         Assert.Contains("使用中", moreTeam.Message);
         Assert.Contains("@こだわりスカーフ", moreTeam.Message);
 
-        var dmg = await cmd.ExecuteAsync("!pokech dmg ガブリアス じしん+1 ハバタクカミ");
+        var dmg = await cmd.ExecuteAsync("!pokech dmg ガブリアス ドラゴンクロー+1 リザードン");
         Assert.True(dmg.Success, dmg.Message);
         Assert.Contains("こだわりスカーフ", dmg.Message);   // 使用チームの持ち物が表示される
         Assert.Contains("急所", dmg.Message);
@@ -469,7 +469,7 @@ public class PokeCommandTests
         Assert.Equal(32, dmg.Request.Attacker.EVs.Attack);  // 登録した振り
         Assert.Equal(EvSystem.Points, dmg.Request.Attacker.EvSystem);
 
-        var rmMember = await cmd.ExecuteAsync("!pokech rm team 1 ハバタクカミ");
+        var rmMember = await cmd.ExecuteAsync("!pokech rm team 1 リザードン");
         Assert.True(rmMember.Success, rmMember.Message);
         var rmTeam = await cmd.ExecuteAsync("!pokech rm team 1");
         Assert.True(rmTeam.Success, rmTeam.Message);
