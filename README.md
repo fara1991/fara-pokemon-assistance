@@ -112,7 +112,8 @@ dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサ�
 ```bash
 dotnet build FaraPokemonAssistance.sln
 dotnet test tests/FaraPokemonAssistance.Core.Tests
-dotnet run --project src/FaraPokemonAssistance.Web      # http://localhost:5xxx
+dotnet run --project src/FaraPokemonAssistance.Web      # https://localhost:52017
+./scripts/run-web.sh                                    # 起動してブラウザも開く（WSL / Linux / macOS）
 ```
 
 ### 計算で考慮しているもの
