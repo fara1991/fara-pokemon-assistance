@@ -12,7 +12,7 @@ public sealed class AppState
     private const string StorageKey = "fara-pokemon-assistance.settings";
     private readonly DataCatalog _catalog;
     private readonly IJSRuntime _js;
-    private bool _initialized;
+    private Task? _init;
 
     public AppState(DataCatalog catalog, IJSRuntime js)
     {
@@ -31,10 +31,11 @@ public sealed class AppState
     /// <summary>データセット・バトル形式が変わったときに発火する。</summary>
     public event Func<Task>? Changed;
 
-    public async Task InitializeAsync()
+    /// <summary>初期化。複数のコンポーネントから同時に呼ばれても同じ処理を待つ。</summary>
+    public Task InitializeAsync() => _init ??= InitializeCoreAsync();
+
+    private async Task InitializeCoreAsync()
     {
-        if (_initialized) return;
-        _initialized = true;
         DataSets = await _catalog.GetDataSetsAsync();
         DataSetKey = await _catalog.ResolveDefaultKeyAsync();
         try

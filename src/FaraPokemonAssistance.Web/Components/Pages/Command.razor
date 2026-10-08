@@ -165,6 +165,7 @@
             if (previousPrefix is not null && s.Input.StartsWith("!" + previousPrefix + " ", StringComparison.OrdinalIgnoreCase))
                 s.Input = "!" + App.CommandPrefix + s.Input[(previousPrefix.Length + 1)..];
             ParseText();
+            RefreshMoves();
         }
         else
         {

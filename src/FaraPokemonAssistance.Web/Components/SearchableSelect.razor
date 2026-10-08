@@ -4,8 +4,8 @@
     <input type="text"
            class="form-control"
            placeholder="@Placeholder"
-           @bind-value="searchText"
-           @bind-value:event="oninput"
+           value="@searchText"
+           @oninput="OnTyped"
            @onfocusin="OnFocusIn"
            @onkeydown="@OnKeyDown"
            disabled="@Disabled"
@@ -50,6 +50,13 @@
 
     private string searchText = "";
     private bool showDropdown = false;
+    private bool userTyped = false;
+
+    private void OnTyped(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? "";
+        userTyped = true;
+    }
 
     private IEnumerable<TItem> FilteredItems =>
         string.IsNullOrWhiteSpace(searchText)
@@ -102,6 +109,7 @@
         if (Disabled) return;
         showDropdown = true;
         searchText = "";
+        userTyped = false;
     }
 
     private async Task OnFocusOut()
@@ -111,7 +119,14 @@
 
         if (string.IsNullOrWhiteSpace(searchText))
         {
-            await SelectedValueChanged.InvokeAsync("");
+            // 何も入力せずに離れたときは選択を保つ。文字を消して離れたときだけ解除する。
+            if (userTyped)
+            {
+                await SelectedValueChanged.InvokeAsync("");
+                return;
+            }
+            var current = Items.FirstOrDefault(item => ValueSelector(item) == SelectedValue);
+            searchText = current != null && !string.IsNullOrEmpty(SelectedValue) && SelectedValue != "0" ? DisplayText(current) : "";
             return;
         }
 
