@@ -287,7 +287,7 @@ public class DataAndCommandTests
     public async Task Champions_roster_comes_from_pokedex()
     {
         var command = new DamageCommand(TestData.Catalog());
-        var result = await command.ExecuteAsync("イエッサン♂ ワイドフォース メガリザードンX サイコ", new DamageCommandOptions { DataSetKey = "Champions" });
+        var result = await command.ExecuteAsync("イエッサン♂ ワイドフォース メガリザードンX サイコフィールド", new DamageCommandOptions { DataSetKey = "Champions" });
         Assert.True(result.Success, result.Message);
         Assert.Equal("イエッサン(♂)", result.Request!.Attacker.Pokemon.Name);
         Assert.Equal(Terrain.Psychic, result.Request.Terrain);

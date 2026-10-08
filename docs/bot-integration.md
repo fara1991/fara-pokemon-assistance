@@ -98,7 +98,7 @@ private async void TwitchClientOnMessageReceived(object? sender, OnMessageReceiv
 ボットに組み込む前に、同じ文字列をターミナルやブラウザで試せます。
 
 ```bash
-dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコ"
+dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコフィールド"
 dotnet run --project src/FaraPokemonAssistance.Cli -- --data https://fara1991.github.io/fara-pokemon-assistance/data/ "!pokesv diff ガブリアス ハバタクカミ"
 ```
 

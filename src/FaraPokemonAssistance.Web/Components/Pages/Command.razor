@@ -105,7 +105,7 @@
             <code>攻:</code>/<code>防:</code>（どちら側か明示）、<code>+2</code>（攻撃側のランク）、<code>急所</code>、<code>ダブル</code>、
             @if (App.DataSet?.HasTerastal == true) { <span><code>テラス</code> <code>テラスほのお</code> <code>防:テラスみず</code>、</span> }
             @if (App.DataSet?.HasDynamax == true) { <span><code>ダイマ</code>（攻撃側）<code>防:ダイマ</code>（防御側）、</span> }
-            天候 <code>晴れ</code> <code>雨</code> <code>砂嵐</code> <code>雪</code>、フィールド <code>エレキ</code> <code>グラス</code> <code>サイコ</code> <code>ミスト</code>、
+            天候 <code>晴れ</code> <code>雨</code> <code>砂嵐</code> <code>雪</code>、フィールド <code>エレキフィールド</code> <code>グラスフィールド</code> <code>サイコフィールド</code> <code>ミストフィールド</code>、
             状態異常 <code>やけど</code> <code>まひ</code>（既定は攻撃側）<code>どく</code> <code>もうどく</code>（既定は防御側。定数ダメージを確定数に含める）。
         </p>
         <p class="small text-muted mb-0">指定しなかった項目は「攻撃側は攻撃技に合わせて A か C に全振り、防御側は H 全振り、性格・持ち物・特性は使用率 1 位（無ければ第 1 特性）」で埋め、結果にそのまま表示します。使用チームにいるポケモンはチームの構成が優先されます。相手の特性で結果が変わる場合は「特性別:」が付きます。</p>
@@ -151,26 +151,24 @@
 
     private async Task LoadAsync()
     {
-        data = await Catalog.GetDataSetAsync(App.DataSetKey);
-        usage = await data.GetUsageAsync(App.Format);
-        if (s.DataSetKey != App.DataSetKey)
+        var switched = s.DataSetKey != App.DataSetKey;
+        if (switched)
         {
+            // 接頭辞はデータの読み込みを待たずにすぐ切り替える（入力の残りはそのまま）
             var previousPrefix = s.DataSetKey == "" ? null : App.DataSets.FirstOrDefault(d => d.Key == s.DataSetKey)?.CommandPrefix;
+            if (previousPrefix is not null && s.Input.StartsWith("!" + previousPrefix + " ", StringComparison.OrdinalIgnoreCase))
+                s.Input = "!" + App.CommandPrefix + s.Input[(previousPrefix.Length + 1)..];
             s.DataSetKey = App.DataSetKey;
             s.Attacker = null;
             s.Move = null;
             s.Defender = null;
             attackerMoves = Array.Empty<Move>();
-            // 接頭辞だけ新しいゲームに合わせる（入力は残す）
-            if (previousPrefix is not null && s.Input.StartsWith("!" + previousPrefix + " ", StringComparison.OrdinalIgnoreCase))
-                s.Input = "!" + App.CommandPrefix + s.Input[(previousPrefix.Length + 1)..];
-            ParseText();
-            RefreshMoves();
+            StateHasChanged();
         }
-        else
-        {
-            RefreshMoves();
-        }
+        data = await Catalog.GetDataSetAsync(App.DataSetKey);
+        usage = await data.GetUsageAsync(App.Format);
+        if (switched) ParseText();
+        RefreshMoves();
     }
 
     private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;
@@ -202,14 +200,9 @@
         if (s.Kind == "calc") parts.Add(string.IsNullOrWhiteSpace(s.Damage) ? "受けたダメージ" : s.Damage.Trim());
         parts.AddRange(s.Extras);
         if (s.Weather != Weather.None) parts.Add(FieldNames.Japanese(s.Weather));
-        if (s.Terrain != Terrain.None) parts.Add(TerrainToken(s.Terrain));
+        if (s.Terrain != Terrain.None) parts.Add(FieldNames.Japanese(s.Terrain));
         s.Input = string.Join(" ", parts);
     }
-
-    private static string TerrainToken(Terrain t) => t switch
-    {
-        Terrain.Electric => "エレキ", Terrain.Grassy => "グラス", Terrain.Psychic => "サイコ", Terrain.Misty => "ミスト", _ => "",
-    };
 
     private void OnInput(ChangeEventArgs e)
     {
@@ -317,9 +310,9 @@
         yield return new($"{p} ls team", "チーム一覧", new[] { $"{p} ls team" });
         yield return new($"{p} more team 番号", "チームの詳細", new[] { $"{p} more team 1" });
         yield return new($"{p} dmg 攻撃側 技[±ランク] 防御側 [オプション]", "通常と急所のダメージと確定数。使用チームにいるポケモンはその構成（持ち物は括弧内に表示）",
-            new[] { $"{p} dmg ガブリアス じしん リザードン", $"{p} dmg ガブリアス じしん+1 リザードン 晴れ 急所", $"{p} dmg ガブリアス じしん リザードン A252 いじっぱり こだわりハチマキ{gimmick}" });
+            new[] { $"{p} dmg ガブリアス じしん リザードン", $"{p} dmg ガブリアス じしん+1 リザードン 晴れ 急所", $"{p} dmg イエッサン ワイドフォース メガリザードンX サイコフィールド", $"{p} dmg ガブリアス じしん リザードン A252 いじっぱり こだわりハチマキ{gimmick}" });
         yield return new($"{p} calc 攻撃側 技[±ランク] 防御側 受けたダメージ [オプション]", "受けた（与えた）ダメージから相手の防御側の努力値と性格補正を推定。93 なら実数、45% なら割合（H も推定）",
-            new[] { $"{p} calc ガブリアス じしん リザードン 93", $"{p} calc ガブリアス じしん リザードン 45% サイコ" });
+            new[] { $"{p} calc ガブリアス じしん リザードン 93", $"{p} calc ガブリアス じしん リザードン 45% サイコフィールド" });
         yield return new($"{p} diff 自分 相手 [+1 天候 まひ 自:まひ]", "素早さ比較。自分は使用チームの実数値、相手は 無振り / 準速 / 最速 / スカーフ最速 / 最遅",
             new[] { $"{p} diff ガブリアス リザードン", $"{p} diff ガブリアス リザードン +1 まひ" });
         yield return new($"{p} cmd ls", "使えるコマンドの一覧（!poke cmd ls でも可）", new[] { $"{p} cmd ls" });

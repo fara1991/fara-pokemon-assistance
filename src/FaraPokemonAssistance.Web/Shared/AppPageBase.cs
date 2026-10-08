@@ -26,6 +26,8 @@ public abstract class AppPageBase : ComponentBase, IDisposable
 
     private async Task HandleAppChangedAsync()
     {
+        // 接頭辞やゲーム名など、データの読み込みを待たずに出せるものは先に描き直す
+        await InvokeAsync(StateHasChanged);
         await OnAppChangedAsync();
         await InvokeAsync(StateHasChanged);
     }
