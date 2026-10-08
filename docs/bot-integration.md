@@ -63,7 +63,7 @@ public sealed class PokemonAssistService
         var result = await _command.ExecuteAsync(message, new PokeCommandOptions
         {
             Format = Models.BattleFormat.Singles,   // ダブル配信なら Doubles
-            AllowMutations = canEdit,               // add / rm / use team は配信者本人と Owner 権限のメンバーだけ
+            AllowMutations = canEdit,               // add / rm / use team は配信者本人とモデレーターだけ
         });
         return result.Message;
     }
@@ -76,16 +76,14 @@ public sealed class PokemonAssistService
 
 ```csharp
 private readonly PokemonAssistService _pokemon = new();
-// Owner 権限を与えるユーザー ID（secrets.json などの設定から読む）
-private static readonly HashSet<string> Owners = new(/* settings.PokemonOwners */);
 
 private async void TwitchClientOnMessageReceived(object? sender, OnMessageReceivedArgs e)
 {
     var text = e.ChatMessage.Message.Trim();
     if (await _pokemon.HandlesAsync(text))
     {
-        // 登録・削除・使用チームの変更は配信者本人と Owner 権限のメンバーだけ（モデレーターや視聴者には開放しない）
-        var canEdit = e.ChatMessage.IsBroadcaster || Owners.Contains(e.ChatMessage.UserId);
+        // 登録・削除・使用チームの変更は配信者本人とモデレーターだけ（視聴者には開放しない）
+        var canEdit = e.ChatMessage.IsBroadcaster || e.ChatMessage.IsModerator;
         SendMessage(e.ChatMessage.Channel, await _pokemon.HandleAsync(text, canEdit));
         return;
     }
