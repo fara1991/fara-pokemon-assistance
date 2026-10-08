@@ -335,6 +335,18 @@ public enum ItemCategory
     ThickClub,
     /// <summary>メガストーン（メガシンカ後のフォルムは固定）。</summary>
     MegaStone,
+    /// <summary>半減きのみ（TypeBoost のタイプの効果抜群技を 1 回だけ半減。ホズのみはノーマル技）。</summary>
+    ResistBerry,
+    /// <summary>オボンのみ（HP 1/2 以下で 1/4 回復）。</summary>
+    SitrusBerry,
+    /// <summary>オレンのみ（HP 1/2 以下で 10 回復）。</summary>
+    OranBerry,
+    /// <summary>フィラのみ等（HP 1/4 以下で 1/3 回復）。</summary>
+    PinchBerry,
+    /// <summary>たべのこし（毎ターン 1/16 回復）。</summary>
+    Leftovers,
+    /// <summary>くろいヘドロ（どくタイプは 1/16 回復、それ以外は 1/8 ダメージ）。</summary>
+    BlackSludge,
 }
 
 public sealed class Item
@@ -354,10 +366,12 @@ public sealed class Item
 
     /// <summary>防御側に持たせるのが自然な持ち物か（チャットコマンドの振り分けに使う）。</summary>
     public bool IsDefensive => Category is ItemCategory.AssaultVest or ItemCategory.Eviolite
+        or ItemCategory.ResistBerry or ItemCategory.SitrusBerry or ItemCategory.OranBerry or ItemCategory.PinchBerry
+        or ItemCategory.Leftovers or ItemCategory.BlackSludge
         || DefenseMultiplier != 1.0 || SpDefenseMultiplier != 1.0;
     /// <summary>攻撃側のダメージに関係する持ち物か（計算機の持ち物一覧の絞り込みに使う）。</summary>
-    public bool IsOffensive => Category is ItemCategory.LifeOrb or ItemCategory.ExpertBelt or ItemCategory.TypeBoost or ItemCategory.LightBall or ItemCategory.ThickClub
-        || AttackMultiplier != 1.0 || SpAttackMultiplier != 1.0 || DamageMultiplier != 1.0 || !string.IsNullOrEmpty(TypeBoost);
+    public bool IsOffensive => Category is not (ItemCategory.ResistBerry) && (Category is ItemCategory.LifeOrb or ItemCategory.ExpertBelt or ItemCategory.TypeBoost or ItemCategory.LightBall or ItemCategory.ThickClub
+        || AttackMultiplier != 1.0 || SpAttackMultiplier != 1.0 || DamageMultiplier != 1.0 || !string.IsNullOrEmpty(TypeBoost));
     public bool IsMegaStone => Category == ItemCategory.MegaStone;
 
     public override string ToString() => Name;

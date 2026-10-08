@@ -5,8 +5,8 @@
 <PageTitle>ホーム</PageTitle>
 
 <div class="page-header">
-    <h3>ポケモン ダメージ計算</h3>
-    <p class="text-muted mb-0">ダメージ計算・素早さ比較・タイプ相性をブラウザで確認できます。配信中は Twitch のチャットコマンドからも同じ計算を呼び出せます。</p>
+    <h3>ポケモン対戦アシスタント</h3>
+    <p class="text-muted mb-0">ダメージ計算・素早さ比較・育成済みポケモンとチームの管理・タイプ相性をまとめたサイトです。配信中は Twitch のチャットコマンドからも同じ機能を使えます。</p>
 </div>
 
 <div class="row g-3">
@@ -15,8 +15,8 @@
             <div class="card-body">
                 <h5 class="card-title">ダメージ計算機</h5>
                 <p class="card-text">
-                    努力値・性格・持ち物・特性・ランク補正・急所・天候・フィールド・状態異常を指定して、
-                    乱数 16 通りのダメージと確定数を出します。受けたダメージから相手の努力値を推定することもできます。
+                    努力値・性格・持ち物・特性・ランク補正・急所・壁・天候・フィールド・状態異常・残り HP を指定して、
+                    乱数 16 通りのダメージと確定数を出します。確定数には回復きのみ・たべのこし・定数ダメージも含めます。受けたダメージから相手の努力値を推定することもできます。
                 </p>
                 <a href="damage-calculator" class="btn btn-primary">計算機を開く</a>
             </div>
@@ -58,7 +58,7 @@
     <div class="col-md-6">
         <div class="card h-100">
             <div class="card-body">
-                <h6 class="card-title">データの更新 <Help Title="データの更新">ポケモン・技・持ち物・使用率のデータは毎週月曜の昼に自動で更新されます。更新後にページを再読み込みすると新しいデータになります。</Help></h6>
+                <h6 class="card-title">サイト内ポケモンデータの更新 <Help Title="サイト内ポケモンデータの更新">ポケモン・技・持ち物・使用率のデータは毎週月曜の昼に自動で更新されます。更新後にページを再読み込みすると新しいデータになります。</Help></h6>
                 <table class="table table-sm mb-0 small">
                     <tbody>
                         <tr><th class="text-nowrap">最終更新</th><td>@(lastUpdated ?? "取得中…")</td></tr>
@@ -70,9 +70,6 @@
     </div>
 </div>
 
-<div class="mt-4 small text-muted">
-    <p class="mb-1">まだ対応していないもの: 壁、HP に応じて変わる特性（もうか・マルチスケイルは満タン想定）、きのみや回復を含めた確定数。</p>
-</div>
 
 @code {
     // update-data.yml の cron（17 3 * * 1 UTC = 毎週月曜 12:17 JST）

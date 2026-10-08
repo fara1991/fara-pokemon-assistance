@@ -1,3 +1,5 @@
+using FaraPokemonAssistance.Core.Battle;
+
 namespace FaraPokemonAssistance.Core.Models;
 
 /// <summary>対戦で使う 1 体の構成（レベル・個体値・努力値・性格・持ち物・ランク）。</summary>
@@ -20,6 +22,14 @@ public sealed class PokemonBuild
     public StatusCondition Status { get; set; } = StatusCondition.None;
     /// <summary>ダイマックス中（剣盾）。HP 2 倍、技はダイマックス技の威力になる。</summary>
     public bool IsDynamax { get; set; }
+    /// <summary>残り HP の割合（1〜100）。もうか等のピンチ特性、マルチスケイル、確定数の開始 HP に使う。</summary>
+    public int HpPercent { get; set; } = 100;
+
+    /// <summary>最大 HP（ダイマックス中は 2 倍）。</summary>
+    public int MaxHp => StatCalculator.Calculate(this, Stat.HP) * (IsDynamax ? 2 : 1);
+
+    /// <summary>今の HP（<see cref="HpPercent"/> から求める。最低 1）。</summary>
+    public int CurrentHp => HpPercent >= 100 ? MaxHp : Math.Max(1, MaxHp * Math.Clamp(HpPercent, 1, 100) / 100);
 
     public PokemonBuild(Pokemon pokemon)
     {
@@ -52,6 +62,7 @@ public sealed class PokemonBuild
         Boosts = Boosts.Clone(),
         Status = Status,
         IsDynamax = IsDynamax,
+        HpPercent = HpPercent,
     };
 
     /// <summary>チャット向けの短い説明（例: <c>C252 ひかえめ こだわりメガネ サイコメイカー</c>）。</summary>
@@ -64,6 +75,7 @@ public sealed class PokemonBuild
         if (IsTerastallized) parts.Add($"テラス{TypeNames.ToJapanese(TeraType!)}");
         if (Status != StatusCondition.None) parts.Add(StatusNames.Japanese(Status));
         if (IsDynamax) parts.Add("ダイマックス");
+        if (HpPercent < 100) parts.Add($"HP{HpPercent}%");
         var boosts = new List<string>();
         foreach (var stat in new[] { Stat.Attack, Stat.Defense, Stat.SpAttack, Stat.SpDefense, Stat.Speed })
         {
@@ -85,6 +97,8 @@ public sealed class DamageRequest
     public bool IsCritical { get; init; }
     public Weather Weather { get; init; } = Weather.None;
     public Terrain Terrain { get; init; } = Terrain.None;
+    /// <summary>防御側の場に壁がある（物理ならリフレクター、特殊ならひかりのかべ、またはオーロラベール）。</summary>
+    public bool Screen { get; init; }
 }
 
 /// <summary>確定数。<see cref="Hits"/> 発で倒せる確率が <see cref="Probability"/>。</summary>
