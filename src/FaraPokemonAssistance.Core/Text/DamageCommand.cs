@@ -51,6 +51,7 @@ public sealed class DamageCommandResult
 /// <item><c>急所</c>、<c>ダブル</c> / <c>シングル</c>、<c>Lv100</c>、<c>無振り</c>（防御側の努力値を 0 に）</item>
 /// <item>特性名（ちからもち 等）… そのポケモンが持てる側に付く。両方持てるなら防御的な特性は防御側</item>
 /// <item><c>テラス</c>（技タイプにテラスタル）、<c>テラスほのお</c> / <c>ほのおテラス</c>、<c>防:テラスみず</c></item>
+/// <item><c>ダイマ</c>（攻撃側をダイマックス）、<c>防:ダイマ</c>（防御側: HP 2 倍）</item>
 /// <item>天候: <c>晴れ</c> <c>雨</c> <c>砂</c> <c>雪</c>、フィールド: <c>エレキ</c> <c>グラス</c> <c>サイコ</c> <c>ミスト</c></item>
 /// <item>状態異常: <c>やけど</c> <c>まひ</c>（既定は攻撃側）、<c>どく</c> <c>もうどく</c>（既定は防御側。確定数に定数ダメージを織り込む）</item>
 /// </list>
@@ -154,15 +155,15 @@ public sealed class DamageCommand
         var defenderNoEv = false;
         var attackerAbilitySet = attackerPreset?.Ability is not null;
         var defenderAbilitySet = defenderPreset?.Ability is not null;
-        if (moveRank != 0) attacker.Boosts[move.Category == MoveCategory.Physical ? Stat.Attack : Stat.SpAttack] = moveRank;
+        if (moveRank != 0) attacker.Boosts[move.AttackStatUsed] = moveRank;
         var weather = Weather.None;
         var terrain = Terrain.None;
         var attackerTeraToMoveType = false;
         var warnings = new List<string>();
 
         var isPhysical = move.Category == MoveCategory.Physical;
-        var offenseStat = isPhysical ? Stat.Attack : Stat.SpAttack;
-        var defenseStat = isPhysical ? Stat.Defense : Stat.SpDefense;
+        var offenseStat = move.AttackStatUsed;
+        var defenseStat = move.DefenseStatUsed;
 
         foreach (var rawToken in tokens.Skip(3))
         {
@@ -211,6 +212,11 @@ public sealed class DamageCommand
                 if (forcedAttacker == false) { defender.Item = null; defenderItemSet = true; }
                 else if (forcedAttacker == true) { attacker.Item = null; attackerItemSet = true; }
                 else { attacker.Item = null; defender.Item = null; attackerItemSet = defenderItemSet = true; }
+                continue;
+            }
+            if (normalized is "ダイマ" or "だいま" or "ダイマックス" or "だいまっくす" or "dmax" or "dynamax")
+            {
+                if (forcedAttacker == false) defender.IsDynamax = true; else attacker.IsDynamax = true;
                 continue;
             }
             if (normalized is "ダブル" or "だぶる" or "double" or "doubles" or "dbl") { format = BattleFormat.Doubles; continue; }
@@ -388,6 +394,11 @@ public sealed class DamageCommand
         return (m.Groups[1].Value, sign * (m.Groups[2].Value[1] - '0'));
     }
 
+    /// <summary>「晴れ」「雨」などの天候トークンを解釈する（正規化前の文字列でよい）。</summary>
+    public static Weather? ParseWeather(string token) => TryParseWeather(NameNormalizer.Normalize(token));
+    /// <summary>「サイコ」「エレキフィールド」などのフィールドトークンを解釈する。</summary>
+    public static Terrain? ParseTerrain(string token) => TryParseTerrain(NameNormalizer.Normalize(token));
+
     private static Weather? TryParseWeather(string n) => n switch
     {
         "晴れ" or "はれ" or "にほんばれ" or "日本晴れ" or "sun" or "sunny" => Weather.Sun,
@@ -467,8 +478,8 @@ public sealed class DamageCommand
             ("メガバンギ", "メガバンギラス"), ("メガメタグロス", "メガメタグロス"), ("メガグロス", "メガメタグロス"), ("メガミミロップ", "メガミミロップ"),
             ("ガブ", "ガブリアス"), ("バシャ", "バシャーモ"), ("マンダ", "ボーマンダ"), ("バンギ", "バンギラス"), ("グロス", "メタグロス"),
             ("ハバタクカミ", "ハバタクカミ"), ("カミ", "ハバタクカミ"), ("テツノツツミ", "テツノツツミ"), ("ツツミ", "テツノツツミ"),
-            ("イエッサン♂", "イエッサン"), ("イエッサンオス", "イエッサン"), ("イエッサンメス", "イエッサン(♀)"), ("イエッサン♀", "イエッサン(♀)"),
-            ("ニャオニクス♂", "ニャオニクス"), ("ニャオニクス♀", "ニャオニクス(♀)"),
+            ("イエッサン♂", "イエッサン(♂)"), ("イエッサンオス", "イエッサン(♂)"), ("イエッサンメス", "イエッサン(♀)"), ("イエッサン♀", "イエッサン(♀)"),
+            ("ニャオニクス♂", "ニャオニクス(♂)"), ("ニャオニクス♀", "ニャオニクス(♀)"),
             ("ランドロス", "ランドロス(れいじゅうフォルム)"), ("霊獣ランド", "ランドロス(れいじゅうフォルム)"), ("化身ランド", "ランドロス"),
             ("ウーラオス", "ウーラオス"), ("連撃ウーラオス", "ウーラオス(れんげきのかた)"), ("水ウーラ", "ウーラオス(れんげきのかた)"), ("悪ウーラ", "ウーラオス"),
             ("ガオガエン", "ガオガエン"), ("ドラパルト", "ドラパルト"), ("パオジアン", "パオジアン"), ("パオ", "パオジアン"),

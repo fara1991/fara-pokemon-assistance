@@ -1,43 +1,51 @@
+@inject AppState App
+@implements IDisposable
+
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">FaraPokemonAssistance</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+        <span class="navbar-brand">メニュー</span>
+        <button title="メニュー" class="navbar-toggler" @onclick="ToggleNavMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
     </div>
 </div>
 
-<div class="@NavMenuCssClass nav-scrollable" @onclick="CollapseNavMenu">
-    <nav class="flex-column">
+<div class="@NavMenuCssClass nav-scrollable">
+    <div class="side-settings px-3 pt-3">
+        <label class="side-label" for="side-dataset">ゲーム <Help Title="ゲーム（データ）">計算に使うポケモン・技・持ち物のデータを切り替えます。チャットコマンドの接頭辞（!pokech など）もこれに合わせて変わります。全ページ共通です。</Help></label>
+        <select id="side-dataset" class="form-select form-select-sm" value="@App.DataSetKey" @onchange="@(e => App.SetDataSetAsync(e.Value?.ToString() ?? ""))">
+            @foreach (var ds in App.DataSets)
+            {
+                <option value="@ds.Key">@ds.Name</option>
+            }
+        </select>
+        <label class="side-label mt-2" for="side-format">バトル形式 <Help Title="バトル形式">ダブルバトルでは全体技の威力が 0.75 倍になります。使用率の既定値（技・持ち物・性格）もシングル / ダブルで切り替わります。</Help></label>
+        <select id="side-format" class="form-select form-select-sm" value="@App.Format" @onchange="@(e => App.SetFormatAsync(Enum.TryParse<BattleFormat>(e.Value?.ToString(), out var f) ? f : BattleFormat.Singles))">
+            <option value="@BattleFormat.Singles">シングル</option>
+            <option value="@BattleFormat.Doubles">ダブル</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-outline-light w-100 mt-2" @onclick="App.ToggleThemeAsync">
+            @(App.Theme == "dark" ? "☀ ライトモード" : "🌙 ダークモード")
+        </button>
+    </div>
+    <nav class="flex-column" @onclick="CollapseNavMenu">
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span aria-hidden="true"></span> ホーム
-            </NavLink>
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">ホーム</NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="damage-calculator">
-                <span aria-hidden="true"></span> ダメージ計算機
-            </NavLink>
+            <NavLink class="nav-link" href="damage-calculator">ダメージ計算機</NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="speed">
-                <span aria-hidden="true"></span> 素早さ比較
-            </NavLink>
+            <NavLink class="nav-link" href="speed">素早さ比較</NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="roster">
-                <span aria-hidden="true"></span> 登録・チーム
-            </NavLink>
+            <NavLink class="nav-link" href="roster">登録・チーム</NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="types">
-                <span aria-hidden="true"></span> タイプ相性表
-            </NavLink>
+            <NavLink class="nav-link" href="types">タイプ相性表</NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="command">
-                <span aria-hidden="true"></span> チャットコマンド
-            </NavLink>
+            <NavLink class="nav-link" href="command">チャットコマンド</NavLink>
         </div>
     </nav>
 </div>
@@ -47,13 +55,17 @@
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
-    private void ToggleNavMenu()
+    protected override async Task OnInitializedAsync()
     {
-        collapseNavMenu = !collapseNavMenu;
+        await App.InitializeAsync();
+        App.Changed += OnChanged;
     }
 
-    private void CollapseNavMenu()
-    {
-        collapseNavMenu = true;
-    }
+    private Task OnChanged() => InvokeAsync(StateHasChanged);
+
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
+
+    private void CollapseNavMenu() => collapseNavMenu = true;
+
+    public void Dispose() => App.Changed -= OnChanged;
 }

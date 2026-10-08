@@ -4,18 +4,26 @@
     <input type="text"
            class="form-control"
            placeholder="@Placeholder"
-           @bind-value="searchText"
-           @bind-value:event="oninput"
+           value="@searchText"
+           @oninput="OnTyped"
            @onfocusin="OnFocusIn"
            @onkeydown="@OnKeyDown"
+           disabled="@Disabled"
            autocomplete="off" />
-    @if (showDropdown && FilteredItems.Any())
+    @if (showDropdown && !Disabled && FilteredItems.Any())
     {
         <div class="searchable-select-dropdown">
             @foreach (var item in FilteredItems.Take(MaxVisible))
             {
                 <div class="searchable-select-item" @onmousedown="() => SelectItem(item)" @onmousedown:preventDefault>
-                    @DisplayText(item)
+                    @if (ItemTemplate is not null)
+                    {
+                        @ItemTemplate(item)
+                    }
+                    else
+                    {
+                        @DisplayText(item)
+                    }
                 </div>
             }
             @if (FilteredItems.Skip(MaxVisible).Any())
@@ -28,16 +36,27 @@
 
 @code {
     [Parameter] public IEnumerable<TItem> Items { get; set; } = Enumerable.Empty<TItem>();
+    /// <summary>入力欄に出す文字列。検索にも使う。</summary>
     [Parameter] public Func<TItem, string> DisplayText { get; set; } = _ => "";
+    /// <summary>候補一覧での表示（省略時は DisplayText）。</summary>
+    [Parameter] public RenderFragment<TItem>? ItemTemplate { get; set; }
     [Parameter] public Func<TItem, string> ValueSelector { get; set; } = _ => "";
     [Parameter] public string SelectedValue { get; set; } = "";
     [Parameter] public EventCallback<string> SelectedValueChanged { get; set; }
     [Parameter] public string Placeholder { get; set; } = "入力して検索...";
+    [Parameter] public bool Disabled { get; set; }
     /// <summary>一度に表示する最大件数。</summary>
     [Parameter] public int MaxVisible { get; set; } = 400;
 
     private string searchText = "";
     private bool showDropdown = false;
+    private bool userTyped = false;
+
+    private void OnTyped(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? "";
+        userTyped = true;
+    }
 
     private IEnumerable<TItem> FilteredItems =>
         string.IsNullOrWhiteSpace(searchText)
@@ -57,7 +76,7 @@
         for (int i = 0; i < chars.Length; i++)
         {
             // Katakana (U+30A1-U+30F6) -> Hiragana (U+3041-U+3096)
-            if (chars[i] >= '\u30A1' && chars[i] <= '\u30F6')
+            if (chars[i] >= 'ァ' && chars[i] <= 'ヶ')
                 chars[i] = (char)(chars[i] - 0x60);
         }
         return new string(chars);
@@ -65,13 +84,16 @@
 
     protected override void OnParametersSet()
     {
-        if (!string.IsNullOrEmpty(SelectedValue) && SelectedValue != "0" && SelectedValue != "")
+        if (showDropdown) return;
+        if (!string.IsNullOrEmpty(SelectedValue) && SelectedValue != "0")
         {
             var selected = Items.FirstOrDefault(item => ValueSelector(item) == SelectedValue);
             if (selected != null)
-            {
                 searchText = DisplayText(selected);
-            }
+        }
+        else
+        {
+            searchText = "";
         }
     }
 
@@ -84,8 +106,10 @@
 
     private void OnFocusIn()
     {
+        if (Disabled) return;
         showDropdown = true;
         searchText = "";
+        userTyped = false;
     }
 
     private async Task OnFocusOut()
@@ -95,7 +119,14 @@
 
         if (string.IsNullOrWhiteSpace(searchText))
         {
-            await SelectedValueChanged.InvokeAsync("");
+            // 何も入力せずに離れたときは選択を保つ。文字を消して離れたときだけ解除する。
+            if (userTyped)
+            {
+                await SelectedValueChanged.InvokeAsync("");
+                return;
+            }
+            var current = Items.FirstOrDefault(item => ValueSelector(item) == SelectedValue);
+            searchText = current != null && !string.IsNullOrEmpty(SelectedValue) && SelectedValue != "0" ? DisplayText(current) : "";
             return;
         }
 
@@ -105,10 +136,7 @@
             if (!string.IsNullOrEmpty(SelectedValue) && SelectedValue != "0")
             {
                 var selected = Items.FirstOrDefault(item => ValueSelector(item) == SelectedValue);
-                if (selected != null)
-                    searchText = DisplayText(selected);
-                else
-                    searchText = "";
+                searchText = selected != null ? DisplayText(selected) : "";
             }
             else
             {

@@ -141,7 +141,7 @@ public static class FieldNames
 public sealed class Ability
 {
     public int Id { get; init; }
-    /// <summary>PokeAPI の識別子（例: <c>huge-power</c>）。計算ロジックはこれで判定する。</summary>
+    /// <summary>元データの英語識別子（例: <c>huge-power</c>）。計算ロジックはこれで判定する。</summary>
     public string Identifier { get; init; } = "";
     public string Name { get; init; } = "";
 
@@ -269,6 +269,10 @@ public sealed class Pokemon
     public IReadOnlyList<int> AbilityIds { get; init; } = Array.Empty<int>();
     /// <summary>このデータセットに正式収録されておらず、他のデータで補完したポケモンなら true。</summary>
     public bool IsProvisional { get; init; }
+    /// <summary>メガシンカ後のフォルムなら、必要なメガストーンの持ち物 ID。</summary>
+    public int? MegaStoneId { get; init; }
+
+    public bool IsMega => MegaStoneId is not null;
 
     public bool HasType(string type) =>
         !string.IsNullOrEmpty(type) && (Type1 == type || Type2 == type);
@@ -303,6 +307,14 @@ public sealed class Move
     public string Description { get; init; } = "";
 
     public bool IsDamaging => Category != MoveCategory.Status && Power > 0;
+    /// <summary>いのちがけ・ナイトヘッド・カウンターなど、威力ではなく固定値でダメージを与える技。</summary>
+    public bool IsFixedDamage => Category != MoveCategory.Status && Power == 0;
+    /// <summary>ダメージ計算で参照する防御側の能力（サイコショック系は特殊技でも防御）。</summary>
+    public Stat DefenseStatUsed => Category == MoveCategory.Physical || UsesPhysicalDefense ? Stat.Defense : Stat.SpDefense;
+    /// <summary>ダメージ計算で参照する攻撃側の能力。</summary>
+    public Stat AttackStatUsed => Category == MoveCategory.Physical ? Stat.Attack : Stat.SpAttack;
+    /// <summary>特殊技だが相手の「防御」で計算する技（サイコショック・サイコブレイク・しんぴのつるぎ）。</summary>
+    public bool UsesPhysicalDefense => Category == MoveCategory.Special && Id is 473 or 540 or 548;
     public bool HasFlag(string flag) => Flags.Contains(flag);
     public bool IsContact => HasFlag("Contact");
     public bool IsSound => HasFlag("Sound");
@@ -321,6 +333,8 @@ public enum ItemCategory
     Eviolite,
     LightBall,
     ThickClub,
+    /// <summary>メガストーン（メガシンカ後のフォルムは固定）。</summary>
+    MegaStone,
 }
 
 public sealed class Item
@@ -339,7 +353,12 @@ public sealed class Item
     public double TypeBoostMultiplier { get; init; } = 1.0;
 
     /// <summary>防御側に持たせるのが自然な持ち物か（チャットコマンドの振り分けに使う）。</summary>
-    public bool IsDefensive => Category is ItemCategory.AssaultVest or ItemCategory.Eviolite;
+    public bool IsDefensive => Category is ItemCategory.AssaultVest or ItemCategory.Eviolite
+        || DefenseMultiplier != 1.0 || SpDefenseMultiplier != 1.0;
+    /// <summary>攻撃側のダメージに関係する持ち物か（計算機の持ち物一覧の絞り込みに使う）。</summary>
+    public bool IsOffensive => Category is ItemCategory.LifeOrb or ItemCategory.ExpertBelt or ItemCategory.TypeBoost or ItemCategory.LightBall or ItemCategory.ThickClub
+        || AttackMultiplier != 1.0 || SpAttackMultiplier != 1.0 || DamageMultiplier != 1.0 || !string.IsNullOrEmpty(TypeBoost);
+    public bool IsMegaStone => Category == ItemCategory.MegaStone;
 
     public override string ToString() => Name;
 }
@@ -370,6 +389,13 @@ public sealed class Nature
     public override string ToString() => Name;
 }
 
+public enum BattleGimmick
+{
+    None,
+    Dynamax,
+    Terastal,
+}
+
 /// <summary>データセット（世代・ゲーム）の定義。<c>data/datasets.csv</c> に対応。</summary>
 public sealed class DataSetInfo
 {
@@ -379,6 +405,11 @@ public sealed class DataSetInfo
     public EvSystem EvSystem { get; init; } = EvSystem.Classic;
     /// <summary>チャットコマンドの接頭辞（例: pokech）。</summary>
     public string CommandPrefix { get; init; } = "";
+    /// <summary>そのゲームのバトルギミック（テラスタル / ダイマックス / なし）。</summary>
+    public BattleGimmick Gimmick { get; init; } = BattleGimmick.None;
+
+    public bool HasTerastal => Gimmick == BattleGimmick.Terastal;
+    public bool HasDynamax => Gimmick == BattleGimmick.Dynamax;
 
     public override string ToString() => Name;
 }

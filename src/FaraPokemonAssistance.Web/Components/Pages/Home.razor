@@ -1,10 +1,12 @@
 @page "/"
+@inherits AppPageBase
+@inject HttpClient Http
 
 <PageTitle>ホーム</PageTitle>
 
 <div class="page-header">
-    <h1>FaraPokemonAssistance</h1>
-    <p class="lead text-muted mb-0">ポケモンのダメージ計算を、ブラウザと Twitch チャットの両方から。</p>
+    <h3>ポケモン ダメージ計算</h3>
+    <p class="text-muted mb-0">ダメージ計算・素早さ比較・タイプ相性をブラウザで確認できます。配信中は Twitch のチャットコマンドからも同じ計算を呼び出せます。</p>
 </div>
 
 <div class="row g-3">
@@ -13,10 +15,10 @@
             <div class="card-body">
                 <h5 class="card-title">ダメージ計算機</h5>
                 <p class="card-text">
-                    種族値・個体値・努力値・性格・持ち物・特性・テラスタル・天候・フィールド・ランク補正・急所を考慮して、
-                    乱数 16 通りのダメージと確定数を計算します。
+                    努力値・性格・持ち物・特性・ランク補正・急所・天候・フィールド・状態異常を指定して、
+                    乱数 16 通りのダメージと確定数を出します。受けたダメージから相手の努力値を推定することもできます。
                 </p>
-                <a href="damage-calculator" class="btn btn-primary">計算機を使う</a>
+                <a href="damage-calculator" class="btn btn-primary">計算機を開く</a>
             </div>
         </div>
     </div>
@@ -25,8 +27,8 @@
             <div class="card-body">
                 <h5 class="card-title">チャットコマンド</h5>
                 <p class="card-text">
-                    配信中に <code>!pokech dmg イエッサン♂ ワイドフォース メガリザードンX</code> と打つだけで結果が返るコマンドを、
-                    ブラウザ上で試せます。
+                    配信中に <code>!@(App.CommandPrefix) dmg ガブリアス じしん リザードン</code> のように打つと、ボットが結果を 1 行で返します。
+                    同じコマンドをブラウザで試せます。
                 </p>
                 <a href="command" class="btn btn-secondary">コマンドを試す</a>
             </div>
@@ -35,20 +37,83 @@
 </div>
 
 <div class="row g-3 mt-1">
-    <div class="col-md-4"><div class="card h-100"><div class="card-body"><h6 class="card-title">登録・チーム</h6><p class="card-text small">育成済みポケモンとチームを登録し、使用チームの構成で計算（<code>!pokech add / add team / use team</code>）。</p><a href="roster" class="btn btn-outline-primary btn-sm">開く</a></div></div></div>
-    <div class="col-md-4"><div class="card h-100"><div class="card-body"><h6 class="card-title">素早さ比較</h6><p class="card-text small">自分の実数値と相手の 無振り/準速/最速/スカーフ最速 を比較（<code>!pokech diff</code>）。</p><a href="speed" class="btn btn-outline-primary btn-sm">開く</a></div></div></div>
-    <div class="col-md-4"><div class="card h-100"><div class="card-body"><h6 class="card-title">タイプ相性表</h6><p class="card-text small">18 タイプの相性表（アイコン表示）。</p><a href="types" class="btn btn-outline-primary btn-sm">開く</a></div></div></div>
+    <div class="col-md-4"><div class="card h-100"><div class="card-body"><h6 class="card-title">登録・チーム</h6><p class="card-text small">育成済みのポケモンとチームを登録しておくと、計算のときに自分の構成が自動で入ります（<code>!@(App.CommandPrefix) add / add team / use team</code>）。</p><a href="roster" class="btn btn-outline-primary btn-sm">開く</a></div></div></div>
+    <div class="col-md-4"><div class="card h-100"><div class="card-body"><h6 class="card-title">素早さ比較</h6><p class="card-text small">自分の実数値と、相手の 無振り / 準速 / 最速 / スカーフ最速 を並べて先手後手を確認します（<code>!@(App.CommandPrefix) diff</code>）。</p><a href="speed" class="btn btn-outline-primary btn-sm">開く</a></div></div></div>
+    <div class="col-md-4"><div class="card h-100"><div class="card-body"><h6 class="card-title">タイプ相性表</h6><p class="card-text small">18 タイプの相性をアイコンで一覧できます。</p><a href="types" class="btn btn-outline-primary btn-sm">開く</a></div></div></div>
 </div>
 
-<div class="mt-4">
-    <h3>対応データ</h3>
-    <ul>
-        <li>第8世代（ソード・シールド）、第9世代（スカーレット・バイオレット）、ポケモンチャンピオンズ</li>
-        <li>チャンピオンズの収録ポケモンは PokeAPI のチャンピオンズ図鑑（231 種＋メガシンカ・フォルム違い）に基づく</li>
-        <li>第9世代はポケモン HOME のランクバトル使用率に基づいて、よく使われる技・持ち物・性格を既定値に採用</li>
-    </ul>
-    <h3>未対応（今後追加予定）</h3>
-    <ul>
-        <li>壁、HP 依存の特性（もうか・マルチスケイルは満タン想定）、きのみ・回復を考慮した確定数</li>
-    </ul>
+<div class="row g-3 mt-1">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">対応しているゲーム <Help Title="ゲームの切り替え">左のメニューの「ゲーム」で切り替えます。選んだゲームは全ページとチャットコマンドの接頭辞に反映されます。</Help></h6>
+                <ul class="mb-0 small">
+                    <li>ソード・シールド（鎧の孤島・冠の雪原を含む）: ダイマックスに対応</li>
+                    <li>スカーレット・バイオレット（DLC を含む）: テラスタルに対応。ポケモン HOME のランクバトル使用率から、よく使われる技・持ち物・性格を既定値にしています</li>
+                    <li>ポケモンチャンピオンズ: 収録ポケモン（231 種とメガシンカ・フォルム違い）、メガシンカ、ポイント制の努力値に対応</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">データの更新 <Help Title="データの更新">ポケモン・技・持ち物・使用率のデータは毎週月曜の昼に自動で更新されます。更新後にページを再読み込みすると新しいデータになります。</Help></h6>
+                <table class="table table-sm mb-0 small">
+                    <tbody>
+                        <tr><th class="text-nowrap">最終更新</th><td>@(lastUpdated ?? "取得中…")</td></tr>
+                        <tr><th class="text-nowrap">次回更新</th><td>@nextUpdate（毎週月曜）</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
+
+<div class="mt-4 small text-muted">
+    <p class="mb-1">まだ対応していないもの: 壁、HP に応じて変わる特性（もうか・マルチスケイルは満タン想定）、きのみや回復を含めた確定数。</p>
+</div>
+
+@code {
+    // update-data.yml の cron（17 3 * * 1 UTC = 毎週月曜 12:17 JST）
+    private static readonly TimeSpan UpdateTimeUtc = new(3, 17, 0);
+    private static readonly TimeSpan Jst = TimeSpan.FromHours(9);
+
+    private string? lastUpdated;
+    private string nextUpdate = "";
+
+    protected override async Task OnAppReadyAsync()
+    {
+        nextUpdate = FormatJst(NextUpdateUtc(DateTime.UtcNow));
+        try
+        {
+            var text = (await Http.GetStringAsync("data/updated.txt")).Trim();
+            lastUpdated = DateTime.TryParse(text, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var dt)
+                ? FormatJst(dt)
+                : text;
+        }
+        catch
+        {
+            lastUpdated = "不明";
+        }
+    }
+
+    private static DateTime NextUpdateUtc(DateTime nowUtc)
+    {
+        var candidate = nowUtc.Date + UpdateTimeUtc;
+        while (candidate.DayOfWeek != DayOfWeek.Monday || candidate <= nowUtc)
+            candidate = candidate.AddDays(1);
+        return DateTime.SpecifyKind(candidate, DateTimeKind.Utc);
+    }
+
+    private static string FormatJst(DateTime utc)
+    {
+        var jst = utc + Jst;
+        var day = jst.DayOfWeek switch
+        {
+            DayOfWeek.Monday => "月", DayOfWeek.Tuesday => "火", DayOfWeek.Wednesday => "水", DayOfWeek.Thursday => "木",
+            DayOfWeek.Friday => "金", DayOfWeek.Saturday => "土", _ => "日",
+        };
+        return $"{jst:yyyy/MM/dd}（{day}）{jst:HH:mm} 日本時間";
+    }
+}

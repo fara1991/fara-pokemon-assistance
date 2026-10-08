@@ -87,6 +87,8 @@ public sealed class PokemonDataSet
                 NotFullyEvolved = pokemonTable.GetInt(row, "NotFullyEvolved") == 1,
                 AbilityIds = ParseIdList(pokemonTable.Get(row, "Abilities")),
                 IsProvisional = pokemonTable.GetInt(row, "Provisional") == 1,
+                MegaStoneId = pokemonTable.HasColumn("MegaStoneId") && pokemonTable.GetInt(row, "MegaStoneId") > 0
+                    ? pokemonTable.GetInt(row, "MegaStoneId") : null,
             });
         }
         Pokemon = pokemon;

@@ -1,76 +1,274 @@
 @page "/command"
+@inherits AppPageBase
 @inject DataCatalog Catalog
 @inject PokeCommand Poke
 
 <PageTitle>チャットコマンド</PageTitle>
 
-<h3>チャットコマンドを試す</h3>
-<p class="text-muted">Twitch のチャットに打つのと同じ文字列を入力すると、ボットが返す 1 行がそのまま表示されます。</p>
-
-<div class="row g-2 mb-3">
-    <div class="col-md-4">
-        <label class="form-label" for="dataset">データ</label>
-        <select id="dataset" class="form-select" @bind="dataSetKey">
-            @foreach (var ds in dataSets)
-            {
-                <option value="@ds.Key">@ds.Name</option>
-            }
-        </select>
-    </div>
-    <div class="col-md-4">
-        <label class="form-label" for="format">バトル形式</label>
-        <select id="format" class="form-select" @bind="format">
-            <option value="@BattleFormat.Singles">シングル</option>
-            <option value="@BattleFormat.Doubles">ダブル</option>
-        </select>
-    </div>
+<div class="page-header">
+    <h3>チャットコマンドを試す <Help Title="チャットコマンド">Twitch のチャットに打つのと同じ文字列を入力すると、ボットが返す 1 行がそのまま表示されます。接頭辞（!@(App.CommandPrefix)）は左のメニューで選んだゲームに合わせて変わります。</Help></h3>
+    <p class="text-muted mb-0">下の選択欄を変えるとコマンドに反映され、コマンドを書き換えると選択欄にも反映されます。</p>
 </div>
 
-<div class="input-group mb-3">
-    <input class="form-control" placeholder="!@(CurrentPrefix) dmg イエッサン♂ ワイドフォース メガリザードンX サイコ" @bind="input" @bind:event="oninput" @onkeydown="OnKeyDown" />
+@if (data is not null)
+{
+    <div class="card mb-3">
+        <div class="card-header"><h5>ダメージ計算のコマンドを組み立てる</h5></div>
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-2">
+                    <label class="form-label">種類 <Help Title="dmg と calc">dmg はダメージと確定数、calc は受けたダメージから相手の努力値を推定します。</Help></label>
+                    <select class="form-select" value="@s.Kind" @onchange="@(e => { s.Kind = e.Value?.ToString() ?? "dmg"; BuildText(); })">
+                        <option value="dmg">dmg（ダメージ）</option>
+                        <option value="calc">calc（努力値推定）</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">攻撃側ポケモン</label>
+                    <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
+                        SelectedValue="@(s.Attacker?.Id.ToString() ?? "")" SelectedValueChanged="@OnAttackerChanged" Placeholder="ポケモン名を入力...">
+                        <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /></ItemTemplate>
+                    </SearchableSelect>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">技 <Help Title="技">攻撃側のポケモンが覚える技だけを使用率の高い順に表示します。「じしん+1」のように技名の後ろにランクを付けることもできます。</Help></label>
+                    <SearchableSelect TItem="Move" Items="attackerMoves" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
+                        SelectedValue="@(s.Move?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { s.Move = data.FindMove(ParseId(v)); BuildText(); })" Placeholder="技名を入力...">
+                        <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto">@(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
+                    </SearchableSelect>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">防御側ポケモン</label>
+                    <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
+                        SelectedValue="@(s.Defender?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { s.Defender = data.FindPokemon(ParseId(v)); BuildText(); })" Placeholder="ポケモン名を入力...">
+                        <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /></ItemTemplate>
+                    </SearchableSelect>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">天候（任意）</label>
+                    <select class="form-select" value="@s.Weather" @onchange="@(e => { s.Weather = ParseEnum(e.Value, Weather.None); BuildText(); })">
+                        @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w)</option> }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">フィールド（任意）</label>
+                    <select class="form-select" value="@s.Terrain" @onchange="@(e => { s.Terrain = ParseEnum(e.Value, Terrain.None); BuildText(); })">
+                        @foreach (var t in Enum.GetValues<Terrain>()) { <option value="@t">@FieldNames.Japanese(t)</option> }
+                    </select>
+                </div>
+                @if (s.Kind == "calc")
+                {
+                    <div class="col-md-3">
+                        <label class="form-label">受けたダメージ <Help Title="受けたダメージ">実数（93）か割合（45%）で入力します。割合のときは HP の振りも推定します。</Help></label>
+                        <input class="form-control" placeholder="93 または 45%" value="@s.Damage" @onchange="@(e => { s.Damage = e.Value?.ToString() ?? ""; BuildText(); })" />
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<label class="form-label" for="cmd-input">コマンド <Help Title="コマンド欄">Enter か「実行」でボットと同じ結果が返ります。接頭辞を省略すると選択中のゲーム（!@(App.CommandPrefix)）として実行します。オプション（努力値・性格・持ち物・急所など）は末尾に続けて書けます。</Help></label>
+<div class="input-group mb-2">
+    <input id="cmd-input" class="form-control" placeholder="!@(App.CommandPrefix) dmg ガブリアス じしん リザードン" value="@s.Input" @oninput="OnInput" @onkeydown="OnKeyDown" />
     <button class="btn btn-primary" @onclick="Run" disabled="@running">実行</button>
 </div>
-<p class="small text-muted">接頭辞を省略すると選択中のデータ（<code>!@(CurrentPrefix)</code>）として実行します。</p>
 
-@if (!string.IsNullOrEmpty(output))
+@if (!string.IsNullOrEmpty(s.Output))
 {
-    <div class="alert @(success ? "alert-success" : "alert-warning")" style="white-space: pre-wrap; word-break: break-all;">@output</div>
+    <div class="alert @(s.Success ? "alert-success" : "alert-warning") chat-output">@s.Output</div>
 }
 
 <div class="card mt-4">
-    <div class="card-header">コマンド一覧（<code>!pokech</code> = チャンピオンズ、<code>!pokesv</code> = SV、<code>!pokess</code> = 剣盾）</div>
+    <div class="card-header"><h5>コマンド一覧（@(App.DataSet?.Name ?? "")） <Help Title="接頭辞">!pokech = ポケモンチャンピオンズ、!pokesv = スカーレット・バイオレット、!pokess = ソード・シールド。!poke はチャンピオンズ扱いです。登録・削除・使用チームの変更は配信者本人とモデレーターだけが使えます。</Help></h5></div>
     <div class="card-body">
-        <table class="table table-sm">
+        <table class="table table-sm cmd-table">
+            <thead><tr><th>コマンド</th><th>内容</th><th>例</th></tr></thead>
             <tbody>
-                <tr><td><code>add 名前 H A B C D S 性格 [特性]</code></td><td>育成済みポケモンを登録（チャンピオンズは各 0〜32・合計 66、SV/剣盾は各 0〜252・合計 510）</td></tr>
-                <tr><td><code>ls [名前]</code> / <code>more ID</code> / <code>rm ID</code></td><td>一覧 / 詳細（性格・振り・特性・実数値）/ 削除</td></tr>
-                <tr><td><code>add team 番号 ID [持ち物]</code></td><td>チームに追加（6 体まで）。同じ ID を再指定すると持ち物を更新</td></tr>
-                <tr><td><code>rm team 番号 [名前]</code> / <code>use team 番号</code></td><td>チームから外す（名前なしならチーム削除）/ 使用チームにする</td></tr>
-                <tr><td><code>ls team</code> / <code>more team 番号</code></td><td>チーム一覧 / チーム詳細</td></tr>
-                <tr><td><code>dmg 攻撃側 技±ランク 防御側 [オプション]</code></td><td>通常と急所のダメージ。使用チームにいるポケモンはその構成（持ち物は括弧内に表示）</td></tr>
-                <tr><td><code>calc 攻撃側 技±ランク 防御側 ダメージ</code></td><td>受けたダメージ（<code>93</code> または <code>45%</code>）から相手の防御努力値と性格補正を推定</td></tr>
-                <tr><td><code>diff 自分 相手 [+1 晴れ まひ 自:まひ]</code></td><td>素早さ比較（自分は使用チーム、相手は 無振り/準速/最速/スカーフ最速。<code>まひ</code> は相手、<code>自:まひ</code> は自分）</td></tr>
-                <tr><td><code>cmd ls</code></td><td>使えるコマンドの一覧（<code>!poke cmd ls</code> でも可）</td></tr>
+                @foreach (var row in CommandRows())
+                {
+                    <tr>
+                        <td><code>@row.Syntax</code></td>
+                        <td>@row.Description</td>
+                        <td class="cmd-example">
+                            @foreach (var ex in row.Examples)
+                            {
+                                <div><a href="" @onclick="() => UseExample(ex)" @onclick:preventDefault><code>@ex</code></a></div>
+                            }
+                        </td>
+                    </tr>
+                }
             </tbody>
         </table>
-        <p class="small text-muted mb-1">dmg のオプション: <code>A252</code> <code>H252</code>（努力値、チャンピオンズはポイント）、性格、持ち物、特性、<code>攻:</code>/<code>防:</code>、<code>+2</code>、<code>急所</code>、<code>ダブル</code>、<code>テラスほのお</code>、<code>晴れ</code>、<code>サイコ</code>、状態異常 <code>やけど</code> <code>まひ</code>（既定は攻撃側）<code>どく</code> <code>もうどく</code>（既定は防御側、確定数に定数ダメージを織り込む）など。相手の特性が不明で結果が変わる場合は「特性別:」が付きます。</p>
-        <p class="small text-muted mb-0">指定が無い項目は「攻撃側 全振り、防御側 H 全振り、性格・持ち物・特性は使用率 1 位（無ければ第 1 特性）」で補われ、結果に明記されます。</p>
+        <p class="small text-muted mb-1"><strong>dmg / calc のオプション（すべて任意、順不同）:</strong>
+            <code>A252</code> <code>H252</code>（@(EvRules.Label(App.DataSet?.EvSystem ?? EvSystem.Classic))。攻撃側は A/C/S、防御側は H/B/D に付きます）、性格名、持ち物名、特性名、
+            <code>攻:</code>/<code>防:</code>（どちら側か明示）、<code>+2</code>（攻撃側のランク）、<code>急所</code>、<code>ダブル</code>、
+            @if (App.DataSet?.HasTerastal == true) { <span><code>テラス</code> <code>テラスほのお</code> <code>防:テラスみず</code>、</span> }
+            @if (App.DataSet?.HasDynamax == true) { <span><code>ダイマ</code>（攻撃側）<code>防:ダイマ</code>（防御側）、</span> }
+            天候 <code>晴れ</code> <code>雨</code> <code>砂嵐</code> <code>雪</code>、フィールド <code>エレキ</code> <code>グラス</code> <code>サイコ</code> <code>ミスト</code>、
+            状態異常 <code>やけど</code> <code>まひ</code>（既定は攻撃側）<code>どく</code> <code>もうどく</code>（既定は防御側。定数ダメージを確定数に含める）。
+        </p>
+        <p class="small text-muted mb-0">指定しなかった項目は「攻撃側は攻撃技に合わせて A か C に全振り、防御側は H 全振り、性格・持ち物・特性は使用率 1 位（無ければ第 1 特性）」で埋め、結果にそのまま表示します。使用チームにいるポケモンはチームの構成が優先されます。相手の特性で結果が変わる場合は「特性別:」が付きます。</p>
     </div>
 </div>
 
 @code {
-    private IReadOnlyList<DataSetInfo> dataSets = Array.Empty<DataSetInfo>();
-    private string dataSetKey = DataCatalog.DefaultDataSetKey;
-    private BattleFormat format = BattleFormat.Singles;
-    private string input = "";
-    private string output = "";
-    private bool success;
+    public sealed class State
+    {
+        public string DataSetKey { get; set; } = "";
+        public string Kind { get; set; } = "dmg";
+        public Pokemon? Attacker { get; set; }
+        public Move? Move { get; set; }
+        public int MoveRank { get; set; }
+        public Pokemon? Defender { get; set; }
+        public Weather Weather { get; set; }
+        public Terrain Terrain { get; set; }
+        public string Damage { get; set; } = "";
+        public List<string> Extras { get; set; } = new();
+        public string Input { get; set; } = "";
+        public string Output { get; set; } = "";
+        public bool Success { get; set; }
+    }
+
+    private sealed record CommandRow(string Syntax, string Description, IReadOnlyList<string> Examples);
+
+    private State s = new();
+    private PokemonDataSet? data;
+    private UsageData? usage;
+    private IReadOnlyList<Move> attackerMoves = Array.Empty<Move>();
     private bool running;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAppReadyAsync()
     {
-        dataSets = await Catalog.GetDataSetsAsync();
-        dataSetKey = await Catalog.ResolveDefaultKeyAsync();
+        s = PageStates.Get<State>("command");
+        await LoadAsync();
+    }
+
+    protected override async Task OnAppChangedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        data = await Catalog.GetDataSetAsync(App.DataSetKey);
+        usage = await data.GetUsageAsync(App.Format);
+        if (s.DataSetKey != App.DataSetKey)
+        {
+            var previousPrefix = s.DataSetKey == "" ? null : App.DataSets.FirstOrDefault(d => d.Key == s.DataSetKey)?.CommandPrefix;
+            s.DataSetKey = App.DataSetKey;
+            s.Attacker = null;
+            s.Move = null;
+            s.Defender = null;
+            attackerMoves = Array.Empty<Move>();
+            // 接頭辞だけ新しいゲームに合わせる（入力は残す）
+            if (previousPrefix is not null && s.Input.StartsWith("!" + previousPrefix + " ", StringComparison.OrdinalIgnoreCase))
+                s.Input = "!" + App.CommandPrefix + s.Input[(previousPrefix.Length + 1)..];
+            ParseText();
+            RefreshMoves();
+        }
+        else
+        {
+            RefreshMoves();
+        }
+    }
+
+    private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;
+    private static T ParseEnum<T>(object? value, T fallback) where T : struct => Enum.TryParse<T>(value?.ToString(), out var v) ? v : fallback;
+
+    private void OnAttackerChanged(string value)
+    {
+        s.Attacker = data?.FindPokemon(ParseId(value));
+        RefreshMoves();
+        if (s.Move is not null && s.Attacker is not null && data is not null && !data.CanLearn(s.Attacker.Id, s.Move.Id))
+            s.Move = null;
+        BuildText();
+    }
+
+    private void RefreshMoves()
+    {
+        if (data is null || s.Attacker is null) { attackerMoves = data?.Moves ?? Array.Empty<Move>(); return; }
+        var moves = data.LearnableMoves(s.Attacker.Id).Where(m => m.Category != MoveCategory.Status).ToList();
+        attackerMoves = usage is null ? moves : usage.SortByUsage(moves, m => m.Id, usage.MoveOrder(s.Attacker.Id));
+    }
+
+    /// <summary>選択欄の内容からコマンド文字列を作る。</summary>
+    private void BuildText()
+    {
+        var parts = new List<string> { "!" + App.CommandPrefix, s.Kind };
+        parts.Add(s.Attacker?.Name ?? "攻撃側");
+        parts.Add((s.Move?.Name ?? "技") + (s.MoveRank != 0 ? (s.MoveRank > 0 ? "+" : "") + s.MoveRank : ""));
+        parts.Add(s.Defender?.Name ?? "防御側");
+        if (s.Kind == "calc") parts.Add(string.IsNullOrWhiteSpace(s.Damage) ? "受けたダメージ" : s.Damage.Trim());
+        parts.AddRange(s.Extras);
+        if (s.Weather != Weather.None) parts.Add(FieldNames.Japanese(s.Weather));
+        if (s.Terrain != Terrain.None) parts.Add(TerrainToken(s.Terrain));
+        s.Input = string.Join(" ", parts);
+    }
+
+    private static string TerrainToken(Terrain t) => t switch
+    {
+        Terrain.Electric => "エレキ", Terrain.Grassy => "グラス", Terrain.Psychic => "サイコ", Terrain.Misty => "ミスト", _ => "",
+    };
+
+    private void OnInput(ChangeEventArgs e)
+    {
+        s.Input = e.Value?.ToString() ?? "";
+        ParseText();
+    }
+
+    /// <summary>コマンド文字列を読み取り、選択欄に反映する（dmg / calc のみ）。</summary>
+    private void ParseText()
+    {
+        if (data is null) return;
+        var tokens = s.Input.Split(new[] { ' ', '　', '\t' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (tokens.Count > 0 && tokens[0].StartsWith('!')) tokens.RemoveAt(0);
+        if (tokens.Count == 0) return;
+        var kind = tokens[0].ToLowerInvariant();
+        if (kind is not ("dmg" or "calc")) return;
+        s.Kind = kind;
+        tokens.RemoveAt(0);
+
+        var pokemonResolver = DamageCommand.CreatePokemonResolver(data);
+        var moveResolver = new NameResolver<Move>(data.Moves, m => m.Name);
+        s.Attacker = tokens.Count > 0 ? pokemonResolver.Resolve(tokens[0]).Value : null;
+        RefreshMoves();
+        if (tokens.Count > 1)
+        {
+            var (moveName, rank) = DamageCommand.SplitRankSuffix(tokens[1]);
+            s.Move = moveResolver.Resolve(moveName).Value;
+            s.MoveRank = rank;
+        }
+        else
+        {
+            s.Move = null;
+            s.MoveRank = 0;
+        }
+        s.Defender = tokens.Count > 2 ? pokemonResolver.Resolve(tokens[2]).Value : null;
+
+        s.Weather = Weather.None;
+        s.Terrain = Terrain.None;
+        s.Damage = "";
+        var extras = new List<string>();
+        var rest = tokens.Skip(3).ToList();
+        if (kind == "calc" && rest.Count > 0)
+        {
+            s.Damage = rest[0];
+            rest.RemoveAt(0);
+        }
+        foreach (var token in rest)
+        {
+            if (DamageCommand.ParseWeather(token) is { } w) { s.Weather = w; continue; }
+            if (DamageCommand.ParseTerrain(token) is { } t) { s.Terrain = t; continue; }
+            extras.Add(token);
+        }
+        s.Extras = extras;
+    }
+
+    private void UseExample(string example)
+    {
+        s.Input = example;
+        ParseText();
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)
@@ -79,25 +277,51 @@
             await Run();
     }
 
-    private string CurrentPrefix => dataSets.FirstOrDefault(d => d.Key == dataSetKey)?.CommandPrefix ?? "pokech";
-
     private async Task Run()
     {
         if (running) return;
         running = true;
         try
         {
-            var text = input.Trim();
+            var text = s.Input.Trim();
             var match = await Poke.MatchAsync(text);
             if (match is null)
-                text = $"!{CurrentPrefix} {text.TrimStart('!')}";
-            var result = await Poke.ExecuteAsync(text, new PokeCommandOptions { Format = format });
-            success = result.Success;
-            output = result.Message;
+                text = $"!{App.CommandPrefix} {text.TrimStart('!')}";
+            var result = await Poke.ExecuteAsync(text, new PokeCommandOptions { Format = App.Format });
+            s.Success = result.Success;
+            s.Output = result.Message;
         }
         finally
         {
             running = false;
         }
+    }
+
+    private IEnumerable<CommandRow> CommandRows()
+    {
+        var p = "!" + App.CommandPrefix;
+        var ds = App.DataSet;
+        var points = ds?.EvSystem == EvSystem.Points;
+        var evLabel = EvRules.Label(ds?.EvSystem ?? EvSystem.Classic);
+        var evExample = points ? "4 32 0 0 0 30" : "4 252 0 0 0 252";
+        var gimmick = ds?.HasTerastal == true ? " テラスほのお" : ds?.HasDynamax == true ? " ダイマ" : "";
+        yield return new($"{p} add 名前 H A B C D S 性格 [特性]",
+            points ? $"育成済みポケモンを登録（{evLabel}は各 0〜32、合計 66）" : $"育成済みポケモンを登録（{evLabel}は各 0〜252、合計 510）",
+            new[] { $"{p} add ガブリアス {evExample} ようき さめはだ" });
+        yield return new($"{p} ls [名前]", "登録一覧（名前を付けるとそのポケモンだけ）", new[] { $"{p} ls", $"{p} ls ガブリアス" });
+        yield return new($"{p} more ID", "登録の詳細（性格・振り・特性・実数値・所属チーム）", new[] { $"{p} more 1" });
+        yield return new($"{p} rm ID", "登録を削除（チームからも外れる）", new[] { $"{p} rm 1" });
+        yield return new($"{p} add team 番号 ID [持ち物]", "チームに追加（6 体まで）。同じ ID をもう一度指定すると持ち物を更新", new[] { $"{p} add team 1 1 こだわりスカーフ" });
+        yield return new($"{p} rm team 番号 [名前]", "チームから外す（名前を省くとチームごと削除）", new[] { $"{p} rm team 1 ガブリアス", $"{p} rm team 1" });
+        yield return new($"{p} use team 番号", "使用チームにする。以降の dmg / calc / diff はこのチームの構成で計算", new[] { $"{p} use team 1" });
+        yield return new($"{p} ls team", "チーム一覧", new[] { $"{p} ls team" });
+        yield return new($"{p} more team 番号", "チームの詳細", new[] { $"{p} more team 1" });
+        yield return new($"{p} dmg 攻撃側 技[±ランク] 防御側 [オプション]", "通常と急所のダメージと確定数。使用チームにいるポケモンはその構成（持ち物は括弧内に表示）",
+            new[] { $"{p} dmg ガブリアス じしん リザードン", $"{p} dmg ガブリアス じしん+1 リザードン 晴れ 急所", $"{p} dmg ガブリアス じしん リザードン A252 いじっぱり こだわりハチマキ{gimmick}" });
+        yield return new($"{p} calc 攻撃側 技[±ランク] 防御側 受けたダメージ [オプション]", "受けた（与えた）ダメージから相手の防御側の努力値と性格補正を推定。93 なら実数、45% なら割合（H も推定）",
+            new[] { $"{p} calc ガブリアス じしん リザードン 93", $"{p} calc ガブリアス じしん リザードン 45% サイコ" });
+        yield return new($"{p} diff 自分 相手 [+1 天候 まひ 自:まひ]", "素早さ比較。自分は使用チームの実数値、相手は 無振り / 準速 / 最速 / スカーフ最速 / 最遅",
+            new[] { $"{p} diff ガブリアス リザードン", $"{p} diff ガブリアス リザードン +1 まひ" });
+        yield return new($"{p} cmd ls", "使えるコマンドの一覧（!poke cmd ls でも可）", new[] { $"{p} cmd ls" });
     }
 }
