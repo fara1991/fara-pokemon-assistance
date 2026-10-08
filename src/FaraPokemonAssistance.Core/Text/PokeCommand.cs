@@ -76,15 +76,30 @@ public sealed class PokeCommand
 
     public async Task<DamageCommandResult> ExecuteAsync(string message, PokeCommandOptions? options = null, CancellationToken ct = default)
     {
-        options ??= new PokeCommandOptions();
         try
         {
-            var match = await MatchAsync(message, ct).ConfigureAwait(false);
-            if (match is null)
-            {
-                var sets = await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false);
-                return Fail("コマンドは " + string.Join(" / ", sets.Select(s => $"!{s.CommandPrefix}")) + " で始めてください。例: " + Usage(sets.LastOrDefault()?.CommandPrefix ?? "pokech"));
-            }
+            var result = await TryExecuteAsync(message, options, ct).ConfigureAwait(false);
+            if (result is not null) return result;
+            var sets = await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false);
+            return Fail("コマンドは " + string.Join(" / ", sets.Select(s => $"!{s.CommandPrefix}")) + " で始めてください。例: " + Usage(sets.LastOrDefault()?.CommandPrefix ?? "pokech"));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return Fail($"失敗しました: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// このコマンド群のメッセージであれば実行し、そうでなければ null を返す（判定と実行で照合を 1 回にするため）。
+    /// 照合（データセット一覧の取得）に失敗した場合はコマンドかどうか判断できないので例外をそのまま投げる。
+    /// </summary>
+    public async Task<DamageCommandResult?> TryExecuteAsync(string message, PokeCommandOptions? options = null, CancellationToken ct = default)
+    {
+        options ??= new PokeCommandOptions();
+        var match = await MatchAsync(message, ct).ConfigureAwait(false);
+        if (match is null) return null;
+        try
+        {
             var (ds, rest) = match.Value;
             var result = await DispatchAsync(ds, rest, options, ct).ConfigureAwait(false);
             if (result.Message.Length > options.MaxLength)

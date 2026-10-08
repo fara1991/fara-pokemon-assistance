@@ -433,6 +433,18 @@ public class PokeCommandTests
     }
 
     [Fact]
+    public async Task TryExecute_returns_null_for_other_messages()
+    {
+        var cmd = NewCommand(out _);
+        Assert.Null(await cmd.TryExecuteAsync("!bsr 1a2b"));
+        Assert.Null(await cmd.TryExecuteAsync("こんにちは"));
+
+        var help = await cmd.TryExecuteAsync("!poke cmd ls");
+        Assert.NotNull(help);
+        Assert.True(help.Success, help.Message);
+    }
+
+    [Fact]
     public async Task Sv_registration_uses_classic_limits()
     {
         var cmd = NewCommand(out _);

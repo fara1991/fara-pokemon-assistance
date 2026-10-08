@@ -39,13 +39,11 @@ var options = new PokeCommandOptions { Format = formatOption };
 async Task<string> RunAsync(string text)
 {
     // 接頭辞が無ければ既定データセットのコマンドとして扱う
-    if (await command.MatchAsync(text) is null)
-    {
-        var key = await catalog.ResolveDefaultKeyAsync();
-        var prefix = (await catalog.GetDataSetsAsync()).First(d => d.Key == key).CommandPrefix;
-        text = $"!{prefix} {text.TrimStart('!')}";
-    }
-    return (await command.ExecuteAsync(text, options)).Message;
+    var result = await command.TryExecuteAsync(text, options);
+    if (result is not null) return result.Message;
+    var key = await catalog.ResolveDefaultKeyAsync();
+    var prefix = (await catalog.GetDataSetsAsync()).First(d => d.Key == key).CommandPrefix;
+    return (await command.ExecuteAsync($"!{prefix} {text.TrimStart('!')}", options)).Message;
 }
 
 if (args2.Count > 0)
