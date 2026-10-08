@@ -722,7 +722,7 @@ public class GimmickAndFormTests
         var data = await TestData.Catalog().GetDataSetAsync("Gen8");
         var garchomp = data.Pokemon.First(p => p.Name == "ガブリアス");
         var charizard = data.Pokemon.First(p => p.Name == "リザードン");
-        var earthquake = data.Moves.First(m => m.Name == "じしん");
+        var earthquake = data.Moves.First(m => m.Name == "ストーンエッジ"); // じしん はひこうに無効
         var attacker = new PokemonBuild(garchomp) { EVs = new StatSet { Attack = 252 } };
         var defender = new PokemonBuild(charizard) { EVs = new StatSet { HP = 252 }, IsDynamax = true };
         var calc = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart);
