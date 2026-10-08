@@ -152,6 +152,11 @@ class Builder:
         self.moves = {r["id"]: r for r in api.table("moves")}
         self.items = {r["id"]: r for r in api.table("items")}
         self.item_by_identifier = {r["identifier"]: r["id"] for r in api.table("items")}
+        # 持ち物が初めて登場した世代（その世代より前のデータセットには出さない）
+        self.item_first_generation: dict[str, int] = {}
+        for r in api.table("item_game_indices"):
+            gen = int(r["generation_id"])
+            self.item_first_generation[r["item_id"]] = min(gen, self.item_first_generation.get(r["item_id"], gen))
         self.evolves_from = {r["evolves_from_species_id"] for r in api.table("pokemon_species")
                              if r["evolves_from_species_id"]}
         # HOME item ids are the in-game item indices; PokeAPI calls them game_index.
@@ -365,6 +370,8 @@ class Builder:
             name = pick_name(self.item_names, iid)
             if not name:
                 continue
+            if self.item_first_generation.get(iid, 0) > generation:
+                continue  # そのゲームには存在しない持ち物
             eff = wanted[iid] or {}
             rows.append([
                 iid, name, eff.get("Category", "Other"), eff.get("Effect", ""),
@@ -493,8 +500,9 @@ def main() -> None:
     api = PokeApi(Path(args.cache))
     builder = Builder(api)
 
-    write_csv(OUT_ROOT / "datasets.csv", ["Key", "Name", "Generation"],
-              [[d["key"], d["name"], d["generation"]] for d in config["datasets"]])
+    write_csv(OUT_ROOT / "datasets.csv", ["Key", "Name", "Generation", "EvSystem", "CommandPrefix"],
+              [[d["key"], d["name"], d["generation"], d.get("ev_system", "Classic"), d.get("command_prefix", "")]
+               for d in config["datasets"]])
     write_csv(OUT_ROOT / "natures.csv", ["Id", "Name", "IncreasedStat", "DecreasedStat"],
               [[i, n, up, down] for i, (n, up, down) in enumerate(NATURES)])
 

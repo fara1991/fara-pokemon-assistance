@@ -31,6 +31,41 @@ public enum BattleFormat
     Doubles,
 }
 
+/// <summary>努力値の方式。</summary>
+public enum EvSystem
+{
+    /// <summary>従来方式: 各 0〜252、合計 510。Lv50 なら 4 で +1、以降 8 ごとに +1。</summary>
+    Classic,
+    /// <summary>ポケモンチャンピオンズ: 各 0〜32、合計 66。1 ポイントごとに実数値 +1。</summary>
+    Points,
+}
+
+public static class EvRules
+{
+    public static int MaxPerStat(EvSystem system) => system == EvSystem.Points ? 32 : 252;
+    public static int MaxTotal(EvSystem system) => system == EvSystem.Points ? 66 : 510;
+    public static int Step(EvSystem system) => system == EvSystem.Points ? 1 : 4;
+    public static string Label(EvSystem system) => system == EvSystem.Points ? "ポイント" : "努力値";
+
+    /// <summary>範囲・合計を検証し、問題があればメッセージを返す。</summary>
+    public static string? Validate(EvSystem system, StatSet evs)
+    {
+        var max = MaxPerStat(system);
+        foreach (var stat in Enum.GetValues<Stat>())
+        {
+            var v = evs[stat];
+            if (v < 0 || v > max)
+                return $"{StatNames.Japanese(stat)}の{Label(system)}は 0〜{max} で指定してください（{v}）";
+        }
+        if (evs.Total > MaxTotal(system))
+            return $"{Label(system)}の合計は {MaxTotal(system)} 以下にしてください（{evs.Total}）";
+        return null;
+    }
+
+    /// <summary>「最大まで振る」値（従来 252 / ポイント 32）。</summary>
+    public static int Full(EvSystem system) => MaxPerStat(system);
+}
+
 public enum Weather
 {
     None,
@@ -301,6 +336,9 @@ public sealed class DataSetInfo
     public string Key { get; init; } = "";
     public string Name { get; init; } = "";
     public int Generation { get; init; }
+    public EvSystem EvSystem { get; init; } = EvSystem.Classic;
+    /// <summary>チャットコマンドの接頭辞（例: pokech）。</summary>
+    public string CommandPrefix { get; init; } = "";
 
     public override string ToString() => Name;
 }

@@ -1,5 +1,7 @@
 @page "/damage-calculator"
+@using FaraPokemonAssistance.Core.Roster
 @inject DataCatalog Catalog
+@inject RosterRepository Repo
 
 <PageTitle>ダメージ計算機</PageTitle>
 
@@ -40,6 +42,19 @@
             <div class="card">
                 <div class="card-header"><h5>攻撃側</h5></div>
                 <div class="card-body">
+                    @if (teamMembers.Count > 0)
+                    {
+                        <div class="form-group mb-2">
+                            <label>使用チームから:</label>
+                            <select class="form-control" @onchange="@(e => PickFromTeam(e.Value, true))">
+                                <option value="">（選択）</option>
+                                @foreach (var (entry, item) in teamMembers)
+                                {
+                                    <option value="@entry.Id">#@entry.Id @entry.PokemonName @(item is null ? "" : "@" + item.Name)</option>
+                                }
+                            </select>
+                        </div>
+                    }
                     <div class="form-group mb-3">
                         <label>ポケモン:</label>
                         <SearchableSelect TItem="Pokemon"
@@ -72,6 +87,19 @@
             <div class="card">
                 <div class="card-header"><h5>防御側</h5></div>
                 <div class="card-body">
+                    @if (teamMembers.Count > 0)
+                    {
+                        <div class="form-group mb-2">
+                            <label>使用チームから:</label>
+                            <select class="form-control" @onchange="@(e => PickFromTeam(e.Value, false))">
+                                <option value="">（選択）</option>
+                                @foreach (var (entry, item) in teamMembers)
+                                {
+                                    <option value="@entry.Id">#@entry.Id @entry.PokemonName @(item is null ? "" : "@" + item.Name)</option>
+                                }
+                            </select>
+                        </div>
+                    }
                     <div class="form-group mb-3">
                         <label>ポケモン:</label>
                         <SearchableSelect TItem="Pokemon"
@@ -160,6 +188,25 @@
     }
 }
 
+@if (data is not null && attacker is not null && defender is not null)
+{
+    <div class="card mt-3">
+        <div class="card-header"><h5>相手の努力値を推定（calc）</h5></div>
+        <div class="card-body">
+            <p class="small text-muted">攻撃側に自分の構成、防御側に相手のポケモンを選び、実際に受けた（与えた）ダメージを入力すると、相手の防御側の@(EvRules.Label(data.Info.EvSystem))と性格補正の候補を出します。</p>
+            <div class="input-group" style="max-width: 420px;">
+                <span class="input-group-text">受けたダメージ</span>
+                <input class="form-control" placeholder="93 または 45%" @bind="observedDamageText" />
+                <button class="btn btn-outline-primary" @onclick="EstimateEvs">推定</button>
+            </div>
+            @if (!string.IsNullOrEmpty(estimateText))
+            {
+                <div class="alert alert-light border small mt-2 mb-0">@estimateText</div>
+            }
+        </div>
+    </div>
+}
+
 @code {
     private IReadOnlyList<DataSetInfo> dataSets = Array.Empty<DataSetInfo>();
     private string selectedDataSet = DataCatalog.DefaultDataSetKey;
@@ -176,6 +223,9 @@
 
     private PokemonBuild? attacker;
     private PokemonBuild? defender;
+    private IReadOnlyList<(RegisteredPokemon Entry, Item? Item)> teamMembers = Array.Empty<(RegisteredPokemon, Item?)>();
+    private string observedDamageText = "";
+    private string estimateText = "";
     private Move? selectedMove;
     private bool isCritical;
     private Weather weather = Weather.None;
@@ -199,7 +249,7 @@
         }
     }
 
-    private static int ParseId(string value) => int.TryParse(value, out var id) ? id : 0;
+    private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var id) ? id : 0;
 
     private async Task OnDataSetChanged()
     {
@@ -222,6 +272,7 @@
             loadError = "";
             data = await Catalog.GetDataSetAsync(selectedDataSet);
             usage = await data.GetUsageAsync(selectedFormat);
+            teamMembers = await Repo.ActiveTeamMembersAsync(selectedDataSet, data);
             pokemonList = usage.IsEmpty
                 ? data.Pokemon
                 : data.Pokemon.OrderBy(p => usage.RankOf(p.Id)).ToList();
@@ -246,7 +297,7 @@
             attackerMoves = data?.Moves ?? Array.Empty<Move>();
             return;
         }
-        attacker = new PokemonBuild(pokemon)
+        attacker = new PokemonBuild(pokemon, data?.Info.EvSystem ?? EvSystem.Classic)
         {
             Nature = usage?.TopNature(pokemon.Id) ?? NeutralNature(),
             Item = usage?.TopItem(pokemon.Id),
@@ -265,7 +316,7 @@
             defender = null;
             return;
         }
-        defender = new PokemonBuild(pokemon)
+        defender = new PokemonBuild(pokemon, data?.Info.EvSystem ?? EvSystem.Classic)
         {
             Nature = usage?.TopNature(pokemon.Id) ?? NeutralNature(),
             Item = usage?.TopItem(pokemon.Id),
@@ -275,13 +326,50 @@
         ApplyDefaultEvs(defender, selectedMove, false);
     }
 
-    /// 自分の特性を先頭に、残りの特性を後ろに並べる
-    private IReadOnlyList<Ability> AbilityChoices(Pokemon pokemon)
+    /// そのポケモンが持てる特性だけ
+    private IReadOnlyList<Ability> AbilityChoices(Pokemon pokemon) =>
+        data is null ? Array.Empty<Ability>() : data.AbilitiesOf(pokemon);
+
+    private void PickFromTeam(object? value, bool isAttacker)
     {
-        if (data is null) return Array.Empty<Ability>();
-        var own = data.AbilitiesOf(pokemon);
-        var ownIds = new HashSet<int>(own.Select(a => a.Id));
-        return own.Concat(data.Abilities.Where(a => !ownIds.Contains(a.Id))).ToList();
+        var id = ParseId(value);
+        var member = teamMembers.FirstOrDefault(m => m.Entry.Id == id);
+        if (member.Entry is null || data is null) return;
+        var build = RosterRepository.ToBuild(member.Entry, data, member.Item);
+        if (build is null) return;
+        if (isAttacker)
+        {
+            attacker = build;
+            RefreshAttackerLists();
+            selectedMove = usage?.TopMove(build.Pokemon.Id) ?? attackerMoves.FirstOrDefault(m => m.IsDamaging);
+        }
+        else
+        {
+            defender = build;
+            RefreshDefenderLists();
+        }
+    }
+
+    private void EstimateEvs()
+    {
+        estimateText = "";
+        if (data is null || attacker is null || defender is null || selectedMove is null) { estimateText = "ポケモンと技を選択してください。"; return; }
+        var text = observedDamageText.Trim();
+        var asPercent = text.EndsWith('%') || text.EndsWith('％');
+        if (!double.TryParse(text.TrimEnd('%', '％'), out var observed) || observed <= 0) { estimateText = "受けたダメージを 93 または 45% の形で入力してください。"; return; }
+        var request = new DamageRequest
+        {
+            Attacker = attacker,
+            Move = selectedMove,
+            Defender = defender.Clone(),
+            Format = selectedFormat,
+            IsCritical = isCritical,
+            Weather = weather,
+            Terrain = terrain,
+        };
+        request.Defender.Item = null;
+        var estimate = new EvEstimator(data.TypeChart).Run(request, observed, asPercent);
+        estimateText = EvEstimator.Format(estimate, defender.Pokemon, selectedMove, data.Info.EvSystem) + "（相手は持ち物なし想定）";
     }
 
     private Nature? NeutralNature() => data?.FindNature("まじめ") ?? data?.Natures.FirstOrDefault(n => n.IsNeutral);
@@ -290,10 +378,11 @@
     {
         var physical = move?.Category != MoveCategory.Special;
         build.EVs = new StatSet();
+        var full = EvRules.Full(build.EvSystem);
         if (isAttacker)
-            build.EVs[physical ? Stat.Attack : Stat.SpAttack] = 252;
+            build.EVs[physical ? Stat.Attack : Stat.SpAttack] = full;
         else
-            build.EVs[Stat.HP] = 252;
+            build.EVs[Stat.HP] = full;
     }
 
     private void RefreshAttackerLists()
@@ -322,10 +411,6 @@
     private RenderFragment RenderBuildEditor(PokemonBuild build, IReadOnlyList<Item> items, bool isAttacker) => __builder =>
     {
         var stats = StatCalculator.CalculateAll(build);
-        <div class="form-group mb-3">
-            <label>レベル:</label>
-            <input type="number" class="form-control" @bind="build.Level" min="1" max="100" />
-        </div>
         <div class="form-group mb-3">
             <label>性格:</label>
             <SearchableSelect TItem="Nature"
@@ -367,18 +452,18 @@
             </select>
         </div>
         <div class="form-group mb-2">
-            <label>努力値:</label>
+            <label>@EvRules.Label(build.EvSystem)（各 0〜@EvRules.MaxPerStat(build.EvSystem)、合計 @EvRules.MaxTotal(build.EvSystem)）:</label>
             <div class="ev-grid">
                 @foreach (var stat in Enum.GetValues<Stat>())
                 {
                     <div class="ev-cell">
                         <span class="ev-label">@StatNames.Letter(stat)</span>
-                        <input type="number" class="form-control form-control-sm" min="0" max="252" step="4"
-                               value="@build.EVs[stat]" @onchange="@(e => build.EVs[stat] = ClampEv(e.Value))" />
+                        <input type="number" class="form-control form-control-sm" min="0" max="@EvRules.MaxPerStat(build.EvSystem)" step="@EvRules.Step(build.EvSystem)"
+                               value="@build.EVs[stat]" @onchange="@(e => build.EVs[stat] = ClampEv(e.Value, build.EvSystem))" />
                     </div>
                 }
             </div>
-            <div class="small text-muted">合計 @build.EVs.Total / 510</div>
+            <div class="small @(build.EVs.Total > EvRules.MaxTotal(build.EvSystem) ? "text-danger" : "text-muted")">合計 @build.EVs.Total / @EvRules.MaxTotal(build.EvSystem)</div>
         </div>
         <div class="form-group mb-2">
             <label>ランク補正:</label>
@@ -415,8 +500,8 @@
     private static string FormatStats(StatSet s) =>
         $"H{s.HP}-A{s.Attack}-B{s.Defense}-C{s.SpAttack}-D{s.SpDefense}-S{s.Speed}";
 
-    private static int ClampEv(object? value) =>
-        Math.Clamp(int.TryParse(value?.ToString(), out var v) ? v : 0, 0, 252);
+    private static int ClampEv(object? value, EvSystem system) =>
+        Math.Clamp(int.TryParse(value?.ToString(), out var v) ? v : 0, 0, EvRules.MaxPerStat(system));
 
     private static int ParseBoost(object? value) =>
         Math.Clamp(int.TryParse(value?.ToString(), out var v) ? v : 0, -6, 6);

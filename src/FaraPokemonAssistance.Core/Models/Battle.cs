@@ -5,6 +5,8 @@ public sealed class PokemonBuild
 {
     public Pokemon Pokemon { get; }
     public int Level { get; set; } = 50;
+    /// <summary>努力値の方式（データセットに従う）。</summary>
+    public EvSystem EvSystem { get; set; } = EvSystem.Classic;
     public StatSet IVs { get; set; } = StatSet.Filled(31);
     public StatSet EVs { get; set; } = new();
     public Nature? Nature { get; set; }
@@ -20,6 +22,11 @@ public sealed class PokemonBuild
         Pokemon = pokemon;
     }
 
+    public PokemonBuild(Pokemon pokemon, EvSystem evSystem) : this(pokemon)
+    {
+        EvSystem = evSystem;
+    }
+
     public bool IsTerastallized => !string.IsNullOrEmpty(TeraType);
 
     /// <summary>防御側として受けるタイプ（テラスタル中はテラスタイプのみ）。</summary>
@@ -29,7 +36,7 @@ public sealed class PokemonBuild
     public bool HasAbility(string identifier) =>
         Ability is not null && Ability.Identifier == identifier;
 
-    public PokemonBuild Clone() => new(Pokemon)
+    public PokemonBuild Clone() => new(Pokemon, EvSystem)
     {
         Level = Level,
         IVs = IVs.Clone(),

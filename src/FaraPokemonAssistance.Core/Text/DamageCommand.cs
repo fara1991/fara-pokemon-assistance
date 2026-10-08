@@ -20,6 +20,13 @@ public sealed class DamageCommandOptions
     public bool UseUsageDefaults { get; set; } = true;
     /// <summary>出力 1 行の最大長（Twitch は 500 文字）。</summary>
     public int MaxLength { get; set; } = 480;
+    /// <summary>急所で計算する（トークンの「急所」と同じ）。</summary>
+    public bool IsCritical { get; set; }
+    /// <summary>
+    /// 名前解決後のポケモンに対して、登録済みの構成（使用チームなど）を返す。
+    /// 第 2 引数は攻撃側なら true。null を返すと既定値（使用率ベース）で埋める。
+    /// </summary>
+    public Func<Pokemon, bool, PokemonBuild?>? BuildProvider { get; set; }
 }
 
 public sealed class DamageCommandResult
@@ -61,6 +68,10 @@ public sealed class DamageCommand
     {
         _catalog = catalog;
     }
+
+    /// <summary>略称込みのポケモン名解決器（他のコマンドと共有）。</summary>
+    public static NameResolver<Pokemon> CreatePokemonResolver(PokemonDataSet data) =>
+        new(data.Pokemon, p => p.Name, PokemonAliases(data));
 
     public static string Usage =>
         "使い方: !dmg 攻撃側 技 防御側 [A252 H252 性格 持ち物 特性 テラスほのお 晴れ サイコ +1 急所 ダブル ...]  例: !dmg イエッサン♂ ワイドフォース メガリザードンX サイコ";
@@ -113,8 +124,9 @@ public sealed class DamageCommand
         var attackerMatch = pokemonResolver.Resolve(tokens[0]);
         if (!attackerMatch.IsResolved)
             return Fail(NotFound("ポケモン", tokens[0], attackerMatch.Candidates.Select(p => p.Name)) + await ElsewhereHintAsync(tokens[0], data, dataSets, ct).ConfigureAwait(false));
-        var moveMatch = moveResolver.Resolve(tokens[1]);
-        if (!moveMatch.IsResolved) return Fail(NotFound("技", tokens[1], moveMatch.Candidates.Select(m => m.Name)));
+        var (moveToken, moveRank) = SplitRankSuffix(tokens[1]);
+        var moveMatch = moveResolver.Resolve(moveToken);
+        if (!moveMatch.IsResolved) return Fail(NotFound("技", moveToken, moveMatch.Candidates.Select(m => m.Name)));
         var defenderMatch = pokemonResolver.Resolve(tokens[2]);
         if (!defenderMatch.IsResolved)
             return Fail(NotFound("ポケモン", tokens[2], defenderMatch.Candidates.Select(p => p.Name)) + await ElsewhereHintAsync(tokens[2], data, dataSets, ct).ConfigureAwait(false));
@@ -123,19 +135,25 @@ public sealed class DamageCommand
         if (!move.IsDamaging)
             return Fail($"{move.Name} はダメージを与える技ではありません。");
 
-        var attacker = new PokemonBuild(attackerMatch.Value!);
-        var defender = new PokemonBuild(defenderMatch.Value!);
+        var evSystem = data.Info.EvSystem;
+        var attackerPreset = options.BuildProvider?.Invoke(attackerMatch.Value!, true);
+        var defenderPreset = options.BuildProvider?.Invoke(defenderMatch.Value!, false);
+        var attacker = attackerPreset?.Clone() ?? new PokemonBuild(attackerMatch.Value!, evSystem);
+        var defender = defenderPreset?.Clone() ?? new PokemonBuild(defenderMatch.Value!, evSystem);
+        attacker.EvSystem = evSystem;
+        defender.EvSystem = evSystem;
         var format = options.Format;
-        var isCritical = false;
-        var attackerEvSet = false;
-        var defenderEvSet = false;
-        var attackerNatureSet = false;
-        var defenderNatureSet = false;
-        var attackerItemSet = false;
-        var defenderItemSet = false;
+        var isCritical = options.IsCritical;
+        var attackerEvSet = attackerPreset is not null;
+        var defenderEvSet = defenderPreset is not null;
+        var attackerNatureSet = attackerPreset is not null;
+        var defenderNatureSet = defenderPreset is not null;
+        var attackerItemSet = attackerPreset is not null;
+        var defenderItemSet = defenderPreset is not null;
         var defenderNoEv = false;
-        var attackerAbilitySet = false;
-        var defenderAbilitySet = false;
+        var attackerAbilitySet = attackerPreset?.Ability is not null;
+        var defenderAbilitySet = defenderPreset?.Ability is not null;
+        if (moveRank != 0) attacker.Boosts[move.Category == MoveCategory.Physical ? Stat.Attack : Stat.SpAttack] = moveRank;
         var weather = Weather.None;
         var terrain = Terrain.None;
         var attackerTeraToMoveType = false;
@@ -180,6 +198,13 @@ public sealed class DamageCommand
                 else attacker.TeraType = teraType;
                 continue;
             }
+            if (normalized is "持ち物なし" or "もちものなし" or "道具なし" or "どうぐなし" or "noitem")
+            {
+                if (forcedAttacker == false) { defender.Item = null; defenderItemSet = true; }
+                else if (forcedAttacker == true) { attacker.Item = null; attackerItemSet = true; }
+                else { attacker.Item = null; defender.Item = null; attackerItemSet = defenderItemSet = true; }
+                continue;
+            }
             if (normalized is "ダブル" or "だぶる" or "double" or "doubles" or "dbl") { format = BattleFormat.Doubles; continue; }
             if (normalized is "シングル" or "しんぐる" or "single" or "singles") { format = BattleFormat.Singles; continue; }
             if (normalized is "無振り" or "むふり" or "むぶり" or "noev")
@@ -212,7 +237,7 @@ public sealed class DamageCommand
                 foreach (Match pair in EvPair.Matches(token))
                 {
                     var stat = StatNames.Parse(pair.Groups[1].Value.ToUpperInvariant())!.Value;
-                    var value = Math.Clamp(int.Parse(pair.Groups[2].Value), 0, 252);
+                    var value = Math.Clamp(int.Parse(pair.Groups[2].Value), 0, EvRules.MaxPerStat(evSystem));
                     var toAttacker = forcedAttacker ?? stat is Stat.Attack or Stat.SpAttack or Stat.Speed;
                     if (toAttacker)
                     {
@@ -274,11 +299,11 @@ public sealed class DamageCommand
         }
 
         if (!attackerEvSet)
-            attacker.EVs[offenseStat] = options.DefaultAttackerOffenseEv;
+            attacker.EVs[offenseStat] = Math.Min(options.DefaultAttackerOffenseEv, EvRules.Full(evSystem));
         if (!defenderEvSet)
         {
-            defender.EVs[Stat.HP] = options.DefaultDefenderHpEv;
-            defender.EVs[defenseStat] = options.DefaultDefenderDefenseEv;
+            defender.EVs[Stat.HP] = Math.Min(options.DefaultDefenderHpEv, EvRules.Full(evSystem));
+            defender.EVs[defenseStat] = Math.Min(options.DefaultDefenderDefenseEv, EvRules.Full(evSystem));
         }
         else if (defenderNoEv)
         {
@@ -342,6 +367,17 @@ public sealed class DamageCommand
 
         return $"{a.Pokemon.Name}({a.DescribeShort()}) {request.Move.Name} → {d.Pokemon.Name}({d.DescribeShort()} HP{result.DefenderHP}): " +
                $"{result.RangeText} {result.KnockOut}{tagText}{warnText}";
+    }
+
+    private static readonly Regex RankSuffix = new(@"^(.*?)([+-＋－][1-6])$", RegexOptions.Compiled);
+
+    /// <summary>「じしん+2」→ ("じしん", 2)。</summary>
+    public static (string Name, int Rank) SplitRankSuffix(string token)
+    {
+        var m = RankSuffix.Match(token);
+        if (!m.Success || m.Groups[1].Value.Length == 0) return (token, 0);
+        var sign = m.Groups[2].Value[0] is '-' or '－' ? -1 : 1;
+        return (m.Groups[1].Value, sign * (m.Groups[2].Value[1] - '0'));
     }
 
     private static Weather? TryParseWeather(string n) => n switch
@@ -412,7 +448,7 @@ public sealed class DamageCommand
     }
 
     /// <summary>よく使う略称。メガ○○ → 「メガ」+ 略称 もここで吸収する。</summary>
-    private static IEnumerable<(string Alias, string Name)> PokemonAliases(PokemonDataSet data)
+    internal static IEnumerable<(string Alias, string Name)> PokemonAliases(PokemonDataSet data)
     {
         var byName = new HashSet<string>(data.Pokemon.Select(p => p.Name));
         var aliases = new (string Alias, string Name)[]

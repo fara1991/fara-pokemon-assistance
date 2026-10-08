@@ -91,13 +91,31 @@ public sealed class DataCatalog
         }
 
         var table = CsvTable.Parse(text);
-        return table.Rows.Select(row => new DataSetInfo
+        return table.Rows.Select(row =>
         {
-            Key = table.Get(row, "Key"),
-            Name = table.Get(row, "Name"),
-            Generation = table.GetInt(row, "Generation", 9),
+            var key = table.Get(row, "Key");
+            var evSystem = Enum.TryParse<EvSystem>(table.Get(row, "EvSystem"), true, out var parsed) ? parsed
+                : key == "Champions" ? EvSystem.Points : EvSystem.Classic;
+            var prefix = table.Get(row, "CommandPrefix");
+            if (string.IsNullOrEmpty(prefix)) prefix = DefaultPrefix(key);
+            return new DataSetInfo
+            {
+                Key = key,
+                Name = table.Get(row, "Name"),
+                Generation = table.GetInt(row, "Generation", 9),
+                EvSystem = evSystem,
+                CommandPrefix = prefix,
+            };
         }).ToList();
     }
+
+    private static string DefaultPrefix(string key) => key switch
+    {
+        "Champions" => "pokech",
+        "Gen9" => "pokesv",
+        "Gen8" => "pokess",
+        _ => "poke" + key.ToLowerInvariant(),
+    };
 
     private async Task<IReadOnlyList<Nature>> LoadNaturesAsync(CancellationToken ct)
     {

@@ -1,0 +1,117 @@
+@page "/types"
+@inject DataCatalog Catalog
+
+<PageTitle>タイプ相性表</PageTitle>
+
+<h3>タイプ相性表</h3>
+<p class="text-muted">縦が攻撃側、横が防御側。2 = 効果抜群、½ = いまひとつ、0 = 効果なし。</p>
+
+<div class="form-group mb-3" style="max-width: 420px;">
+    <label for="dataset">データ:</label>
+    <select id="dataset" class="form-control" @bind="selectedDataSet" @bind:after="LoadAsync">
+        @foreach (var ds in dataSets)
+        {
+            <option value="@ds.Key">@ds.Name</option>
+        }
+    </select>
+</div>
+
+@if (data is not null)
+{
+    <div class="form-group mb-3" style="max-width: 520px;">
+        <label>ポケモンで調べる（受けるときの相性）:</label>
+        <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
+            SelectedValue="@(selected?.Id.ToString() ?? "")" SelectedValueChanged="@(v => selected = data.FindPokemon(int.TryParse(v, out var id) ? id : 0))" Placeholder="ポケモン名を入力..." />
+    </div>
+
+    @if (selected is not null)
+    {
+        var groups = TypeNames.All
+            .Select(t => (Type: t, Mult: data.TypeChart.Against(t, selected)))
+            .GroupBy(x => x.Mult)
+            .OrderByDescending(g => g.Key)
+            .ToList();
+        <div class="card mb-3">
+            <div class="card-header"><h5>@selected.Name（@TypeNames.ToJapanese(selected.Type1)@(string.IsNullOrEmpty(selected.Type2) ? "" : "・" + TypeNames.ToJapanese(selected.Type2))）が受ける相性</h5></div>
+            <div class="card-body">
+                @foreach (var g in groups)
+                {
+                    <div class="mb-1"><span class="badge @BadgeClass(g.Key) me-2">@MultText(g.Key)</span>@string.Join("・", g.Select(x => TypeNames.ToJapanese(x.Type)))</div>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-sm type-chart">
+            <thead>
+                <tr>
+                    <th>攻＼防</th>
+                    @foreach (var d in TypeNames.All)
+                    {
+                        <th class="type-head">@TypeNames.ToJapanese(d)</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var a in TypeNames.All)
+            {
+                <tr>
+                    <th class="type-head">@TypeNames.ToJapanese(a)</th>
+                    @foreach (var d in TypeNames.All)
+                    {
+                        var m = data.TypeChart.Against(a, d);
+                        <td class="@CellClass(m)">@(m == 1.0 ? "" : MultText(m))</td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<DataSetInfo> dataSets = Array.Empty<DataSetInfo>();
+    private string selectedDataSet = DataCatalog.DefaultDataSetKey;
+    private PokemonDataSet? data;
+    private Pokemon? selected;
+
+    protected override async Task OnInitializedAsync()
+    {
+        dataSets = await Catalog.GetDataSetsAsync();
+        selectedDataSet = await Catalog.ResolveDefaultKeyAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        data = await Catalog.GetDataSetAsync(selectedDataSet);
+        selected = null;
+    }
+
+    private static string MultText(double m) => m switch
+    {
+        0.0 => "0",
+        0.25 => "¼",
+        0.5 => "½",
+        2.0 => "2",
+        4.0 => "4",
+        _ => m.ToString("0.##"),
+    };
+
+    private static string CellClass(double m) => m switch
+    {
+        0.0 => "type-immune",
+        < 1.0 => "type-resist",
+        > 1.0 => "type-weak",
+        _ => "",
+    };
+
+    private static string BadgeClass(double m) => m switch
+    {
+        0.0 => "bg-dark",
+        < 1.0 => "bg-success",
+        > 1.0 => "bg-danger",
+        _ => "bg-secondary",
+    };
+}
