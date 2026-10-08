@@ -244,6 +244,59 @@ public sealed class DamageCalculator
         };
     }
 
+    /// <summary>
+    /// 技の並べ替え用の実質威力。威力に、タイプ一致・相性・天候・フィールド・威力が上がる特性や持ち物を掛ける。
+    /// 実数値やランクは見ない。変化技や効果が無い技は 0。
+    /// </summary>
+    public double EffectivePower(DamageRequest request)
+    {
+        var attacker = request.Attacker;
+        var defender = request.Defender;
+        var move = request.Move;
+        if (!move.IsDamaging) return 0;
+
+        var attackerAbility = attacker.Ability?.Identifier ?? "";
+        var defenderAbility = defender.Ability?.Identifier ?? "";
+        if (AbilityEffects.IgnoresTargetAbility(attackerAbility)) defenderAbility = "";
+
+        var moveType = move.Type;
+        var powerMod = 4096;
+        var skinType = AbilityEffects.SkinType(attackerAbility);
+        if (skinType is not null && moveType == "Normal") { moveType = skinType; powerMod = Mul(powerMod, 4915); }
+        else if (attackerAbility == "normalize" && moveType != "Normal") { moveType = "Normal"; powerMod = Mul(powerMod, 4915); }
+
+        var attackerGrounded = IsGrounded(attacker, attackerAbility);
+        var defenderGrounded = IsGrounded(defender, defenderAbility);
+        var defenderTypes = defender.DefensiveTypes;
+        var effectiveness = 1.0;
+        foreach (var t in defenderTypes)
+            effectiveness *= _typeChart.Against(moveType, t);
+        if (moveType == "Ground" && !defenderGrounded && !defenderTypes.Contains("Flying"))
+            effectiveness = 0;
+        if (AbilityEffects.ImmunityReason(defenderAbility, moveType, move, effectiveness) is not null)
+            effectiveness = 0;
+        if (effectiveness == 0) return 0;
+
+        double power = attacker.IsDynamax ? MaxMovePower(move) : move.Power;
+        var isTeraStab = attacker.IsTerastallized && attacker.TeraType == moveType;
+        if (isTeraStab && power < 60 && move.Priority == 0) power = 60;
+        powerMod = ApplyPowerModifiers(request, attacker, defender, move, moveType, attackerAbility, defenderAbility,
+            attackerGrounded, defenderGrounded, powerMod, new List<string>());
+        power *= powerMod / 4096.0;
+
+        if (request.Weather == Weather.Sun && moveType == "Fire" || request.Weather == Weather.Rain && moveType == "Water")
+            power *= 1.5;
+        else if (request.Weather == Weather.Sun && moveType == "Water" || request.Weather == Weather.Rain && moveType == "Fire")
+            power *= 0.5;
+
+        var isOriginalStab = attacker.Pokemon.HasType(moveType);
+        var adaptability = attackerAbility == "adaptability";
+        if (isTeraStab && isOriginalStab) power *= adaptability ? 2.25 : 2.0;
+        else if (isTeraStab || isOriginalStab) power *= adaptability ? 2.0 : 1.5;
+
+        return power * effectiveness;
+    }
+
     private static DamageResult Empty(int defenderHp, double effectiveness, string moveType, string reason) => new()
     {
         Rolls = new int[16],

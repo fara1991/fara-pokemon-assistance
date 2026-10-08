@@ -1031,3 +1031,35 @@ public class UsageFallbackTests
         Assert.Equal("Gen9", (await gen9.GetUsageAsync(BattleFormat.Singles)).SourceKey);
     }
 }
+
+public class EffectivePowerTests
+{
+    private static readonly TypeChart Chart = TypeChart.Parse(
+        "AttackType,DefenseType,Multiplier\nFire,Grass,2\nWater,Grass,0.5\nNormal,Ghost,0\n");
+
+    private static Move MakeMove(int id, string name, string type, int power) =>
+        new() { Id = id, Name = name, Type = type, Power = power, Category = MoveCategory.Special };
+
+    [Fact]
+    public void Applies_stab_effectiveness_weather_and_terrain()
+    {
+        var attacker = new PokemonBuild(new Pokemon { Id = 1, Name = "A", Type1 = "Water", SpeciesId = 1 });
+        var grass = new PokemonBuild(new Pokemon { Id = 2, Name = "B", Type1 = "Grass", SpeciesId = 2 });
+        var ghost = new PokemonBuild(new Pokemon { Id = 3, Name = "C", Type1 = "Ghost", SpeciesId = 3 });
+        var calc = new DamageCalculator(Chart);
+        double Power(Move m, PokemonBuild d, Weather w = Weather.None, Terrain t = Terrain.None) =>
+            calc.EffectivePower(new DamageRequest { Attacker = attacker, Move = m, Defender = d, Weather = w, Terrain = t });
+
+        var surf = MakeMove(57, "なみのり", "Water", 90);
+        var flamethrower = MakeMove(53, "かえんほうしゃ", "Fire", 90);
+        var thunderbolt = MakeMove(85, "10まんボルト", "Electric", 90);
+        var hyperVoice = MakeMove(304, "ハイパーボイス", "Normal", 90);
+
+        Assert.Equal(90 * 1.5 * 0.5, Power(surf, grass));                         // タイプ一致・いまひとつ
+        Assert.Equal(90 * 2.0, Power(flamethrower, grass));                       // 抜群
+        Assert.Equal(90 * 2.0 * 1.5, Power(flamethrower, grass, Weather.Sun));   // 晴れ
+        Assert.Equal(90 * 1.5 * 1.5, Power(surf, ghost, Weather.Rain));           // 雨・タイプ一致
+        Assert.Equal(0, Power(hyperVoice, ghost));                                // 効果なし
+        Assert.True(Power(thunderbolt, ghost, t: Terrain.Electric) > Power(thunderbolt, ghost)); // エレキフィールド
+    }
+}
