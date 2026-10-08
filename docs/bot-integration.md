@@ -29,60 +29,61 @@ dotnet nuget add source C:\packages --name local
 dotnet add package FaraPokemonAssistance.Core --source local
 ```
 
-## 2. 起動時に DataCatalog を作る
+## 2. 起動時に DataCatalog と登録データを用意する
 
-データは GitHub Pages に公開された CSV を使い、1 日キャッシュします。
-ネットワークが落ちていても前回のキャッシュで動きます。初回だけはオンラインが必要です。
+データは GitHub Pages に公開された CSV を使い、1 日キャッシュします。登録したポケモン・チームはローカルの JSON に保存します。
 
 ```csharp
 using FaraPokemonAssistance.Core.Data;
+using FaraPokemonAssistance.Core.Roster;
 using FaraPokemonAssistance.Core.Text;
 
-public sealed class PokemonDamageService
+public sealed class PokemonAssistService
 {
     private const string DataUrl = "https://fara1991.github.io/fara-pokemon-assistance/data/";
 
-    private readonly DamageCommand _command;
+    private readonly PokeCommand _command;
 
-    public PokemonDamageService()
+    public PokemonAssistService()
     {
-        var cacheDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FaraBotModerator", "pokemon-data");
-        var source = new CachingDataSource(new HttpDataSource(new HttpClient(), DataUrl), cacheDir, TimeSpan.FromDays(1));
-        _command = new DamageCommand(new DataCatalog(source));
+        var appDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FaraBotModerator");
+        var source = new CachingDataSource(new HttpDataSource(new HttpClient(), DataUrl),
+            Path.Combine(appDir, "pokemon-data"), TimeSpan.FromDays(1));
+        var roster = new RosterRepository(new FileRosterStore(Path.Combine(appDir, "pokemon-roster.json")));
+        _command = new PokeCommand(new DataCatalog(source), roster);
     }
 
-    /// <summary>"!dmg ..." の 1 行を受け取り、チャットに返す 1 行を返す。</summary>
-    public async Task<string> HandleAsync(string message, string defaultDataSet = "Champions")
+    /// <summary>"!pokech ..." などのメッセージかどうか。</summary>
+    public async Task<bool> HandlesAsync(string message) => await _command.MatchAsync(message) is not null;
+
+    /// <summary>チャットに返す 1 行を返す。</summary>
+    public async Task<string> HandleAsync(string message, bool isBroadcasterOrMod)
     {
-        var args = message.Length > 4 ? message[4..] : ""; // "!dmg" を落とす
-        var result = await _command.ExecuteAsync(args, new DamageCommandOptions
+        var result = await _command.ExecuteAsync(message, new PokeCommandOptions
         {
-            DataSetKey = defaultDataSet,          // 配信しているゲームに合わせる
-            Format = Models.BattleFormat.Singles, // ダブル配信なら Doubles
+            Format = Models.BattleFormat.Singles,   // ダブル配信なら Doubles
+            AllowMutations = isBroadcasterOrMod,    // add / rm / use team は配信者・モデレーターのみ
         });
         return result.Message;
     }
 }
 ```
 
-ローカルの CSV を使いたい場合は `new FileDataSource(@"C:\repos\fara-pokemon-assistance\src\FaraPokemonAssistance.Web\wwwroot\data")` に差し替えるだけです。
-
 ## 3. チャットメッセージをさばく
 
 `TwitchClientController.TwitchClientOnMessageReceived` の先頭に追加します。
 
 ```csharp
-private readonly PokemonDamageService _pokemonDamage = new();
+private readonly PokemonAssistService _pokemon = new();
 
 private async void TwitchClientOnMessageReceived(object? sender, OnMessageReceivedArgs e)
 {
     var text = e.ChatMessage.Message.Trim();
-    if (text.StartsWith("!dmg", StringComparison.OrdinalIgnoreCase))
+    if (await _pokemon.HandlesAsync(text))
     {
-        var reply = await _pokemonDamage.HandleAsync(text);
-        SendMessage(e.ChatMessage.Channel, reply);
+        var canEdit = e.ChatMessage.IsBroadcaster || e.ChatMessage.IsModerator;
+        SendMessage(e.ChatMessage.Channel, await _pokemon.HandleAsync(text, canEdit));
         return;
     }
 
@@ -95,8 +96,8 @@ private async void TwitchClientOnMessageReceived(object? sender, OnMessageReceiv
 ボットに組み込む前に、同じ文字列をターミナルやブラウザで試せます。
 
 ```bash
-dotnet run --project src/FaraPokemonAssistance.Cli -- champions イエッサン♂ ワイドフォース メガリザードンX
-dotnet run --project src/FaraPokemonAssistance.Cli -- --data https://fara1991.github.io/fara-pokemon-assistance/data/ ガブリアス じしん ハバタクカミ
+dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコ"
+dotnet run --project src/FaraPokemonAssistance.Cli -- --data https://fara1991.github.io/fara-pokemon-assistance/data/ "!pokesv diff ガブリアス ハバタクカミ"
 ```
 
 ブラウザ: https://fara1991.github.io/fara-pokemon-assistance/command

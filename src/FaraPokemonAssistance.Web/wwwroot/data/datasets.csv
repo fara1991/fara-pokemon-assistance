@@ -1,4 +1,4 @@
-Key,Name,Generation
-Gen8,第8世代（ソード・シールド）,8
-Gen9,第9世代（スカーレット・バイオレット）,9
-Champions,ポケモンチャンピオンズ,9
+Key,Name,Generation,EvSystem,CommandPrefix
+Gen8,第8世代（ソード・シールド）,8,Classic,pokess
+Gen9,第9世代（スカーレット・バイオレット）,9,Classic,pokesv
+Champions,ポケモンチャンピオンズ,9,Points,pokech

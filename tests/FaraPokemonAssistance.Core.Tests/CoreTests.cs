@@ -1,6 +1,7 @@
 using FaraPokemonAssistance.Core.Battle;
 using FaraPokemonAssistance.Core.Data;
 using FaraPokemonAssistance.Core.Models;
+using FaraPokemonAssistance.Core.Roster;
 using FaraPokemonAssistance.Core.Text;
 using Xunit;
 
@@ -352,5 +353,169 @@ public class DataAndCommandTests
         var result = await command.ExecuteAsync("ほげほげ ワイドフォース ガブリアス");
         Assert.False(result.Success);
         Assert.Contains("ほげほげ", result.Message);
+    }
+}
+
+
+public class EvSystemTests
+{
+    [Fact]
+    public void Points_add_one_per_point()
+    {
+        var garchomp = new Pokemon { Id = 445, Name = "ガブリアス", Type1 = "Dragon", Type2 = "Ground", BaseStats = new StatSet(108, 130, 95, 80, 85, 102), SpeciesId = 445 };
+        var zero = new PokemonBuild(garchomp, EvSystem.Points);
+        var full = new PokemonBuild(garchomp, EvSystem.Points) { EVs = new StatSet(32, 32, 0, 0, 0, 2) };
+        Assert.Equal(StatCalculator.Calculate(zero, Stat.HP) + 32, StatCalculator.Calculate(full, Stat.HP));
+        Assert.Equal(StatCalculator.Calculate(zero, Stat.Attack) + 32, StatCalculator.Calculate(full, Stat.Attack));
+        Assert.Equal(StatCalculator.Calculate(zero, Stat.Speed) + 2, StatCalculator.Calculate(full, Stat.Speed));
+        // 性格補正はポイントを足す前に掛かる
+        var adamant = new PokemonBuild(garchomp, EvSystem.Points) { EVs = new StatSet(0, 32, 0, 0, 0, 0), Nature = new Nature { Name = "いじっぱり", IncreasedStat = Stat.Attack, DecreasedStat = Stat.SpAttack } };
+        Assert.Equal((int)Math.Floor((2 * 130 + 31) * 50 / 100 * 1.0 + 5) , StatCalculator.Other(130, 31, 0, 50, 1.0));
+        Assert.Equal((int)Math.Floor(StatCalculator.Other(130, 31, 0, 50, 1.0) * 1.1) + 32, StatCalculator.Calculate(adamant, Stat.Attack));
+    }
+
+    [Fact]
+    public void Validation_limits_per_system()
+    {
+        Assert.Null(EvRules.Validate(EvSystem.Points, new StatSet(32, 32, 2, 0, 0, 0)));
+        Assert.NotNull(EvRules.Validate(EvSystem.Points, new StatSet(33, 0, 0, 0, 0, 0)));
+        Assert.NotNull(EvRules.Validate(EvSystem.Points, new StatSet(32, 32, 32, 0, 0, 0)));
+        Assert.Null(EvRules.Validate(EvSystem.Classic, new StatSet(252, 252, 4, 0, 0, 0)));
+        Assert.NotNull(EvRules.Validate(EvSystem.Classic, new StatSet(252, 252, 8, 0, 0, 0)));
+    }
+
+    [Fact]
+    public async Task Champions_dataset_uses_points()
+    {
+        var sets = await TestData.Catalog().GetDataSetsAsync();
+        Assert.Equal(EvSystem.Points, sets.Single(s => s.Key == "Champions").EvSystem);
+        Assert.Equal("pokech", sets.Single(s => s.Key == "Champions").CommandPrefix);
+        Assert.Equal("pokesv", sets.Single(s => s.Key == "Gen9").CommandPrefix);
+        Assert.Equal("pokess", sets.Single(s => s.Key == "Gen8").CommandPrefix);
+    }
+}
+
+public class PokeCommandTests
+{
+    private static PokeCommand NewCommand(out MemoryRosterStore store)
+    {
+        store = new MemoryRosterStore();
+        return new PokeCommand(TestData.Catalog(), new RosterRepository(store));
+    }
+
+    [Fact]
+    public async Task Register_list_more_remove()
+    {
+        var cmd = NewCommand(out var store);
+        var add = await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき");
+        Assert.True(add.Success, add.Message);
+        Assert.Contains("#1", add.Message);
+        Assert.NotNull(store.Json);
+
+        var tooMany = await cmd.ExecuteAsync("!pokech add ガブリアス 32 32 32 0 0 0 ようき");
+        Assert.False(tooMany.Success);
+
+        var ls = await cmd.ExecuteAsync("!pokech ls");
+        Assert.Contains("ガブリアス(ようき)", ls.Message);
+        var lsFiltered = await cmd.ExecuteAsync("!pokech ls ハバタクカミ");
+        Assert.Contains("登録されたポケモンはありません", lsFiltered.Message);
+
+        var more = await cmd.ExecuteAsync("!pokech more 1");
+        Assert.True(more.Success, more.Message);
+        Assert.Contains("実数値", more.Message);
+        Assert.Contains("ようき", more.Message);
+
+        var rm = await cmd.ExecuteAsync("!pokech rm 1");
+        Assert.True(rm.Success, rm.Message);
+        var lsAfter = await cmd.ExecuteAsync("!pokech ls");
+        Assert.Contains("ありません", lsAfter.Message);
+    }
+
+    [Fact]
+    public async Task Sv_registration_uses_classic_limits()
+    {
+        var cmd = NewCommand(out _);
+        var ok = await cmd.ExecuteAsync("!pokesv add ガブリアス 4 252 0 0 0 252 ようき");
+        Assert.True(ok.Success, ok.Message);
+        var bad = await cmd.ExecuteAsync("!pokesv add ガブリアス 4 253 0 0 0 252 ようき");
+        Assert.False(bad.Success);
+    }
+
+    [Fact]
+    public async Task Team_flow_and_team_aware_damage()
+    {
+        var cmd = NewCommand(out _);
+        Assert.True((await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech add ハバタクカミ 0 0 0 32 2 32 おくびょう")).Success);
+
+        var addTeam = await cmd.ExecuteAsync("!pokech add team 1 1 こだわりスカーフ");
+        Assert.True(addTeam.Success, addTeam.Message);
+        Assert.Contains("こだわりスカーフ", addTeam.Message);
+        Assert.True((await cmd.ExecuteAsync("!pokech add team 1 2 きあいのタスキ")).Success);
+
+        var lsTeam = await cmd.ExecuteAsync("!pokech ls team");
+        Assert.Contains("チーム1", lsTeam.Message);
+        var use = await cmd.ExecuteAsync("!pokech use team 1");
+        Assert.True(use.Success, use.Message);
+        var moreTeam = await cmd.ExecuteAsync("!pokech more team 1");
+        Assert.Contains("使用中", moreTeam.Message);
+        Assert.Contains("@こだわりスカーフ", moreTeam.Message);
+
+        var dmg = await cmd.ExecuteAsync("!pokech dmg ガブリアス じしん+1 ハバタクカミ");
+        Assert.True(dmg.Success, dmg.Message);
+        Assert.Contains("こだわりスカーフ", dmg.Message);   // 使用チームの持ち物が表示される
+        Assert.Contains("急所", dmg.Message);
+        Assert.Equal(1, dmg.Request!.Attacker.Boosts.Attack);
+        Assert.Equal(32, dmg.Request.Attacker.EVs.Attack);  // 登録した振り
+        Assert.Equal(EvSystem.Points, dmg.Request.Attacker.EvSystem);
+
+        var rmMember = await cmd.ExecuteAsync("!pokech rm team 1 ハバタクカミ");
+        Assert.True(rmMember.Success, rmMember.Message);
+        var rmTeam = await cmd.ExecuteAsync("!pokech rm team 1");
+        Assert.True(rmTeam.Success, rmTeam.Message);
+        Assert.Contains("チームはありません", (await cmd.ExecuteAsync("!pokech ls team")).Message);
+    }
+
+    [Fact]
+    public async Task Calc_estimates_defense_investment()
+    {
+        var cmd = NewCommand(out _);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add ガブリアス 4 252 0 0 0 252 ようき")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add team 1 1")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv use team 1")).Success);
+
+        // まず既知の構成でダメージを出し、その最大値を観測値として逆算すると元の振りが候補に含まれる
+        var known = await cmd.ExecuteAsync("!pokesv dmg ガブリアス じしん ハバタクカミ 防:H252 防:B0 防:おくびょう 防:持ち物なし");
+        Assert.True(known.Success, known.Message);
+        var observed = known.Damage!.MaxDamage;
+
+        var calc = await cmd.ExecuteAsync($"!pokesv calc ガブリアス じしん ハバタクカミ {observed}");
+        Assert.True(calc.Success, calc.Message);
+        Assert.Contains("防御実数値", calc.Message);
+        Assert.Contains("補正なし:B0", calc.Message);
+    }
+
+    [Fact]
+    public async Task Diff_compares_speed_with_reference_lines()
+    {
+        var cmd = NewCommand(out _);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add ガブリアス 4 252 0 0 0 252 ようき")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add team 1 1 こだわりスカーフ")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv use team 1")).Success);
+
+        var diff = await cmd.ExecuteAsync("!pokesv diff ガブリアス ハバタクカミ");
+        Assert.True(diff.Success, diff.Message);
+        Assert.Contains("こだわりスカーフ", diff.Message);
+        Assert.Contains("最速", diff.Message);
+        Assert.Contains("抜ける", diff.Message);
+    }
+
+    [Fact]
+    public async Task Unknown_prefix_is_rejected()
+    {
+        var cmd = NewCommand(out _);
+        var result = await cmd.ExecuteAsync("!dmg ガブリアス じしん ハバタクカミ");
+        Assert.False(result.Success);
+        Assert.Contains("!pokech", result.Message);
     }
 }

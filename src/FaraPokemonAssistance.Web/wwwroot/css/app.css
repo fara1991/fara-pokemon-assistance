@@ -115,3 +115,33 @@
     color: #6c757d;
     text-align: center;
 }
+
+.type-chart {
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+.type-chart .type-head {
+    white-space: nowrap;
+    font-weight: 600;
+    background: #f1f3f5;
+}
+
+.type-chart td {
+    width: 2.2rem;
+    min-width: 2.2rem;
+}
+
+.type-weak {
+    background: #ffd6d6;
+    font-weight: bold;
+}
+
+.type-resist {
+    background: #d8f5dd;
+}
+
+.type-immune {
+    background: #cfd4da;
+    font-weight: bold;
+}

@@ -9,7 +9,9 @@
         21,
         22
       ],
-      "home": null
+      "home": null,
+      "ev_system": "Classic",
+      "command_prefix": "pokess"
     },
     {
       "key": "Gen9",
@@ -23,7 +25,9 @@
       "home": {
         "soft": "Sw",
         "resource": "scvi"
-      }
+      },
+      "ev_system": "Classic",
+      "command_prefix": "pokesv"
     },
     {
       "key": "Champions",
@@ -39,7 +43,9 @@
         26,
         27
       ],
-      "note": "収録ポケモンは PokeAPI の champions 図鑑 (pokedex 36)。champions の技データが無いポケモンは SV の技で補う。"
+      "note": "収録ポケモンは PokeAPI の champions 図鑑 (pokedex 36)。champions の技データが無いポケモンは SV の技で補う。",
+      "ev_system": "Points",
+      "command_prefix": "pokech"
     }
   ]
 }

@@ -1,5 +1,6 @@
 using FaraPokemonAssistance.Core.Data;
 using FaraPokemonAssistance.Core.Models;
+using FaraPokemonAssistance.Core.Roster;
 using FaraPokemonAssistance.Core.Text;
 
 // 使い方:
@@ -30,25 +31,37 @@ else
 }
 
 var catalog = new DataCatalog(source);
-var command = new DamageCommand(catalog);
-var options = new DamageCommandOptions { Format = formatOption };
+var rosterPath = Environment.GetEnvironmentVariable("FPA_ROSTER")
+    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FaraPokemonAssistance", "roster.json");
+var command = new PokeCommand(catalog, new RosterRepository(new FileRosterStore(rosterPath)));
+var options = new PokeCommandOptions { Format = formatOption };
+
+async Task<string> RunAsync(string text)
+{
+    // 接頭辞が無ければ既定データセットのコマンドとして扱う
+    if (await command.MatchAsync(text) is null)
+    {
+        var key = await catalog.ResolveDefaultKeyAsync();
+        var prefix = (await catalog.GetDataSetsAsync()).First(d => d.Key == key).CommandPrefix;
+        text = $"!{prefix} {text.TrimStart('!')}";
+    }
+    return (await command.ExecuteAsync(text, options)).Message;
+}
 
 if (args2.Count > 0)
 {
-    var result = await command.ExecuteAsync(string.Join(' ', args2), options);
-    Console.WriteLine(result.Message);
-    return result.Success ? 0 : 1;
+    Console.WriteLine(await RunAsync(string.Join(' ', args2)));
+    return 0;
 }
 
-Console.WriteLine(DamageCommand.Usage);
-Console.WriteLine("（空行で終了）");
+Console.WriteLine(PokeCommand.Usage("pokech"));
+Console.WriteLine($"登録データ: {rosterPath}（空行で終了）");
 while (true)
 {
     Console.Write("> ");
     var line = Console.ReadLine();
     if (string.IsNullOrWhiteSpace(line)) break;
-    var result = await command.ExecuteAsync(line, options);
-    Console.WriteLine(result.Message);
+    Console.WriteLine(await RunAsync(line));
 }
 return 0;
 

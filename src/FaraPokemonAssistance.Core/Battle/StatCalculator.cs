@@ -22,9 +22,27 @@ public static class StatCalculator
         var b = build.Pokemon.BaseStats[stat];
         var iv = build.IVs[stat];
         var ev = build.EVs[stat];
+        var nature = build.Nature?.Modifier(stat) ?? 1.0;
+        if (build.EvSystem == EvSystem.Points)
+        {
+            // チャンピオンズ: 努力値 0 の実数値に、振ったポイント数をそのまま足す（性格補正は足す前に掛かる）
+            if (stat == Stat.HP)
+                return Hp(b, iv, 0, build.Level) + ev;
+            return Other(b, iv, 0, build.Level, nature) + ev;
+        }
         if (stat == Stat.HP)
             return Hp(b, iv, ev, build.Level);
-        return Other(b, iv, ev, build.Level, build.Nature?.Modifier(stat) ?? 1.0);
+        return Other(b, iv, ev, build.Level, nature);
+    }
+
+    /// <summary>任意の努力値での実数値（推定に使う）。</summary>
+    public static int Calculate(PokemonBuild build, Stat stat, int ev, double natureModifier)
+    {
+        var b = build.Pokemon.BaseStats[stat];
+        var iv = build.IVs[stat];
+        if (build.EvSystem == EvSystem.Points)
+            return (stat == Stat.HP ? Hp(b, iv, 0, build.Level) : Other(b, iv, 0, build.Level, natureModifier)) + ev;
+        return stat == Stat.HP ? Hp(b, iv, ev, build.Level) : Other(b, iv, ev, build.Level, natureModifier);
     }
 
     public static StatSet CalculateAll(PokemonBuild build)

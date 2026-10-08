@@ -1,6 +1,6 @@
 @page "/command"
 @inject DataCatalog Catalog
-@inject DamageCommand DamageCmd
+@inject PokeCommand Poke
 
 <PageTitle>チャットコマンド</PageTitle>
 
@@ -27,10 +27,10 @@
 </div>
 
 <div class="input-group mb-3">
-    <span class="input-group-text">!dmg</span>
-    <input class="form-control" placeholder="イエッサン♂ ワイドフォース メガリザードンX サイコ" @bind="input" @bind:event="oninput" @onkeydown="OnKeyDown" />
+    <input class="form-control" placeholder="!@(CurrentPrefix) dmg イエッサン♂ ワイドフォース メガリザードンX サイコ" @bind="input" @bind:event="oninput" @onkeydown="OnKeyDown" />
     <button class="btn btn-primary" @onclick="Run" disabled="@running">実行</button>
 </div>
+<p class="small text-muted">接頭辞を省略すると選択中のデータ（<code>!@(CurrentPrefix)</code>）として実行します。</p>
 
 @if (!string.IsNullOrEmpty(output))
 {
@@ -38,20 +38,22 @@
 }
 
 <div class="card mt-4">
-    <div class="card-header">書き方</div>
+    <div class="card-header">コマンド一覧（<code>!pokech</code> = チャンピオンズ、<code>!pokesv</code> = SV、<code>!pokess</code> = 剣盾）</div>
     <div class="card-body">
-        <pre class="mb-2">!dmg 攻撃側 技 防御側 [オプション...]</pre>
-        <ul class="mb-0">
-            <li>名前はカタカナ・ひらがな・略称（メガリザX など）・前方一致で解決します。</li>
-            <li><code>A252</code> <code>C252</code> <code>S4</code> は攻撃側、<code>H252</code> <code>B4</code> <code>D252</code> は防御側の努力値になります。</li>
-            <li>性格は上昇補正が攻撃・特攻・素早さなら攻撃側、防御・特防なら防御側に付きます。</li>
-            <li>持ち物はとつげきチョッキ・しんかのきせきが防御側、それ以外は攻撃側に付きます。</li>
-            <li><code>攻:</code> / <code>防:</code> を前に付けると側を明示できます（例: <code>防:ずぶとい</code>）。</li>
-            <li><code>+2</code> で攻撃側のランク、<code>防:+1</code> で防御側のランク。<code>急所</code>、<code>ダブル</code>、<code>Lv100</code>、<code>無振り</code> も使えます。</li>
-            <li>特性名（ちからもち など）はそのポケモンが持てる側に付きます。<code>テラス</code>（技タイプにテラスタル）、<code>テラスほのお</code>、<code>防:テラスみず</code>。</li>
-            <li>天候: <code>晴れ</code> <code>雨</code> <code>砂</code> <code>雪</code>、フィールド: <code>エレキ</code> <code>グラス</code> <code>サイコ</code> <code>ミスト</code>。</li>
-            <li>指定が無い項目は「攻撃側 252 振り、防御側 H252、性格・持ち物・特性は使用率 1 位（無ければ第 1 特性）」で補われ、結果に明記されます。</li>
-        </ul>
+        <table class="table table-sm">
+            <tbody>
+                <tr><td><code>add 名前 H A B C D S 性格 [特性]</code></td><td>育成済みポケモンを登録（チャンピオンズは各 0〜32・合計 66、SV/剣盾は各 0〜252・合計 510）</td></tr>
+                <tr><td><code>ls [名前]</code> / <code>more ID</code> / <code>rm ID</code></td><td>一覧 / 詳細（性格・振り・特性・実数値）/ 削除</td></tr>
+                <tr><td><code>add team 番号 ID [持ち物]</code></td><td>チームに追加（6 体まで）。同じ ID を再指定すると持ち物を更新</td></tr>
+                <tr><td><code>rm team 番号 [名前]</code> / <code>use team 番号</code></td><td>チームから外す（名前なしならチーム削除）/ 使用チームにする</td></tr>
+                <tr><td><code>ls team</code> / <code>more team 番号</code></td><td>チーム一覧 / チーム詳細</td></tr>
+                <tr><td><code>dmg 攻撃側 技±ランク 防御側 [オプション]</code></td><td>通常と急所のダメージ。使用チームにいるポケモンはその構成（持ち物は括弧内に表示）</td></tr>
+                <tr><td><code>calc 攻撃側 技±ランク 防御側 ダメージ</code></td><td>受けたダメージ（<code>93</code> または <code>45%</code>）から相手の防御努力値と性格補正を推定</td></tr>
+                <tr><td><code>diff 自分 相手 [+1 晴れ]</code></td><td>素早さ比較（自分は使用チーム、相手は 無振り/準速/最速/スカーフ最速）</td></tr>
+            </tbody>
+        </table>
+        <p class="small text-muted mb-1">dmg のオプション: <code>A252</code> <code>H252</code>（努力値、チャンピオンズはポイント）、性格、持ち物、特性、<code>攻:</code>/<code>防:</code>、<code>+2</code>、<code>急所</code>、<code>ダブル</code>、<code>テラスほのお</code>、<code>晴れ</code>、<code>サイコ</code> など。</p>
+        <p class="small text-muted mb-0">指定が無い項目は「攻撃側 全振り、防御側 H 全振り、性格・持ち物・特性は使用率 1 位（無ければ第 1 特性）」で補われ、結果に明記されます。</p>
     </div>
 </div>
 
@@ -76,13 +78,19 @@
             await Run();
     }
 
+    private string CurrentPrefix => dataSets.FirstOrDefault(d => d.Key == dataSetKey)?.CommandPrefix ?? "pokech";
+
     private async Task Run()
     {
         if (running) return;
         running = true;
         try
         {
-            var result = await DamageCmd.ExecuteAsync(input, new DamageCommandOptions { DataSetKey = dataSetKey, Format = format });
+            var text = input.Trim();
+            var match = await Poke.MatchAsync(text);
+            if (match is null)
+                text = $"!{CurrentPrefix} {text.TrimStart('!')}";
+            var result = await Poke.ExecuteAsync(text, new PokeCommandOptions { Format = format });
             success = result.Success;
             output = result.Message;
         }
