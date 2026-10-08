@@ -57,22 +57,45 @@ public sealed class AppState
             // localStorage が使えない環境（プライベートモード等）では既定値のまま
         }
         await ApplyThemeAsync();
+        _ = PreloadAsync();
+    }
+
+    /// <summary>
+    /// 選ばれていないゲームのデータも裏で読み込んでおき、切り替えたときにすぐ表示できるようにする。
+    /// </summary>
+    private async Task PreloadAsync()
+    {
+        try
+        {
+            await Task.Delay(1000);
+            foreach (var key in new[] { DataSetKey }.Concat(DataSets.Select(d => d.Key)).Distinct())
+            {
+                var data = await _catalog.GetDataSetAsync(key);
+                await data.GetUsageAsync(BattleFormat.Singles);
+                await data.GetUsageAsync(BattleFormat.Doubles);
+                await Task.Yield();
+            }
+        }
+        catch
+        {
+            // 先読みの失敗は無視する（実際に切り替えたときに読み直す）
+        }
     }
 
     public async Task SetDataSetAsync(string key)
     {
         if (key == DataSetKey || DataSets.All(d => d.Key != key)) return;
         DataSetKey = key;
-        await SaveAsync();
         await RaiseChangedAsync();
+        await SaveAsync();
     }
 
     public async Task SetFormatAsync(BattleFormat format)
     {
         if (format == Format) return;
         Format = format;
-        await SaveAsync();
         await RaiseChangedAsync();
+        await SaveAsync();
     }
 
     public async Task SetThemeAsync(string theme)

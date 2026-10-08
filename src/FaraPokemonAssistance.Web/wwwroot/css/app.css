@@ -410,3 +410,56 @@ body {
         font-size: 1.25rem;
     }
 }
+
+/* ---- サイドバー（テーマに関係なく濃い背景なので文字は明るくする） ---- */
+.sidebar .side-settings {
+    position: relative;
+    color: #f1f3f5;
+}
+
+.sidebar .side-label {
+    color: #f1f3f5;
+}
+
+.sidebar .help-btn {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.6);
+    color: #f1f3f5;
+}
+
+.sidebar .help-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* サイドバー内の吹き出しはサイドバーの幅に収める（横にはみ出すと切れるため） */
+.sidebar .help-wrap {
+    position: static;
+}
+
+.sidebar .help-note {
+    left: 0.75rem;
+    right: 0.75rem;
+    top: auto;
+    width: auto;
+    margin-top: 0.4rem;
+}
+
+.sidebar .help-note::before {
+    display: none;
+}
+
+.sidebar .form-select {
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* ---- 素早さ比較 ---- */
+.speed-vs {
+    font-size: 1.4rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.speed-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
