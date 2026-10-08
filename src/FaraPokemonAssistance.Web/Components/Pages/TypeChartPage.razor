@@ -1,5 +1,6 @@
 @page "/types"
 @inherits AppPageBase
+@using FaraPokemonAssistance.Core.Battle
 @inject DataCatalog Catalog
 
 <PageTitle>タイプ相性表</PageTitle>
@@ -9,6 +10,8 @@
     <p class="text-muted mb-0">縦が攻撃側、横が防御側です。</p>
 </div>
 
+<div class="type-chart-layout">
+<div class="type-chart-main">
 <div class="type-legend mb-3">
     <span><span class="type-mark type-weak">◎</span> 効果抜群（2 倍）</span>
     <span><span class="type-mark type-resist">△</span> いまひとつ（½ 倍）</span>
@@ -47,20 +50,127 @@
         </table>
     </div>
 }
+</div>
+
+<div class="matchup-panel">
+    <div class="card">
+        <div class="card-header"><h5>ポケモンとの相性 <Help Title="ポケモンとの相性">選んだポケモンを相手にしたとき、タイプ一致技で抜群を取れて抜群を取られないポケモンを「強い」、抜群を取られて抜群を取れないポケモンを「弱い」として出します。倍率の大きい順、同じ倍率なら使用率の高い順です。特性・持ち物・テラスタルやタイプ一致でない技は考えていません。</Help></h5></div>
+        <div class="card-body">
+            <div class="form-group mb-2">
+                <label>相手のポケモン</label>
+                <SearchableSelect TItem="Pokemon"
+                    Items="pokemonList"
+                    DisplayText="@(p => p.Name)"
+                    ValueSelector="@(p => p.Id.ToString())"
+                    SelectedValue="@(target?.Id.ToString() ?? "")"
+                    SelectedValueChanged="@OnTargetChanged"
+                    Placeholder="ポケモン名を入力...">
+                    <ItemTemplate Context="p">
+                        <PokemonIcon Pokemon="p" Small="true" />
+                        <span>@p.Name</span>
+                        <PokemonTypes Pokemon="p" Small="true" />
+                    </ItemTemplate>
+                </SearchableSelect>
+            </div>
+            @if (target is not null && chart is not null)
+            {
+                <div class="mb-3"><PokemonLabel Pokemon="target" /></div>
+                @MatchupList("強いポケモン", "相手に抜群を取れて、抜群を取られない", strong, e => $"与 {Times(e.Offense)} / 受 {Times(e.Defense)}")
+                @MatchupList("弱いポケモン", "相手に抜群を取られて、抜群を取れない", weak, e => $"受 {Times(e.Defense)} / 与 {Times(e.Offense)}")
+            }
+            else
+            {
+                <p class="text-muted small mb-0">ポケモンを選ぶと、そのポケモンに強いポケモンと弱いポケモンが表示されます。</p>
+            }
+        </div>
+    </div>
+</div>
+</div>
 
 @code {
+    private sealed class State
+    {
+        public string DataSetKey { get; set; } = "";
+        public int TargetId { get; set; }
+    }
+
+    private State s = new();
     private TypeChart? chart;
     private string? hoverRow;
     private string? hoverCol;
+    private IReadOnlyList<Pokemon> pokemonList = Array.Empty<Pokemon>();
+    private Pokemon? target;
+    private IReadOnlyList<TypeMatchup.Entry> strong = Array.Empty<TypeMatchup.Entry>();
+    private IReadOnlyList<TypeMatchup.Entry> weak = Array.Empty<TypeMatchup.Entry>();
 
-    protected override Task OnAppReadyAsync() => LoadAsync();
+    protected override Task OnAppReadyAsync()
+    {
+        s = PageStates.Get<State>("types");
+        return LoadAsync();
+    }
 
     protected override Task OnAppChangedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
-        chart = (await Catalog.GetDataSetAsync(App.DataSetKey)).TypeChart;
+        var data = await Catalog.GetDataSetAsync(App.DataSetKey);
+        var usage = await data.GetUsageAsync(App.Format);
+        chart = data.TypeChart;
+        // 未収録（他データで補完した）ポケモンは、このゲームでは出てこないので除く
+        var listed = data.Pokemon.Where(p => !p.IsProvisional);
+        pokemonList = usage.IsEmpty ? listed.ToList() : listed.OrderBy(p => usage.RankOf(p.Id)).ToList();
+        if (s.DataSetKey != App.DataSetKey)
+        {
+            s.DataSetKey = App.DataSetKey;
+            s.TargetId = 0;
+        }
+        Refresh();
     }
+
+    private void OnTargetChanged(string value)
+    {
+        s.TargetId = int.TryParse(value, out var id) ? id : 0;
+        Refresh();
+    }
+
+    private void Refresh()
+    {
+        target = pokemonList.FirstOrDefault(p => p.Id == s.TargetId);
+        (strong, weak) = target is null || chart is null
+            ? (Array.Empty<TypeMatchup.Entry>(), Array.Empty<TypeMatchup.Entry>())
+            : TypeMatchup.Against(chart, target, pokemonList);
+    }
+
+    private RenderFragment MatchupList(string title, string note, IReadOnlyList<TypeMatchup.Entry> entries, Func<TypeMatchup.Entry, string> detail) => __builder =>
+    {
+        <h6 class="mb-1">@title <span class="text-muted small">（@entries.Count 匹）</span></h6>
+        <p class="text-muted small mb-1">@note</p>
+        @if (entries.Count == 0)
+        {
+            <p class="text-muted small">該当するポケモンはいません。</p>
+        }
+        else
+        {
+            <ul class="matchup-list mb-3">
+                @foreach (var e in entries)
+                {
+                    <li>
+                        <PokemonIcon Pokemon="e.Pokemon" Small="true" />
+                        <span>@e.Pokemon.Name</span>
+                        <PokemonTypes Pokemon="e.Pokemon" Small="true" />
+                        <span class="ms-auto small text-muted text-nowrap">@detail(e)</span>
+                    </li>
+                }
+            </ul>
+        }
+    };
+
+    private static string Times(double m) => m switch
+    {
+        0.25 => "¼倍",
+        0.5 => "½倍",
+        _ => $"{m:0.##}倍",
+    };
 
     private static string Mark(double m) => m switch
     {

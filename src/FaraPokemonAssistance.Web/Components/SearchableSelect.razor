@@ -7,6 +7,7 @@
            value="@searchText"
            @oninput="OnTyped"
            @onfocusin="OnFocusIn"
+           @onclick="OnClicked"
            @onkeydown="@OnKeyDown"
            disabled="@Disabled"
            autocomplete="off" />
@@ -56,6 +57,8 @@
     {
         searchText = e.Value?.ToString() ?? "";
         userTyped = true;
+        // 選んだ直後はフォーカスが残ったまま候補が閉じているので、入力し直したら開き直す
+        if (!Disabled) showDropdown = true;
     }
 
     private IEnumerable<TItem> FilteredItems =>
@@ -112,6 +115,12 @@
         userTyped = false;
     }
 
+    /// <summary>選んだ後も入力欄にフォーカスが残るので、もう一度クリックしたら候補を開き直す。</summary>
+    private void OnClicked()
+    {
+        if (!showDropdown) OnFocusIn();
+    }
+
     private async Task OnFocusOut()
     {
         await Task.Delay(200);
@@ -130,8 +139,22 @@
             return;
         }
 
-        var match = Items.FirstOrDefault(item => DisplayText(item) == searchText);
-        if (match == null)
+        // 名前を打ち切って離れたとき（または候補が 1 件に絞れたとき）は、それを選ぶ
+        // 同じ表示名の候補があっても、いま選ばれているものを優先する
+        var match = Items.FirstOrDefault(item => ValueSelector(item) == SelectedValue && DisplayText(item) == searchText)
+            ?? Items.FirstOrDefault(item => DisplayText(item) == searchText);
+        if (match == null && userTyped)
+        {
+            var candidates = FilteredItems.Take(2).ToList();
+            if (candidates.Count == 1) match = candidates[0];
+        }
+        if (match != null)
+        {
+            searchText = DisplayText(match);
+            if (ValueSelector(match) != SelectedValue)
+                await SelectedValueChanged.InvokeAsync(ValueSelector(match));
+        }
+        else
         {
             if (!string.IsNullOrEmpty(SelectedValue) && SelectedValue != "0")
             {
@@ -145,11 +168,17 @@
         }
     }
 
-    private void OnKeyDown(KeyboardEventArgs e)
+    private async Task OnKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Escape")
         {
             showDropdown = false;
+        }
+        else if (e.Key == "Enter" && showDropdown && !Disabled)
+        {
+            // Enter で先頭の候補を選ぶ
+            var first = FilteredItems.FirstOrDefault();
+            if (first != null) await SelectItem(first);
         }
     }
 }

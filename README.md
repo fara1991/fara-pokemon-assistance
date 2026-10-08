@@ -112,7 +112,7 @@ dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサ�
 ```bash
 dotnet build FaraPokemonAssistance.sln
 dotnet test tests/FaraPokemonAssistance.Core.Tests
-dotnet run --project src/FaraPokemonAssistance.Web      # http://localhost:5xxx
+dotnet run --project src/FaraPokemonAssistance.Web      # https://localhost:52017
 ```
 
 ### 計算で考慮しているもの

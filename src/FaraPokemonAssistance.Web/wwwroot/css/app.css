@@ -226,6 +226,45 @@ body {
     outline-offset: -2px;
 }
 
+.type-chart-layout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1.5rem;
+}
+
+.type-chart-main {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.matchup-panel {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+.matchup-list {
+    list-style: none;
+    padding: 0;
+    max-height: 420px;
+    overflow-y: auto;
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.25rem;
+}
+
+.matchup-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.9rem;
+}
+
+.matchup-list li + li {
+    border-top: 1px solid var(--app-card-border);
+}
+
 .type-legend {
     display: flex;
     flex-wrap: wrap;

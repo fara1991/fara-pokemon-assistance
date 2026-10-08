@@ -446,7 +446,7 @@ public sealed class DamageCalculator
         return mod;
     }
 
-    /// <param name="firstHit">1 発目なら true。マルチスケイル（満タン時のみ）と半減きのみ（1 回だけ）は 1 発目にだけ効く。</param>
+    // firstHit: 1 発目なら true。マルチスケイル（満タン時のみ）と半減きのみ（1 回だけ）は 1 発目にだけ効く。
     private static int FinalModifier(DamageRequest request, PokemonBuild attacker, PokemonBuild defender, Move move, string moveType, bool isPhysical,
         double effectiveness, string attackerAbility, string defenderAbility, List<string> modifiers, bool firstHit)
     {

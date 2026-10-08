@@ -951,3 +951,44 @@ public class TeamCleanupTests
         Assert.Contains("チームを削除", rm.Message);
     }
 }
+
+public class TypeMatchupTests
+{
+    private static Pokemon Make(int id, string name, string t1, string t2 = "") =>
+        new() { Id = id, Name = name, Type1 = t1, Type2 = t2, SpeciesId = id };
+
+    private static readonly TypeChart Chart = TypeChart.Parse(
+        "AttackType,DefenseType,Multiplier\n" +
+        "Water,Fire,2\nFire,Water,0.5\nFire,Grass,2\nGrass,Fire,0.5\nWater,Grass,0.5\nGrass,Water,2\n" +
+        "Ground,Fire,2\nGround,Steel,2\nFire,Steel,2\nWater,Ground,2\nGrass,Ground,2\nIce,Dragon,2\nIce,Ground,2\nIce,Fire,0.5\n");
+
+    [Fact]
+    public void Strong_and_weak_follow_stab_effectiveness()
+    {
+        var heatran = Make(1, "ヒードラン", "Fire", "Steel");
+        var gastrodon = Make(2, "トリトドン", "Water", "Ground");
+        var ferrothorn = Make(3, "ナットレイ", "Grass", "Steel");
+        var glaceon = Make(4, "グレイシア", "Ice");
+
+        var (strong, weak) = TypeMatchup.Against(Chart, heatran, new[] { heatran, gastrodon, ferrothorn, glaceon });
+
+        var gastro = Assert.Single(strong);
+        Assert.Equal("トリトドン", gastro.Pokemon.Name);
+        Assert.Equal(4.0, gastro.Offense);
+        Assert.Equal(1.0, gastro.Defense); // ほのおは半減だが、はがねは等倍
+        // ナットレイはほのお技が 4 倍で、くさ技は半減。グレイシアはどちらも抜群を取れないので、どちらにも入らない
+        Assert.Equal(new[] { "ナットレイ" }, weak.Select(e => e.Pokemon.Name));
+    }
+
+    [Fact]
+    public void Equal_multipliers_keep_candidate_order()
+    {
+        var target = Make(10, "ヒードラン", "Fire");
+        var a = Make(11, "A", "Water");
+        var b = Make(12, "B", "Water");
+
+        var (strong, _) = TypeMatchup.Against(Chart, target, new[] { b, a });
+
+        Assert.Equal(new[] { "B", "A" }, strong.Select(e => e.Pokemon.Name));
+    }
+}
