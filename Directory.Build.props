@@ -1,0 +1,14 @@
+<Project>
+  <!--
+    Windows (Visual Studio) と WSL の dotnet で同じフォルダーをビルドすると、obj の復元結果
+    （NuGet のパッケージフォルダー）を互いに上書きしてしまう。Windows 以外では別フォルダーに出力する。
+  -->
+  <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj.unix/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin.unix/</BaseOutputPath>
+  </PropertyGroup>
+  <PropertyGroup>
+    <!-- もう一方の OS の出力フォルダーを、ソースとして拾わない -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj.unix/**;bin.unix/**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>
