@@ -963,32 +963,36 @@ public class TypeMatchupTests
         "Ground,Fire,2\nGround,Steel,2\nFire,Steel,2\nWater,Ground,2\nGrass,Ground,2\nIce,Dragon,2\nIce,Ground,2\nIce,Fire,0.5\n");
 
     [Fact]
-    public void Strong_and_weak_follow_stab_effectiveness()
+    public void Advantage_and_disadvantage_are_from_the_selected_pokemon()
     {
         var heatran = Make(1, "ヒードラン", "Fire", "Steel");
         var gastrodon = Make(2, "トリトドン", "Water", "Ground");
         var ferrothorn = Make(3, "ナットレイ", "Grass", "Steel");
         var glaceon = Make(4, "グレイシア", "Ice");
 
-        var (strong, weak) = TypeMatchup.Against(Chart, heatran, new[] { heatran, gastrodon, ferrothorn, glaceon });
+        var (advantage, disadvantage) = TypeMatchup.For(Chart, heatran, new[] { heatran, gastrodon, ferrothorn, glaceon });
 
-        var gastro = Assert.Single(strong);
-        Assert.Equal("トリトドン", gastro.Pokemon.Name);
-        Assert.Equal(4.0, gastro.Offense);
-        Assert.Equal(1.0, gastro.Defense); // ほのおは半減だが、はがねは等倍
-        // ナットレイはほのお技が 4 倍で、くさ技は半減。グレイシアはどちらも抜群を取れないので、どちらにも入らない
-        Assert.Equal(new[] { "ナットレイ" }, weak.Select(e => e.Pokemon.Name));
+        // ヒードランはナットレイにほのお技が 4 倍で刺さり、ナットレイからは抜群を取られない
+        var ferro = Assert.Single(advantage);
+        Assert.Equal("ナットレイ", ferro.Opponent.Name);
+        Assert.Equal(4.0, ferro.Offense);
+        Assert.Equal(1.0, ferro.Defense); // くさは半減、はがねは等倍
+        // トリトドンにはじめん技を 4 倍で受け、こちらは抜群を取れない。グレイシアはどちらも抜群を取れない
+        var gastro = Assert.Single(disadvantage);
+        Assert.Equal("トリトドン", gastro.Opponent.Name);
+        Assert.Equal(4.0, gastro.Defense);
+        Assert.Equal(1.0, gastro.Offense);
     }
 
     [Fact]
     public void Equal_multipliers_keep_candidate_order()
     {
-        var target = Make(10, "ヒードラン", "Fire");
-        var a = Make(11, "A", "Water");
-        var b = Make(12, "B", "Water");
+        var heatran = Make(10, "ヒードラン", "Fire");
+        var a = Make(11, "A", "Grass");
+        var b = Make(12, "B", "Grass");
 
-        var (strong, _) = TypeMatchup.Against(Chart, target, new[] { b, a });
+        var (advantage, _) = TypeMatchup.For(Chart, heatran, new[] { b, a });
 
-        Assert.Equal(new[] { "B", "A" }, strong.Select(e => e.Pokemon.Name));
+        Assert.Equal(new[] { "B", "A" }, advantage.Select(e => e.Opponent.Name));
     }
 }
