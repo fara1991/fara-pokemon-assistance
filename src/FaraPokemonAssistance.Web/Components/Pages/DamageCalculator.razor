@@ -53,9 +53,9 @@
                         <div class="mb-2"><PokemonLabel Build="s.Attacker" /> <span class="small text-muted">種族値 @FormatStats(s.Attacker.Pokemon.BaseStats)</span></div>
                     }
                     <div class="form-group mb-3">
-                        <label>技 <Help Title="技">攻撃側のポケモンが覚える技だけを、使用率の高い順に表示します。選んだ技の分類（物理 / 特殊）に合わせて、下の努力値・ランクの項目が切り替わります。</Help></label>
+                        <label>技 <Help Title="技">攻撃側のポケモンが覚える技だけを、使用率の高い順に表示します。使用率が公開されていないゲームでは、威力にタイプ一致・相性（防御側を選んだとき）・天候・フィールド・威力が上がる特性や持ち物を掛けた値の大きい順です。選んだ技の分類（物理 / 特殊）に合わせて、下の努力値・ランクの項目が切り替わります。</Help></label>
                         <SearchableSelect TItem="Move"
-                            Items="attackerMoves"
+                            Items="MoveChoices"
                             DisplayText="@(m => m.Name)"
                             ValueSelector="@(m => m.Id.ToString())"
                             SelectedValue="@(s.Move?.Id.ToString() ?? "")"
@@ -336,7 +336,7 @@
         }
         s.Attacker = NewBuild(pokemon);
         RefreshAttackerLists();
-        s.Move = usage?.TopMove(pokemon.Id) ?? attackerMoves.FirstOrDefault(m => m.IsDamaging);
+        s.Move = DefaultMove(pokemon.Id);
         ApplyDefaultEvs(s.Attacker, s.Move, true);
         if (s.Defender is not null) ApplyDefaultEvs(s.Defender, s.Move, false);
     }
@@ -373,7 +373,7 @@
         {
             s.Attacker = build;
             RefreshAttackerLists();
-            s.Move = usage?.TopMove(build.Pokemon.Id) ?? attackerMoves.FirstOrDefault(m => m.IsDamaging);
+            s.Move = DefaultMove(build.Pokemon.Id);
         }
         else
         {
@@ -427,6 +427,29 @@
             build.EVs[Stat.HP] = full;
         }
     }
+
+    /// <summary>このゲーム自身の使用率がある（他のゲームの使用率で代用していない）か。</summary>
+    private bool HasOwnUsage => usage is { IsEmpty: false } && usage.SourceKey == App.DataSetKey;
+
+    /// <summary>技の候補。使用率が無いゲームでは、いまの防御側・天候・フィールドでの実質威力が大きい順に並べ直す。</summary>
+    private IReadOnlyList<Move> MoveChoices
+    {
+        get
+        {
+            if (HasOwnUsage || data is null || s.Attacker is null) return attackerMoves;
+            var calc = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart);
+            var defender = s.Defender ?? new PokemonBuild(new Pokemon());
+            return attackerMoves
+                .OrderByDescending(m => calc.EffectivePower(new DamageRequest
+                {
+                    Attacker = s.Attacker, Move = m, Defender = defender, Format = App.Format, Weather = s.Weather, Terrain = s.Terrain,
+                }))
+                .ToList();
+        }
+    }
+
+    private Move? DefaultMove(int pokemonId) =>
+        (HasOwnUsage ? usage!.TopMove(pokemonId) : null) ?? MoveChoices.FirstOrDefault(m => m.IsDamaging);
 
     private void RefreshAttackerLists()
     {
