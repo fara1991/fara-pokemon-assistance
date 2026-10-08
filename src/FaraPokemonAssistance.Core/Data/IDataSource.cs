@@ -37,7 +37,7 @@ public sealed class HttpDataSource : IDataSource
     private readonly string _baseUrl;
 
     /// <param name="httpClient">HttpClient。</param>
-    /// <param name="baseUrl">データルートの URL（例: <c>https://fara1991.github.io/fara-pokemon-assistance/data/</c>）。</param>
+    /// <param name="baseUrl">データルートの URL（例: <c>https://pokemon.app-fara.com/data/</c>）。</param>
     public HttpDataSource(HttpClient httpClient, string baseUrl)
     {
         _httpClient = httpClient;
