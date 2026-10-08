@@ -1,42 +1,33 @@
 @page "/speed"
+@inherits AppPageBase
 @using FaraPokemonAssistance.Core.Roster
 @inject DataCatalog Catalog
 @inject RosterRepository Repo
 
 <PageTitle>素早さ比較</PageTitle>
 
-<h3>素早さ比較</h3>
-<p class="text-muted">チャットの <code>!@(dataSet?.CommandPrefix ?? "pokech") diff 自分 相手</code> と同じ計算です。自分側は使用チームの構成があればそれを使います。</p>
-
-<div class="split-row">
-    <div class="split-half">
-        <div class="form-group mb-3">
-            <label for="dataset">データ:</label>
-            <select id="dataset" class="form-select" @bind="selectedDataSet" @bind:after="LoadAsync">
-                @foreach (var ds in dataSets)
-                {
-                    <option value="@ds.Key">@ds.Name</option>
-                }
-            </select>
-        </div>
-    </div>
-    <div class="split-half">
-        <div class="form-group mb-3">
-            <label for="weather">天候 / フィールド:</label>
-            <div class="d-flex gap-2">
-                <select id="weather" class="form-select" @bind="weather">
-                    @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w)</option> }
-                </select>
-                <select class="form-select" @bind="terrain">
-                    @foreach (var t in Enum.GetValues<Terrain>()) { <option value="@t">@FieldNames.Japanese(t)</option> }
-                </select>
-            </div>
-        </div>
-    </div>
+<div class="page-header">
+    <h3>素早さ比較 <Help Title="素早さ比較">自分の素早さの実数値と、相手の代表的な振り方（無振り・準速・最速・スカーフ最速・最遅）を比べて、どちらが先に動くかを確認します。チャットの <code>!@(App.CommandPrefix) diff 自分 相手</code> と同じ計算です。</Help></h3>
+    <p class="text-muted mb-0">自分側は使用チームに同じポケモンがいればその構成が入ります。</p>
 </div>
 
 @if (data is not null && dataSet is not null)
 {
+    <div class="split-row mb-3">
+        <div class="split-half">
+            <label class="form-label">天候 <Help Title="天候">すいすい（雨）・ようりょくそ（晴れ）・すなかき（砂嵐）・ゆきかき（雪）の特性を持つポケモンは、その天候で素早さが 2 倍になります。</Help></label>
+            <select class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
+                @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w)</option> }
+            </select>
+        </div>
+        <div class="split-half">
+            <label class="form-label">フィールド <Help Title="フィールド">サーフテール（エレキフィールド）など、フィールドで素早さが変わる特性に使います。</Help></label>
+            <select class="form-select" value="@s.Terrain" @onchange="@(e => s.Terrain = ParseEnum(e.Value, Terrain.None))">
+                @foreach (var t in Enum.GetValues<Terrain>()) { <option value="@t">@FieldNames.Japanese(t)</option> }
+            </select>
+        </div>
+    </div>
+
     <div class="split-row">
         <div class="split-half">
             <div class="card">
@@ -45,7 +36,7 @@
                     @if (teamMembers.Count > 0)
                     {
                         <div class="form-group mb-2">
-                            <label>使用チームから:</label>
+                            <label>使用チームから <Help Title="使用チームから">「登録・チーム」で使用中にしたチームのポケモンを、努力値・性格・持ち物・特性ごと呼び出します。</Help></label>
                             <select class="form-select" @onchange="OnTeamMemberSelected">
                                 <option value="">（選択）</option>
                                 @foreach (var (entry, item) in teamMembers)
@@ -56,41 +47,59 @@
                         </div>
                     }
                     <div class="form-group mb-2">
-                        <label>ポケモン:</label>
+                        <label>ポケモン</label>
                         <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
-                            SelectedValue="@(mine?.Pokemon.Id.ToString() ?? "")" SelectedValueChanged="@OnMineChanged" Placeholder="ポケモン名を入力..." />
+                            SelectedValue="@(s.Mine?.Pokemon.Id.ToString() ?? "")" SelectedValueChanged="@OnMineChanged" Placeholder="ポケモン名を入力...">
+                            <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /><span class="text-muted ms-auto">S@(p.BaseStats.Speed)</span></ItemTemplate>
+                        </SearchableSelect>
                     </div>
-                    @if (mine is not null)
+                    @if (s.Mine is not null)
                     {
+                        <div class="mb-2"><PokemonLabel Build="s.Mine" /></div>
                         <div class="form-group mb-2">
-                            <label>S @EvRules.Label(dataSet.EvSystem):</label>
-                            <input type="number" class="form-control" min="0" max="@EvRules.MaxPerStat(dataSet.EvSystem)" step="@EvRules.Step(dataSet.EvSystem)"
-                                   value="@mine.EVs.Speed" @onchange="@(e => mine.EVs[Stat.Speed] = Clamp(e.Value, EvRules.MaxPerStat(dataSet.EvSystem)))" />
+                            <label>S @EvRules.Label(dataSet.EvSystem) <Help Title="@($"素早さの{EvRules.Label(dataSet.EvSystem)}")">素早さに振る@(EvRules.Label(dataSet.EvSystem))です（0〜@(EvRules.MaxPerStat(dataSet.EvSystem))）。ボタンで 0 と最大を入れられます。</Help></label>
+                            <div class="ev-grid">
+                                <div class="ev-cell">
+                                    <input type="number" class="form-control form-control-sm" min="0" max="@EvRules.MaxPerStat(dataSet.EvSystem)" step="@EvRules.Step(dataSet.EvSystem)"
+                                           value="@s.Mine.EVs.Speed" @onchange="@(e => s.Mine.EVs[Stat.Speed] = Clamp(e.Value, EvRules.MaxPerStat(dataSet.EvSystem)))" />
+                                    <div class="ev-buttons">
+                                        <button type="button" class="btn btn-outline-secondary" @onclick="() => s.Mine.EVs[Stat.Speed] = 0">0</button>
+                                        <button type="button" class="btn btn-outline-secondary" @onclick="() => s.Mine.EVs[Stat.Speed] = EvRules.MaxPerStat(dataSet.EvSystem)">@EvRules.MaxPerStat(dataSet.EvSystem)</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div class="form-group mb-2">
-                            <label>性格:</label>
+                            <label>性格</label>
                             <SearchableSelect TItem="Nature" Items="data.Natures" DisplayText="@(n => n.Describe())" ValueSelector="@(n => n.Name)"
-                                SelectedValue="@(mine.Nature?.Name ?? "")" SelectedValueChanged="@(v => mine.Nature = data.FindNature(v))" Placeholder="性格..." />
+                                SelectedValue="@(s.Mine.Nature?.Name ?? "")" SelectedValueChanged="@(v => s.Mine.Nature = data.FindNature(v))" Placeholder="性格..." />
                         </div>
                         <div class="form-group mb-2">
-                            <label>持ち物:</label>
-                            <SearchableSelect TItem="Item" Items="data.Items" DisplayText="@(i => i.Name)" ValueSelector="@(i => i.Id.ToString())"
-                                SelectedValue="@(mine.Item?.Id.ToString() ?? "")" SelectedValueChanged="@(v => mine.Item = data.FindItem(ParseId(v)))" Placeholder="持ち物..." />
+                            <label>持ち物 <Help Title="持ち物">こだわりスカーフは 1.5 倍、くろいてっきゅうは 0.5 倍で計算します。</Help></label>
+                            @if (s.Mine.Pokemon.IsMega)
+                            {
+                                <input class="form-control" value="@(s.Mine.Item?.Name ?? "")" disabled />
+                            }
+                            else
+                            {
+                                <SearchableSelect TItem="Item" Items="data.Items" DisplayText="@(i => i.Name)" ValueSelector="@(i => i.Id.ToString())"
+                                    SelectedValue="@(s.Mine.Item?.Id.ToString() ?? "")" SelectedValueChanged="@(v => s.Mine.Item = data.FindItem(ParseId(v)))" Placeholder="持ち物..." />
+                            }
                         </div>
                         <div class="form-group mb-2">
-                            <label>特性:</label>
-                            <select class="form-select" value="@(mine.Ability?.Id.ToString() ?? "")" @onchange="@(e => mine.Ability = data.FindAbility(ParseId(e.Value)))">
-                                @foreach (var a in data.AbilitiesOf(mine.Pokemon)) { <option value="@a.Id">@a.Name</option> }
+                            <label>特性</label>
+                            <select class="form-select" value="@(s.Mine.Ability?.Id.ToString() ?? "")" disabled="@(data.AbilitiesOf(s.Mine.Pokemon).Count <= 1)" @onchange="@(e => s.Mine.Ability = data.FindAbility(ParseId(e.Value)))">
+                                @foreach (var a in data.AbilitiesOf(s.Mine.Pokemon)) { <option value="@a.Id">@a.Name</option> }
                             </select>
                         </div>
                         <div class="form-check mb-2">
-                            <input class="form-check-input" type="checkbox" id="minePara" checked="@(mine.Status == StatusCondition.Paralysis)" @onchange="@(e => mine.Status = e.Value is true ? StatusCondition.Paralysis : StatusCondition.None)" />
+                            <input class="form-check-input" type="checkbox" id="minePara" checked="@(s.Mine.Status == StatusCondition.Paralysis)" @onchange="@(e => s.Mine.Status = e.Value is true ? StatusCondition.Paralysis : StatusCondition.None)" />
                             <label class="form-check-label" for="minePara">まひ（素早さ 0.5 倍）</label>
                         </div>
                         <div class="form-group mb-2">
-                            <label>ランク:</label>
-                            <select class="form-select" value="@mine.Boosts.Speed" @onchange="@(e => mine.Boosts[Stat.Speed] = Math.Clamp(ParseId(e.Value), -6, 6))">
-                                @for (var s = 6; s >= -6; s--) { <option value="@s">@(s > 0 ? "+" + s : s.ToString())</option> }
+                            <label>ランク <Help Title="ランク補正">こうそくいどう等で上がった素早さのランクです。+1 で 1.5 倍、+2 で 2 倍になります。</Help></label>
+                            <select class="form-select" value="@s.Mine.Boosts.Speed" @onchange="@(e => s.Mine.Boosts[Stat.Speed] = Math.Clamp(ParseId(e.Value), -6, 6))">
+                                @for (var st = 6; st >= -6; st--) { <option value="@st">@(st > 0 ? "+" + st : st.ToString())</option> }
                             </select>
                         </div>
                     }
@@ -102,12 +111,18 @@
                 <div class="card-header"><h5>相手</h5></div>
                 <div class="card-body">
                     <div class="form-group mb-2">
-                        <label>ポケモン:</label>
+                        <label>ポケモン</label>
                         <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
-                            SelectedValue="@(opponent?.Id.ToString() ?? "")" SelectedValueChanged="@(v => opponent = data.FindPokemon(ParseId(v)))" Placeholder="ポケモン名を入力..." />
+                            SelectedValue="@(s.Opponent?.Id.ToString() ?? "")" SelectedValueChanged="@(v => s.Opponent = data.FindPokemon(ParseId(v)))" Placeholder="ポケモン名を入力...">
+                            <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /><span class="text-muted ms-auto">S@(p.BaseStats.Speed)</span></ItemTemplate>
+                        </SearchableSelect>
                     </div>
+                    @if (s.Opponent is not null)
+                    {
+                        <div class="mb-2"><PokemonLabel Pokemon="s.Opponent" /></div>
+                    }
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="oppPara" @bind="opponentParalyzed" />
+                        <input class="form-check-input" type="checkbox" id="oppPara" checked="@s.OpponentParalyzed" @onchange="@(e => s.OpponentParalyzed = e.Value is true)" />
                         <label class="form-check-label" for="oppPara">相手がまひ（素早さ 0.5 倍）</label>
                     </div>
                     <p class="small text-muted mb-0">相手の努力値・性格は不明として、無振り / 準速 / 最速 / スカーフ最速 / 最遅 を並べます。</p>
@@ -116,16 +131,16 @@
         </div>
     </div>
 
-    @if (mine is not null && opponent is not null)
+    @if (s.Mine is not null && s.Opponent is not null)
     {
-        var (mySpeed, myNotes) = SpeedCalculator.Effective(mine, weather, terrain);
-        var reference = SpeedCalculator.OpponentReference(opponent, dataSet.EvSystem, data.Items.FirstOrDefault(i => i.Id == 264), opponentParalyzed);
+        var (mySpeed, myNotes) = SpeedCalculator.Effective(s.Mine, s.Weather, s.Terrain);
+        var reference = SpeedCalculator.OpponentReference(s.Opponent, dataSet.EvSystem, data.Items.FirstOrDefault(i => i.Id == 264), s.OpponentParalyzed);
         <div class="card mt-3">
             <div class="card-header"><h5>結果</h5></div>
             <div class="card-body">
-                <p class="fs-5"><strong>@mine.Pokemon.Name</strong><PokemonTypes Build="mine" Small="true" /> <strong>S@(mySpeed)</strong> @(myNotes.Count > 0 ? $"（{string.Join("、", myNotes)}）" : "")</p>
-                <table class="table table-sm" style="max-width: 520px;">
-                    <thead><tr><th>@opponent.Name<PokemonTypes Pokemon="opponent" Small="true" />@(opponentParalyzed ? "（まひ）" : "")</th><th>S</th><th>判定</th></tr></thead>
+                <p class="fs-5"><PokemonLabel Build="s.Mine" /> <strong>S@(mySpeed)</strong> @(myNotes.Count > 0 ? $"（{string.Join("、", myNotes)}）" : "")</p>
+                <table class="table table-sm" style="max-width: 560px;">
+                    <thead><tr><th><PokemonLabel Pokemon="s.Opponent" Small="true" />@(s.OpponentParalyzed ? "（まひ）" : "")</th><th>S</th><th>判定</th></tr></thead>
                     <tbody>
                     @foreach (var line in reference.Where(r => r.Label != "状態"))
                     {
@@ -135,55 +150,67 @@
                     }
                     </tbody>
                 </table>
-                <div class="alert alert-light border small mb-0">@SpeedCalculator.Format(mine, mySpeed, myNotes, opponent, null, null, null, reference)</div>
+                <p class="small text-muted mb-1">チャットでの表示</p>
+                <div class="alert alert-light border chat-output mb-0">@SpeedCalculator.Format(s.Mine, mySpeed, myNotes, s.Opponent, null, null, null, reference)</div>
             </div>
         </div>
     }
 }
 
 @code {
-    private IReadOnlyList<DataSetInfo> dataSets = Array.Empty<DataSetInfo>();
-    private string selectedDataSet = DataCatalog.DefaultDataSetKey;
+    public sealed class State
+    {
+        public string DataSetKey { get; set; } = "";
+        public PokemonBuild? Mine { get; set; }
+        public Pokemon? Opponent { get; set; }
+        public Weather Weather { get; set; }
+        public Terrain Terrain { get; set; }
+        public bool OpponentParalyzed { get; set; }
+    }
+
+    private State s = new();
     private DataSetInfo? dataSet;
     private PokemonDataSet? data;
     private IReadOnlyList<(RegisteredPokemon Entry, Item? Item)> teamMembers = Array.Empty<(RegisteredPokemon, Item?)>();
-    private PokemonBuild? mine;
-    private Pokemon? opponent;
-    private Weather weather = Weather.None;
-    private Terrain terrain = Terrain.None;
-    private bool opponentParalyzed;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAppReadyAsync()
     {
-        dataSets = await Catalog.GetDataSetsAsync();
-        selectedDataSet = await Catalog.ResolveDefaultKeyAsync();
+        s = PageStates.Get<State>("speed");
         await LoadAsync();
     }
 
+    protected override Task OnAppChangedAsync() => LoadAsync();
+
     private async Task LoadAsync()
     {
-        dataSet = dataSets.FirstOrDefault(d => d.Key == selectedDataSet);
-        data = await Catalog.GetDataSetAsync(selectedDataSet);
-        teamMembers = await Repo.ActiveTeamMembersAsync(selectedDataSet, data);
-        mine = null;
-        opponent = null;
+        dataSet = App.DataSet;
+        data = await Catalog.GetDataSetAsync(App.DataSetKey);
+        teamMembers = await Repo.ActiveTeamMembersAsync(App.DataSetKey, data);
+        if (s.DataSetKey != App.DataSetKey)
+        {
+            s.DataSetKey = App.DataSetKey;
+            s.Mine = null;
+            s.Opponent = null;
+        }
     }
 
     private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;
     private static int Clamp(object? value, int max) => Math.Clamp(int.TryParse(value?.ToString(), out var v) ? v : 0, 0, max);
+    private static T ParseEnum<T>(object? value, T fallback) where T : struct => Enum.TryParse<T>(value?.ToString(), out var v) ? v : fallback;
 
     private void OnMineChanged(string value)
     {
         var pokemon = data?.FindPokemon(ParseId(value));
-        if (pokemon is null || data is null || dataSet is null) { mine = null; return; }
+        if (pokemon is null || data is null || dataSet is null) { s.Mine = null; return; }
         var member = teamMembers.FirstOrDefault(m => m.Entry.PokemonId == pokemon.Id);
-        mine = member.Entry is not null ? RosterRepository.ToBuild(member.Entry, data, member.Item) : null;
-        mine ??= new PokemonBuild(pokemon, dataSet.EvSystem)
+        s.Mine = member.Entry is not null ? RosterRepository.ToBuild(member.Entry, data, member.Item) : null;
+        s.Mine ??= new PokemonBuild(pokemon, dataSet.EvSystem)
         {
             Nature = data.FindNature("まじめ"),
             Ability = data.AbilitiesOf(pokemon).FirstOrDefault(),
             EVs = new StatSet { Speed = EvRules.Full(dataSet.EvSystem) },
         };
+        if (pokemon.IsMega) s.Mine.Item = data.FindItem(pokemon.MegaStoneId!.Value);
     }
 
     private void OnTeamMemberSelected(ChangeEventArgs e)
@@ -191,6 +218,6 @@
         var id = ParseId(e.Value);
         var member = teamMembers.FirstOrDefault(m => m.Entry.Id == id);
         if (member.Entry is not null && data is not null)
-            mine = RosterRepository.ToBuild(member.Entry, data, member.Item);
+            s.Mine = RosterRepository.ToBuild(member.Entry, data, member.Item);
     }
 }

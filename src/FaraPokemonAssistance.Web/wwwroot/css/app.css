@@ -1,3 +1,29 @@
+/* ---- テーマ（Bootstrap 5.3 の data-bs-theme に合わせる） ---- */
+:root,
+[data-bs-theme="light"] {
+    --app-body-bg: #f6f7f9;
+    --app-card-border: #d9dde3;
+    --app-input-border: #8d97a3;
+    --app-muted: #5c6670;
+    --app-panel-bg: #eef1f4;
+    --app-note-bg: #fff8c5;
+    --app-note-border: #e3c200;
+}
+
+[data-bs-theme="dark"] {
+    --app-body-bg: #161a1f;
+    --app-card-border: #343a40;
+    --app-input-border: #6c757d;
+    --app-muted: #adb5bd;
+    --app-panel-bg: #23282e;
+    --app-note-bg: #3b3600;
+    --app-note-border: #c9ad00;
+}
+
+body {
+    background: var(--app-body-bg);
+}
+
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #26b050;
 }
@@ -8,6 +34,17 @@
 
 .validation-message {
     color: red;
+}
+
+/* 入力欄の枠をはっきりさせる */
+.form-control,
+.form-select {
+    border-color: var(--app-input-border);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+    opacity: 0.8;
 }
 
 .searchable-select {
@@ -21,22 +58,25 @@
     right: 0;
     max-height: 320px;
     overflow-y: auto;
-    background: #fff;
-    border: 1px solid #ced4da;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--app-input-border);
     border-top: none;
     border-radius: 0 0 0.25rem 0.25rem;
     z-index: 1000;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
 
 .searchable-select-item {
     padding: 0.35rem 0.75rem;
     cursor: pointer;
     font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 
 .searchable-select-item:hover {
-    background-color: #e9ecef;
+    background-color: var(--bs-tertiary-bg);
 }
 
 .split-row {
@@ -47,11 +87,6 @@
 .split-half {
     flex: 1;
     min-width: 0;
-}
-
-.stats-summary {
-    font-size: 0.9rem;
-    line-height: 1.6;
 }
 
 .stat-up {
@@ -66,6 +101,7 @@
 
 #blazor-error-ui {
     background: lightyellow;
+    color: #212529;
     bottom: 0;
     box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
     display: none;
@@ -98,52 +134,76 @@
     gap: 1rem;
 }
 
+/* ---- 努力値・ランク ---- */
 .ev-grid {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0.35rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .ev-cell {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    min-width: 6.5rem;
 }
 
 .ev-label {
-    font-size: 0.75rem;
-    color: #6c757d;
-    text-align: center;
-}
-
-.type-chart {
     font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--app-muted);
     text-align: center;
 }
 
-.type-chart .type-head {
+.ev-buttons {
+    display: flex;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+}
+
+.ev-buttons .btn {
+    flex: 1;
+    padding: 0.05rem 0.3rem;
+    font-size: 0.75rem;
+}
+
+/* ---- タイプ相性表 ---- */
+.type-chart {
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.type-chart .type-head,
+.type-chart .type-corner {
     white-space: nowrap;
     font-weight: 600;
-    background: #f1f3f5;
+    background: var(--app-panel-bg);
+}
+
+.type-chart .type-corner {
+    font-size: 0.75rem;
 }
 
 .type-chart td {
-    width: 2.2rem;
-    min-width: 2.2rem;
+    width: 2.3rem;
+    min-width: 2.3rem;
+    height: 2.3rem;
+    font-weight: bold;
 }
 
 .type-weak {
-    background: #ffd6d6;
-    font-weight: bold;
+    background: #dc3545 !important;
+    color: #fff;
 }
 
 .type-resist {
-    background: #d8f5dd;
+    background: #198754 !important;
+    color: #fff;
 }
 
 .type-immune {
-    background: #cfd4da;
-    font-weight: bold;
+    background: #212529 !important;
+    color: #fff;
 }
 
 .type-icon {
@@ -164,19 +224,94 @@
     margin-left: 0.25rem;
 }
 
-.type-chart .type-corner {
-    white-space: nowrap;
-    font-size: 0.75rem;
-    background: #f1f3f5;
+/* ---- ポケモンの画像 ---- */
+.poke-icon {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    vertical-align: middle;
+    image-rendering: pixelated;
 }
 
+.poke-icon-sm {
+    width: 28px;
+    height: 28px;
+}
+
+.poke-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+/* ---- ヘルプ（Excel のコメント風） ---- */
+.help-wrap {
+    position: relative;
+    display: inline-block;
+    margin-left: 0.25rem;
+    vertical-align: middle;
+}
+
+.help-btn {
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 50%;
+    border: 1px solid var(--app-input-border);
+    background: var(--bs-body-bg);
+    color: var(--app-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+}
+
+.help-btn:hover {
+    background: var(--bs-tertiary-bg);
+}
+
+.help-note {
+    position: absolute;
+    left: 1.4rem;
+    top: -0.4rem;
+    z-index: 1100;
+    width: 18rem;
+    max-width: 80vw;
+    padding: 0.5rem 1.4rem 0.5rem 0.6rem;
+    background: var(--app-note-bg);
+    border: 1px solid var(--app-note-border);
+    border-radius: 0.25rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    font-size: 0.8rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--bs-body-color);
+    white-space: normal;
+    text-align: left;
+}
+
+.help-note::before {
+    content: "";
+    position: absolute;
+    left: -0.5rem;
+    top: 0.5rem;
+    border: 0.25rem solid transparent;
+    border-right-color: var(--app-note-border);
+}
+
+.help-close {
+    position: absolute;
+    right: 0.25rem;
+    top: 0.15rem;
+    border: none;
+    background: transparent;
+    color: var(--app-muted);
+    font-size: 0.9rem;
+    line-height: 1;
+    cursor: pointer;
+}
 
 /* ---- 全体の見やすさ ---- */
-body {
-    background: #f6f7f9;
-    color: #212529;
-}
-
 .content {
     max-width: 1280px;
 }
@@ -184,7 +319,7 @@ body {
 .page-header {
     margin-bottom: 1.25rem;
     padding-bottom: 0.75rem;
-    border-bottom: 1px solid #e3e6ea;
+    border-bottom: 1px solid var(--app-card-border);
 }
 
 .page-header h1,
@@ -193,13 +328,13 @@ body {
 }
 
 .card {
-    border: 1px solid #e3e6ea;
+    border: 1px solid var(--app-card-border);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .card-header {
-    background: #fff;
-    border-bottom: 1px solid #e3e6ea;
+    background: var(--bs-body-bg);
+    border-bottom: 1px solid var(--app-card-border);
 }
 
 .card-header h5,
@@ -210,10 +345,11 @@ body {
 }
 
 .form-group label,
-.form-label {
+.form-label,
+.side-label {
     font-size: 0.85rem;
     font-weight: 600;
-    color: #495057;
+    color: var(--bs-body-color);
     margin-bottom: 0.2rem;
 }
 
@@ -222,7 +358,9 @@ body {
 }
 
 .stats-summary {
-    background: #f8f9fa;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    background: var(--app-panel-bg);
     border-radius: 0.375rem;
     padding: 0.5rem 0.75rem;
     margin-top: 0.5rem;
@@ -245,6 +383,26 @@ body {
 .table-sm td,
 .table-sm th {
     vertical-align: middle;
+}
+
+.chat-output {
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+}
+
+.cmd-table code {
+    white-space: nowrap;
+}
+
+.cmd-example {
+    font-size: 0.8rem;
+    color: var(--app-muted);
+}
+
+.text-muted {
+    color: var(--app-muted) !important;
 }
 
 @media (max-width: 767.98px) {

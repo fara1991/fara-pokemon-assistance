@@ -133,13 +133,20 @@ public sealed class DataCatalog
                 : key == "Champions" ? EvSystem.Points : EvSystem.Classic;
             var prefix = table.Get(row, "CommandPrefix");
             if (string.IsNullOrEmpty(prefix)) prefix = DefaultPrefix(key);
+            var generation = table.GetInt(row, "Generation", 9);
+            var gimmick = Enum.TryParse<BattleGimmick>(table.Get(row, "Gimmick"), true, out var g) ? g
+                : key == "Champions" ? BattleGimmick.None
+                : generation == 8 ? BattleGimmick.Dynamax
+                : generation == 9 ? BattleGimmick.Terastal
+                : BattleGimmick.None;
             return new DataSetInfo
             {
                 Key = key,
                 Name = table.Get(row, "Name"),
-                Generation = table.GetInt(row, "Generation", 9),
+                Generation = generation,
                 EvSystem = evSystem,
                 CommandPrefix = prefix,
+                Gimmick = gimmick,
             };
         }).ToList();
     }

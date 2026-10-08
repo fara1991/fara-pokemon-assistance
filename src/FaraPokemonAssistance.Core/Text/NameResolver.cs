@@ -97,6 +97,9 @@ public sealed class NameResolver<T> where T : class
     {
         if (_exact.TryGetValue(key, out var exact))
             return new NameMatch<T> { Value = exact, Candidates = new[] { exact } };
+        // 性別の指定が無ければ ♂（基本フォルム）: 「イエッサン」→「イエッサン(♂)」
+        if (!key.Contains('♂') && !key.Contains('♀') && _exact.TryGetValue(key + "♂", out var male))
+            return new NameMatch<T> { Value = male, Candidates = new[] { male } };
 
         var prefix = _entries.Where(e => e.Key.StartsWith(key, StringComparison.Ordinal)).Select(e => e.Item).Distinct().ToList();
         if (prefix.Count == 1)

@@ -38,8 +38,7 @@ public sealed class EvEstimator
     {
         var template = request.Defender;
         var system = template.EvSystem;
-        var isPhysical = request.Move.Category == MoveCategory.Physical;
-        var defStat = isPhysical ? Stat.Defense : Stat.SpDefense;
+        var defStat = request.Move.DefenseStatUsed;
         var step = EvRules.Step(system);
         var max = EvRules.MaxPerStat(system);
         var evValues = Enumerable.Range(0, max / step + 1).Select(i => Math.Min(max, i * step)).Distinct().ToList();

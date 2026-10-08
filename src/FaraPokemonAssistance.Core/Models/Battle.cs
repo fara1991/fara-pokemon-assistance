@@ -18,6 +18,8 @@ public sealed class PokemonBuild
     public StatSet Boosts { get; set; } = new();
     /// <summary>状態異常。</summary>
     public StatusCondition Status { get; set; } = StatusCondition.None;
+    /// <summary>ダイマックス中（剣盾）。HP 2 倍、技はダイマックス技の威力になる。</summary>
+    public bool IsDynamax { get; set; }
 
     public PokemonBuild(Pokemon pokemon)
     {
@@ -49,6 +51,7 @@ public sealed class PokemonBuild
         TeraType = TeraType,
         Boosts = Boosts.Clone(),
         Status = Status,
+        IsDynamax = IsDynamax,
     };
 
     /// <summary>チャット向けの短い説明（例: <c>C252 ひかえめ こだわりメガネ サイコメイカー</c>）。</summary>
@@ -60,6 +63,7 @@ public sealed class PokemonBuild
         if (Ability is not null) parts.Add(Ability.Name);
         if (IsTerastallized) parts.Add($"テラス{TypeNames.ToJapanese(TeraType!)}");
         if (Status != StatusCondition.None) parts.Add(StatusNames.Japanese(Status));
+        if (IsDynamax) parts.Add("ダイマックス");
         var boosts = new List<string>();
         foreach (var stat in new[] { Stat.Attack, Stat.Defense, Stat.SpAttack, Stat.SpDefense, Stat.Speed })
         {

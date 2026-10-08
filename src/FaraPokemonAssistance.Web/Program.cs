@@ -18,5 +18,7 @@ builder.Services.AddSingleton<IRosterStore>(sp => new BrowserRosterStore(sp.GetR
 builder.Services.AddSingleton(sp => new RosterRepository(sp.GetRequiredService<IRosterStore>()));
 builder.Services.AddSingleton(sp => new DamageCommand(sp.GetRequiredService<DataCatalog>()));
 builder.Services.AddSingleton(sp => new PokeCommand(sp.GetRequiredService<DataCatalog>(), sp.GetRequiredService<RosterRepository>()));
+builder.Services.AddSingleton(sp => new AppState(sp.GetRequiredService<DataCatalog>(), sp.GetRequiredService<IJSRuntime>()));
+builder.Services.AddSingleton<PageStateStore>();
 
 await builder.Build().RunAsync();

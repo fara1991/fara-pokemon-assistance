@@ -219,11 +219,12 @@ public class NameResolverTests
     [Fact]
     public void Resolves_prefix_and_gender()
     {
-        var names = new[] { "リザードン", "メガリザードンX", "メガリザードンY", "イエッサン", "イエッサン(♀)" };
+        var names = new[] { "リザードン", "メガリザードンX", "メガリザードンY", "イエッサン(♂)", "イエッサン(♀)" };
         var resolver = new NameResolver<string>(names, s => s);
         Assert.Equal("リザードン", resolver.Resolve("リザードン").Value);
         Assert.Equal("メガリザードンX", resolver.Resolve("めがりざーどんｘ").Value);
-        Assert.Equal("イエッサン", resolver.Resolve("イエッサン♂").Value);
+        Assert.Equal("イエッサン(♂)", resolver.Resolve("イエッサン♂").Value);
+        Assert.Equal("イエッサン(♂)", resolver.Resolve("イエッサン").Value);
         Assert.Equal("イエッサン(♀)", resolver.Resolve("イエッサン♀").Value);
         Assert.Equal("イエッサン(♀)", resolver.Resolve("イエッサンメス").Value);
         Assert.True(resolver.Resolve("メガリザードン").IsAmbiguous);
@@ -288,7 +289,7 @@ public class DataAndCommandTests
         var command = new DamageCommand(TestData.Catalog());
         var result = await command.ExecuteAsync("イエッサン♂ ワイドフォース メガリザードンX サイコ", new DamageCommandOptions { DataSetKey = "Champions" });
         Assert.True(result.Success, result.Message);
-        Assert.Equal("イエッサン", result.Request!.Attacker.Pokemon.Name);
+        Assert.Equal("イエッサン(♂)", result.Request!.Attacker.Pokemon.Name);
         Assert.Equal(Terrain.Psychic, result.Request.Terrain);
         Assert.DoesNotContain("未収録", result.Message);
         Assert.NotNull(result.Request.Attacker.Ability);
@@ -697,5 +698,108 @@ public class DataSourceTests
         await Task.Delay(3000);
         await catalog.GetNaturesAsync();
         Assert.Equal(2, inner.Calls);
+    }
+}
+
+public class GimmickAndFormTests
+{
+    [Theory]
+    [InlineData(40, "Normal", 90)]
+    [InlineData(80, "Fire", 130)]
+    [InlineData(120, "Water", 140)]
+    [InlineData(150, "Dragon", 150)]
+    [InlineData(80, "Fighting", 90)]
+    [InlineData(40, "Poison", 70)]
+    public void Max_move_power_table(int power, string type, int expected)
+    {
+        var move = new Move { Id = 1, Name = "x", Type = type, Power = power, Category = MoveCategory.Physical };
+        Assert.Equal(expected, FaraPokemonAssistance.Core.Battle.DamageCalculator.MaxMovePower(move));
+    }
+
+    [Fact]
+    public async Task Dynamax_doubles_hp_and_uses_max_move_power()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen8");
+        var garchomp = data.Pokemon.First(p => p.Name == "ガブリアス");
+        var charizard = data.Pokemon.First(p => p.Name == "リザードン");
+        var earthquake = data.Moves.First(m => m.Name == "ストーンエッジ"); // じしん はひこうに無効
+        var attacker = new PokemonBuild(garchomp) { EVs = new StatSet { Attack = 252 } };
+        var defender = new PokemonBuild(charizard) { EVs = new StatSet { HP = 252 }, IsDynamax = true };
+        var calc = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart);
+        var plain = calc.Calculate(new DamageRequest { Attacker = attacker, Move = earthquake, Defender = new PokemonBuild(charizard) { EVs = new StatSet { HP = 252 } } });
+        var dyna = calc.Calculate(new DamageRequest { Attacker = attacker, Move = earthquake, Defender = defender });
+        Assert.Equal(plain.DefenderHP * 2, dyna.DefenderHP);
+
+        attacker.IsDynamax = true;
+        var maxMove = calc.Calculate(new DamageRequest { Attacker = attacker, Move = earthquake, Defender = defender });
+        Assert.Equal(130, maxMove.BasePower);
+        Assert.Contains(maxMove.Modifiers, m => m.Contains("ダイマックス技"));
+    }
+
+    [Fact]
+    public async Task Dynamax_token_in_chat_command()
+    {
+        var command = new DamageCommand(TestData.Catalog());
+        var result = await command.ExecuteAsync("ガブリアス じしん リザードン 防:ダイマ", new DamageCommandOptions { DataSetKey = "Gen8" });
+        Assert.True(result.Success, result.Message);
+        Assert.True(result.Request!.Defender.IsDynamax);
+        Assert.False(result.Request.Attacker.IsDynamax);
+        Assert.Contains("ダイマックス", result.Message);
+    }
+
+    [Fact]
+    public async Task Psyshock_uses_physical_defense()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var psyshock = data.Moves.First(m => m.Name == "サイコショック");
+        Assert.Equal(MoveCategory.Special, psyshock.Category);
+        Assert.Equal(Stat.Defense, psyshock.DefenseStatUsed);
+        Assert.Equal(Stat.SpAttack, psyshock.AttackStatUsed);
+
+        var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "イエッサン(♂)")) { EVs = new StatSet { SpAttack = 252 } };
+        var defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "ハバタクカミ")) { EVs = new StatSet { HP = 252 } };
+        var result = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart).Calculate(new DamageRequest { Attacker = attacker, Move = psyshock, Defender = defender });
+        Assert.Equal(StatCalculator.Calculate(defender, Stat.Defense), result.DefenseStat);
+    }
+
+    [Fact]
+    public async Task Mega_forms_have_their_mega_stone()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Champions");
+        var megaX = data.Pokemon.First(p => p.Name == "メガリザードンX");
+        Assert.True(megaX.IsMega);
+        var stone = data.FindItem(megaX.MegaStoneId!.Value);
+        Assert.NotNull(stone);
+        Assert.Equal("リザードナイトX", stone!.Name);
+        Assert.True(stone.IsMegaStone);
+        Assert.False(stone.IsOffensive);
+        Assert.False(data.Pokemon.First(p => p.Name == "リザードン").IsMega);
+        Assert.All(data.Pokemon.Where(p => p.Name.StartsWith("メガ") && p.Name != "メガニウム" && p.Name != "メガヤンマ"), p => Assert.True(p.IsMega, p.Name));
+    }
+
+    [Fact]
+    public async Task Male_form_resolves_without_gender_mark()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Champions");
+        var resolver = DamageCommand.CreatePokemonResolver(data);
+        Assert.Equal("イエッサン(♂)", resolver.Resolve("イエッサン").Value?.Name);
+        Assert.Equal("イエッサン(♂)", resolver.Resolve("イエッサン♂").Value?.Name);
+        Assert.Equal("イエッサン(♀)", resolver.Resolve("イエッサン♀").Value?.Name);
+    }
+
+    [Fact]
+    public async Task Item_sides_and_dataset_gimmicks()
+    {
+        var catalog = TestData.Catalog();
+        var sets = await catalog.GetDataSetsAsync();
+        Assert.True(sets.First(d => d.Key == "Gen8").HasDynamax);
+        Assert.True(sets.First(d => d.Key == "Gen9").HasTerastal);
+        Assert.Equal(BattleGimmick.None, sets.First(d => d.Key == "Champions").Gimmick);
+
+        var data = await catalog.GetDataSetAsync("Gen9");
+        Assert.True(data.Items.First(i => i.Name == "こだわりハチマキ").IsOffensive);
+        Assert.True(data.Items.First(i => i.Name == "いのちのたま").IsOffensive);
+        Assert.True(data.Items.First(i => i.Name == "とつげきチョッキ").IsDefensive);
+        Assert.False(data.Items.First(i => i.Name == "とつげきチョッキ").IsOffensive);
     }
 }
