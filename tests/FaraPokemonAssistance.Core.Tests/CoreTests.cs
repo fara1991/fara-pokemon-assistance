@@ -611,3 +611,91 @@ public class PokeCommandTests
         Assert.Contains("!pokech", result.Message);
     }
 }
+
+public class DataSourceTests
+{
+    private sealed class ScriptedSource : IDataSource
+    {
+        public Func<string, CancellationToken, Task<string?>> Handler { get; set; } = (_, _) => Task.FromResult<string?>("ok");
+        public int Calls { get; private set; }
+
+        public Task<string?> ReadTextAsync(string relativePath, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Handler(relativePath, cancellationToken);
+        }
+    }
+
+    private static string TempDir() => Path.Combine(Path.GetTempPath(), "fpa-tests", Guid.NewGuid().ToString("N"));
+
+    [Fact]
+    public async Task Caching_falls_back_to_stale_cache_on_timeout()
+    {
+        var dir = TempDir();
+        var inner = new ScriptedSource();
+        // 期限 0 なので毎回取り直す
+        var source = new CachingDataSource(inner, dir, TimeSpan.Zero);
+
+        inner.Handler = (_, _) => Task.FromResult<string?>("v1");
+        Assert.Equal("v1", await source.ReadTextAsync("a/b.csv"));
+
+        // HttpClient のタイムアウトは TaskCanceledException（呼び出し側の ct は未キャンセル）
+        inner.Handler = (_, _) => throw new TaskCanceledException("timeout");
+        Assert.Equal("v1", await source.ReadTextAsync("a/b.csv"));
+
+        inner.Handler = (_, _) => throw new HttpRequestException("offline");
+        Assert.Equal("v1", await source.ReadTextAsync("a/b.csv"));
+        Assert.Equal(3, inner.Calls);
+    }
+
+    [Fact]
+    public async Task Caching_propagates_caller_cancellation()
+    {
+        var dir = TempDir();
+        var inner = new ScriptedSource();
+        var source = new CachingDataSource(inner, dir, TimeSpan.Zero);
+        inner.Handler = (_, _) => Task.FromResult<string?>("v1");
+        await source.ReadTextAsync("x.csv");
+
+        using var cts = new CancellationTokenSource();
+        inner.Handler = (_, ct) => { cts.Cancel(); throw new OperationCanceledException(ct); };
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => source.ReadTextAsync("x.csv", cts.Token));
+    }
+
+    [Fact]
+    public async Task Caching_without_cache_rethrows_timeout()
+    {
+        var inner = new ScriptedSource { Handler = (_, _) => throw new TaskCanceledException("timeout") };
+        var source = new CachingDataSource(inner, TempDir(), TimeSpan.FromDays(1));
+        await Assert.ThrowsAsync<TaskCanceledException>(() => source.ReadTextAsync("none.csv"));
+    }
+
+    [Fact]
+    public async Task Catalog_retries_after_failed_load()
+    {
+        var inner = new ScriptedSource { Handler = (_, _) => throw new HttpRequestException("offline") };
+        var catalog = new DataCatalog(inner);
+        await Assert.ThrowsAsync<HttpRequestException>(() => catalog.GetDataSetsAsync());
+
+        // 失敗した Task を保持し続けず、次の呼び出しで取り直す
+        var real = new FileDataSource(TestData.DataDirectory);
+        inner.Handler = (path, ct) => real.ReadTextAsync(path, ct);
+        var sets = await catalog.GetDataSetsAsync();
+        Assert.Contains(sets, s => s.Key == "Champions");
+    }
+
+    [Fact]
+    public async Task Catalog_reloads_after_interval()
+    {
+        var real = new FileDataSource(TestData.DataDirectory);
+        var inner = new ScriptedSource { Handler = (path, ct) => real.ReadTextAsync(path, ct) };
+        var catalog = new DataCatalog(inner, TimeSpan.FromMilliseconds(500));
+        await catalog.GetNaturesAsync();
+        await catalog.GetNaturesAsync();
+        Assert.Equal(1, inner.Calls);
+
+        await Task.Delay(700);
+        await catalog.GetNaturesAsync();
+        Assert.Equal(2, inner.Calls);
+    }
+}

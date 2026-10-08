@@ -31,7 +31,7 @@ dotnet add package FaraPokemonAssistance.Core --source local
 
 ## 2. 起動時に DataCatalog と登録データを用意する
 
-データは GitHub Pages に公開された CSV を使い、1 日キャッシュします。登録したポケモン・チームはローカルの JSON に保存します。
+データは GitHub Pages に公開された CSV を使い、1 日キャッシュします。取り直しに失敗したとき（回線断・タイムアウト）は古いキャッシュで続行します。登録したポケモン・チームはローカルの JSON に保存します。
 
 ```csharp
 using FaraPokemonAssistance.Core.Data;
@@ -51,7 +51,8 @@ public sealed class PokemonAssistService
         var source = new CachingDataSource(new HttpDataSource(new HttpClient(), DataUrl),
             Path.Combine(appDir, "pokemon-data"), TimeSpan.FromDays(1));
         var roster = new RosterRepository(new FileRosterStore(Path.Combine(appDir, "pokemon-roster.json")));
-        _command = new PokeCommand(new DataCatalog(source), roster);
+        // 第 2 引数: 長時間起動しても週次更新のデータを取り込めるよう、1 日ごとに読み直す
+        _command = new PokeCommand(new DataCatalog(source, TimeSpan.FromDays(1)), roster);
     }
 
     /// <summary>"!pokech ..." などのメッセージかどうか。</summary>
@@ -109,4 +110,4 @@ dotnet run --project src/FaraPokemonAssistance.Cli -- --data https://fara1991.gi
 - 1 メッセージ 500 文字制限に合わせて、結果は `DamageCommandOptions.MaxLength`（既定 480）で切り詰めます。
 - 連投対策（同一ユーザーのクールダウンなど）はボット側で行ってください。計算自体は数ミリ秒です。
 - `!poke cmd ls` で使えるコマンド一覧が返ります（`!poke` はチャンピオンズ扱い）。
-- `AllowMutations = false` のとき、`add` / `rm` / `use team` は「配信者のみ行えます」と返し、閲覧・計算系はそのまま動きます。
+- `AllowMutations = false` のとき、`add` / `rm` / `use team` は「配信者・モデレーターのみ行えます」と返し、閲覧・計算系はそのまま動きます。

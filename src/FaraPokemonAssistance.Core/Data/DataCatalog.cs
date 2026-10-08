@@ -14,6 +14,19 @@ public sealed class DataCatalog
     private Task<IReadOnlyList<DataSetInfo>>? _dataSets;
     private Task<IReadOnlyList<Nature>>? _natures;
     private readonly Dictionary<string, Task<PokemonDataSet>> _loaded = new(StringComparer.OrdinalIgnoreCase);
+    private readonly TimeSpan? _reloadInterval;
+    private DateTime _loadedAtUtc = DateTime.UtcNow;
+
+    /// <summary>
+    /// <paramref name="reloadInterval"/> を指定すると、最後に読み込みを始めてからその時間が経過した次の呼び出しで
+    /// 全データを読み直す（長時間起動するボットが週次更新のデータを取り込めるようにする）。
+    /// 読み込み中に例外になったデータは保持せず、次の呼び出しで再試行する。
+    /// </summary>
+    public DataCatalog(IDataSource source, TimeSpan? reloadInterval)
+        : this(source)
+    {
+        _reloadInterval = reloadInterval;
+    }
 
     /// <summary>何も指定されなかったときに使うデータセットのキー（存在しなければ <see cref="ResolveDefaultKeyAsync"/> が別のものを返す）。</summary>
     public const string DefaultDataSetKey = "Champions";
@@ -39,7 +52,10 @@ public sealed class DataCatalog
     {
         lock (_gate)
         {
-            return _dataSets ??= LoadDataSetsAsync(ct);
+            ExpireIfDue();
+            if (_dataSets is null || _dataSets.IsFaulted || _dataSets.IsCanceled)
+                _dataSets = LoadDataSetsAsync(ct);
+            return _dataSets;
         }
     }
 
@@ -47,7 +63,10 @@ public sealed class DataCatalog
     {
         lock (_gate)
         {
-            return _natures ??= LoadNaturesAsync(ct);
+            ExpireIfDue();
+            if (_natures is null || _natures.IsFaulted || _natures.IsCanceled)
+                _natures = LoadNaturesAsync(ct);
+            return _natures;
         }
     }
 
@@ -55,7 +74,8 @@ public sealed class DataCatalog
     {
         lock (_gate)
         {
-            if (!_loaded.TryGetValue(key, out var task))
+            ExpireIfDue();
+            if (!_loaded.TryGetValue(key, out var task) || task.IsFaulted || task.IsCanceled)
             {
                 task = LoadDataSetAsync(key, ct);
                 _loaded[key] = task;
@@ -69,10 +89,23 @@ public sealed class DataCatalog
     {
         lock (_gate)
         {
-            _dataSets = null;
-            _natures = null;
-            _loaded.Clear();
+            InvalidateCore();
         }
+    }
+
+    private void InvalidateCore()
+    {
+        _dataSets = null;
+        _natures = null;
+        _loaded.Clear();
+        _loadedAtUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>_gate を取った状態で呼ぶ。再読み込み間隔を過ぎていればキャッシュを捨てる。</summary>
+    private void ExpireIfDue()
+    {
+        if (_reloadInterval is { } interval && DateTime.UtcNow - _loadedAtUtc >= interval)
+            InvalidateCore();
     }
 
     private async Task<IReadOnlyList<DataSetInfo>> LoadDataSetsAsync(CancellationToken ct)

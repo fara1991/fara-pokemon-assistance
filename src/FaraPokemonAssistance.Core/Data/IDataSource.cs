@@ -95,9 +95,21 @@ public sealed class CachingDataSource : IDataSource
                 File.Delete(missingMarker);
             return text;
         }
-        catch (HttpRequestException) when (File.Exists(cachePath))
+        catch (Exception ex) when (IsTransient(ex, cancellationToken) && File.Exists(cachePath))
         {
+            // ネットワーク断・HttpClient のタイムアウト（TaskCanceledException）などは古いキャッシュで続行する。
             return await File.ReadAllTextAsync(cachePath, cancellationToken).ConfigureAwait(false);
         }
     }
+
+    /// <summary>
+    /// 取り直しの失敗のうち、古いキャッシュで代替してよいもの。
+    /// 呼び出し側がキャンセルした <see cref="OperationCanceledException"/> は代替せずそのまま投げる。
+    /// </summary>
+    private static bool IsTransient(Exception ex, CancellationToken cancellationToken) => ex switch
+    {
+        OperationCanceledException => !cancellationToken.IsCancellationRequested,
+        HttpRequestException or IOException or System.Net.Sockets.SocketException => true,
+        _ => false,
+    };
 }
