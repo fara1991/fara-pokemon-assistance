@@ -43,7 +43,7 @@ public sealed class PokeCommand
         $"!{prefix} add 名前 H A B C D S 性格 | ls [名前] | more ID | rm ID | add team 番号 ID [持ち物] | rm team 番号 [名前] | use team 番号 | ls team | more team 番号 | dmg 攻撃 技±ランク 防御 | calc 攻撃 技 防御 ダメージ | diff 自分 相手";
 
     /// <summary>メッセージがこのコマンド群のものかを判定し、接頭辞と残りを返す。</summary>
-    public async Task<(DataSetInfo DataSet, string Rest)?> MatchAsync(string message, CancellationToken ct = default)
+    public async Task<(DataSetInfo DataSet, string Arguments)?> MatchAsync(string message, CancellationToken ct = default)
     {
         var text = (message ?? "").Trim();
         if (text.StartsWith('!')) text = text[1..];
