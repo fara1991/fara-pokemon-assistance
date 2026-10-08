@@ -45,7 +45,7 @@ fara-pokemon-assistance/
 ## チャットコマンド
 
 接頭辞でデータセットを選びます: **`!pokech`** = ポケモンチャンピオンズ、**`!pokesv`** = スカーレット・バイオレット、**`!pokess`** = ソード・シールド（`!poke` はチャンピオンズ扱い）。
-`!poke cmd ls` で使えるコマンドの一覧が返ります。登録・削除・使用チームの変更は配信者本人と Owner 権限のメンバーだけに許可する想定です（`PokeCommandOptions.AllowMutations`）。
+`!poke cmd ls` で使えるコマンドの一覧が返ります。登録・削除・使用チームの変更は配信者本人とモデレーターだけに許可する想定です（`PokeCommandOptions.AllowMutations`）。
 登録データはボットなら PC 上の JSON、ブラウザなら localStorage に保存され、データセットごとに独立しています。
 
 ### 育成済みポケモンの登録
@@ -101,7 +101,7 @@ dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサ�
 
 1. `FaraBotModerator.csproj` から `FaraPokemonAssistance.Core` を参照する（隣に clone して `ProjectReference`、または CI の成果物 `.nupkg`）。
 2. 起動時に `DataCatalog` を 1 つ作る。データ元は GitHub Pages の URL + ローカルキャッシュ。
-3. `OnMessageReceived` で `!pokech` / `!pokesv` / `!pokess` を見つけたら `PokeCommand.ExecuteAsync` の結果をそのまま `SendMessage`。登録・削除は配信者（またはモデレーター）だけに許可する。
+3. `OnMessageReceived` で `!pokech` / `!pokesv` / `!pokess` を見つけたら `PokeCommand.ExecuteAsync` の結果をそのまま `SendMessage`。登録・削除は配信者本人とモデレーターだけに許可する。
 
 ## 開発
 
