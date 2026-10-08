@@ -8,7 +8,7 @@
 
 <div class="page-header">
     <h3>登録ポケモン・チーム <Help Title="登録・チーム">育成済みのポケモン（努力値・性格・特性）を登録し、チームにまとめて「使用中」にすると、ダメージ計算機・素早さ比較・チャットコマンドでその構成が自動で使われます。データはこのブラウザだけに保存され、ゲームごとに分かれています。</Help></h3>
-    <p class="text-muted mb-0">チャットの <code>!@(App.CommandPrefix) add / add team / use team</code> と同じ内容をここで編集できます。</p>
+    <p class="text-muted mb-0">チャットの <code>!@(App.CommandPrefix) add / add team / use team / unuse team</code> と同じ内容をここで編集できます。チームが 0 体になると自動で削除されます。</p>
 </div>
 
 @if (!string.IsNullOrEmpty(message))
@@ -170,6 +170,10 @@
                             {
                                 <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => UseTeamAsync(team.Number)">このチームを使用</button>
                             }
+                            else
+                            {
+                                <button class="btn btn-outline-secondary btn-sm me-1" @onclick="UnuseTeamAsync">使用を解除</button>
+                            }
                             <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveTeamAsync(team.Number)">チーム削除</button>
                         </div>
                     </div>
@@ -286,8 +290,10 @@
 
     private async Task RemovePokemonAsync(int id)
     {
+        var before = roster?.Teams.Select(t => t.Number).ToList() ?? new List<int>();
         await Repo.RemovePokemonAsync(App.DataSetKey, id);
-        Show($"#{id} を削除しました", false);
+        var deleted = before.Except(roster?.Teams.Select(t => t.Number) ?? Enumerable.Empty<int>()).ToList();
+        Show($"#{id} を削除しました" + (deleted.Count > 0 ? $"（0 体になった{string.Join("・", deleted.Select(n => $"チーム{n}"))}も削除しました）" : ""), false);
     }
 
     private async Task AddToTeamAsync()
@@ -306,12 +312,20 @@
     private async Task RemoveFromTeamAsync(int teamNo, int entryId)
     {
         await Repo.RemoveFromTeamAsync(App.DataSetKey, teamNo, e => e.Id == entryId);
+        if (roster?.Teams.All(t => t.Number != teamNo) == true)
+            Show($"チーム{teamNo} は 0 体になったので削除しました", false);
     }
 
     private async Task RemoveTeamAsync(int teamNo)
     {
         await Repo.RemoveTeamAsync(App.DataSetKey, teamNo);
         Show($"チーム{teamNo} を削除しました", false);
+    }
+
+    private async Task UnuseTeamAsync()
+    {
+        await Repo.ClearActiveTeamAsync(App.DataSetKey);
+        Show("使用チームを解除しました", false);
     }
 
     private async Task UseTeamAsync(int teamNo)

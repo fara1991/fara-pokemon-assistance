@@ -7,7 +7,8 @@ namespace FaraPokemonAssistance.Core.Battle;
 /// 第9世代のダメージ計算。乱数 16 通りをすべて返す。
 /// 対応: 実数値・ランク補正・急所・タイプ一致・タイプ相性・ダブルの複数対象・持ち物・
 /// テラスタル・天候・フィールド・主要な特性（<see cref="AbilityEffects"/> 参照）。
-/// 未対応: やけど・壁・HP 依存の特性（もうか等）・一部の技固有処理。
+/// 壁・やけど・HP 依存の特性（もうか等・マルチスケイル）・回復きのみ / たべのこし / 半減きのみも反映する。
+/// 未対応: 一部の技固有処理（威力が変動する技など）。
 /// </summary>
 public sealed class DamageCalculator
 {
@@ -53,12 +54,8 @@ public sealed class DamageCalculator
         var defender = request.Defender;
         var move = request.Move;
         var modifiers = new List<string>();
-        var defenderHp = StatCalculator.Calculate(defender, Stat.HP);
-        if (defender.IsDynamax)
-        {
-            defenderHp *= 2;
-            modifiers.Add("防御側ダイマックス(HP2倍)");
-        }
+        var defenderHp = defender.MaxHp;
+        if (defender.IsDynamax) modifiers.Add("防御側ダイマックス(HP2倍)");
 
         if (!move.IsDamaging)
             return Empty(defenderHp, 1.0, move.Type, "変化技");
@@ -206,22 +203,31 @@ public sealed class DamageCalculator
         var isStab = stabMod != 4096;
         if (isStab) modifiers.Add($"タイプ一致({stabMod / 4096.0:0.##}倍)");
 
-        // --- 最終補正
-        var finalMod = FinalModifier(attacker, defender, move, moveType, isPhysical, effectiveness,
-            attackerAbility, defenderAbility, modifiers);
+        // --- 最終補正（2 発目以降はマルチスケイル・半減きのみが無くなる）
+        var finalMod = FinalModifier(request, attacker, defender, move, moveType, isPhysical, effectiveness,
+            attackerAbility, defenderAbility, modifiers, firstHit: true);
+        var laterMod = FinalModifier(request, attacker, defender, move, moveType, isPhysical, effectiveness,
+            attackerAbility, defenderAbility, new List<string>(), firstHit: false);
 
         if (effectiveness != 1.0) modifiers.Add($"タイプ相性{effectiveness:0.##}倍");
 
-        var rolls = new int[16];
-        for (var i = 0; i < 16; i++)
+        int[] ComputeRolls(int fm)
         {
-            var damage = baseDamage * (85 + i) / 100;
-            if (isStab) damage = PokeRound(damage * stabMod / 4096.0);
-            damage = (int)Math.Floor(damage * effectiveness);
-            damage = PokeRound(damage * finalMod / 4096.0);
-            if (damage < 1) damage = 1;
-            rolls[i] = damage;
+            var result = new int[16];
+            for (var i = 0; i < 16; i++)
+            {
+                var damage = baseDamage * (85 + i) / 100;
+                if (isStab) damage = PokeRound(damage * stabMod / 4096.0);
+                damage = (int)Math.Floor(damage * effectiveness);
+                damage = PokeRound(damage * fm / 4096.0);
+                if (damage < 1) damage = 1;
+                result[i] = damage;
+            }
+            return result;
         }
+        var rolls = ComputeRolls(finalMod);
+        var laterRolls = laterMod == finalMod ? rolls : ComputeRolls(laterMod);
+        var koOptions = KnockOutOptions.For(request, defender, defenderHp, defenderGrounded, laterRolls, modifiers);
 
         return new DamageResult
         {
@@ -233,7 +239,7 @@ public sealed class DamageCalculator
             DefenseStat = defenseStat,
             BasePower = power,
             MoveType = moveType,
-            KnockOut = KnockOutCalculator.Calculate(rolls, defenderHp, defender.Status),
+            KnockOut = KnockOutCalculator.Calculate(rolls, defenderHp, koOptions),
             Modifiers = modifiers,
         };
     }
@@ -350,8 +356,16 @@ public sealed class DamageCalculator
 
         var atkName = attacker.Ability?.Name ?? "";
         var statName = isPhysical ? "攻撃" : "特攻";
+        // もうか・しんりょく・げきりゅう・むしのしらせ: HP 1/3 以下で対応タイプの技の攻撃・特攻 1.5 倍
+        var pinch = attacker.CurrentHp * 3 <= attacker.MaxHp;
         switch (attackerAbility)
         {
+            case "blaze" when pinch && moveType == "Fire":
+            case "overgrow" when pinch && moveType == "Grass":
+            case "torrent" when pinch && moveType == "Water":
+            case "swarm" when pinch && moveType == "Bug":
+                Apply(6144, $"{atkName}(HP1/3以下 1.5倍)");
+                break;
             case "huge-power" or "pure-power" when isPhysical: Apply(8192, $"{atkName}({statName}2倍)"); break;
             case "hustle" when isPhysical: Apply(6144, $"{atkName}({statName}1.5倍)"); break;
             case "gorilla-tactics" when isPhysical: Apply(6144, $"{atkName}({statName}1.5倍)"); break;
@@ -432,8 +446,9 @@ public sealed class DamageCalculator
         return mod;
     }
 
-    private static int FinalModifier(PokemonBuild attacker, PokemonBuild defender, Move move, string moveType, bool isPhysical,
-        double effectiveness, string attackerAbility, string defenderAbility, List<string> modifiers)
+    /// <param name="firstHit">1 発目なら true。マルチスケイル（満タン時のみ）と半減きのみ（1 回だけ）は 1 発目にだけ効く。</param>
+    private static int FinalModifier(DamageRequest request, PokemonBuild attacker, PokemonBuild defender, Move move, string moveType, bool isPhysical,
+        double effectiveness, string attackerAbility, string defenderAbility, List<string> modifiers, bool firstHit)
     {
         var mod = 4096;
         void Apply(int value, string text)
@@ -445,6 +460,14 @@ public sealed class DamageCalculator
         var atkName = attacker.Ability?.Name ?? "";
         var defName = defender.Ability?.Name ?? "";
 
+        // 壁: 急所とすりぬけは無視。ダブルは 2732/4096
+        if (request.Screen && !request.IsCritical && attackerAbility != "infiltrator")
+        {
+            var wall = isPhysical || move.UsesPhysicalDefense ? "リフレクター" : "ひかりのかべ";
+            if (request.Format == BattleFormat.Doubles) Apply(2732, $"{wall}(ダブル 0.67倍)");
+            else Apply(2048, $"{wall}(0.5倍)");
+        }
+
         // やけど: 物理技 0.5 倍（こんじょう・からげんきは除く）
         if (attacker.Status == StatusCondition.Burn && isPhysical && attackerAbility != "guts" && move.Id != MoveIdFacade)
             Apply(2048, "やけど(物理0.5倍)");
@@ -454,7 +477,7 @@ public sealed class DamageCalculator
 
         switch (defenderAbility)
         {
-            case "multiscale" or "shadow-shield": Apply(2048, $"{defName}(HP満タン想定 0.5倍)"); break;
+            case "multiscale" or "shadow-shield" when firstHit && defender.HpPercent >= 100: Apply(2048, $"{defName}(HP満タン 0.5倍)"); break;
             case "filter" or "solid-rock" or "prism-armor" when effectiveness > 1: Apply(3072, $"{defName}(0.75倍)"); break;
             case "ice-scales" when !isPhysical: Apply(2048, $"{defName}(特殊技0.5倍)"); break;
             case "punk-rock" when move.IsSound: Apply(2048, $"{defName}(音技0.5倍)"); break;
@@ -467,6 +490,11 @@ public sealed class DamageCalculator
             else if (item.Category is not (ItemCategory.LifeOrb or ItemCategory.ExpertBelt) && item.DamageMultiplier != 1.0)
                 Apply(PokeRound(4096 * item.DamageMultiplier), $"{item.Name}({item.DamageMultiplier:0.##}倍)");
         }
+
+        // 半減きのみ（1 回だけ）。ホズのみはノーマル技なら相性に関係なく半減
+        if (firstHit && defender.Item is { Category: ItemCategory.ResistBerry } berry && berry.TypeBoost == moveType
+            && (effectiveness > 1 || moveType == "Normal"))
+            Apply(2048, $"{berry.Name}(1発目のみ 0.5倍)");
         return mod;
     }
 
@@ -538,39 +566,136 @@ public static class AbilityEffects
 }
 
 /// <summary>乱数 16 通りから確定数と確率を求める。防御側の状態異常による定数ダメージ（やけど・どく・もうどく）を織り込む。回復は考慮しない。</summary>
+/// <summary>確定数の計算条件（開始 HP・定数ダメージ・回復）。</summary>
+public sealed class KnockOutOptions
+{
+    /// <summary>計算開始時の HP（0 なら最大 HP）。</summary>
+    public int StartHp { get; init; }
+    public StatusCondition Status { get; init; }
+    /// <summary>2 発目以降の乱数（マルチスケイル・半減きのみが消えた後）。null なら 1 発目と同じ。</summary>
+    public int[]? LaterRolls { get; init; }
+    /// <summary>毎ターン終了時の HP 増減（たべのこし +1/16、くろいヘドロ -1/8 など）。</summary>
+    public int EndOfTurnHeal { get; init; }
+    /// <summary>回復きのみが発動する HP（この値以下）。0 ならきのみなし。</summary>
+    public int BerryThreshold { get; init; }
+    public int BerryHeal { get; init; }
+
+    public static KnockOutOptions Default { get; } = new();
+
+    /// <summary>防御側の持ち物・状態・フィールドから条件を組み立て、反映した内容を modifiers に書き足す。</summary>
+    public static KnockOutOptions For(DamageRequest request, PokemonBuild defender, int maxHp, bool grounded, int[] laterRolls, List<string> modifiers)
+    {
+        var start = defender.HpPercent >= 100 ? maxHp : Math.Max(1, maxHp * Math.Clamp(defender.HpPercent, 1, 100) / 100);
+        if (start < maxHp) modifiers.Add($"防御側の残りHP {start}/{maxHp}");
+        var eot = 0;
+        var threshold = 0;
+        var heal = 0;
+        var sixteenth = Math.Max(1, maxHp / 16);
+        if (request.Terrain == Terrain.Grassy && grounded)
+        {
+            eot += sixteenth;
+            modifiers.Add("グラスフィールド(毎ターン1/16回復)を確定数に反映");
+        }
+        switch (defender.Item)
+        {
+            case { Category: ItemCategory.Leftovers } item:
+                eot += sixteenth;
+                modifiers.Add($"{item.Name}(毎ターン1/16回復)を確定数に反映");
+                break;
+            case { Category: ItemCategory.BlackSludge } item when defender.DefensiveTypes.Contains("Poison") || defender.Pokemon.HasType("Poison"):
+                eot += sixteenth;
+                modifiers.Add($"{item.Name}(毎ターン1/16回復)を確定数に反映");
+                break;
+            case { Category: ItemCategory.BlackSludge } item:
+                eot -= Math.Max(1, maxHp / 8);
+                modifiers.Add($"{item.Name}(毎ターン1/8ダメージ)を確定数に反映");
+                break;
+            case { Category: ItemCategory.SitrusBerry } item:
+                threshold = maxHp / 2;
+                heal = Math.Max(1, maxHp / 4);
+                modifiers.Add($"{item.Name}(HP1/2以下で1/4回復)を確定数に反映");
+                break;
+            case { Category: ItemCategory.OranBerry } item:
+                threshold = maxHp / 2;
+                heal = 10;
+                modifiers.Add($"{item.Name}(HP1/2以下で10回復)を確定数に反映");
+                break;
+            case { Category: ItemCategory.PinchBerry } item:
+                threshold = maxHp / 4;
+                heal = Math.Max(1, maxHp / 3);
+                modifiers.Add($"{item.Name}(HP1/4以下で1/3回復)を確定数に反映");
+                break;
+        }
+        return new KnockOutOptions
+        {
+            StartHp = start,
+            Status = defender.Status,
+            LaterRolls = laterRolls,
+            EndOfTurnHeal = eot,
+            BerryThreshold = threshold,
+            BerryHeal = heal,
+        };
+    }
+}
+
 public static class KnockOutCalculator
 {
     public const int MaxHits = 10;
 
-    public static KnockOut Calculate(int[] rolls, int hp) => Calculate(rolls, hp, StatusCondition.None);
+    public static KnockOut Calculate(int[] rolls, int hp) => Calculate(rolls, hp, KnockOutOptions.Default);
 
-    public static KnockOut Calculate(int[] rolls, int hp, StatusCondition defenderStatus)
+    public static KnockOut Calculate(int[] rolls, int hp, StatusCondition defenderStatus) =>
+        Calculate(rolls, hp, new KnockOutOptions { Status = defenderStatus });
+
+    /// <summary>
+    /// 何発で倒せるかと、その確率。残り HP（と回復きのみを使ったか）の分布を 1 発ずつ進めて厳密に求める。
+    /// 1 発ごとに「攻撃 → きのみ → ターン終了時の回復 → 状態異常の定数ダメージ → きのみ」の順で進める。
+    /// </summary>
+    public static KnockOut Calculate(int[] rolls, int hp, KnockOutOptions options)
     {
         if (rolls.Length == 0 || rolls[^1] <= 0 || hp <= 0)
             return new KnockOut(0, 0);
 
-        // 合計ダメージの分布を畳み込みで求める（HP 以上はまとめる）。
-        // 1 発ごとに「攻撃 → ターン終了時の定数ダメージ」の順で進める。
-        var dist = new Dictionary<int, double> { [0] = 1.0 };
+        var start = options.StartHp > 0 ? Math.Min(options.StartHp, hp) : hp;
+        // キー: 残り HP * 2 + (きのみを使ったら 1)
+        var dist = new Dictionary<int, double> { [start * 2] = 1.0 };
+        var knockedOut = 0.0;
         var perRoll = 1.0 / rolls.Length;
         for (var hits = 1; hits <= MaxHits; hits++)
         {
-            var residual = StatusNames.ResidualDamage(defenderStatus, hp, hits);
+            var hitRolls = hits == 1 ? rolls : options.LaterRolls ?? rolls;
+            var residual = StatusNames.ResidualDamage(options.Status, hp, hits);
             var next = new Dictionary<int, double>();
-            foreach (var (sum, p) in dist)
+            foreach (var (key, p) in dist)
             {
-                foreach (var roll in rolls)
+                var remaining = key / 2;
+                var usedBerry = (key & 1) == 1;
+                foreach (var roll in hitRolls)
                 {
-                    var s = Math.Min(hp, sum + roll);
-                    if (s < hp) s = Math.Min(hp, s + residual);
-                    next[s] = next.GetValueOrDefault(s) + p * perRoll;
+                    var r = remaining - roll;
+                    var used = usedBerry;
+                    if (r <= 0) { knockedOut += p * perRoll; continue; }
+                    TryBerry(ref r, ref used);
+                    r = Math.Min(hp, r + options.EndOfTurnHeal);
+                    if (r <= 0) { knockedOut += p * perRoll; continue; }
+                    r -= residual;
+                    if (r <= 0) { knockedOut += p * perRoll; continue; }
+                    TryBerry(ref r, ref used);
+                    var k = r * 2 + (used ? 1 : 0);
+                    next[k] = next.GetValueOrDefault(k) + p * perRoll;
                 }
             }
             dist = next;
-            var ko = dist.GetValueOrDefault(hp);
-            if (ko > 0)
-                return new KnockOut(hits, Math.Min(1.0, ko));
+            if (knockedOut > 1e-9)
+                return new KnockOut(hits, Math.Min(1.0, knockedOut));
         }
         return new KnockOut(MaxHits + 1, 0);
+
+        void TryBerry(ref int r, ref bool used)
+        {
+            if (used || options.BerryThreshold <= 0 || r > options.BerryThreshold) return;
+            r = Math.Min(hp, r + options.BerryHeal);
+            used = true;
+        }
     }
 }

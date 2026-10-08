@@ -169,7 +169,8 @@ body {
 
 /* ---- タイプ相性表 ---- */
 .type-chart {
-    font-size: 0.85rem;
+    width: auto;
+    font-size: 1rem;
     text-align: center;
 }
 
@@ -178,43 +179,81 @@ body {
     white-space: nowrap;
     font-weight: 600;
     background: var(--app-panel-bg);
+    width: 2.6rem;
+    padding: 0.2rem;
 }
 
 .type-chart .type-corner {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
 }
 
 .type-chart td {
-    width: 2.3rem;
-    min-width: 2.3rem;
-    height: 2.3rem;
-    font-weight: bold;
+    width: 2.6rem;
+    min-width: 2.6rem;
+    height: 2.6rem;
+    padding: 0;
+    vertical-align: middle;
+    font-weight: 700;
+    cursor: default;
 }
 
+/* 記号で区別し、色は控えめな補助にする */
 .type-weak {
-    background: #dc3545 !important;
-    color: #fff;
+    background: rgba(220, 53, 69, 0.18) !important;
+    color: #c81e2f;
 }
 
 .type-resist {
-    background: #198754 !important;
-    color: #fff;
+    background: rgba(13, 110, 253, 0.14) !important;
+    color: #0a58ca;
 }
 
 .type-immune {
-    background: #212529 !important;
-    color: #fff;
+    background: rgba(108, 117, 125, 0.35) !important;
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .type-weak {
+    color: #ff8a95;
+}
+
+[data-bs-theme="dark"] .type-resist {
+    color: #8fb8ff;
+}
+
+.type-chart .type-hover {
+    outline: 2px solid #f0b400;
+    outline-offset: -2px;
+}
+
+.type-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: 0.9rem;
+}
+
+.type-mark {
+    display: inline-block;
+    width: 1.6rem;
+    height: 1.6rem;
+    line-height: 1.6rem;
+    text-align: center;
+    font-weight: 700;
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.25rem;
+    margin-right: 0.25rem;
 }
 
 .type-icon {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     vertical-align: middle;
 }
 
 .type-icon-sm {
-    width: 20px;
-    height: 20px;
+    width: 26px;
+    height: 26px;
 }
 
 .type-icons {
@@ -226,16 +265,16 @@ body {
 
 /* ---- ポケモンの画像 ---- */
 .poke-icon {
-    width: 40px;
-    height: 40px;
+    width: 64px;
+    height: 64px;
     object-fit: contain;
     vertical-align: middle;
     image-rendering: pixelated;
 }
 
 .poke-icon-sm {
-    width: 28px;
-    height: 28px;
+    width: 44px;
+    height: 44px;
 }
 
 .poke-label {

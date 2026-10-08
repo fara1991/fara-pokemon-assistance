@@ -5,20 +5,27 @@
 <PageTitle>タイプ相性表</PageTitle>
 
 <div class="page-header">
-    <h3>タイプ相性表 <Help Title="タイプ相性表の見方">縦が攻撃する技のタイプ、横が受けるポケモンのタイプです。2 つのタイプを持つポケモンは、両方の倍率を掛け合わせます（例: 2 × ½ = 等倍）。</Help></h3>
-    <p class="text-muted mb-0">縦が攻撃側、横が防御側。<span class="badge type-weak">2</span> 効果抜群、<span class="badge type-resist">½</span> いまひとつ、<span class="badge type-immune">0</span> 効果なし。アイコンにカーソルを合わせるとタイプ名が出ます。</p>
+    <h3>タイプ相性表 <Help Title="タイプ相性表の見方">縦が攻撃する技のタイプ、横が受けるポケモンのタイプです。2 つのタイプを持つポケモンは、両方の倍率を掛け合わせます（例: ◎2 × △½ = 等倍）。マスにカーソルを合わせると、その行と列が強調されます。</Help></h3>
+    <p class="text-muted mb-0">縦が攻撃側、横が防御側です。</p>
+</div>
+
+<div class="type-legend mb-3">
+    <span><span class="type-mark type-weak">◎</span> 効果抜群（2 倍）</span>
+    <span><span class="type-mark type-resist">△</span> いまひとつ（½ 倍）</span>
+    <span><span class="type-mark type-immune">×</span> 効果なし（0 倍）</span>
+    <span><span class="type-mark">&nbsp;</span> 空欄は等倍</span>
 </div>
 
 @if (chart is not null)
 {
     <div class="table-responsive">
-        <table class="table table-bordered table-sm type-chart">
+        <table class="table table-bordered table-sm type-chart" @onmouseleave="() => { hoverRow = null; hoverCol = null; }">
             <thead>
                 <tr>
                     <th class="type-corner">攻＼防</th>
                     @foreach (var d in TypeNames.All)
                     {
-                        <th class="type-head"><TypeIcon Type="@d" /></th>
+                        <th class="type-head @(hoverCol == d ? "type-hover" : "")"><TypeIcon Type="@d" /></th>
                     }
                 </tr>
             </thead>
@@ -26,11 +33,13 @@
             @foreach (var a in TypeNames.All)
             {
                 <tr>
-                    <th class="type-head"><TypeIcon Type="@a" /></th>
+                    <th class="type-head @(hoverRow == a ? "type-hover" : "")"><TypeIcon Type="@a" /></th>
                     @foreach (var d in TypeNames.All)
                     {
                         var m = chart.Against(a, d);
-                        <td class="@CellClass(m)" title="@TypeNames.ToJapanese(a) → @TypeNames.ToJapanese(d): @(m == 1.0 ? "等倍" : MultText(m) + "倍")">@(m == 1.0 ? "" : MultText(m))</td>
+                        var hover = hoverRow == a || hoverCol == d ? "type-hover" : "";
+                        <td class="@CellClass(m) @hover" title="@TypeNames.ToJapanese(a) → @TypeNames.ToJapanese(d): @Describe(m)"
+                            @onmouseover="() => { hoverRow = a; hoverCol = d; }">@Mark(m)</td>
                     }
                 </tr>
             }
@@ -41,6 +50,8 @@
 
 @code {
     private TypeChart? chart;
+    private string? hoverRow;
+    private string? hoverCol;
 
     protected override Task OnAppReadyAsync() => LoadAsync();
 
@@ -51,14 +62,20 @@
         chart = (await Catalog.GetDataSetAsync(App.DataSetKey)).TypeChart;
     }
 
-    private static string MultText(double m) => m switch
+    private static string Mark(double m) => m switch
     {
-        0.0 => "0",
-        0.25 => "¼",
-        0.5 => "½",
-        2.0 => "2",
-        4.0 => "4",
-        _ => m.ToString("0.##"),
+        0.0 => "×",
+        < 1.0 => "△",
+        > 1.0 => "◎",
+        _ => "",
+    };
+
+    private static string Describe(double m) => m switch
+    {
+        0.0 => "効果なし（0 倍）",
+        < 1.0 => $"いまひとつ（{m:0.##} 倍）",
+        > 1.0 => $"効果抜群（{m:0.##} 倍）",
+        _ => "等倍",
     };
 
     private static string CellClass(double m) => m switch

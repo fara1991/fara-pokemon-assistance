@@ -803,3 +803,151 @@ public class GimmickAndFormTests
         Assert.False(data.Items.First(i => i.Name == "とつげきチョッキ").IsOffensive);
     }
 }
+
+public class RecoveryAndFieldTests
+{
+    private static readonly int[] Thirty = Enumerable.Repeat(30, 16).ToArray();
+
+    [Fact]
+    public void Sitrus_berry_adds_a_hit()
+    {
+        Assert.Equal(4, KnockOutCalculator.Calculate(Thirty, 100).Hits);
+        // 2 発目で 40 → 1/2 以下なので +25 = 65 → 35 → 5 → 5 発目で倒れる
+        var sitrus = new KnockOutOptions { BerryThreshold = 50, BerryHeal = 25 };
+        Assert.Equal(5, KnockOutCalculator.Calculate(Thirty, 100, sitrus).Hits);
+    }
+
+    [Fact]
+    public void Leftovers_heal_every_turn()
+    {
+        Assert.Equal(6, KnockOutCalculator.Calculate(Thirty, 160).Hits);
+        Assert.Equal(8, KnockOutCalculator.Calculate(Thirty, 160, new KnockOutOptions { EndOfTurnHeal = 10 }).Hits);
+    }
+
+    [Fact]
+    public void First_hit_rolls_differ_from_later_hits()
+    {
+        var first = Enumerable.Repeat(15, 16).ToArray();
+        Assert.Equal(3, KnockOutCalculator.Calculate(Thirty, 90).Hits);
+        Assert.Equal(4, KnockOutCalculator.Calculate(first, 90, new KnockOutOptions { LaterRolls = Thirty }).Hits);
+    }
+
+    [Fact]
+    public void Start_hp_lowers_hits()
+    {
+        Assert.Equal(2, KnockOutCalculator.Calculate(Thirty, 100, new KnockOutOptions { StartHp = 50 }).Hits);
+    }
+
+    private static async Task<(PokemonDataSet Data, FaraPokemonAssistance.Core.Battle.DamageCalculator Calc)> Gen9()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        return (data, new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart));
+    }
+
+    [Fact]
+    public async Task Screen_halves_damage_and_crit_ignores_it()
+    {
+        var (data, calc) = await Gen9();
+        var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス")) { EVs = new StatSet { Attack = 252 } };
+        var defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "ハバタクカミ")) { EVs = new StatSet { HP = 252 } };
+        var move = data.Moves.First(m => m.Name == "ドラゴンクロー");
+        var normal = calc.Calculate(new DamageRequest { Attacker = attacker, Move = move, Defender = defender });
+        var walled = calc.Calculate(new DamageRequest { Attacker = attacker, Move = move, Defender = defender, Screen = true });
+        Assert.Equal(0, normal.MaxDamage); // フェアリーに無効
+        var target = new PokemonBuild(data.Pokemon.First(p => p.Name == "ドドゲザン")) { EVs = new StatSet { HP = 252 } };
+        normal = calc.Calculate(new DamageRequest { Attacker = attacker, Move = move, Defender = target });
+        walled = calc.Calculate(new DamageRequest { Attacker = attacker, Move = move, Defender = target, Screen = true });
+        Assert.InRange(walled.MaxDamage, normal.MaxDamage / 2 - 2, normal.MaxDamage / 2 + 2);
+        Assert.Contains(walled.Modifiers, m => m.Contains("リフレクター"));
+        var crit = calc.Calculate(new DamageRequest { Attacker = attacker, Move = move, Defender = target, Screen = true, IsCritical = true });
+        Assert.DoesNotContain(crit.Modifiers, m => m.Contains("リフレクター"));
+    }
+
+    [Fact]
+    public async Task Blaze_boosts_fire_moves_at_low_hp()
+    {
+        var (data, calc) = await Gen9();
+        var charizard = data.Pokemon.First(p => p.Name == "リザードン");
+        var blaze = data.AbilitiesOf(charizard).First(a => a.Identifier == "blaze");
+        var defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"));
+        var move = data.Moves.First(m => m.Name == "かえんほうしゃ");
+        var full = calc.Calculate(new DamageRequest { Attacker = new PokemonBuild(charizard) { Ability = blaze }, Move = move, Defender = defender });
+        var pinch = calc.Calculate(new DamageRequest { Attacker = new PokemonBuild(charizard) { Ability = blaze, HpPercent = 30 }, Move = move, Defender = defender });
+        Assert.True(pinch.AttackStat > full.AttackStat * 1.4, $"{pinch.AttackStat} vs {full.AttackStat}");
+        Assert.Contains(pinch.Modifiers, m => m.Contains("HP1/3以下"));
+    }
+
+    [Fact]
+    public async Task Resist_berry_halves_first_hit_only()
+    {
+        var (data, calc) = await Gen9();
+        var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス")) { EVs = new StatSet { Attack = 252 } };
+        var move = data.Moves.First(m => m.Name == "ストーンエッジ");
+        var plain = new PokemonBuild(data.Pokemon.First(p => p.Name == "リザードン")) { EVs = new StatSet { HP = 252 } };
+        var berry = data.Items.First(i => i.Name == "ヨロギのみ");
+        Assert.Equal(ItemCategory.ResistBerry, berry.Category);
+        var withBerry = plain.Clone();
+        withBerry.Item = berry;
+        var a = calc.Calculate(new DamageRequest { Attacker = attacker, Move = move, Defender = plain });
+        var b = calc.Calculate(new DamageRequest { Attacker = attacker, Move = move, Defender = withBerry });
+        Assert.InRange(b.MaxDamage, a.MaxDamage / 2 - 2, a.MaxDamage / 2 + 2);
+        Assert.True(b.KnockOut.Hits >= a.KnockOut.Hits);
+    }
+
+    [Fact]
+    public async Task Sitrus_berry_noted_in_result()
+    {
+        var (data, calc) = await Gen9();
+        var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"));
+        var defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "ドドゲザン")) { Item = data.Items.First(i => i.Name == "オボンのみ") };
+        var result = calc.Calculate(new DamageRequest { Attacker = attacker, Move = data.Moves.First(m => m.Name == "ドラゴンクロー"), Defender = defender });
+        Assert.Contains(result.Modifiers, m => m.Contains("オボンのみ"));
+    }
+
+    [Fact]
+    public async Task Chat_tokens_for_screen_and_hp()
+    {
+        var command = new DamageCommand(TestData.Catalog());
+        var result = await command.ExecuteAsync("ガブリアス じしん ドドゲザン 壁 HP50% 攻:HP30%", new DamageCommandOptions { DataSetKey = "Gen9" });
+        Assert.True(result.Success, result.Message);
+        Assert.True(result.Request!.Screen);
+        Assert.Equal(50, result.Request.Defender.HpPercent);
+        Assert.Equal(30, result.Request.Attacker.HpPercent);
+        Assert.Contains("壁", result.Message);
+    }
+}
+
+public class TeamCleanupTests
+{
+    [Fact]
+    public async Task Removing_last_member_deletes_team_and_unuse_works()
+    {
+        var store = new MemoryRosterStore();
+        var cmd = new PokeCommand(TestData.Catalog(), new RosterRepository(store));
+        Assert.True((await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech add team 1 1")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech use team 1")).Success);
+
+        var unuse = await cmd.ExecuteAsync("!pokech unuse team");
+        Assert.True(unuse.Success, unuse.Message);
+        Assert.Contains("解除", unuse.Message);
+        Assert.Contains("ありません", (await cmd.ExecuteAsync("!pokech unuse team")).Message);
+
+        await cmd.ExecuteAsync("!pokech use team 1");
+        var rm = await cmd.ExecuteAsync("!pokech rm 1");
+        Assert.Contains("チーム1を削除", rm.Message);
+        var teams = await cmd.ExecuteAsync("!pokech ls team");
+        Assert.Contains("チームはありません", teams.Message);
+    }
+
+    [Fact]
+    public async Task Removing_from_team_until_empty_deletes_team()
+    {
+        var store = new MemoryRosterStore();
+        var cmd = new PokeCommand(TestData.Catalog(), new RosterRepository(store));
+        await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき");
+        await cmd.ExecuteAsync("!pokech add team 2 1");
+        var rm = await cmd.ExecuteAsync("!pokech rm team 2 ガブリアス");
+        Assert.Contains("チームを削除", rm.Message);
+    }
+}

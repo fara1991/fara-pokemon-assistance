@@ -143,6 +143,10 @@
     <div class="d-flex align-items-center gap-3 flex-wrap">
         <button class="btn btn-primary" @onclick="Calculate">ダメージを計算</button>
         <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="screen" checked="@s.Screen" @onchange="@(e => s.Screen = e.Value is true)" />
+            <label class="form-check-label" for="screen">壁 <Help Title="壁">防御側の場のリフレクター（物理技）・ひかりのかべ（特殊技）・オーロラベール（両方）。ダメージが 0.5 倍（ダブルは約 0.67 倍）になります。急所と特性すりぬけは壁を無視します。</Help></label>
+        </div>
+        <div class="form-check">
             <input class="form-check-input" type="checkbox" id="crit" checked="@s.IsCritical" @onchange="@(e => s.IsCritical = e.Value is true)" />
             <label class="form-check-label" for="crit">急所 <Help Title="急所">ダメージ 1.5 倍（スナイパーは 2.25 倍）。攻撃側のマイナスランクと防御側のプラスランクを無視します。</Help></label>
         </div>
@@ -158,7 +162,7 @@
         var result = s.Result;
         var lastRequest = s.LastRequest;
         <div class="card mt-3 result-card">
-            <div class="card-header"><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージも確定数に含めています。</Help></h5></div>
+            <div class="card-header"><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージ、オボンのみ等の回復きのみ、たべのこし・くろいヘドロ、グラスフィールドの回復、半減きのみ（1 発目のみ）、マルチスケイル（満タン時の 1 発目のみ）も確定数に含めています。</Help></h5></div>
             <div class="card-body">
                 <p class="mb-2">
                     <PokemonLabel Build="lastRequest.Attacker" Small="true" />
@@ -218,6 +222,7 @@
         public PokemonBuild? Defender { get; set; }
         public Move? Move { get; set; }
         public bool IsCritical { get; set; }
+        public bool Screen { get; set; }
         public Weather Weather { get; set; }
         public Terrain Terrain { get; set; }
         public string ObservedDamageText { get; set; } = "";
@@ -393,6 +398,7 @@
             IsCritical = s.IsCritical,
             Weather = s.Weather,
             Terrain = s.Terrain,
+            Screen = s.Screen,
         };
         request.Defender.Item = null;
         var estimate = new EvEstimator(data.TypeChart).Run(request, observed, asPercent);
@@ -580,6 +586,14 @@
                 }
             </select>
         </div>
+        <div class="form-group mb-2">
+            <label>残り HP（%） <Help Title="残り HP">@(isAttacker ? "もうか・しんりょく・げきりゅう・むしのしらせは HP が 1/3 以下で対応タイプの技が 1.5 倍になります。" : "確定数を今の HP から数えます。マルチスケイル・ファントムガードは HP 満タンのときだけ効きます。")100 で満タンです。</Help></label>
+            <div class="d-flex align-items-center gap-2">
+                <input type="range" class="form-range" min="1" max="100" value="@build.HpPercent" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
+                <input type="number" class="form-control form-control-sm" style="width: 5rem;" min="1" max="100" value="@build.HpPercent" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
+                <span class="small text-muted text-nowrap">@build.CurrentHp / @build.MaxHp</span>
+            </div>
+        </div>
         <div class="stats-summary">
             <div>
                 実数値：@foreach (var (stat, i) in Enum.GetValues<Stat>().Select((st, idx) => (st, idx)))
@@ -630,6 +644,7 @@
                 IsCritical = s.IsCritical,
                 Weather = s.Weather,
                 Terrain = s.Terrain,
+                Screen = s.Screen,
             };
             s.Result = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart).Calculate(s.LastRequest);
         }

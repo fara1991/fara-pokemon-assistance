@@ -75,6 +75,7 @@ public sealed class EvEstimator
                         IsCritical = request.IsCritical,
                         Weather = request.Weather,
                         Terrain = request.Terrain,
+                        Screen = request.Screen,
                     });
                     if (result.MaxDamage == 0) continue;
                     var min = asPercent ? result.MinDamage * 100.0 / result.DefenderHP : result.MinDamage;

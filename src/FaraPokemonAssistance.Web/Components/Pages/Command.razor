@@ -102,11 +102,11 @@
         </table>
         <p class="small text-muted mb-1"><strong>dmg / calc のオプション（すべて任意、順不同）:</strong>
             <code>A252</code> <code>H252</code>（@(EvRules.Label(App.DataSet?.EvSystem ?? EvSystem.Classic))。攻撃側は A/C/S、防御側は H/B/D に付きます）、性格名、持ち物名、特性名、
-            <code>攻:</code>/<code>防:</code>（どちら側か明示）、<code>+2</code>（攻撃側のランク）、<code>急所</code>、<code>ダブル</code>、
+            <code>攻:</code>/<code>防:</code>（どちら側か明示）、<code>+2</code>（攻撃側のランク）、<code>急所</code>、<code>壁</code>（リフレクター / ひかりのかべ）、<code>HP50%</code>（防御側の残り HP）、<code>攻:HP30%</code>（攻撃側の残り HP。もうか等）、<code>ダブル</code>、
             @if (App.DataSet?.HasTerastal == true) { <span><code>テラス</code> <code>テラスほのお</code> <code>防:テラスみず</code>、</span> }
             @if (App.DataSet?.HasDynamax == true) { <span><code>ダイマ</code>（攻撃側）<code>防:ダイマ</code>（防御側）、</span> }
             天候 <code>晴れ</code> <code>雨</code> <code>砂嵐</code> <code>雪</code>、フィールド <code>エレキフィールド</code> <code>グラスフィールド</code> <code>サイコフィールド</code> <code>ミストフィールド</code>、
-            状態異常 <code>やけど</code> <code>まひ</code>（既定は攻撃側）<code>どく</code> <code>もうどく</code>（既定は防御側。定数ダメージを確定数に含める）。
+            状態異常 <code>やけど</code> <code>まひ</code>（既定は攻撃側）<code>どく</code> <code>もうどく</code>（既定は防御側。定数ダメージを確定数に含める）。防御側の持ち物がオボンのみ・たべのこし・半減きのみなどなら、確定数に自動で反映します。
         </p>
         <p class="small text-muted mb-0">指定しなかった項目は「攻撃側は攻撃技に合わせて A か C に全振り、防御側は H 全振り、性格・持ち物・特性は使用率 1 位（無ければ第 1 特性）」で埋め、結果にそのまま表示します。使用チームにいるポケモンはチームの構成が優先されます。相手の特性で結果が変わる場合は「特性別:」が付きます。</p>
     </div>
@@ -305,12 +305,13 @@
         yield return new($"{p} more ID", "登録の詳細（性格・振り・特性・実数値・所属チーム）", new[] { $"{p} more 1" });
         yield return new($"{p} rm ID", "登録を削除（チームからも外れる）", new[] { $"{p} rm 1" });
         yield return new($"{p} add team 番号 ID [持ち物]", "チームに追加（6 体まで）。同じ ID をもう一度指定すると持ち物を更新", new[] { $"{p} add team 1 1 こだわりスカーフ" });
-        yield return new($"{p} rm team 番号 [名前]", "チームから外す（名前を省くとチームごと削除）", new[] { $"{p} rm team 1 ガブリアス", $"{p} rm team 1" });
+        yield return new($"{p} rm team 番号 [名前]", "チームから外す（名前を省くとチームごと削除。0 体になったチームも自動で削除）", new[] { $"{p} rm team 1 ガブリアス", $"{p} rm team 1" });
         yield return new($"{p} use team 番号", "使用チームにする。以降の dmg / calc / diff はこのチームの構成で計算", new[] { $"{p} use team 1" });
+        yield return new($"{p} unuse team", "使用チームを解除（以降は使用率に基づく既定値で計算）", new[] { $"{p} unuse team" });
         yield return new($"{p} ls team", "チーム一覧", new[] { $"{p} ls team" });
         yield return new($"{p} more team 番号", "チームの詳細", new[] { $"{p} more team 1" });
         yield return new($"{p} dmg 攻撃側 技[±ランク] 防御側 [オプション]", "通常と急所のダメージと確定数。使用チームにいるポケモンはその構成（持ち物は括弧内に表示）",
-            new[] { $"{p} dmg ガブリアス じしん リザードン", $"{p} dmg ガブリアス じしん+1 リザードン 晴れ 急所", $"{p} dmg イエッサン ワイドフォース メガリザードンX サイコフィールド", $"{p} dmg ガブリアス じしん リザードン A252 いじっぱり こだわりハチマキ{gimmick}" });
+            new[] { $"{p} dmg ガブリアス じしん リザードン", $"{p} dmg ガブリアス じしん+1 リザードン 晴れ 急所", $"{p} dmg ガブリアス げきりん ドドゲザン 壁 HP50%", $"{p} dmg イエッサン ワイドフォース メガリザードンX サイコフィールド", $"{p} dmg ガブリアス じしん リザードン A252 いじっぱり こだわりハチマキ{gimmick}" });
         yield return new($"{p} calc 攻撃側 技[±ランク] 防御側 受けたダメージ [オプション]", "受けた（与えた）ダメージから相手の防御側の努力値と性格補正を推定。93 なら実数、45% なら割合（H も推定）",
             new[] { $"{p} calc ガブリアス じしん リザードン 93", $"{p} calc ガブリアス じしん リザードン 45% サイコフィールド" });
         yield return new($"{p} diff 自分 相手 [+1 天候 まひ 自:まひ]", "素早さ比較。自分は使用チームの実数値、相手は 無振り / 準速 / 最速 / スカーフ最速 / 最遅",

@@ -52,6 +52,7 @@ public sealed class DamageCommandResult
 /// <item>特性名（ちからもち 等）… そのポケモンが持てる側に付く。両方持てるなら防御的な特性は防御側</item>
 /// <item><c>テラス</c>（技タイプにテラスタル）、<c>テラスほのお</c> / <c>ほのおテラス</c>、<c>防:テラスみず</c></item>
 /// <item><c>ダイマ</c>（攻撃側をダイマックス）、<c>防:ダイマ</c>（防御側: HP 2 倍）</item>
+/// <item><c>壁</c>（リフレクター / ひかりのかべ / オーロラベール）、<c>HP50%</c>（防御側の残り HP）、<c>攻:HP30%</c>（攻撃側の残り HP。もうか等）</item>
 /// <item>天候: <c>晴れ</c> <c>雨</c> <c>砂</c> <c>雪</c>、フィールド: <c>エレキ</c> <c>グラス</c> <c>サイコ</c> <c>ミスト</c></item>
 /// <item>状態異常: <c>やけど</c> <c>まひ</c>（既定は攻撃側）、<c>どく</c> <c>もうどく</c>（既定は防御側。確定数に定数ダメージを織り込む）</item>
 /// </list>
@@ -158,6 +159,7 @@ public sealed class DamageCommand
         if (moveRank != 0) attacker.Boosts[move.AttackStatUsed] = moveRank;
         var weather = Weather.None;
         var terrain = Terrain.None;
+        var screen = false;
         var attackerTeraToMoveType = false;
         var warnings = new List<string>();
 
@@ -185,6 +187,18 @@ public sealed class DamageCommand
             if (normalized is "急所" or "きゅうしょ" or "crit")
             {
                 isCritical = true;
+                continue;
+            }
+            if (normalized is "壁" or "かべ" or "りふれくたー" or "ひかりのかべ" or "光の壁" or "おーろらべーる" or "screen" or "reflect" or "lightscreen")
+            {
+                screen = true;
+                continue;
+            }
+            var hpMatch = HpToken.Match(normalized);
+            if (hpMatch.Success)
+            {
+                var pct = Math.Clamp(int.Parse(hpMatch.Groups[1].Value), 1, 100);
+                if (forcedAttacker == true) attacker.HpPercent = pct; else defender.HpPercent = pct;
                 continue;
             }
             if (StatusNames.Parse(normalized) is { } status)
@@ -356,6 +370,7 @@ public sealed class DamageCommand
             IsCritical = isCritical,
             Weather = weather,
             Terrain = terrain,
+            Screen = screen,
         };
         var result = new DamageCalculator(data.TypeChart).Calculate(request);
 
@@ -375,6 +390,7 @@ public sealed class DamageCommand
         if (request.IsCritical) tags.Add("急所");
         if (request.Weather != Weather.None) tags.Add(FieldNames.Japanese(request.Weather));
         if (request.Terrain != Terrain.None) tags.Add(FieldNames.Japanese(request.Terrain));
+        if (request.Screen) tags.Add("壁");
         if (request.Format == BattleFormat.Doubles) tags.Add("ダブル");
         var tagText = tags.Count > 0 ? $" [{string.Join(" ", tags)}]" : "";
         var warnText = warnings is { Count: > 0 } ? $" ※{string.Join("、", warnings)}" : "";
@@ -382,6 +398,9 @@ public sealed class DamageCommand
         return $"{a.Pokemon.Name}({a.DescribeShort()}) {request.Move.Name} → {d.Pokemon.Name}({d.DescribeShort()} HP{result.DefenderHP}): " +
                $"{result.RangeText} {result.KnockOut}{tagText}{warnText}";
     }
+
+    /// <summary>「HP50%」「残りHP30%」（正規化後の小文字）。</summary>
+    private static readonly Regex HpToken = new(@"^(?:残り)?hp(\d{1,3})[%％]$", RegexOptions.Compiled);
 
     private static readonly Regex RankSuffix = new(@"^(.*?)([+-＋－][1-6])$", RegexOptions.Compiled);
 
