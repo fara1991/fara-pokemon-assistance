@@ -31,6 +31,46 @@ public enum BattleFormat
     Doubles,
 }
 
+/// <summary>状態異常。</summary>
+public enum StatusCondition
+{
+    None,
+    Burn,
+    Poison,
+    BadlyPoisoned,
+    Paralysis,
+}
+
+public static class StatusNames
+{
+    public static string Japanese(StatusCondition s) => s switch
+    {
+        StatusCondition.Burn => "やけど",
+        StatusCondition.Poison => "どく",
+        StatusCondition.BadlyPoisoned => "もうどく",
+        StatusCondition.Paralysis => "まひ",
+        _ => "なし",
+    };
+
+    public static StatusCondition? Parse(string normalized) => normalized switch
+    {
+        "やけど" or "burn" or "brn" => StatusCondition.Burn,
+        "どく" or "poison" or "psn" => StatusCondition.Poison,
+        "もうどく" or "toxic" or "tox" => StatusCondition.BadlyPoisoned,
+        "まひ" or "まひ状態" or "paralysis" or "para" or "par" => StatusCondition.Paralysis,
+        _ => null,
+    };
+
+    /// <summary>ターン終了時の定数ダメージ（最大 HP と経過ターン数から）。</summary>
+    public static int ResidualDamage(StatusCondition s, int maxHp, int turn) => s switch
+    {
+        StatusCondition.Burn => Math.Max(1, maxHp / 16),
+        StatusCondition.Poison => Math.Max(1, maxHp / 8),
+        StatusCondition.BadlyPoisoned => Math.Max(1, maxHp * Math.Min(turn, 15) / 16),
+        _ => 0,
+    };
+}
+
 /// <summary>努力値の方式。</summary>
 public enum EvSystem
 {

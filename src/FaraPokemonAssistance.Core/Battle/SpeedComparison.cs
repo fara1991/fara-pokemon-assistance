@@ -38,6 +38,19 @@ public static class SpeedCalculator
             speed = DamageCalculator.PokeRound(speed * abilityMod);
             notes.Add($"{build.Ability!.Name}(2倍)");
         }
+        if (build.Status == StatusCondition.Paralysis)
+        {
+            if (ability == "quick-feet")
+            {
+                speed = DamageCalculator.PokeRound(speed * 1.5);
+                notes.Add($"まひ+{build.Ability!.Name}(1.5倍)");
+            }
+            else
+            {
+                speed = DamageCalculator.PokeRound(speed * 0.5);
+                notes.Add("まひ(0.5倍)");
+            }
+        }
         if (build.Item?.Id == ItemIdChoiceScarf)
         {
             speed = DamageCalculator.PokeRound(speed * 1.5);
@@ -52,11 +65,14 @@ public static class SpeedCalculator
     }
 
     /// <summary>相手の努力値・性格が不明なときの代表値（無振り / 準速 / 最速 / スカーフ最速）。</summary>
-    public static IReadOnlyList<SpeedLine> OpponentReference(Pokemon pokemon, EvSystem system, Item? scarf)
+    public static IReadOnlyList<SpeedLine> OpponentReference(Pokemon pokemon, EvSystem system, Item? scarf, bool paralyzed = false)
     {
         var full = EvRules.Full(system);
-        int Calc(int ev, double mod) =>
-            StatCalculator.Calculate(new PokemonBuild(pokemon, system), Stat.Speed, ev, mod);
+        int Calc(int ev, double mod)
+        {
+            var v = StatCalculator.Calculate(new PokemonBuild(pokemon, system), Stat.Speed, ev, mod);
+            return paralyzed ? DamageCalculator.PokeRound(v * 0.5) : v;
+        }
 
         var lines = new List<SpeedLine>
         {
@@ -67,6 +83,7 @@ public static class SpeedCalculator
         if (scarf is not null)
             lines.Add(new("スカーフ最速", DamageCalculator.PokeRound(Calc(full, 1.1) * 1.5), scarf.Name));
         lines.Add(new("最遅", Calc(0, 0.9), "個体値0"));
+        if (paralyzed) lines.Add(new("状態", 0, "まひ"));
         return lines;
     }
 
@@ -74,7 +91,7 @@ public static class SpeedCalculator
     {
         var myNote = myNotes.Count > 0 ? $"({string.Join(",", myNotes)})" : "";
         var sb = new System.Text.StringBuilder();
-        sb.Append($"{mine.Pokemon.Name} S{mySpeed}{myNote} vs {opponent.Name} ");
+        sb.Append($"{mine.Pokemon.Name} S{mySpeed}{myNote} vs {opponent.Name}{(reference.Any(r => r.Note == "まひ") ? "(まひ)" : "")} ");
         if (opponentBuild is not null && opponentSpeed is { } os)
         {
             var oNote = opponentNotes is { Count: > 0 } ? $"({string.Join(",", opponentNotes)})" : "";
@@ -83,11 +100,12 @@ public static class SpeedCalculator
             return sb.ToString();
         }
 
-        sb.Append(string.Join(" / ", reference.Where(r => r.Label != "最遅").Select(r => $"{r.Label}{r.Value}")));
+        var shown = reference.Where(r => r.Label != "最遅" && r.Label != "状態").ToList();
+        sb.Append(string.Join(" / ", shown.Select(r => $"{r.Label}{r.Value}")));
         sb.Append(" → ");
-        var faster = reference.Where(r => r.Label != "最遅" && mySpeed > r.Value).Select(r => r.Label).ToList();
-        var tie = reference.Where(r => mySpeed == r.Value).Select(r => r.Label).ToList();
-        var slower = reference.Where(r => r.Label != "最遅" && mySpeed < r.Value).Select(r => r.Label).ToList();
+        var faster = shown.Where(r => mySpeed > r.Value).Select(r => r.Label).ToList();
+        var tie = shown.Where(r => mySpeed == r.Value).Select(r => r.Label).ToList();
+        var slower = shown.Where(r => mySpeed < r.Value).Select(r => r.Label).ToList();
         if (faster.Count > 0) sb.Append($"{faster[^1]}まで抜ける");
         else sb.Append("無振りにも抜かれる");
         if (tie.Count > 0) sb.Append($"、{string.Join("・", tie)}と同速");

@@ -20,6 +20,7 @@ public sealed class DamageCalculator
     private const int ItemIdAirBalloon = 584;
     private const int ItemIdBoosterEnergy = 1696;
     private const int ItemIdPunchingGlove = 1700;
+    private const int MoveIdFacade = 263;
 
     private readonly TypeChart _typeChart;
 
@@ -203,7 +204,7 @@ public sealed class DamageCalculator
             DefenseStat = defenseStat,
             BasePower = power,
             MoveType = moveType,
-            KnockOut = KnockOutCalculator.Calculate(rolls, defenderHp),
+            KnockOut = KnockOutCalculator.Calculate(rolls, defenderHp, defender.Status),
             Modifiers = modifiers,
         };
     }
@@ -241,6 +242,10 @@ public sealed class DamageCalculator
 
         var atkName = attacker.Ability?.Name ?? "";
         var defName = defender.Ability?.Name ?? "";
+
+        // からげんき: 状態異常中は威力 2 倍
+        if (move.Id == MoveIdFacade && attacker.Status is StatusCondition.Burn or StatusCondition.Poison or StatusCondition.BadlyPoisoned or StatusCondition.Paralysis)
+            Apply(8192, "からげんき(状態異常で2倍)");
 
         // 攻撃側の特性
         switch (attackerAbility)
@@ -329,8 +334,10 @@ public sealed class DamageCalculator
                     HighestStat(attacker) == (isPhysical ? Stat.Attack : Stat.SpAttack))
                     Apply(5325, $"{atkName}({statName}1.3倍)");
                 break;
-            case "guts" or "defeatist" or "slow-start":
-                break; // 状態・HP 依存のため未対応
+            case "guts" when isPhysical && attacker.Status != StatusCondition.None:
+                Apply(6144, $"{atkName}(状態異常で{statName}1.5倍)"); break;
+            case "defeatist" or "slow-start":
+                break; // HP 依存のため未対応
         }
 
         // 防御側の特性で攻撃側の能力が下がるもの
@@ -408,6 +415,10 @@ public sealed class DamageCalculator
 
         var atkName = attacker.Ability?.Name ?? "";
         var defName = defender.Ability?.Name ?? "";
+
+        // やけど: 物理技 0.5 倍（こんじょう・からげんきは除く）
+        if (attacker.Status == StatusCondition.Burn && isPhysical && attackerAbility != "guts" && move.Id != MoveIdFacade)
+            Apply(2048, "やけど(物理0.5倍)");
 
         if (attackerAbility == "tinted-lens" && effectiveness < 1) Apply(8192, $"{atkName}(2倍)");
         if (attackerAbility == "neuroforce" && effectiveness > 1) Apply(5120, $"{atkName}(1.25倍)");
@@ -497,27 +508,32 @@ public static class AbilityEffects
         "grass-pelt" or "thick-fat" or "heatproof" or "fluffy" or "purifying-salt" or "unaware" or "marvel-scale";
 }
 
-/// <summary>乱数 16 通りから確定数と確率を求める。回復・定数ダメージは考慮しない。</summary>
+/// <summary>乱数 16 通りから確定数と確率を求める。防御側の状態異常による定数ダメージ（やけど・どく・もうどく）を織り込む。回復は考慮しない。</summary>
 public static class KnockOutCalculator
 {
     public const int MaxHits = 10;
 
-    public static KnockOut Calculate(int[] rolls, int hp)
+    public static KnockOut Calculate(int[] rolls, int hp) => Calculate(rolls, hp, StatusCondition.None);
+
+    public static KnockOut Calculate(int[] rolls, int hp, StatusCondition defenderStatus)
     {
         if (rolls.Length == 0 || rolls[^1] <= 0 || hp <= 0)
             return new KnockOut(0, 0);
 
-        // 合計ダメージの分布を畳み込みで求める（HP 以上はまとめる）
+        // 合計ダメージの分布を畳み込みで求める（HP 以上はまとめる）。
+        // 1 発ごとに「攻撃 → ターン終了時の定数ダメージ」の順で進める。
         var dist = new Dictionary<int, double> { [0] = 1.0 };
         var perRoll = 1.0 / rolls.Length;
         for (var hits = 1; hits <= MaxHits; hits++)
         {
+            var residual = StatusNames.ResidualDamage(defenderStatus, hp, hits);
             var next = new Dictionary<int, double>();
             foreach (var (sum, p) in dist)
             {
                 foreach (var roll in rolls)
                 {
                     var s = Math.Min(hp, sum + roll);
+                    if (s < hp) s = Math.Min(hp, s + residual);
                     next[s] = next.GetValueOrDefault(s) + p * perRoll;
                 }
             }

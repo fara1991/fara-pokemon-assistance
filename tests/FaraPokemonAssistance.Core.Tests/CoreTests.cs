@@ -511,6 +511,91 @@ public class PokeCommandTests
     }
 
     [Fact]
+    public async Task Command_list_and_generic_prefix()
+    {
+        var cmd = NewCommand(out _);
+        var list = await cmd.ExecuteAsync("!poke cmd ls");
+        Assert.True(list.Success, list.Message);
+        Assert.Contains("add team", list.Message);
+        Assert.Contains("!pokech", list.Message);
+        Assert.Contains("!pokesv", list.Message);
+        Assert.Contains("!pokess", list.Message);
+        Assert.True(list.Message.Length <= 480, list.Message.Length.ToString());
+
+        // !poke は既定データセット（チャンピオンズ）
+        var dmg = await cmd.ExecuteAsync("!poke dmg ガブリアス ドラゴンクロー リザードン");
+        Assert.True(dmg.Success, dmg.Message);
+        Assert.Equal(EvSystem.Points, dmg.Request!.Attacker.EvSystem);
+    }
+
+    [Fact]
+    public async Task Damage_lists_ability_variants_when_they_differ()
+    {
+        var cmd = NewCommand(out _);
+        // ドータクン: ふゆう / たいねつ / ヘヴィメタル → じしんは ふゆう で無効
+        var dmg = await cmd.ExecuteAsync("!pokesv dmg ガブリアス じしん ドータクン");
+        Assert.True(dmg.Success, dmg.Message);
+        Assert.Contains("特性別", dmg.Message);
+        Assert.Contains("ふゆう: 無効", dmg.Message);
+
+        // 特性を指定したときは特性別を出さない
+        var fixedAbility = await cmd.ExecuteAsync("!pokesv dmg ガブリアス じしん ドータクン 防:たいねつ");
+        Assert.True(fixedAbility.Success, fixedAbility.Message);
+        Assert.DoesNotContain("特性別", fixedAbility.Message);
+
+        // 特性で差が無い相手には出さない（ハバタクカミは特性 1 つ）
+        var single = await cmd.ExecuteAsync("!pokesv dmg ガブリアス じしん ハバタクカミ");
+        Assert.DoesNotContain("特性別", single.Message);
+    }
+
+    [Fact]
+    public async Task Calc_lists_ability_variants_when_they_differ()
+    {
+        var cmd = NewCommand(out _);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add ガブリアス 4 252 0 0 0 252 ようき")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add team 1 1")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv use team 1")).Success);
+        var calc = await cmd.ExecuteAsync("!pokesv calc ガブリアス じしん ドータクン 80");
+        Assert.Contains("特性別", calc.Message);
+        Assert.Contains("ふゆう: 該当なし", calc.Message);
+    }
+
+    [Fact]
+    public async Task Status_conditions_affect_damage_and_speed()
+    {
+        var cmd = NewCommand(out _);
+        var plain = await cmd.ExecuteAsync("!pokesv dmg ガブリアス じしん ドータクン 防:たいねつ");
+        var burned = await cmd.ExecuteAsync("!pokesv dmg ガブリアス じしん ドータクン 防:たいねつ やけど");
+        Assert.True(burned.Success, burned.Message);
+        Assert.True(burned.Damage!.MaxDamage < plain.Damage!.MaxDamage);
+        Assert.Equal(StatusCondition.Burn, burned.Request!.Attacker.Status);
+        Assert.Contains("やけど", burned.Message);
+
+        // 防御側のどくは確定数を縮める方向（確率が下がらない）
+        var poisoned = await cmd.ExecuteAsync("!pokesv dmg ガブリアス じしん ドータクン 防:たいねつ どく");
+        Assert.Equal(StatusCondition.Poison, poisoned.Request!.Defender.Status);
+        Assert.True(poisoned.Damage!.KnockOut.Hits <= plain.Damage.KnockOut.Hits);
+
+        var diff = await cmd.ExecuteAsync("!pokesv diff ガブリアス ハバタクカミ まひ");
+        Assert.True(diff.Success, diff.Message);
+        Assert.Contains("(まひ)", diff.Message);
+        var selfPara = await cmd.ExecuteAsync("!pokesv diff ガブリアス ハバタクカミ 自:まひ");
+        Assert.Contains("まひ(0.5倍)", selfPara.Message);
+    }
+
+    [Fact]
+    public void Residual_damage_shortens_knockout()
+    {
+        var rolls = Enumerable.Repeat(40, 16).ToArray(); // 100 HP: 素では確定3発
+        Assert.Equal(3, KnockOutCalculator.Calculate(rolls, 100).Hits);
+        // どく 1/8 = 12: 40+12+40 = 92 → 3発目で確定。もうどくなら 40+6+40+12=98 → まだ 3 発
+        Assert.Equal(3, KnockOutCalculator.Calculate(rolls, 100, StatusCondition.Poison).Hits);
+        var big = Enumerable.Repeat(45, 16).ToArray(); // 45+12+45 = 102 → どくなら 2 発
+        Assert.Equal(3, KnockOutCalculator.Calculate(big, 100).Hits);
+        Assert.Equal(2, KnockOutCalculator.Calculate(big, 100, StatusCondition.Poison).Hits);
+    }
+
+    [Fact]
     public async Task Unknown_prefix_is_rejected()
     {
         var cmd = NewCommand(out _);

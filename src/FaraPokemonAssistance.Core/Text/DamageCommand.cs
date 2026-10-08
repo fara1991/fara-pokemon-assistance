@@ -52,6 +52,7 @@ public sealed class DamageCommandResult
 /// <item>特性名（ちからもち 等）… そのポケモンが持てる側に付く。両方持てるなら防御的な特性は防御側</item>
 /// <item><c>テラス</c>（技タイプにテラスタル）、<c>テラスほのお</c> / <c>ほのおテラス</c>、<c>防:テラスみず</c></item>
 /// <item>天候: <c>晴れ</c> <c>雨</c> <c>砂</c> <c>雪</c>、フィールド: <c>エレキ</c> <c>グラス</c> <c>サイコ</c> <c>ミスト</c></item>
+/// <item>状態異常: <c>やけど</c> <c>まひ</c>（既定は攻撃側）、<c>どく</c> <c>もうどく</c>（既定は防御側。確定数に定数ダメージを織り込む）</item>
 /// </list>
 /// </summary>
 public sealed class DamageCommand
@@ -183,6 +184,13 @@ public sealed class DamageCommand
             if (normalized is "急所" or "きゅうしょ" or "crit")
             {
                 isCritical = true;
+                continue;
+            }
+            if (StatusNames.Parse(normalized) is { } status)
+            {
+                // 既定: やけど・まひは攻撃側（自分の火力/素早さ）、どく・もうどくは防御側（定数ダメージで確定数が変わる）
+                var toAttacker = forcedAttacker ?? status is StatusCondition.Burn or StatusCondition.Paralysis;
+                if (toAttacker) attacker.Status = status; else defender.Status = status;
                 continue;
             }
             if (TryParseWeather(normalized) is { } w) { weather = w; continue; }

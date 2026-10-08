@@ -1,0 +1,22 @@
+@* ポケモンのタイプアイコン（1〜2 個）。テラスタル中はテラスタイプだけを示す。 *@
+@if (Build is not null)
+{
+    @if (Build.IsTerastallized)
+    {
+        <span class="type-icons"><TypeIcon Type="@Build.TeraType" Small="@Small" /><small class="text-muted">テラス</small></span>
+    }
+    else
+    {
+        <span class="type-icons"><TypeIcon Type="@Build.Pokemon.Type1" Small="@Small" /><TypeIcon Type="@Build.Pokemon.Type2" Small="@Small" /></span>
+    }
+}
+else if (Pokemon is not null)
+{
+    <span class="type-icons"><TypeIcon Type="@Pokemon.Type1" Small="@Small" /><TypeIcon Type="@Pokemon.Type2" Small="@Small" /></span>
+}
+
+@code {
+    [Parameter] public Pokemon? Pokemon { get; set; }
+    [Parameter] public PokemonBuild? Build { get; set; }
+    [Parameter] public bool Small { get; set; }
+}

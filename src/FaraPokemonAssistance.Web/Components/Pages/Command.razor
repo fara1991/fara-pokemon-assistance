@@ -49,10 +49,11 @@
                 <tr><td><code>ls team</code> / <code>more team 番号</code></td><td>チーム一覧 / チーム詳細</td></tr>
                 <tr><td><code>dmg 攻撃側 技±ランク 防御側 [オプション]</code></td><td>通常と急所のダメージ。使用チームにいるポケモンはその構成（持ち物は括弧内に表示）</td></tr>
                 <tr><td><code>calc 攻撃側 技±ランク 防御側 ダメージ</code></td><td>受けたダメージ（<code>93</code> または <code>45%</code>）から相手の防御努力値と性格補正を推定</td></tr>
-                <tr><td><code>diff 自分 相手 [+1 晴れ]</code></td><td>素早さ比較（自分は使用チーム、相手は 無振り/準速/最速/スカーフ最速）</td></tr>
+                <tr><td><code>diff 自分 相手 [+1 晴れ まひ 自:まひ]</code></td><td>素早さ比較（自分は使用チーム、相手は 無振り/準速/最速/スカーフ最速。<code>まひ</code> は相手、<code>自:まひ</code> は自分）</td></tr>
+                <tr><td><code>cmd ls</code></td><td>使えるコマンドの一覧（<code>!poke cmd ls</code> でも可）</td></tr>
             </tbody>
         </table>
-        <p class="small text-muted mb-1">dmg のオプション: <code>A252</code> <code>H252</code>（努力値、チャンピオンズはポイント）、性格、持ち物、特性、<code>攻:</code>/<code>防:</code>、<code>+2</code>、<code>急所</code>、<code>ダブル</code>、<code>テラスほのお</code>、<code>晴れ</code>、<code>サイコ</code> など。</p>
+        <p class="small text-muted mb-1">dmg のオプション: <code>A252</code> <code>H252</code>（努力値、チャンピオンズはポイント）、性格、持ち物、特性、<code>攻:</code>/<code>防:</code>、<code>+2</code>、<code>急所</code>、<code>ダブル</code>、<code>テラスほのお</code>、<code>晴れ</code>、<code>サイコ</code>、状態異常 <code>やけど</code> <code>まひ</code>（既定は攻撃側）<code>どく</code> <code>もうどく</code>（既定は防御側、確定数に定数ダメージを織り込む）など。相手の特性が不明で結果が変わる場合は「特性別:」が付きます。</p>
         <p class="small text-muted mb-0">指定が無い項目は「攻撃側 全振り、防御側 H 全振り、性格・持ち物・特性は使用率 1 位（無ければ第 1 特性）」で補われ、結果に明記されます。</p>
     </div>
 </div>
