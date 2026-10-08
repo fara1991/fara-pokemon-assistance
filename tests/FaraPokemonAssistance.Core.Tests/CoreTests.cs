@@ -996,3 +996,26 @@ public class TypeMatchupTests
         Assert.Equal(new[] { "B", "A" }, advantage.Select(e => e.Opponent.Name));
     }
 }
+
+public class UsageFallbackTests
+{
+    [Fact]
+    public async Task Champions_uses_gen9_usage_for_ordering()
+    {
+        var catalog = TestData.Catalog();
+        var champions = await catalog.GetDataSetAsync("Champions");
+        var usage = await champions.GetUsageAsync(BattleFormat.Doubles);
+
+        Assert.Equal("Gen9", champions.Info.UsageFallback);
+        Assert.False(usage.IsEmpty);
+        Assert.Equal("Gen9", usage.SourceKey);
+        Assert.NotEmpty(usage.MoveOrder(876)); // イエッサン(♂)
+    }
+
+    [Fact]
+    public async Task Gen9_uses_its_own_usage()
+    {
+        var gen9 = await TestData.Catalog().GetDataSetAsync("Gen9");
+        Assert.Equal("Gen9", (await gen9.GetUsageAsync(BattleFormat.Singles)).SourceKey);
+    }
+}
