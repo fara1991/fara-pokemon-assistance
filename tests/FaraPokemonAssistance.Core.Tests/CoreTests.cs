@@ -555,9 +555,12 @@ public class PokeCommandTests
         Assert.True((await cmd.ExecuteAsync("!pokesv add ガブリアス 4 252 0 0 0 252 ようき")).Success);
         Assert.True((await cmd.ExecuteAsync("!pokesv add team 1 1")).Success);
         Assert.True((await cmd.ExecuteAsync("!pokesv use team 1")).Success);
-        var calc = await cmd.ExecuteAsync("!pokesv calc ガブリアス じしん ドータクン 80");
+        // ドータクンへのじしんは振り方によって概ね 114〜180。150 なら候補がある
+        var calc = await cmd.ExecuteAsync("!pokesv calc ガブリアス じしん ドータクン 150");
+        Assert.True(calc.Success, calc.Message);
         Assert.Contains("特性別", calc.Message);
         Assert.Contains("ふゆう: 該当なし", calc.Message);
+        Assert.Contains("たいねつ:", calc.Message);
     }
 
     [Fact]
@@ -588,11 +591,15 @@ public class PokeCommandTests
     {
         var rolls = Enumerable.Repeat(40, 16).ToArray(); // 100 HP: 素では確定3発
         Assert.Equal(3, KnockOutCalculator.Calculate(rolls, 100).Hits);
-        // どく 1/8 = 12: 40+12+40 = 92 → 3発目で確定。もうどくなら 40+6+40+12=98 → まだ 3 発
-        Assert.Equal(3, KnockOutCalculator.Calculate(rolls, 100, StatusCondition.Poison).Hits);
-        var big = Enumerable.Repeat(45, 16).ToArray(); // 45+12+45 = 102 → どくなら 2 発
-        Assert.Equal(3, KnockOutCalculator.Calculate(big, 100).Hits);
-        Assert.Equal(2, KnockOutCalculator.Calculate(big, 100, StatusCondition.Poison).Hits);
+        // どく 1/8 = 12: 40 +12 +40 +12 = 104 → 2 ターン目の終了時に倒れる = 2 発
+        Assert.Equal(2, KnockOutCalculator.Calculate(rolls, 100, StatusCondition.Poison).Hits);
+        // もうどく: 40 +6 +40 +12 = 98 → 3 発目が必要
+        Assert.Equal(3, KnockOutCalculator.Calculate(rolls, 100, StatusCondition.BadlyPoisoned).Hits);
+        // やけど 1/16 = 6: 40 +6 +40 +6 = 92 → 3 発
+        Assert.Equal(3, KnockOutCalculator.Calculate(rolls, 100, StatusCondition.Burn).Hits);
+        var small = Enumerable.Repeat(30, 16).ToArray(); // 30+12+30+12+30 = 114 → どくで 3 発（素では 4 発）
+        Assert.Equal(4, KnockOutCalculator.Calculate(small, 100).Hits);
+        Assert.Equal(3, KnockOutCalculator.Calculate(small, 100, StatusCondition.Poison).Hits);
     }
 
     [Fact]
