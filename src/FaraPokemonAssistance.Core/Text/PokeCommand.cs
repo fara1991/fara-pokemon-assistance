@@ -10,7 +10,7 @@ public sealed class PokeCommandOptions
 {
     public BattleFormat Format { get; set; } = BattleFormat.Singles;
     public int MaxLength { get; set; } = 480;
-    /// <summary>登録・削除などの変更系コマンドを許可するか（ボット側で配信者のみ true にする想定）。</summary>
+    /// <summary>登録・削除などの変更系コマンドを許可するか（ボット側で配信者本人とモデレーターだけ true にする想定）。</summary>
     public bool AllowMutations { get; set; } = true;
 }
 
@@ -131,7 +131,7 @@ public sealed class PokeCommand
 
     private async Task<DamageCommandResult> AddAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (!options.AllowMutations) return Fail("登録は配信者のみ行えます");
+        if (!options.AllowMutations) return Fail("登録は配信者・モデレーターのみ行えます");
         var system = ds.EvSystem;
         if (args.Count < 8)
             return Fail($"書式: !{ds.CommandPrefix} add 名前 H A B C D S 性格 [特性]（{EvRules.Label(system)}は各 0〜{EvRules.MaxPerStat(system)}、合計 {EvRules.MaxTotal(system)} まで）");
@@ -198,7 +198,7 @@ public sealed class PokeCommand
 
     private async Task<DamageCommandResult> RemoveAsync(DataSetInfo ds, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (!options.AllowMutations) return Fail("削除は配信者のみ行えます");
+        if (!options.AllowMutations) return Fail("削除は配信者・モデレーターのみ行えます");
         if (args.Count == 0 || !int.TryParse(args[0], out var id)) return Fail($"書式: !{ds.CommandPrefix} rm 登録ID");
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == id);
@@ -211,7 +211,7 @@ public sealed class PokeCommand
 
     private async Task<DamageCommandResult> AddTeamAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (!options.AllowMutations) return Fail("チーム編集は配信者のみ行えます");
+        if (!options.AllowMutations) return Fail("チーム編集は配信者・モデレーターのみ行えます");
         if (args.Count < 2 || !int.TryParse(args[0], out var teamNo) || !int.TryParse(args[1], out var entryId))
             return Fail($"書式: !{ds.CommandPrefix} add team チーム番号 登録ID [持ち物]");
         Item? item = null;
@@ -231,7 +231,7 @@ public sealed class PokeCommand
 
     private async Task<DamageCommandResult> RemoveTeamAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (!options.AllowMutations) return Fail("チーム編集は配信者のみ行えます");
+        if (!options.AllowMutations) return Fail("チーム編集は配信者・モデレーターのみ行えます");
         if (args.Count == 0 || !int.TryParse(args[0], out var teamNo))
             return Fail($"書式: !{ds.CommandPrefix} rm team チーム番号 [ポケモン名]");
         if (args.Count == 1)
@@ -248,7 +248,7 @@ public sealed class PokeCommand
 
     private async Task<DamageCommandResult> UseTeamAsync(DataSetInfo ds, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (!options.AllowMutations) return Fail("使用チームの変更は配信者のみ行えます");
+        if (!options.AllowMutations) return Fail("使用チームの変更は配信者・モデレーターのみ行えます");
         if (args.Count == 0 || !int.TryParse(args[0], out var teamNo))
             return Fail($"書式: !{ds.CommandPrefix} use team チーム番号");
         return await _roster.UseTeamAsync(ds.Key, teamNo, ct).ConfigureAwait(false)
