@@ -1032,34 +1032,43 @@ public class UsageFallbackTests
     }
 }
 
-public class EffectivePowerTests
+public class SortByDamageTests
 {
     private static readonly TypeChart Chart = TypeChart.Parse(
-        "AttackType,DefenseType,Multiplier\nFire,Grass,2\nWater,Grass,0.5\nNormal,Ghost,0\n");
+        "AttackType,DefenseType,Multiplier\nNormal,Ghost,0\n");
 
-    private static Move MakeMove(int id, string name, string type, int power) =>
-        new() { Id = id, Name = name, Type = type, Power = power, Category = MoveCategory.Special };
+    private static Move MakeMove(int id, string name, string type, int power, MoveCategory category) =>
+        new() { Id = id, Name = name, Type = type, Power = power, Category = category, Target = MoveTarget.Single };
 
     [Fact]
-    public void Applies_stab_effectiveness_weather_and_terrain()
+    public void Orders_by_actual_damage_including_stats_and_terrain()
     {
-        var attacker = new PokemonBuild(new Pokemon { Id = 1, Name = "A", Type1 = "Water", SpeciesId = 1 });
-        var grass = new PokemonBuild(new Pokemon { Id = 2, Name = "B", Type1 = "Grass", SpeciesId = 2 });
-        var ghost = new PokemonBuild(new Pokemon { Id = 3, Name = "C", Type1 = "Ghost", SpeciesId = 3 });
+        // イエッサン(♂) 相当: A65 / C105、エスパー・ノーマル
+        var indeedee = new PokemonBuild(new Pokemon { Id = 876, Name = "イエッサン", Type1 = "Psychic", Type2 = "Normal", SpeciesId = 876,
+            BaseStats = new StatSet(60, 65, 55, 105, 95, 95) }) { EVs = new StatSet(0, 0, 0, 252, 0, 0) };
+        var lastResort = MakeMove(387, "とっておき", "Normal", 140, MoveCategory.Physical);
+        var hyperVoice = MakeMove(304, "ハイパーボイス", "Normal", 90, MoveCategory.Special);
+        var expandingForce = MakeMove(797, "ワイドフォース", "Psychic", 80, MoveCategory.Special);
         var calc = new DamageCalculator(Chart);
-        double Power(Move m, PokemonBuild d, Weather w = Weather.None, Terrain t = Terrain.None) =>
-            calc.EffectivePower(new DamageRequest { Attacker = attacker, Move = m, Defender = d, Weather = w, Terrain = t });
+        var defender = DamageCalculator.NeutralDefender(EvSystem.Classic);
+        var moves = new[] { lastResort, hyperVoice, expandingForce };
 
-        var surf = MakeMove(57, "なみのり", "Water", 90);
-        var flamethrower = MakeMove(53, "かえんほうしゃ", "Fire", 90);
-        var thunderbolt = MakeMove(85, "10まんボルト", "Electric", 90);
-        var hyperVoice = MakeMove(304, "ハイパーボイス", "Normal", 90);
+        // 威力はとっておきが最大だが、C に振っていればハイパーボイスの方がダメージが大きい
+        var plain = calc.SortByDamage(new DamageRequest { Attacker = indeedee, Move = lastResort, Defender = defender }, moves);
+        Assert.True(plain.ToList().IndexOf(hyperVoice) < plain.ToList().IndexOf(lastResort));
 
-        Assert.Equal(90 * 1.5 * 0.5, Power(surf, grass));                         // タイプ一致・いまひとつ
-        Assert.Equal(90 * 2.0, Power(flamethrower, grass));                       // 抜群
-        Assert.Equal(90 * 2.0 * 1.5, Power(flamethrower, grass, Weather.Sun));   // 晴れ
-        Assert.Equal(90 * 1.5 * 1.5, Power(surf, ghost, Weather.Rain));           // 雨・タイプ一致
-        Assert.Equal(0, Power(hyperVoice, ghost));                                // 効果なし
-        Assert.True(Power(thunderbolt, ghost, t: Terrain.Electric) > Power(thunderbolt, ghost)); // エレキフィールド
+        // A に振ると逆転する（威力ではなく実際のダメージで並ぶ）
+        var physical = new PokemonBuild(indeedee.Pokemon) { EVs = new StatSet(0, 252, 0, 0, 0, 0) };
+        var plainPhysical = calc.SortByDamage(new DamageRequest { Attacker = physical, Move = lastResort, Defender = defender }, moves);
+        Assert.Same(lastResort, plainPhysical[0]);
+
+        // サイコフィールドではワイドフォースが最大
+        var psychic = calc.SortByDamage(new DamageRequest { Attacker = indeedee, Move = lastResort, Defender = defender, Terrain = Terrain.Psychic }, moves);
+        Assert.Same(expandingForce, psychic[0]);
+
+        // ゴーストにはノーマル技が効かないので最後
+        var ghost = new PokemonBuild(new Pokemon { Id = 2, Name = "ゴースト", Type1 = "Ghost", SpeciesId = 2, BaseStats = new StatSet(100, 100, 100, 100, 100, 100) });
+        var vsGhost = calc.SortByDamage(new DamageRequest { Attacker = indeedee, Move = lastResort, Defender = ghost }, moves);
+        Assert.Same(expandingForce, vsGhost[0]);
     }
 }

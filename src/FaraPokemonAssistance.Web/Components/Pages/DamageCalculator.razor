@@ -53,7 +53,7 @@
                         <div class="mb-2"><PokemonLabel Build="s.Attacker" /> <span class="small text-muted">種族値 @FormatStats(s.Attacker.Pokemon.BaseStats)</span></div>
                     }
                     <div class="form-group mb-3">
-                        <label>技 <Help Title="技">攻撃側のポケモンが覚える技だけを、使用率の高い順に表示します。使用率が公開されていないゲームでは、威力にタイプ一致・相性（防御側を選んだとき）・天候・フィールド・威力が上がる特性や持ち物を掛けた値の大きい順です。選んだ技の分類（物理 / 特殊）に合わせて、下の努力値・ランクの項目が切り替わります。</Help></label>
+                        <label>技 <Help Title="技">攻撃側のポケモンが覚える技だけを、使用率の高い順に表示します。使用率が公開されていないゲームでは、いまの攻撃側・防御側・天候・フィールドで与える最大ダメージの多い順です（防御側を選んでいないときは、タイプなし・種族値すべて 100 の相手で計算）。選んだ技の分類（物理 / 特殊）に合わせて、下の努力値・ランクの項目が切り替わります。</Help></label>
                         <SearchableSelect TItem="Move"
                             Items="MoveChoices"
                             DisplayText="@(m => m.Name)"
@@ -431,25 +431,46 @@
     /// <summary>このゲーム自身の使用率がある（他のゲームの使用率で代用していない）か。</summary>
     private bool HasOwnUsage => usage is { IsEmpty: false } && usage.SourceKey == App.DataSetKey;
 
-    /// <summary>技の候補。使用率が無いゲームでは、いまの防御側・天候・フィールドでの実質威力が大きい順に並べ直す。</summary>
+    private IReadOnlyList<Move> sortedMoves = Array.Empty<Move>();
+    private string sortedMovesKey = "";
+
+    /// <summary>
+    /// 技の候補。使用率が無いゲームでは、いまの攻撃側・防御側・天候・フィールドで与える最大ダメージの多い順に並べ直す。
+    /// 描画のたびに全部の技を計算しないよう、条件が変わったときだけ並べ直す。
+    /// </summary>
     private IReadOnlyList<Move> MoveChoices
     {
         get
         {
             if (HasOwnUsage || data is null || s.Attacker is null) return attackerMoves;
-            var calc = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart);
-            var defender = s.Defender ?? new PokemonBuild(new Pokemon());
-            return attackerMoves
-                .OrderByDescending(m => calc.EffectivePower(new DamageRequest
+            var defender = s.Defender ?? FaraPokemonAssistance.Core.Battle.DamageCalculator.NeutralDefender(s.Attacker.EvSystem);
+            var key = string.Join(";", BuildKey(s.Attacker), BuildKey(defender), s.Weather, s.Terrain, App.Format, s.IsCritical, s.Screen,
+                attackerMoves.Count, attackerMoves.FirstOrDefault()?.Id);
+            if (key != sortedMovesKey)
+            {
+                sortedMovesKey = key;
+                sortedMoves = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart).SortByDamage(new DamageRequest
                 {
-                    Attacker = s.Attacker, Move = m, Defender = defender, Format = App.Format, Weather = s.Weather, Terrain = s.Terrain,
-                }))
-                .ToList();
+                    Attacker = s.Attacker, Move = attackerMoves.FirstOrDefault() ?? new Move(), Defender = defender,
+                    Format = App.Format, IsCritical = s.IsCritical, Weather = s.Weather, Terrain = s.Terrain, Screen = s.Screen,
+                }, attackerMoves);
+            }
+            return sortedMoves;
         }
     }
 
+    /// <summary>ダメージに関わる構成の要約（並べ直すかどうかの判定用）。</summary>
+    private static string BuildKey(PokemonBuild b)
+    {
+        var stats = StatCalculator.CalculateAll(b);
+        return string.Join(",", b.Pokemon.Id, b.Level, stats.HP, stats.Attack, stats.Defense, stats.SpAttack, stats.SpDefense, stats.Speed,
+            b.Boosts.Attack, b.Boosts.Defense, b.Boosts.SpAttack, b.Boosts.SpDefense, b.Ability?.Identifier, b.Item?.Id,
+            b.TeraType, b.Status, b.IsDynamax, b.HpPercent);
+    }
+
+    // 既定の技は使用率 1 位（代用した使用率でもよい）。努力値の既定もこの技に合わせるので、並び順の先頭とは限らない
     private Move? DefaultMove(int pokemonId) =>
-        (HasOwnUsage ? usage!.TopMove(pokemonId) : null) ?? MoveChoices.FirstOrDefault(m => m.IsDamaging);
+        usage?.TopMove(pokemonId) ?? MoveChoices.FirstOrDefault(m => m.IsDamaging);
 
     private void RefreshAttackerLists()
     {
