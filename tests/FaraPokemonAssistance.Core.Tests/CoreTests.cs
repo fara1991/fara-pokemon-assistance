@@ -1071,4 +1071,21 @@ public class SortByDamageTests
         var vsGhost = calc.SortByDamage(new DamageRequest { Attacker = indeedee, Move = lastResort, Defender = ghost }, moves);
         Assert.Same(expandingForce, vsGhost[0]);
     }
+
+    [Fact]
+    public void FieldSettingAbilities_MapToWeatherAndTerrain()
+    {
+        static Ability A(string id) => new() { Identifier = id };
+        Assert.Equal(Weather.Rain, FieldNames.WeatherSetBy(A("drizzle")));
+        Assert.Equal(Weather.Sun, FieldNames.WeatherSetBy(A("drought")));
+        Assert.Equal(Weather.Sand, FieldNames.WeatherSetBy(A("sand-stream")));
+        Assert.Equal(Weather.Snow, FieldNames.WeatherSetBy(A("snow-warning")));
+        Assert.Equal(Terrain.Psychic, FieldNames.TerrainSetBy(A("psychic-surge")));
+        Assert.Equal(Terrain.Electric, FieldNames.TerrainSetBy(A("electric-surge")));
+        Assert.Equal(Terrain.Grassy, FieldNames.TerrainSetBy(A("grassy-surge")));
+        Assert.Equal(Terrain.Misty, FieldNames.TerrainSetBy(A("misty-surge")));
+        Assert.Null(FieldNames.WeatherSetBy(A("psychic-surge")));
+        Assert.Null(FieldNames.TerrainSetBy(A("drizzle")));
+        Assert.Null(FieldNames.WeatherSetBy(null));
+    }
 }

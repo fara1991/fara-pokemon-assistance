@@ -136,6 +136,26 @@ public static class FieldNames
         Terrain.Electric => "エレキフィールド", Terrain.Grassy => "グラスフィールド",
         Terrain.Psychic => "サイコフィールド", Terrain.Misty => "ミストフィールド", _ => "なし",
     };
+
+    /// <summary>登場時に天候を変える特性（あめふらし等）なら、その天候。それ以外は <c>null</c>。</summary>
+    public static Weather? WeatherSetBy(Ability? ability) => ability?.Identifier switch
+    {
+        "drizzle" or "primordial-sea" => Weather.Rain,
+        "drought" or "desolate-land" or "orichalcum-pulse" => Weather.Sun,
+        "sand-stream" => Weather.Sand,
+        "snow-warning" => Weather.Snow,
+        _ => null,
+    };
+
+    /// <summary>登場時にフィールドを張る特性（サイコメイカー等）なら、そのフィールド。それ以外は <c>null</c>。</summary>
+    public static Terrain? TerrainSetBy(Ability? ability) => ability?.Identifier switch
+    {
+        "electric-surge" or "hadron-engine" => Terrain.Electric,
+        "grassy-surge" => Terrain.Grassy,
+        "psychic-surge" => Terrain.Psychic,
+        "misty-surge" => Terrain.Misty,
+        _ => null,
+    };
 }
 
 public sealed class Ability

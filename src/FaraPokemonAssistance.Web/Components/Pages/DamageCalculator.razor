@@ -118,7 +118,7 @@
     <div class="split-row mt-3">
         <div class="split-half">
             <div class="form-group mb-3">
-                <label for="weather">天候（任意） <Help Title="天候">晴れはほのお 1.5 倍・みず 0.5 倍、雨はその逆。砂嵐はいわタイプの特防 1.5 倍、雪はこおりタイプの防御 1.5 倍。天候で発動する特性（サンパワー等）にも使います。</Help></label>
+                <label for="weather">天候（任意） <Help Title="天候">晴れはほのお 1.5 倍・みず 0.5 倍、雨はその逆。砂嵐はいわタイプの特防 1.5 倍、雪はこおりタイプの防御 1.5 倍。天候で発動する特性（サンパワー等）にも使います。あめふらし・ひでり等の特性のポケモンを選ぶと自動で切り替わります。</Help></label>
                 <select id="weather" class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
                     @foreach (var w in Enum.GetValues<Weather>())
                     {
@@ -129,7 +129,7 @@
         </div>
         <div class="split-half">
             <div class="form-group mb-3">
-                <label for="terrain">フィールド（任意） <Help Title="フィールド">エレキ・グラス・サイコは対応タイプの技が 1.3 倍、ミストはドラゴン技が 0.5 倍。グラスではじしん系が半減、サイコではワイドフォースが強化されます。地面にいるポケモンにだけ効きます。</Help></label>
+                <label for="terrain">フィールド（任意） <Help Title="フィールド">エレキ・グラス・サイコは対応タイプの技が 1.3 倍、ミストはドラゴン技が 0.5 倍。グラスではじしん系が半減、サイコではワイドフォースが強化されます。地面にいるポケモンにだけ効きます。エレキメイカー・サイコメイカー等の特性のポケモンを選ぶと自動で切り替わります。</Help></label>
                 <select id="terrain" class="form-select" value="@s.Terrain" @onchange="@(e => s.Terrain = ParseEnum(e.Value, Terrain.None))">
                     @foreach (var t in Enum.GetValues<Terrain>())
                     {
@@ -325,6 +325,13 @@
         else if (build.Ability is not null && !abilities.Contains(build.Ability)) build.Ability = abilities.FirstOrDefault();
     }
 
+    /// <summary>あめふらし・サイコメイカー等、登場時に天候やフィールドを変える特性なら、天候・フィールド欄をそれに合わせる。</summary>
+    private void ApplyAbilityField(PokemonBuild build)
+    {
+        if (FieldNames.WeatherSetBy(build.Ability) is { } weather) s.Weather = weather;
+        if (FieldNames.TerrainSetBy(build.Ability) is { } terrain) s.Terrain = terrain;
+    }
+
     private void OnAttackerChanged(string value)
     {
         var pokemon = data?.FindPokemon(ParseId(value));
@@ -335,6 +342,7 @@
             return;
         }
         s.Attacker = NewBuild(pokemon);
+        ApplyAbilityField(s.Attacker);
         RefreshAttackerLists();
         s.Move = DefaultMove(pokemon.Id);
         ApplyDefaultEvs(s.Attacker, s.Move, true);
@@ -357,6 +365,7 @@
             return;
         }
         s.Defender = NewBuild(pokemon);
+        ApplyAbilityField(s.Defender);
         RefreshDefenderLists();
         ApplyDefaultEvs(s.Defender, s.Move, false);
     }
@@ -369,6 +378,7 @@
         var build = RosterRepository.ToBuild(member.Entry, data, member.Item);
         if (build is null) return;
         ApplyFixedChoices(build);
+        ApplyAbilityField(build);
         if (isAttacker)
         {
             s.Attacker = build;
@@ -552,7 +562,7 @@
             }
             else
             {
-                <select class="form-select" value="@(build.Ability?.Id.ToString() ?? "")" @onchange="@(e => build.Ability = data.FindAbility(ParseId(e.Value)))">
+                <select class="form-select" value="@(build.Ability?.Id.ToString() ?? "")" @onchange="@(e => { build.Ability = data.FindAbility(ParseId(e.Value)); ApplyAbilityField(build); })">
                     @foreach (var a in abilities)
                     {
                         <option value="@a.Id">@a.Name</option>

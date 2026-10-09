@@ -138,6 +138,7 @@
         };
         if (pokemon.IsMega) build.Item = data.FindItem(pokemon.MegaStoneId!.Value);
         s.Builds[side] = build;
+        ApplyAbilityField(build);
     }
 
     private void OnTeamMemberSelected(int side, ChangeEventArgs e)
@@ -145,7 +146,17 @@
         var id = ParseId(e.Value);
         var member = teamMembers.FirstOrDefault(m => m.Entry.Id == id);
         if (member.Entry is not null && data is not null)
+        {
             s.Builds[side] = RosterRepository.ToBuild(member.Entry, data, member.Item);
+            if (s.Builds[side] is { } build) ApplyAbilityField(build);
+        }
+    }
+
+    /// <summary>あめふらし・エレキメイカー等、登場時に天候やフィールドを変える特性なら、天候・フィールド欄をそれに合わせる。</summary>
+    private void ApplyAbilityField(PokemonBuild build)
+    {
+        if (FieldNames.WeatherSetBy(build.Ability) is { } weather) s.Weather = weather;
+        if (FieldNames.TerrainSetBy(build.Ability) is { } terrain) s.Terrain = terrain;
     }
 
     private RenderFragment RenderSide(int side) => __builder =>
@@ -217,7 +228,7 @@
                         }
                         else
                         {
-                            <select class="form-select" value="@(build.Ability?.Id.ToString() ?? "")" @onchange="@(e => build.Ability = data.FindAbility(ParseId(e.Value)))">
+                            <select class="form-select" value="@(build.Ability?.Id.ToString() ?? "")" @onchange="@(e => { build.Ability = data.FindAbility(ParseId(e.Value)); ApplyAbilityField(build); })">
                                 @foreach (var ab in abilities) { <option value="@ab.Id">@ab.Name</option> }
                             </select>
                         }
