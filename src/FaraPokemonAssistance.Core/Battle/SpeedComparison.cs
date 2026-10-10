@@ -7,7 +7,9 @@ namespace FaraPokemonAssistance.Core.Battle;
 public static class SpeedCalculator
 {
     private const int ItemIdChoiceScarf = 264;
-    private const int ItemIdIronBall = 278;
+    private const int ItemIdIronBall = 255;
+    /// <summary>パワーリスト・パワーレンズ・パワーバンド・パワーアンクル・パワーウエイト（パワーベルトは 267）。素早さ 0.5 倍。</summary>
+    private static readonly HashSet<int> PowerItemIds = new() { 266, 267, 268, 269, 270, 271 };
 
     public sealed record SpeedLine(string Label, int Value, string? Note);
 
@@ -107,12 +109,18 @@ public static class SpeedCalculator
         return speed;
     }
 
-    private static SpeedFactor? ItemFactor(PokemonBuild build) => build.Item?.Id switch
+    private static SpeedFactor? ItemFactor(PokemonBuild build) => build.Item switch
     {
-        ItemIdChoiceScarf => new SpeedFactor("こだわりスカーフ(1.5倍)", 1.5),
-        ItemIdIronBall => new SpeedFactor("くろいてっきゅう(0.5倍)", 0.5),
+        null => null,
+        { Id: ItemIdChoiceScarf } item => new SpeedFactor($"{item.Name}(1.5倍)", 1.5),
+        { Id: ItemIdIronBall } item => new SpeedFactor($"{item.Name}(0.5倍)", 0.5),
+        var item when PowerItemIds.Contains(item.Id) => new SpeedFactor($"{item.Name}(0.5倍)", 0.5),
         _ => null,
     };
+
+    /// <summary>素早さが変わる持ち物（こだわりスカーフ・くろいてっきゅう・パワー系）か。素早さ比較の持ち物の候補に使う。</summary>
+    public static bool IsSpeedItem(Item item) =>
+        item.Id is ItemIdChoiceScarf or ItemIdIronBall || PowerItemIds.Contains(item.Id);
 
     private static bool ParadoxActive(PokemonBuild build, string ability, Weather weather, Terrain terrain) =>
         build.Item?.Id == ItemIdBoosterEnergy || (ability == "protosynthesis" ? weather == Weather.Sun : terrain == Terrain.Electric);

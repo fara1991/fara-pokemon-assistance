@@ -314,3 +314,96 @@ public class CounterTests
         Assert.Equal(2, TypeMatchup.Counters(Chart, fire, new[] { water1, ground, water2 }, count: 2).Count);
     }
 }
+
+public class AbilityMatchupTests
+{
+    private static Ability A(string identifier, string name) => new() { Id = identifier.GetHashCode(), Identifier = identifier, Name = name };
+
+    private static Pokemon Make(int id, string name, string t1, string t2 = "") =>
+        new() { Id = id, Name = name, Type1 = t1, Type2 = t2, SpeciesId = id };
+
+    private static readonly TypeChart Chart = TypeChart.Parse(
+        "AttackType,DefenseType,Multiplier\n" +
+        "Fire,Grass,2\nIce,Grass,2\nFire,Poison,1\nGrass,Grass,0.5\nGrass,Poison,0.5\nGround,Poison,2\nGround,Steel,2\nFire,Steel,2\n" +
+        "Fighting,Steel,2\nFighting,Ghost,0\nNormal,Ghost,0\nNormal,Steel,0.5\nGhost,Ghost,2\nGhost,Normal,0\nFire,Fire,0.5\nWater,Fire,2\n" +
+        "Water,Grass,0.5\nElectric,Ground,0\n");
+
+    [Fact]
+    public void Thick_fat_halves_fire_and_ice_on_mega_venusaur()
+    {
+        var thickFat = A("thick-fat", "あついしぼう");
+        var fire = AbilityMatchup.Against(Chart, "Fire", new[] { "Grass", "Poison" }, thickFat);
+        Assert.Equal(2.0, fire.TypeMultiplier);
+        Assert.Equal(1.0, fire.Multiplier);
+        Assert.True(fire.ChangedByAbility);
+        Assert.Contains("あついしぼう(半減)", fire.Notes);
+        var grass = AbilityMatchup.Against(Chart, "Grass", new[] { "Grass", "Poison" }, thickFat);
+        Assert.Equal(0.25, grass.Multiplier);
+        Assert.False(grass.ChangedByAbility);
+
+        var changed = AbilityMatchup.ChangedByDefensiveAbility(Chart, new[] { "Grass", "Poison" }, thickFat);
+        Assert.Equal(new[] { "Fire", "Ice" }, changed.Select(c => c.AttackType).OrderBy(t => t));
+    }
+
+    [Theory]
+    [InlineData("levitate", "Ground", 0.0)]
+    [InlineData("flash-fire", "Fire", 0.0)]
+    [InlineData("water-absorb", "Water", 0.0)]
+    [InlineData("dry-skin", "Fire", 2.5)]
+    [InlineData("fluffy", "Fire", 4.0)]
+    [InlineData("filter", "Fire", 1.5)]
+    [InlineData("heatproof", "Fire", 1.0)]
+    [InlineData("wonder-guard", "Grass", 0.0)]
+    [InlineData("wonder-guard", "Fire", 2.0)]
+    public void Defensive_abilities_on_grass(string ability, string attackType, double expected) =>
+        Assert.Equal(expected, AbilityMatchup.Against(Chart, attackType, new[] { "Grass" }, A(ability, ability)).Multiplier);
+
+    [Fact]
+    public void Scrappy_tinted_lens_and_mold_breaker()
+    {
+        var scrappy = A("scrappy", "きもったま");
+        var aegislash = new[] { "Steel", "Ghost" };
+        Assert.Equal(0.0, AbilityMatchup.Against(Chart, "Fighting", aegislash).Multiplier);
+        var hit = AbilityMatchup.Against(Chart, "Fighting", aegislash, attackerAbility: scrappy);
+        Assert.Equal(2.0, hit.Multiplier);
+        Assert.Contains(hit.Notes, n => n.Contains("きもったま"));
+
+        Assert.Equal(1.0, AbilityMatchup.Against(Chart, "Grass", new[] { "Grass" }, attackerAbility: A("tinted-lens", "いろめがね")).Multiplier);
+        // かたやぶりは相手の特性（ふゆう）を無視する
+        Assert.Equal(2.0, AbilityMatchup.Against(Chart, "Ground", new[] { "Steel" }, A("levitate", "ふゆう"), A("mold-breaker", "かたやぶり")).Multiplier);
+    }
+
+    [Fact]
+    public void Counters_use_abilities_on_both_sides()
+    {
+        var aegislash = Make(681, "ギルガルド", "Steel", "Ghost");
+        var fighter = Make(2, "かくとう", "Fighting");
+        var counters = TypeMatchup.Counters(Chart, aegislash, new[] { fighter });
+        Assert.Empty(counters);
+        var scrappy = A("scrappy", "きもったま");
+        counters = TypeMatchup.Counters(Chart, aegislash, new[] { fighter }, abilityOf: p => p.Id == 2 ? scrappy : null);
+        var c = Assert.Single(counters);
+        Assert.Equal(2.0, c.Offense);
+        Assert.Contains(c.Notes, n => n.Contains("きもったま"));
+
+        // 選んだポケモンがふゆうなら、じめん技しかない相手は有利にならない
+        var steel = Make(3, "はがね", "Steel");
+        var digger = Make(4, "じめん", "Ground");
+        Assert.Single(TypeMatchup.Counters(Chart, steel, new[] { digger }));
+        Assert.Empty(TypeMatchup.Counters(Chart, steel, new[] { digger }, ability: A("levitate", "ふゆう")));
+    }
+
+    [Fact]
+    public void Speed_items()
+    {
+        Assert.True(SpeedCalculator.IsSpeedItem(new Item { Id = 264, Name = "こだわりスカーフ" }));
+        Assert.True(SpeedCalculator.IsSpeedItem(new Item { Id = 255, Name = "くろいてっきゅう" }));
+        Assert.True(SpeedCalculator.IsSpeedItem(new Item { Id = 270, Name = "パワーアンクル" }));
+        Assert.False(SpeedCalculator.IsSpeedItem(new Item { Id = 278, Name = "みどりのプレート" }));
+
+        var mon = new Pokemon { Id = 1, Name = "テスト", Type1 = "Normal", BaseStats = new StatSet(100, 100, 100, 100, 100, 100), SpeciesId = 1 };
+        var plain = StatCalculator.Calculate(new PokemonBuild(mon), Stat.Speed);
+        Assert.Equal(plain / 2, SpeedCalculator.Effective(new PokemonBuild(mon) { Item = new Item { Id = 255, Name = "くろいてっきゅう" } }).Speed);
+        Assert.Equal(plain, SpeedCalculator.Effective(new PokemonBuild(mon) { Item = new Item { Id = 278, Name = "みどりのプレート" } }).Speed);
+    }
+}
