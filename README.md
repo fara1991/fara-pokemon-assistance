@@ -22,7 +22,7 @@ fara-pokemon-assistance/
 └── .github/workflows/
     ├── build.yml                     ビルド・テスト・NuGet パッケージ化
     ├── deploy.yml                    master へ push されたら Cloudflare Workers に公開
-    └── update-data.yml               毎週月曜にデータを再生成してコミット
+    └── update-data.yml               毎週月曜にデータを再生成してコミット（変更があれば deploy.yml で公開）
 ```
 
 サーバーは存在しません。計算は Web ではブラウザ内、ボットでは FaraBotModerator のプロセス内で行います。
