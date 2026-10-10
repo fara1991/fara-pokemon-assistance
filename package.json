@@ -5,7 +5,7 @@
   "scripts": {
     "publish:web": "node -e \"require('fs').rmSync('publish', { recursive: true, force: true })\" && dotnet publish src/FaraPokemonAssistance.Web -c Release -o publish",
     "preview": "npm run publish:web && wrangler dev",
-    "check": "npm run publish:web && wrangler deploy --dry-run"
+    "check": "npm run publish:web && wrangler deploy --dry-run --env=\"\" && wrangler deploy --dry-run --env develop"
   },
   "devDependencies": {
     "wrangler": "4.136.3"
