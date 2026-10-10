@@ -66,17 +66,7 @@ public sealed class EvEstimator
                 foreach (var hpEv in hpCandidates)
                 {
                     defender.EVs[Stat.HP] = hpEv;
-                    var result = calc.Calculate(new DamageRequest
-                    {
-                        Attacker = request.Attacker,
-                        Move = request.Move,
-                        Defender = defender,
-                        Format = request.Format,
-                        IsCritical = request.IsCritical,
-                        Weather = request.Weather,
-                        Terrain = request.Terrain,
-                        Screen = request.Screen,
-                    });
+                    var result = calc.Calculate(request.With(defender: defender));
                     if (result.MaxDamage == 0) continue;
                     var min = asPercent ? result.MinDamage * 100.0 / result.DefenderHP : result.MinDamage;
                     var maxv = asPercent ? result.MaxDamage * 100.0 / result.DefenderHP : result.MaxDamage;

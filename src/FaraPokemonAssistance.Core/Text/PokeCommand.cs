@@ -356,11 +356,7 @@ public sealed class PokeCommand
         {
             var defender = request.Defender.Clone();
             defender.Ability = ability;
-            var result = calc.Calculate(new DamageRequest
-            {
-                Attacker = request.Attacker, Move = request.Move, Defender = defender,
-                Format = request.Format, IsCritical = request.IsCritical, Weather = request.Weather, Terrain = request.Terrain, Screen = request.Screen,
-            });
+            var result = calc.Calculate(request.With(defender: defender));
             if (result.MinDamage != baseline.MinDamage || result.MaxDamage != baseline.MaxDamage) distinct = true;
             lines.Add(result.MaxDamage == 0
                 ? $"{ability.Name}: 無効"
@@ -415,11 +411,7 @@ public sealed class PokeCommand
         {
             var defender = request.Defender.Clone();
             defender.Ability = ability;
-            var req = new DamageRequest
-            {
-                Attacker = request.Attacker, Move = request.Move, Defender = defender,
-                Format = request.Format, IsCritical = request.IsCritical, Weather = request.Weather, Terrain = request.Terrain, Screen = request.Screen,
-            };
+            var req = request.With(defender: defender);
             results.Add((ability, estimator.Run(req, observed, asPercent)));
         }
 
