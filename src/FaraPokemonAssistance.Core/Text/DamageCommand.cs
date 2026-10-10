@@ -361,7 +361,7 @@ public sealed class DamageCommand
         if (!attackerAbilitySet)
             attacker.Ability = usage?.DefaultAbility(attacker.Pokemon) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(attacker.Pokemon), null);
         if (!defenderAbilitySet)
-            defender.Ability = usage?.DefaultAbility(defender.Pokemon) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(defender.Pokemon), null);
+            defender.Ability = usage?.DefaultAbility(defender.Pokemon, AbilityEffects.Side.Defender) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(defender.Pokemon), null, AbilityEffects.Side.Defender);
         if (attackerTeraToMoveType)
             attacker.TeraType = AbilityEffects.SkinType(attacker.Ability?.Identifier ?? "") is { } skin && move.Type == "Normal" ? skin : move.Type;
 

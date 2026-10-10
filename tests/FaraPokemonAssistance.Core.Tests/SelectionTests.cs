@@ -30,6 +30,24 @@ public class DefaultAbilityTests
     }
 
     [Fact]
+    public void Defender_keeps_defensive_usage_top()
+    {
+        // トリトドン: 使用率 1 位のよびみずは、防御側（とタイプ相性表）ではすなのちからに変えない
+        var stickyHold = A(60, "sticky-hold");
+        var stormDrain = A(114, "storm-drain");
+        var sandForce = A(159, "sand-force");
+        var abilities = new[] { stickyHold, stormDrain, sandForce };
+        Assert.Same(sandForce, AbilityEffects.ChooseDefault(abilities, stormDrain));
+        Assert.Same(stormDrain, AbilityEffects.ChooseDefault(abilities, stormDrain, AbilityEffects.Side.Defender));
+        Assert.Same(stormDrain, AbilityEffects.ChooseDefault(abilities, stormDrain, AbilityEffects.Side.Either));
+        // 使用率が無いマリルリ: 防御側はあついしぼう、攻撃側はちからもち
+        var thickFat = A(47, "thick-fat");
+        var hugePower = A(37, "huge-power");
+        Assert.Same(thickFat, AbilityEffects.ChooseDefault(new[] { thickFat, hugePower }, null, AbilityEffects.Side.Defender));
+        Assert.Same(hugePower, AbilityEffects.ChooseDefault(new[] { thickFat, hugePower }, null));
+    }
+
+    [Fact]
     public void Notable_usage_top_and_plain_abilities_are_kept()
     {
         var technician = A(101, "technician");
@@ -116,6 +134,24 @@ public class ExactHpTests
     }
 
     [Fact]
+    public void Dynamax_scales_exact_hp()
+    {
+        var build = new PokemonBuild(Mon());
+        var max = build.MaxHp; // 155
+        build.CurrentHp = 101;
+        build.IsDynamax = true;
+        Assert.Equal(max * 2, build.MaxHp);
+        Assert.Equal(202, build.CurrentHp);
+        Assert.Equal(202, build.Clone().CurrentHp);
+        build.CurrentHp = 151;
+        build.IsDynamax = false;
+        Assert.Equal(76, build.CurrentHp); // 半分・切り上げ
+        build.CurrentHp = max;
+        build.IsDynamax = true;
+        Assert.True(build.IsFullHp);
+    }
+
+    [Fact]
     public async Task Exact_hp_drives_multiscale_and_knockout_start()
     {
         var data = await TestData.Catalog().GetDataSetAsync("Gen9");
@@ -164,6 +200,8 @@ public class KanaSearchTests
     [InlineData("ドオー", "doo")]
     [InlineData("ガブリアス", "gab")]
     [InlineData("ウォッシュロトム", "wosshu")]
+    [InlineData("ポリゴンＺ", "porigonz")]
+    [InlineData("メガリザードンX", "rizadonx")]
     public void Matches(string text, string query) => Assert.True(KanaSearch.Matches(text, query), $"{text} / {query}");
 
     [Theory]
@@ -279,6 +317,18 @@ public class SpeedConditionTests
         // 素早さが一番高くなければ上がらない
         var slow = Build("protosynthesis", speed: 50);
         Assert.Equal(StatCalculator.Calculate(slow, Stat.Speed), SpeedCalculator.Effective(slow, Weather.Sun).Speed);
+    }
+
+    [Fact]
+    public void Modifiers_are_chained_and_rounded_once_and_paralysis_is_applied_last()
+    {
+        var scarf = new SpeedCalculator.SpeedFactor("スカーフ", 1.5);
+        var paralysis = new SpeedCalculator.SpeedFactor("まひ", 0.5, IsParalysis: true);
+        // 103 × 1.5 = 154.5 → 154、まひで 77（まひを先に掛けると 76 になる）
+        Assert.Equal(77, SpeedCalculator.Apply(103, new[] { paralysis, scarf }));
+        // こだいかっせい 1.5 倍 × スカーフ 1.5 倍は 2.25 倍を 1 回だけ丸める（201 → 452。1 つずつ丸めると 451）
+        Assert.Equal(452, SpeedCalculator.Apply(201, new[] { new SpeedCalculator.SpeedFactor("こだいかっせい", 1.5), scarf }));
+        Assert.Equal(201, SpeedCalculator.Apply(201, Array.Empty<SpeedCalculator.SpeedFactor>()));
     }
 
     private static int DamageCalculatorRound(double v) => FaraPokemonAssistance.Core.Battle.DamageCalculator.PokeRound(v);
