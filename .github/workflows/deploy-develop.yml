@@ -1,0 +1,56 @@
+name: Deploy to Cloudflare Workers (develop)
+
+# 確認用（https://pokemon-dev.fara-labs.com/）への公開。develop に push（PR のマージ含む）されるたびに実行。
+# 本番には影響しない。手動で再実行したいときは Actions タブから develop を選んで Run workflow。
+on:
+  push:
+    branches: [develop]
+    paths-ignore:
+      - "**.md"
+      - ".github/ISSUE_TEMPLATE/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-develop
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: develop
+      url: https://pokemon-dev.fara-labs.com/
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Publish Blazor WebAssembly
+        run: dotnet publish src/FaraPokemonAssistance.Web --configuration Release --output publish
+
+      # 確認用サイトが検索結果に載らないようにする
+      - name: Add noindex header
+        run: |
+          cat >> publish/wwwroot/_headers <<'HEADERS'
+          /*
+            X-Robots-Tag: noindex, nofollow
+          HEADERS
+
+      - name: Deploy (develop)
+        run: npx wrangler deploy --env develop
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

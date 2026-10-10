@@ -3,11 +3,12 @@
 @using FaraPokemonAssistance.Core.Roster
 @inject DataCatalog Catalog
 @inject RosterRepository Repo
+@inject NavigationManager Nav
 
 <PageTitle>ダメージ計算機</PageTitle>
 
 <div class="page-header">
-    <h3>ダメージ計算機 <Help Title="ダメージ計算機">攻撃側と防御側のポケモンと技を選ぶと、乱数 16 通りのダメージと確定数を出します。ポケモンを選ぶと使用率に基づく性格・持ち物・特性が既定値として入ります。ゲームとバトル形式は左のメニューで切り替えます。</Help></h3>
+    <h3>ダメージ計算機 <Help Title="ダメージ計算機">攻撃側と防御側のポケモンと技を選ぶと、乱数 16 通りのダメージと確定数を自動で出します（入力を変えるたびに計算し直します）。ポケモンを選ぶと使用率に基づく性格・持ち物・特性が既定値として入ります。ゲームとバトル形式は左のメニューで切り替えます。</Help></h3>
     <p class="text-muted mb-0">使用チームがあれば「使用チームから」で自分の構成を呼び出せます。入力した内容は別のページへ移動しても残ります。</p>
 </div>
 
@@ -18,8 +19,9 @@
 
 @if (data is not null && dataSet is not null)
 {
-    <div class="split-row">
-        <div class="split-half">
+    UpdateResult();
+    <div class="calc-grid @(s.Result is not null ? "has-result-bar" : "")">
+        <div class="calc-col">
             <div class="card">
                 <div class="card-header"><h5>攻撃側</h5></div>
                 <div class="card-body">
@@ -37,7 +39,7 @@
                         </div>
                     }
                     <div class="form-group mb-2">
-                        <label>ポケモン <Help Title="ポケモン">名前の一部（ひらがなでも可）で絞り込めます。使用率の高い順に並んでいます。</Help></label>
+                        <label>ポケモン <Help Title="ポケモン">名前の一部（ひらがな・ローマ字でも可。例: ie → イエッサン）で絞り込めます。使用率の高い順に並んでいます。</Help></label>
                         <SearchableSelect TItem="Pokemon"
                             Items="pokemonList"
                             DisplayText="@(p => p.Name)"
@@ -50,16 +52,17 @@
                     </div>
                     @if (s.Attacker is not null)
                     {
-                        <div class="mb-2"><PokemonLabel Build="s.Attacker" /> <span class="small text-muted">種族値 @FormatStats(s.Attacker.Pokemon.BaseStats)</span></div>
+                        <div class="poke-summary mb-2"><PokemonLabel Build="s.Attacker" /> <span class="small text-muted text-nowrap">種族値 @FormatStats(s.Attacker.Pokemon.BaseStats)</span></div>
                     }
                     <div class="form-group mb-3">
-                        <label>技 <Help Title="技">攻撃側のポケモンが覚える技だけを、使用率の高い順に表示します。使用率が公開されていないゲームでは、いまの攻撃側・防御側・天候・フィールドで与える最大ダメージの多い順です（防御側を選んでいないときは、タイプなし・種族値すべて 100 の相手で計算）。選んだ技の分類（物理 / 特殊）に合わせて、下の努力値・ランクの項目が切り替わります。</Help></label>
+                        <label>技 <Help Title="技">攻撃側のポケモンが覚える技を、いまの攻撃側・防御側・天候・フィールド・壁で与える最大ダメージの多い順（火力の高い順）に表示します。防御側を選んでいないときは、タイプなし・種族値すべて 100 の相手で計算します。同じダメージなら使用率の高い順です。選んだ技の分類（物理 / 特殊）に合わせて、下の努力値・ランクの項目が切り替わります。</Help></label>
                         <SearchableSelect TItem="Move"
                             Items="MoveChoices"
                             DisplayText="@(m => m.Name)"
                             ValueSelector="@(m => m.Id.ToString())"
                             SelectedValue="@(s.Move?.Id.ToString() ?? "")"
                             SelectedValueChanged="@OnMoveChanged"
+                            Dropdown="true"
                             Placeholder="技名を入力...">
                             <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto">@CategoryText(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
                         </SearchableSelect>
@@ -76,7 +79,7 @@
             </div>
         </div>
 
-        <div class="split-half">
+        <div class="calc-col">
             <div class="card">
                 <div class="card-header"><h5>防御側</h5></div>
                 <div class="card-body">
@@ -107,110 +110,112 @@
                     </div>
                     @if (s.Defender is not null)
                     {
-                        <div class="mb-3"><PokemonLabel Build="s.Defender" /> <span class="small text-muted">種族値 @FormatStats(s.Defender.Pokemon.BaseStats)</span></div>
+                        <div class="poke-summary mb-2"><PokemonLabel Build="s.Defender" /> <span class="small text-muted text-nowrap">種族値 @FormatStats(s.Defender.Pokemon.BaseStats)</span></div>
                         @RenderBuildEditor(s.Defender, false)
                     }
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="split-row mt-3">
-        <div class="split-half">
-            <div class="form-group mb-3">
-                <label for="weather">天候（任意） <Help Title="天候">晴れはほのお 1.5 倍・みず 0.5 倍、雨はその逆。砂嵐はいわタイプの特防 1.5 倍、雪はこおりタイプの防御 1.5 倍。天候で発動する特性（サンパワー等）にも使います。</Help></label>
-                <select id="weather" class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
-                    @foreach (var w in Enum.GetValues<Weather>())
-                    {
-                        <option value="@w">@FieldNames.Japanese(w)</option>
-                    }
-                </select>
-            </div>
-        </div>
-        <div class="split-half">
-            <div class="form-group mb-3">
-                <label for="terrain">フィールド（任意） <Help Title="フィールド">エレキ・グラス・サイコは対応タイプの技が 1.3 倍、ミストはドラゴン技が 0.5 倍。グラスではじしん系が半減、サイコではワイドフォースが強化されます。地面にいるポケモンにだけ効きます。</Help></label>
-                <select id="terrain" class="form-select" value="@s.Terrain" @onchange="@(e => s.Terrain = ParseEnum(e.Value, Terrain.None))">
-                    @foreach (var t in Enum.GetValues<Terrain>())
-                    {
-                        <option value="@t">@FieldNames.Japanese(t)</option>
-                    }
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <div class="d-flex align-items-center gap-3 flex-wrap">
-        <button class="btn btn-primary" @onclick="Calculate">ダメージを計算</button>
-        <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="screen" checked="@s.Screen" @onchange="@(e => s.Screen = e.Value is true)" />
-            <label class="form-check-label" for="screen">壁 <Help Title="壁">防御側の場のリフレクター（物理技）・ひかりのかべ（特殊技）・オーロラベール（両方）。ダメージが 0.5 倍（ダブルは約 0.67 倍）になります。急所と特性すりぬけは壁を無視します。</Help></label>
-        </div>
-        <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="crit" checked="@s.IsCritical" @onchange="@(e => s.IsCritical = e.Value is true)" />
-            <label class="form-check-label" for="crit">急所 <Help Title="急所">ダメージ 1.5 倍（スナイパーは 2.25 倍）。攻撃側のマイナスランクと防御側のプラスランクを無視します。</Help></label>
-        </div>
-    </div>
-
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="alert alert-danger mt-3">@errorMessage</div>
-    }
-
-    @if (s.Result is not null && s.LastRequest is not null)
-    {
-        var result = s.Result;
-        var lastRequest = s.LastRequest;
-        <div class="card mt-3 result-card">
-            <div class="card-header"><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージ、オボンのみ等の回復きのみ、たべのこし・くろいヘドロ、グラスフィールドの回復、半減きのみ（1 発目のみ）、マルチスケイル（満タン時の 1 発目のみ）も確定数に含めています。</Help></h5></div>
-            <div class="card-body">
-                <p class="mb-2">
-                    <PokemonLabel Build="lastRequest.Attacker" Small="true" />
-                    <span class="mx-2">@lastRequest.Move.Name <TypeIcon Type="@result.MoveType" Small="true" /> →</span>
-                    <PokemonLabel Build="lastRequest.Defender" Small="true" />
-                </p>
-                <p class="result-main mb-2">
-                    <strong>@result.RangeText</strong>
-                    <span class="ms-2 badge @(result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@result.KnockOut</span>
-                    @if (result.TypeEffectiveness != 1.0)
-                    {
-                        <span class="ms-2 badge bg-secondary">@result.EffectivenessText</span>
-                    }
-                </p>
-                <p class="mb-1"><strong>防御側 HP:</strong> @result.DefenderHP　<strong>攻撃実数値:</strong> @result.AttackStat　<strong>防御実数値:</strong> @result.DefenseStat　<strong>威力:</strong> @result.BasePower（@TypeNames.ToJapanese(result.MoveType)）</p>
-                @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
-                {
-                    <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>
-                }
-                <p class="mb-1"><strong>乱数:</strong> <span class="font-monospace">@string.Join(" ", result.Rolls)</span></p>
-                @if (result.Modifiers.Count > 0)
-                {
-                    <p class="mb-1"><strong>補正:</strong> @string.Join("、", result.Modifiers)</p>
-                }
-                <hr />
-                <p class="mb-1 text-muted small">チャットでの表示</p>
-                <div class="alert alert-light border chat-output mb-0">@DamageCommand.Format(lastRequest, result, data.Info)</div>
-            </div>
-        </div>
-    }
-
-    @if (s.Attacker is not null && s.Defender is not null)
-    {
-        <div class="card mt-3">
-            <div class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定（calc） <Help Title="努力値の推定">攻撃側に自分の構成、防御側に相手のポケモンを選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</Help></h5></div>
-            <div class="card-body">
-                <div class="input-group" style="max-width: 420px;">
-                    <span class="input-group-text">受けたダメージ</span>
-                    <input class="form-control" placeholder="93 または 45%" value="@s.ObservedDamageText" @onchange="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
-                    <button class="btn btn-outline-primary" @onclick="EstimateEvs">推定</button>
+        <div class="calc-col calc-side">
+            <div class="card field-card">
+                <div class="card-header"><h5>場の状態 <Help Title="場の状態">天候・フィールドは、攻撃側・防御側の特性（ひでり・サイコメイカーなど）から自動で入ります。変えたいときは選び直してください。技の並び順にもここの条件が反映されます。</Help></h5></div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-sm-6">
+                            <label class="form-label mb-1" for="weather">天候 <Help Title="天候">晴れはほのお 1.5 倍・みず 0.5 倍、雨はその逆。砂嵐はいわタイプの特防 1.5 倍、雪はこおりタイプの防御 1.5 倍。天候で発動する特性（サンパワー等）にも使います。</Help></label>
+                            <select id="weather" class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
+                                @foreach (var w in Enum.GetValues<Weather>())
+                                {
+                                    <option value="@w">@FieldNames.Japanese(w)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label mb-1" for="terrain">フィールド <Help Title="フィールド">エレキ・グラス・サイコは対応タイプの技が 1.3 倍、ミストはドラゴン技が 0.5 倍。グラスではじしん系が半減、サイコではワイドフォースが強化されます。地面にいるポケモンにだけ効きます。</Help></label>
+                            <select id="terrain" class="form-select" value="@s.Terrain" @onchange="@(e => s.Terrain = ParseEnum(e.Value, Terrain.None))">
+                                @foreach (var t in Enum.GetValues<Terrain>())
+                                {
+                                    <option value="@t">@FieldNames.Japanese(t)</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field-checks mt-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="reflect" checked="@s.Reflect" @onchange="@(e => s.Reflect = e.Value is true)" />
+                            <label class="form-check-label" for="reflect">リフレクター <Help Title="リフレクター">防御側の場のリフレクター。物理技のダメージが 0.5 倍（ダブルは約 0.67 倍）になります。オーロラベールは両方にチェックしてください。急所と特性すりぬけは壁を無視します。</Help></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="light-screen" checked="@s.LightScreen" @onchange="@(e => s.LightScreen = e.Value is true)" />
+                            <label class="form-check-label" for="light-screen">ひかりのかべ <Help Title="ひかりのかべ">防御側の場のひかりのかべ。特殊技のダメージが 0.5 倍（ダブルは約 0.67 倍）になります。</Help></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="crit" checked="@s.IsCritical" @onchange="@(e => s.IsCritical = e.Value is true)" />
+                            <label class="form-check-label" for="crit">急所 <Help Title="急所">ダメージ 1.5 倍（スナイパーは 2.25 倍）。攻撃側のマイナスランクと防御側のプラスランクを無視します。</Help></label>
+                        </div>
+                    </div>
                 </div>
-                @if (!string.IsNullOrEmpty(s.EstimateText))
-                {
-                    <div class="alert alert-light border chat-output mt-2 mb-0">@s.EstimateText</div>
-                }
             </div>
+
+            @if (s.Result is not null && s.LastRequest is not null)
+            {
+                <div class="card result-card result-sticky">
+                    <div class="card-header"><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージ、オボンのみ等の回復きのみ、たべのこし・くろいヘドロ、グラスフィールドの回復、半減きのみ（1 発目のみ）、マルチスケイル（満タン時の 1 発目のみ）も確定数に含めています。入力を変えると自動で計算し直します。</Help></h5></div>
+                    <div class="card-body">@RenderResultBody(s.Result, s.LastRequest)</div>
+                </div>
+                @* 狭い画面では、結果の要点を画面の下に出したままにする（押すと詳細を開く） *@
+                <div class="result-bar @(resultBarOpen ? "open" : "")">
+                    @if (resultBarOpen)
+                    {
+                        <div class="result-bar-detail">@RenderResultBody(s.Result, s.LastRequest)</div>
+                    }
+                    <button type="button" class="result-bar-summary" aria-expanded="@(resultBarOpen ? "true" : "false")" @onclick="() => resultBarOpen = !resultBarOpen">
+                        <TypeIcon Type="@s.Result.MoveType" Small="true" />
+                        <strong>@s.Result.RangeText</strong>
+                        <span class="badge @(s.Result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@s.Result.KnockOut</span>
+                        <span class="result-bar-toggle" aria-hidden="true">@(resultBarOpen ? "▾ 閉じる" : "▴ 詳細")</span>
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="card result-card">
+                    <div class="card-header"><h5>計算結果</h5></div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-warning mb-0">@errorMessage</div>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">攻撃側・防御側のポケモンと技を選ぶと、ここに結果が自動で出ます。</p>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (s.Attacker is not null && s.Defender is not null)
+            {
+                @* あまり使わないので、普段は閉じておく（推定結果があるときは開いたまま） *@
+                <details class="card collapsible-card" open="@(!string.IsNullOrEmpty(s.EstimateText))">
+                    <summary class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定（calc）</h5></summary>
+                    <div class="card-body">
+                        <p class="small text-muted mb-2">攻撃側に自分の構成、防御側に相手のポケモンを選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</p>
+                        <div class="input-group">
+                            <span class="input-group-text">受けたダメージ</span>
+                            <input class="form-control" placeholder="93 または 45%" value="@s.ObservedDamageText" @onchange="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
+                            <button class="btn btn-outline-primary" @onclick="EstimateEvs">推定</button>
+                        </div>
+                        @if (!string.IsNullOrEmpty(s.EstimateText))
+                        {
+                            <div class="alert alert-light border chat-output mt-2 mb-0">@s.EstimateText</div>
+                        }
+                    </div>
+                </details>
+            }
         </div>
-    }
+    </div>
 }
 
 @code {
@@ -222,7 +227,8 @@
         public PokemonBuild? Defender { get; set; }
         public Move? Move { get; set; }
         public bool IsCritical { get; set; }
-        public bool Screen { get; set; }
+        public bool Reflect { get; set; }
+        public bool LightScreen { get; set; }
         public Weather Weather { get; set; }
         public Terrain Terrain { get; set; }
         public string ObservedDamageText { get; set; } = "";
@@ -248,7 +254,17 @@
     {
         s = PageStates.Get<State>("damage");
         await LoadDataSet();
+        // ポケモン一覧から開いたとき（?attacker=ID / ?defender=ID）は、そのポケモンを入れてから URL を戻す
+        if (AttackerQuery is > 0 || DefenderQuery is > 0)
+        {
+            if (AttackerQuery is > 0 and var a) OnAttackerChanged(a.ToString());
+            if (DefenderQuery is > 0 and var d) OnDefenderChanged(d.ToString());
+            Nav.NavigateTo("damage-calculator", replace: true);
+        }
     }
+
+    [SupplyParameterFromQuery(Name = "attacker")] public int? AttackerQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "defender")] public int? DefenderQuery { get; set; }
 
     protected override Task OnAppChangedAsync() => LoadDataSet();
 
@@ -302,13 +318,15 @@
         _ => "変化",
     };
 
-    private PokemonBuild NewBuild(Pokemon pokemon)
+    private PokemonBuild NewBuild(Pokemon pokemon, bool isAttacker)
     {
+        var side = isAttacker ? AbilityEffects.Side.Attacker : AbilityEffects.Side.Defender;
         var build = new PokemonBuild(pokemon, dataSet?.EvSystem ?? EvSystem.Classic)
         {
             Nature = usage?.TopNature(pokemon.Id) ?? NeutralNature(),
             Item = usage?.TopItem(pokemon.Id),
-            Ability = usage?.TopAbility(pokemon) ?? data?.AbilitiesOf(pokemon).FirstOrDefault(),
+            // 天候・フィールドを作る特性やダメージが上がる特性を優先（場の状態と技の並び順に反映される）
+            Ability = usage?.DefaultAbility(pokemon, side) ?? (data is null ? null : AbilityEffects.ChooseDefault(data.AbilitiesOf(pokemon), null, side)),
         };
         ApplyFixedChoices(build);
         return build;
@@ -334,7 +352,8 @@
             attackerMoves = Array.Empty<Move>();
             return;
         }
-        s.Attacker = NewBuild(pokemon);
+        s.Attacker = NewBuild(pokemon, true);
+        ApplyFieldFromAbility(s.Attacker);
         RefreshAttackerLists();
         s.Move = DefaultMove(pokemon.Id);
         ApplyDefaultEvs(s.Attacker, s.Move, true);
@@ -356,7 +375,8 @@
             s.Defender = null;
             return;
         }
-        s.Defender = NewBuild(pokemon);
+        s.Defender = NewBuild(pokemon, false);
+        ApplyFieldFromAbility(s.Defender);
         RefreshDefenderLists();
         ApplyDefaultEvs(s.Defender, s.Move, false);
     }
@@ -369,6 +389,7 @@
         var build = RosterRepository.ToBuild(member.Entry, data, member.Item);
         if (build is null) return;
         ApplyFixedChoices(build);
+        ApplyFieldFromAbility(build);
         if (isAttacker)
         {
             s.Attacker = build;
@@ -398,14 +419,29 @@
             IsCritical = s.IsCritical,
             Weather = s.Weather,
             Terrain = s.Terrain,
-            Screen = s.Screen,
+            Reflect = s.Reflect,
+            LightScreen = s.LightScreen,
         };
         request.Defender.Item = null;
         var estimate = new EvEstimator(data.TypeChart).Run(request, observed, asPercent);
         s.EstimateText = EvEstimator.Format(estimate, s.Defender.Pokemon, s.Move, data.Info.EvSystem) + "（相手は持ち物なし想定）";
     }
 
-    private Nature? NeutralNature() => data?.FindNature("まじめ") ?? data?.Natures.FirstOrDefault(n => n.IsNeutral);
+    /// <summary>特性が場に出す天候・フィールドを、まだ選んでいなければ既定値にする（ひでり・サイコメイカーなど）。</summary>
+    private void ApplyFieldFromAbility(PokemonBuild build)
+    {
+        var id = build.Ability?.Identifier;
+        if (s.Weather == Weather.None && FaraPokemonAssistance.Core.Battle.FieldEffects.WeatherFromAbility(id) is { } w) s.Weather = w;
+        if (s.Terrain == Terrain.None && FaraPokemonAssistance.Core.Battle.FieldEffects.TerrainFromAbility(id) is { } t) s.Terrain = t;
+    }
+
+    private void SetAbility(PokemonBuild build, int abilityId)
+    {
+        build.Ability = data?.FindAbility(abilityId);
+        ApplyFieldFromAbility(build);
+    }
+
+    private Nature? NeutralNature() => data is null ? null : NatureSelection.Neutral(data.Natures);
 
     /// <summary>技に合わせて、攻撃側は A か C、防御側は H に全振り。既に振ってある側はそのまま。</summary>
     private static void ApplyDefaultEvs(PokemonBuild build, Move? move, bool isAttacker)
@@ -428,23 +464,20 @@
         }
     }
 
-    /// <summary>このゲーム自身の使用率がある（他のゲームの使用率で代用していない）か。</summary>
-    private bool HasOwnUsage => usage is { IsEmpty: false } && usage.SourceKey == App.DataSetKey;
-
     private IReadOnlyList<Move> sortedMoves = Array.Empty<Move>();
     private string sortedMovesKey = "";
 
     /// <summary>
-    /// 技の候補。使用率が無いゲームでは、いまの攻撃側・防御側・天候・フィールドで与える最大ダメージの多い順に並べ直す。
+    /// 技の候補。いまの攻撃側・防御側・天候・フィールド・壁で与える最大ダメージの多い順（火力の高い順）。同じなら使用率順。
     /// 描画のたびに全部の技を計算しないよう、条件が変わったときだけ並べ直す。
     /// </summary>
     private IReadOnlyList<Move> MoveChoices
     {
         get
         {
-            if (HasOwnUsage || data is null || s.Attacker is null) return attackerMoves;
+            if (data is null || s.Attacker is null) return attackerMoves;
             var defender = s.Defender ?? FaraPokemonAssistance.Core.Battle.DamageCalculator.NeutralDefender(s.Attacker.EvSystem);
-            var key = string.Join(";", BuildKey(s.Attacker), BuildKey(defender), s.Weather, s.Terrain, App.Format, s.IsCritical, s.Screen,
+            var key = string.Join(";", BuildKey(s.Attacker), BuildKey(defender), s.Weather, s.Terrain, App.Format, s.IsCritical, s.Reflect, s.LightScreen,
                 attackerMoves.Count, attackerMoves.FirstOrDefault()?.Id);
             if (key != sortedMovesKey)
             {
@@ -452,7 +485,7 @@
                 sortedMoves = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart).SortByDamage(new DamageRequest
                 {
                     Attacker = s.Attacker, Move = attackerMoves.FirstOrDefault() ?? new Move(), Defender = defender,
-                    Format = App.Format, IsCritical = s.IsCritical, Weather = s.Weather, Terrain = s.Terrain, Screen = s.Screen,
+                    Format = App.Format, IsCritical = s.IsCritical, Weather = s.Weather, Terrain = s.Terrain, Reflect = s.Reflect, LightScreen = s.LightScreen,
                 }, attackerMoves);
             }
             return sortedMoves;
@@ -465,7 +498,7 @@
         var stats = StatCalculator.CalculateAll(b);
         return string.Join(",", b.Pokemon.Id, b.Level, stats.HP, stats.Attack, stats.Defense, stats.SpAttack, stats.SpDefense, stats.Speed,
             b.Boosts.Attack, b.Boosts.Defense, b.Boosts.SpAttack, b.Boosts.SpDefense, b.Ability?.Identifier, b.Item?.Id,
-            b.TeraType, b.Status, b.IsDynamax, b.HpPercent);
+            b.TeraType, b.Status, b.IsDynamax, b.CurrentHp);
     }
 
     // 既定の技は使用率 1 位（代用した使用率でもよい）。努力値の既定もこの技に合わせるので、並び順の先頭とは限らない
@@ -518,124 +551,130 @@
         var boostStats = BoostStats(isAttacker);
         var side = isAttacker ? "atk" : "def";
         <div class="form-group mb-3">
-            <label>性格 <Help Title="性格">上がる能力は 1.1 倍、下がる能力は 0.9 倍。実数値の赤が上昇、青が下降です。</Help></label>
-            <SearchableSelect TItem="Nature"
-                Items="data.Natures"
-                DisplayText="@(n => n.Describe())"
-                ValueSelector="@(n => n.Name)"
-                SelectedValue="@(build.Nature?.Name ?? "")"
-                SelectedValueChanged="@(v => build.Nature = data.FindNature(v))"
-                Placeholder="性格を入力..." />
+            <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります（片方だけ押したときは、もう片方を技の分類に合わせて補います）。名前で探すこともできます。上がる能力は 1.1 倍、下がる能力は 0.9 倍。実数値の赤が上昇、青が下降です。</Help></label>
+            <NaturePicker Natures="data.Natures" Value="build.Nature" ValueChanged="@(n => build.Nature = n)"
+                Physical="@(s.Move is null || s.Move.AttackStatUsed == Stat.Attack)" />
         </div>
-        <div class="form-group mb-3">
-            <label>持ち物 <Help Title="持ち物">@(isAttacker ? "攻撃側はダメージに関係する持ち物（こだわり系・いのちのたま・タイプ強化など）だけを表示します。" : "防御側は防御に関係する持ち物（とつげきチョッキ・しんかのきせきなど）だけを表示します。")メガシンカ後のポケモンはメガストーンで固定です。</Help></label>
-            @if (build.Pokemon.IsMega)
-            {
-                <input class="form-control" value="@(build.Item?.Name ?? "")" disabled />
-            }
-            else
-            {
-                <SearchableSelect TItem="Item"
-                    Items="items"
-                    DisplayText="@(i => i.Name)"
-                    ValueSelector="@(i => i.Id.ToString())"
-                    SelectedValue="@(build.Item?.Id.ToString() ?? "")"
-                    SelectedValueChanged="@(v => build.Item = data.FindItem(ParseId(v)))"
-                    Placeholder="持ち物なし" />
-            }
-        </div>
-        <div class="form-group mb-3">
-            <label>特性 <Help Title="特性">そのポケモンが持てる特性だけを表示します。特性が 1 つしかないポケモン（メガシンカ後など）は固定です。</Help></label>
-            @if (abilities.Count <= 1)
-            {
-                <input class="form-control" value="@(build.Ability?.Name ?? "")" disabled />
-            }
-            else
-            {
-                <select class="form-select" value="@(build.Ability?.Id.ToString() ?? "")" @onchange="@(e => build.Ability = data.FindAbility(ParseId(e.Value)))">
-                    @foreach (var a in abilities)
-                    {
-                        <option value="@a.Id">@a.Name</option>
-                    }
-                </select>
-            }
-        </div>
-        @if (dataSet!.HasTerastal)
-        {
+        @* PC では 2 列に並べて、ページをスクロールせずに見えるようにする *@
+        <div class="build-grid">
             <div class="form-group mb-3">
-                <label>テラスタル <Help Title="テラスタル">テラスタル後のタイプ。攻撃側はテラスタイプと同じ技が 1.5 倍（元のタイプとも一致なら 2 倍）、防御側は受けるタイプがテラスタイプだけになります。</Help></label>
-                <select class="form-select" value="@(build.TeraType ?? "")" @onchange="@(e => build.TeraType = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())">
-                    <option value="">なし</option>
-                    @foreach (var t in TypeNames.All)
+                <label>持ち物 <Help Title="持ち物">@(isAttacker ? "攻撃側はダメージに関係する持ち物（こだわり系・いのちのたま・タイプ強化など）だけを表示します。" : "防御側は防御に関係する持ち物（とつげきチョッキ・しんかのきせきなど）だけを表示します。")メガシンカ後のポケモンはメガストーンで固定です。</Help></label>
+                @if (build.Pokemon.IsMega)
+                {
+                    <FixedField Value="@build.Item?.Name" Reason="@FixedField.MegaReason" />
+                }
+                else
+                {
+                    <SearchableSelect TItem="Item"
+                        Items="items"
+                        DisplayText="@(i => i.Name)"
+                        ValueSelector="@(i => i.Id.ToString())"
+                        SelectedValue="@(build.Item?.Id.ToString() ?? "")"
+                        SelectedValueChanged="@(v => build.Item = data.FindItem(ParseId(v)))"
+                        Dropdown="true"
+                        EmptyOption="持ち物なし"
+                        Placeholder="持ち物なし" />
+                }
+            </div>
+            <div class="form-group mb-3">
+                <label>特性 <Help Title="特性">そのポケモンが持てる特性だけを表示します。特性が 1 つしかないポケモン（メガシンカ後など）は固定です。</Help></label>
+                @if (abilities.Count <= 1)
+                {
+                    <FixedField Value="@build.Ability?.Name" Reason="@FixedField.SingleAbilityReason" />
+                }
+                else
+                {
+                    <select class="form-select" value="@(build.Ability?.Id.ToString() ?? "")" @onchange="@(e => SetAbility(build, ParseId(e.Value)))">
+                        @foreach (var a in abilities)
+                        {
+                            <option value="@a.Id">@a.Name</option>
+                        }
+                    </select>
+                }
+            </div>
+            @if (dataSet!.HasTerastal)
+            {
+                <div class="form-group mb-3">
+                    <label>テラスタル <Help Title="テラスタル">テラスタル後のタイプ。攻撃側はテラスタイプと同じ技が 1.5 倍（元のタイプとも一致なら 2 倍）、防御側は受けるタイプがテラスタイプだけになります。</Help></label>
+                    <select class="form-select" value="@(build.TeraType ?? "")" @onchange="@(e => build.TeraType = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())">
+                        <option value="">なし</option>
+                        @foreach (var t in TypeNames.All)
+                        {
+                            <option value="@t">@TypeNames.ToJapanese(t)</option>
+                        }
+                    </select>
+                </div>
+            }
+            @if (dataSet.HasDynamax)
+            {
+                <div class="form-check build-check">
+                    <input class="form-check-input" type="checkbox" id="dmax-@side" checked="@build.IsDynamax" @onchange="@(e => build.IsDynamax = e.Value is true)" />
+                    <label class="form-check-label" for="dmax-@side">ダイマックス <Help Title="ダイマックス">HP が 2 倍になり、技はダイマックス技の威力（威力 90〜150、かくとう・どくは 70〜100）になります。</Help></label>
+                </div>
+            }
+            @if (evStats.Count > 0)
+            {
+                <div class="form-group @(evStats.Count > 1 ? "build-wide" : "")">
+                    <label>@EvRules.Label(build.EvSystem) <Help Title="@EvRules.Label(build.EvSystem)">@(build.EvSystem == EvSystem.Points ? "チャンピオンズは 1 ポイントで実数値が 1 上がります（各 0〜32、合計 66）。" : "各 0〜252、合計 510。4 ごとに実数値が 1 上がります。")選んだ技に関係する能力だけを表示しています。ボタンで 0 と最大を入れられます（合計の上限を超えるときは、入る分だけ）。</Help></label>
+                    <div class="ev-grid">
+                        @foreach (var stat in evStats)
+                        {
+                            <div class="ev-cell">
+                                <span class="ev-label">@StatNames.Letter(stat)（@StatNames.Japanese(stat)）</span>
+                                <input type="number" class="form-control form-control-sm" min="0" max="@EvRules.MaxPerStat(build.EvSystem)" step="@EvRules.Step(build.EvSystem)"
+                                       value="@build.EVs[stat]" @onchange="@(e => build.EVs[stat] = ClampEv(e.Value, build.EvSystem))" />
+                                <div class="ev-buttons">
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[stat] = 0">0</button>
+                                    @* 合計の上限を超えるときは、入る分だけ振る *@
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[stat] = EvRules.MaxAllowed(build.EvSystem, build.EVs, stat)">@EvRules.MaxPerStat(build.EvSystem)</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            @if (boostStats.Count > 0)
+            {
+                <div class="form-group mb-2">
+                    <label>ランク補正 <Help Title="ランク補正">つるぎのまい等で変化した能力ランク（-6〜+6）。+1 で 1.5 倍、+2 で 2 倍、-1 で 2/3 倍です。</Help></label>
+                    <div class="ev-grid">
+                        @foreach (var stat in boostStats)
+                        {
+                            <div class="ev-cell">
+                                <span class="ev-label">@StatNames.Letter(stat)（@StatNames.Japanese(stat)）</span>
+                                <select class="form-select form-select-sm" value="@build.Boosts[stat]" @onchange="@(e => build.Boosts[stat] = ParseBoost(e.Value))">
+                                    @for (var b = 6; b >= -6; b--)
+                                    {
+                                        <option value="@b">@(b > 0 ? "+" + b : b.ToString())</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            <div class="form-group mb-2">
+                <label>状態異常 <Help Title="状態異常">やけどは物理技のダメージ 0.5 倍（こんじょう・からげんきは除く）。どく・もうどくは毎ターンの定数ダメージを確定数に含めます。まひは素早さ 0.5 倍です。</Help></label>
+                <select class="form-select form-select-sm" value="@build.Status" @onchange="@(e => build.Status = ParseEnum(e.Value, StatusCondition.None))">
+                    @foreach (var st in Enum.GetValues<StatusCondition>())
                     {
-                        <option value="@t">@TypeNames.ToJapanese(t)</option>
+                        <option value="@st">@StatusNames.Japanese(st)</option>
                     }
                 </select>
             </div>
-        }
-        @if (dataSet.HasDynamax)
-        {
-            <div class="form-check mb-3">
-                <input class="form-check-input" type="checkbox" id="dmax-@side" checked="@build.IsDynamax" @onchange="@(e => build.IsDynamax = e.Value is true)" />
-                <label class="form-check-label" for="dmax-@side">ダイマックス <Help Title="ダイマックス">HP が 2 倍になり、技はダイマックス技の威力（威力 90〜150、かくとう・どくは 70〜100）になります。</Help></label>
-            </div>
-        }
-        @if (evStats.Count > 0)
-        {
-            <div class="form-group mb-2">
-                <label>@EvRules.Label(build.EvSystem) <Help Title="@EvRules.Label(build.EvSystem)">@(build.EvSystem == EvSystem.Points ? "チャンピオンズは 1 ポイントで実数値が 1 上がります（各 0〜32、合計 66）。" : "各 0〜252、合計 510。4 ごとに実数値が 1 上がります。")選んだ技に関係する能力だけを表示しています。ボタンで 0 と最大を入れられます。</Help></label>
-                <div class="ev-grid">
-                    @foreach (var stat in evStats)
-                    {
-                        <div class="ev-cell">
-                            <span class="ev-label">@StatNames.Letter(stat)（@StatNames.Japanese(stat)）</span>
-                            <input type="number" class="form-control form-control-sm" min="0" max="@EvRules.MaxPerStat(build.EvSystem)" step="@EvRules.Step(build.EvSystem)"
-                                   value="@build.EVs[stat]" @onchange="@(e => build.EVs[stat] = ClampEv(e.Value, build.EvSystem))" />
-                            <div class="ev-buttons">
-                                <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[stat] = 0">0</button>
-                                <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[stat] = EvRules.MaxPerStat(build.EvSystem)">@EvRules.MaxPerStat(build.EvSystem)</button>
-                            </div>
-                        </div>
-                    }
+            <div class="form-group build-wide">
+                <label>残り HP <Help Title="残り HP">@(isAttacker ? "もうか・しんりょく・げきりゅう・むしのしらせは HP が 1/3 以下で対応タイプの技が 1.5 倍になります。" : "確定数を今の HP から数えます。マルチスケイル・ファントムガードは HP 満タンのときだけ効きます。")スライダーと % は割合、右の欄は実数値（例: 133 / 135）で指定できます。どちらを変えても、もう一方に反映されます。</Help></label>
+                <div class="hp-editor">
+                    <input type="range" class="form-range" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @oninput="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
+                    <div class="input-group input-group-sm hp-input">
+                        <input type="number" class="form-control" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
+                        <span class="input-group-text">%</span>
+                    </div>
+                    <div class="input-group input-group-sm hp-input">
+                        <input type="number" class="form-control" min="1" max="@build.MaxHp" value="@build.CurrentHp" aria-label="残り HP（実数値）" @onchange="@(e => build.CurrentHp = Math.Clamp(ParseId(e.Value), 1, build.MaxHp))" />
+                        <span class="input-group-text">/ @build.MaxHp</span>
+                    </div>
                 </div>
-                <div class="small @(build.EVs.Total > EvRules.MaxTotal(build.EvSystem) ? "text-danger" : "text-muted")">合計 @build.EVs.Total / @EvRules.MaxTotal(build.EvSystem)</div>
-            </div>
-        }
-        @if (boostStats.Count > 0)
-        {
-            <div class="form-group mb-2">
-                <label>ランク補正 <Help Title="ランク補正">つるぎのまい等で変化した能力ランク（-6〜+6）。+1 で 1.5 倍、+2 で 2 倍、-1 で 2/3 倍です。</Help></label>
-                <div class="ev-grid">
-                    @foreach (var stat in boostStats)
-                    {
-                        <div class="ev-cell">
-                            <span class="ev-label">@StatNames.Letter(stat)（@StatNames.Japanese(stat)）</span>
-                            <select class="form-select form-select-sm" value="@build.Boosts[stat]" @onchange="@(e => build.Boosts[stat] = ParseBoost(e.Value))">
-                                @for (var b = 6; b >= -6; b--)
-                                {
-                                    <option value="@b">@(b > 0 ? "+" + b : b.ToString())</option>
-                                }
-                            </select>
-                        </div>
-                    }
-                </div>
-            </div>
-        }
-        <div class="form-group mb-2">
-            <label>状態異常 <Help Title="状態異常">やけどは物理技のダメージ 0.5 倍（こんじょう・からげんきは除く）。どく・もうどくは毎ターンの定数ダメージを確定数に含めます。まひは素早さ 0.5 倍です。</Help></label>
-            <select class="form-select form-select-sm" value="@build.Status" @onchange="@(e => build.Status = ParseEnum(e.Value, StatusCondition.None))">
-                @foreach (var st in Enum.GetValues<StatusCondition>())
-                {
-                    <option value="@st">@StatusNames.Japanese(st)</option>
-                }
-            </select>
-        </div>
-        <div class="form-group mb-2">
-            <label>残り HP（%） <Help Title="残り HP">@(isAttacker ? "もうか・しんりょく・げきりゅう・むしのしらせは HP が 1/3 以下で対応タイプの技が 1.5 倍になります。" : "確定数を今の HP から数えます。マルチスケイル・ファントムガードは HP 満タンのときだけ効きます。")100 で満タンです。</Help></label>
-            <div class="d-flex align-items-center gap-2">
-                <input type="range" class="form-range" min="1" max="100" value="@build.HpPercent" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
-                <input type="number" class="form-control form-control-sm" style="width: 5rem;" min="1" max="100" value="@build.HpPercent" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
-                <span class="small text-muted text-nowrap">@build.CurrentHp / @build.MaxHp</span>
             </div>
         </div>
         <div class="stats-summary">
@@ -647,6 +686,38 @@
                 }
             </div>
         </div>
+    };
+
+    /// <summary>計算結果の中身（結果カードと、狭い画面の下のバーで使う）。</summary>
+    private RenderFragment RenderResultBody(DamageResult result, DamageRequest lastRequest) => __builder =>
+    {
+        @* 入力欄に画像が出ているので、ここは 1 行の文字だけにする *@
+        <p class="result-matchup mb-1">
+            <strong>@lastRequest.Attacker.Pokemon.Name</strong>
+            <span class="mx-1"><TypeIcon Type="@result.MoveType" Small="true" /> @lastRequest.Move.Name →</span>
+            <strong>@lastRequest.Defender.Pokemon.Name</strong>
+        </p>
+        <p class="result-main mb-2">
+            <strong>@result.RangeText</strong>
+            <span class="ms-2 badge @(result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@result.KnockOut</span>
+            @if (result.TypeEffectiveness != 1.0)
+            {
+                <span class="ms-2 badge bg-secondary">@result.EffectivenessText</span>
+            }
+        </p>
+        <p class="mb-1"><strong>防御側 HP:</strong> @result.DefenderHP　<strong>攻撃実数値:</strong> @result.AttackStat　<strong>防御実数値:</strong> @result.DefenseStat　<strong>威力:</strong> @result.BasePower（@TypeNames.ToJapanese(result.MoveType)）</p>
+        @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
+        {
+            <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data!.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>
+        }
+        <p class="mb-1"><strong>乱数:</strong> <span class="font-monospace">@string.Join(" ", result.Rolls)</span></p>
+        @if (result.Modifiers.Count > 0)
+        {
+            <p class="mb-1"><strong>補正:</strong> @string.Join("、", result.Modifiers)</p>
+        }
+        <hr />
+        <p class="mb-1 text-muted small">チャットでの表示</p>
+        <div class="alert alert-light border chat-output mb-0">@DamageCommand.Format(lastRequest, result, data!.Info)</div>
     };
 
     private static string StatColor(PokemonBuild build, Stat stat) =>
@@ -661,15 +732,36 @@
     private static int ParseBoost(object? value) =>
         Math.Clamp(int.TryParse(value?.ToString(), out var v) ? v : 0, -6, 6);
 
+    private string resultKey = "";
+    private bool resultBarOpen;
+
+    /// <summary>
+    /// 攻撃側・防御側・技がそろっていれば、結果を出す。描画のたびに呼ぶが、計算に関わる入力
+    /// （構成の実数値・ランク・特性・持ち物・状態・残り HP・テラスタル・ダイマックス、技、場の状態、形式）が変わったときだけ計算し直す。
+    /// </summary>
+    private void UpdateResult()
+    {
+        if (data is null || s.Attacker is null || s.Defender is null || s.Move is null)
+        {
+            resultKey = "";
+            errorMessage = "";
+            s.Result = null;
+            s.LastRequest = null;
+            return;
+        }
+        var key = string.Join(";", App.DataSetKey, BuildKey(s.Attacker), BuildKey(s.Defender), s.Move.Id,
+            s.Weather, s.Terrain, App.Format, s.IsCritical, s.Reflect, s.LightScreen);
+        if (key == resultKey) return;
+        resultKey = key;
+        Calculate();
+    }
+
     private void Calculate()
     {
         errorMessage = "";
         s.Result = null;
-        if (data is null || s.Attacker is null || s.Defender is null || s.Move is null)
-        {
-            errorMessage = "ポケモンと技を選択してください。";
-            return;
-        }
+        s.LastRequest = null;
+        if (data is null || s.Attacker is null || s.Defender is null || s.Move is null) return;
         if (!s.Move.IsDamaging)
         {
             errorMessage = s.Move.IsFixedDamage
@@ -688,7 +780,8 @@
                 IsCritical = s.IsCritical,
                 Weather = s.Weather,
                 Terrain = s.Terrain,
-                Screen = s.Screen,
+                Reflect = s.Reflect,
+                LightScreen = s.LightScreen,
             };
             s.Result = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart).Calculate(s.LastRequest);
         }

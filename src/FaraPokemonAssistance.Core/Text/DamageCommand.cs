@@ -52,7 +52,7 @@ public sealed class DamageCommandResult
 /// <item>特性名（ちからもち 等）… そのポケモンが持てる側に付く。両方持てるなら防御的な特性は防御側</item>
 /// <item><c>テラス</c>（技タイプにテラスタル）、<c>テラスほのお</c> / <c>ほのおテラス</c>、<c>防:テラスみず</c></item>
 /// <item><c>ダイマ</c>（攻撃側をダイマックス）、<c>防:ダイマ</c>（防御側: HP 2 倍）</item>
-/// <item><c>壁</c>（リフレクター / ひかりのかべ / オーロラベール）、<c>HP50%</c>（防御側の残り HP）、<c>攻:HP30%</c>（攻撃側の残り HP。もうか等）</item>
+/// <item><c>壁</c>（オーロラベール。物理・特殊とも半減）、<c>リフレクター</c>（物理のみ）、<c>ひかりのかべ</c>（特殊のみ）、<c>HP50%</c>（防御側の残り HP）、<c>攻:HP30%</c>（攻撃側の残り HP。もうか等）</item>
 /// <item>天候: <c>晴れ</c> <c>雨</c> <c>砂</c> <c>雪</c>、フィールド: <c>エレキ</c> <c>グラス</c> <c>サイコ</c> <c>ミスト</c></item>
 /// <item>状態異常: <c>やけど</c> <c>まひ</c>（既定は攻撃側）、<c>どく</c> <c>もうどく</c>（既定は防御側。確定数に定数ダメージを織り込む）</item>
 /// </list>
@@ -160,6 +160,8 @@ public sealed class DamageCommand
         var weather = Weather.None;
         var terrain = Terrain.None;
         var screen = false;
+        var reflect = false;
+        var lightScreen = false;
         var attackerTeraToMoveType = false;
         var warnings = new List<string>();
 
@@ -189,7 +191,17 @@ public sealed class DamageCommand
                 isCritical = true;
                 continue;
             }
-            if (normalized is "壁" or "かべ" or "りふれくたー" or "ひかりのかべ" or "光の壁" or "おーろらべーる" or "screen" or "reflect" or "lightscreen")
+            if (normalized is "りふれくたー" or "reflect")
+            {
+                reflect = true;
+                continue;
+            }
+            if (normalized is "ひかりのかべ" or "光の壁" or "lightscreen")
+            {
+                lightScreen = true;
+                continue;
+            }
+            if (normalized is "壁" or "かべ" or "おーろらべーる" or "screen")
             {
                 screen = true;
                 continue;
@@ -347,9 +359,9 @@ public sealed class DamageCommand
         if (!defenderItemSet && usage is not null)
             defender.Item = usage.TopItem(defender.Pokemon.Id);
         if (!attackerAbilitySet)
-            attacker.Ability = usage?.TopAbility(attacker.Pokemon) ?? data.AbilitiesOf(attacker.Pokemon).FirstOrDefault();
+            attacker.Ability = usage?.DefaultAbility(attacker.Pokemon) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(attacker.Pokemon), null);
         if (!defenderAbilitySet)
-            defender.Ability = usage?.TopAbility(defender.Pokemon) ?? data.AbilitiesOf(defender.Pokemon).FirstOrDefault();
+            defender.Ability = usage?.DefaultAbility(defender.Pokemon, AbilityEffects.Side.Defender) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(defender.Pokemon), null, AbilityEffects.Side.Defender);
         if (attackerTeraToMoveType)
             attacker.TeraType = AbilityEffects.SkinType(attacker.Ability?.Identifier ?? "") is { } skin && move.Type == "Normal" ? skin : move.Type;
 
@@ -371,6 +383,8 @@ public sealed class DamageCommand
             Weather = weather,
             Terrain = terrain,
             Screen = screen,
+            Reflect = reflect,
+            LightScreen = lightScreen,
         };
         var result = new DamageCalculator(data.TypeChart).Calculate(request);
 
@@ -391,6 +405,11 @@ public sealed class DamageCommand
         if (request.Weather != Weather.None) tags.Add(FieldNames.Japanese(request.Weather));
         if (request.Terrain != Terrain.None) tags.Add(FieldNames.Japanese(request.Terrain));
         if (request.Screen) tags.Add("壁");
+        else
+        {
+            if (request.Reflect) tags.Add("リフレクター");
+            if (request.LightScreen) tags.Add("ひかりのかべ");
+        }
         if (request.Format == BattleFormat.Doubles) tags.Add("ダブル");
         var tagText = tags.Count > 0 ? $" [{string.Join(" ", tags)}]" : "";
         var warnText = warnings is { Count: > 0 } ? $" ※{string.Join("、", warnings)}" : "";

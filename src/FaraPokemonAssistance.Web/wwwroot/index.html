@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ポケモン対戦アシスタント</title>
     <base href="/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" />
     <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
     <link href="FaraPokemonAssistance.Web.styles.css" rel="stylesheet" />
@@ -29,6 +32,15 @@
         <a href="" class="reload">再読み込み</a>
         <a class="dismiss">🗙</a>
     </div>
+    <script>
+        // 検索付きセレクトで、選択中の候補が見えるところまでスクロールする
+        window.faraScrollIntoView = function (id) { var el = document.getElementById(id); if (el) el.scrollIntoView({ block: "nearest" }); };
+        // 検索付きセレクトの ↑↓・Enter で、ページのスクロールなどを起こさない。
+        // Blazor の @onkeydown:preventDefault は前回の描画時の値で決まり、次のキーに効いてしまうので、ここで止める
+        document.addEventListener("keydown", function (e) {
+            if ((e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") && e.target.closest && e.target.closest(".searchable-select")) e.preventDefault();
+        }, true);
+    </script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 </html>

@@ -20,16 +20,81 @@ public sealed class PokemonBuild
     public StatSet Boosts { get; set; } = new();
     /// <summary>状態異常。</summary>
     public StatusCondition Status { get; set; } = StatusCondition.None;
-    /// <summary>ダイマックス中（剣盾）。HP 2 倍、技はダイマックス技の威力になる。</summary>
-    public bool IsDynamax { get; set; }
-    /// <summary>残り HP の割合（1〜100）。もうか等のピンチ特性、マルチスケイル、確定数の開始 HP に使う。</summary>
-    public int HpPercent { get; set; } = 100;
+    /// <summary>
+    /// ダイマックス中（剣盾）。HP 2 倍、技はダイマックス技の威力になる。
+    /// 残り HP を実数値で指定しているときは、ゲームと同じく今の HP も 2 倍（戻すときは半分・切り上げ）にする。
+    /// </summary>
+    public bool IsDynamax
+    {
+        get => isDynamax;
+        set
+        {
+            if (value == isDynamax) return;
+            if (exactHp is { } hp) exactHp = value ? hp * 2 : (hp + 1) / 2;
+            isDynamax = value;
+        }
+    }
+    private bool isDynamax;
+    private int hpPercent = 100;
+    private int? exactHp;
+
+    /// <summary>
+    /// 残り HP の割合（1〜100）。もうか等のピンチ特性、マルチスケイル、確定数の開始 HP に使う。
+    /// 実数値（<see cref="CurrentHp"/>）で指定したときは、その値から求めた割合（満タン以外は 99 以下）を返す。
+    /// 設定すると実数値の指定は消える。
+    /// </summary>
+    public int HpPercent
+    {
+        get
+        {
+            if (exactHp is null) return hpPercent;
+            var max = MaxHp;
+            var current = Math.Clamp(exactHp.Value, 1, max);
+            if (current >= max) return 100;
+            return Math.Clamp((int)Math.Round(current * 100.0 / max, MidpointRounding.AwayFromZero), 1, 99);
+        }
+        set
+        {
+            hpPercent = Math.Clamp(value, 1, 100);
+            exactHp = null;
+        }
+    }
 
     /// <summary>最大 HP（ダイマックス中は 2 倍）。</summary>
     public int MaxHp => StatCalculator.Calculate(this, Stat.HP) * (IsDynamax ? 2 : 1);
 
-    /// <summary>今の HP（<see cref="HpPercent"/> から求める。最低 1）。</summary>
-    public int CurrentHp => HpPercent >= 100 ? MaxHp : Math.Max(1, MaxHp * Math.Clamp(HpPercent, 1, 100) / 100);
+    /// <summary>
+    /// 今の HP（最低 1）。割合で指定したときはそこから求め、実数値で指定したときはその値（最大 HP を超えない）。
+    /// 設定すると 1〜最大 HP のどの値でも指定できる（割合では表せない 134/135 なども）。
+    /// </summary>
+    public int CurrentHp
+    {
+        get
+        {
+            var max = MaxHp;
+            if (exactHp is { } hp) return Math.Clamp(hp, 1, Math.Max(1, max));
+            return hpPercent >= 100 ? max : Math.Max(1, max * Math.Clamp(hpPercent, 1, 100) / 100);
+        }
+        set
+        {
+            var max = MaxHp;
+            if (value >= max)
+            {
+                hpPercent = 100;
+                exactHp = null;
+            }
+            else
+            {
+                exactHp = Math.Max(1, value);
+            }
+        }
+    }
+
+    /// <summary>HP が満タンか（マルチスケイルなど）。</summary>
+    public bool IsFullHp => CurrentHp >= MaxHp;
+
+    /// <summary>残り HP を実数値で指定しているか。</summary>
+    public bool HasExactHp => exactHp is not null;
 
     public PokemonBuild(Pokemon pokemon)
     {
@@ -52,6 +117,8 @@ public sealed class PokemonBuild
 
     public PokemonBuild Clone() => new(Pokemon, EvSystem)
     {
+        hpPercent = hpPercent,
+        exactHp = exactHp,
         Level = Level,
         IVs = IVs.Clone(),
         EVs = EVs.Clone(),
@@ -61,8 +128,7 @@ public sealed class PokemonBuild
         TeraType = TeraType,
         Boosts = Boosts.Clone(),
         Status = Status,
-        IsDynamax = IsDynamax,
-        HpPercent = HpPercent,
+        isDynamax = isDynamax,
     };
 
     /// <summary>チャット向けの短い説明（例: <c>C252 ひかえめ こだわりメガネ サイコメイカー</c>）。</summary>
@@ -75,7 +141,8 @@ public sealed class PokemonBuild
         if (IsTerastallized) parts.Add($"テラス{TypeNames.ToJapanese(TeraType!)}");
         if (Status != StatusCondition.None) parts.Add(StatusNames.Japanese(Status));
         if (IsDynamax) parts.Add("ダイマックス");
-        if (HpPercent < 100) parts.Add($"HP{HpPercent}%");
+        if (HasExactHp && !IsFullHp) parts.Add($"HP{CurrentHp}/{MaxHp}");
+        else if (HpPercent < 100) parts.Add($"HP{HpPercent}%");
         var boosts = new List<string>();
         foreach (var stat in new[] { Stat.Attack, Stat.Defense, Stat.SpAttack, Stat.SpDefense, Stat.Speed })
         {
@@ -97,8 +164,30 @@ public sealed class DamageRequest
     public bool IsCritical { get; init; }
     public Weather Weather { get; init; } = Weather.None;
     public Terrain Terrain { get; init; } = Terrain.None;
-    /// <summary>防御側の場に壁がある（物理ならリフレクター、特殊ならひかりのかべ、またはオーロラベール）。</summary>
+    /// <summary>防御側の場にオーロラベールがある（物理・特殊の両方に効く）。チャットの「壁」もこれ。</summary>
     public bool Screen { get; init; }
+    /// <summary>防御側の場にリフレクターがある（物理技を半減）。</summary>
+    public bool Reflect { get; init; }
+    /// <summary>防御側の場にひかりのかべがある（特殊技を半減）。</summary>
+    public bool LightScreen { get; init; }
+
+    /// <summary>その分類の技に壁が効くか。</summary>
+    public bool HasScreenFor(bool physical) => Screen || (physical ? Reflect : LightScreen);
+
+    /// <summary>技や防御側だけ差し替えた複製（場の条件はそのまま）。</summary>
+    public DamageRequest With(Move? move = null, PokemonBuild? defender = null, PokemonBuild? attacker = null) => new()
+    {
+        Attacker = attacker ?? Attacker,
+        Move = move ?? Move,
+        Defender = defender ?? Defender,
+        Format = Format,
+        IsCritical = IsCritical,
+        Weather = Weather,
+        Terrain = Terrain,
+        Screen = Screen,
+        Reflect = Reflect,
+        LightScreen = LightScreen,
+    };
 }
 
 /// <summary>確定数。<see cref="Hits"/> 発で倒せる確率が <see cref="Probability"/>。</summary>

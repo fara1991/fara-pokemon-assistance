@@ -104,6 +104,17 @@ public static class EvRules
 
     /// <summary>「最大まで振る」値（従来 252 / ポイント 32）。</summary>
     public static int Full(EvSystem system) => MaxPerStat(system);
+
+    /// <summary>
+    /// <paramref name="stat"/> に振れる最大の値（ほかの能力に振った分を引いた残りと 1 能力の上限の小さい方。従来は 4 刻みに切り捨て）。
+    /// 例: ポイントで合計 64 振ってある（その能力は 0）なら 2、従来で 252・252 振ってあるなら 4。
+    /// </summary>
+    public static int MaxAllowed(EvSystem system, StatSet evs, Stat stat)
+    {
+        var room = Math.Max(0, MaxTotal(system) - (evs.Total - evs[stat]));
+        var value = Math.Min(MaxPerStat(system), room);
+        return value - value % Step(system);
+    }
 }
 
 public enum Weather

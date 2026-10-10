@@ -5,7 +5,7 @@ using FaraPokemonAssistance.Core.Text;
 
 // 使い方:
 //   dotnet run --project src/FaraPokemonAssistance.Cli -- イエッサン♂ ワイドフォース メガリザードンX champions
-//   dotnet run --project src/FaraPokemonAssistance.Cli -- --data https://pokemon.app-fara.com/data/ ガブリアス じしん ハバタクカミ
+//   dotnet run --project src/FaraPokemonAssistance.Cli -- --data https://pokemon.fara-labs.com/data/ ガブリアス じしん ハバタクカミ
 // 引数が無ければ対話モード。
 
 var dataArg = Environment.GetEnvironmentVariable("FPA_DATA");

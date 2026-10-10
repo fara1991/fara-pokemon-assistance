@@ -40,7 +40,7 @@
                         }
                     </div>
                     <div class="form-group mb-2">
-                        <label>@EvRules.Label(dataSet.EvSystem)（各 0〜@EvRules.MaxPerStat(dataSet.EvSystem)、合計 @EvRules.MaxTotal(dataSet.EvSystem)） <Help Title="@EvRules.Label(dataSet.EvSystem)">@(dataSet.EvSystem == EvSystem.Points ? "チャンピオンズは 1 ポイントで実数値が 1 上がります。各 0〜32、合計 66 まで。" : "各 0〜252、合計 510 まで。4 刻みで実数値が 1 上がります。") ボタンで 0 と最大を入れられます。</Help></label>
+                        <label>@EvRules.Label(dataSet.EvSystem)（各 0〜@EvRules.MaxPerStat(dataSet.EvSystem)、合計 @EvRules.MaxTotal(dataSet.EvSystem)） <Help Title="@EvRules.Label(dataSet.EvSystem)">@(dataSet.EvSystem == EvSystem.Points ? "チャンピオンズは 1 ポイントで実数値が 1 上がります。各 0〜32、合計 66 まで。" : "各 0〜252、合計 510 まで。4 刻みで実数値が 1 上がります。") ボタンで 0 と最大を入れられます（合計の上限を超えるときは、入る分だけ）。</Help></label>
                         <div class="ev-grid">
                             @foreach (var stat in Enum.GetValues<Stat>())
                             {
@@ -50,7 +50,8 @@
                                            value="@s.NewEvs[stat]" @onchange="@(e => s.NewEvs[stat] = Clamp(e.Value, EvRules.MaxPerStat(dataSet.EvSystem)))" />
                                     <div class="ev-buttons">
                                         <button type="button" class="btn btn-outline-secondary" @onclick="() => s.NewEvs[stat] = 0">0</button>
-                                        <button type="button" class="btn btn-outline-secondary" @onclick="() => s.NewEvs[stat] = EvRules.MaxPerStat(dataSet.EvSystem)">@EvRules.MaxPerStat(dataSet.EvSystem)</button>
+                                        @* 合計の上限を超えるときは、入る分だけ振る *@
+                                        <button type="button" class="btn btn-outline-secondary" @onclick="() => s.NewEvs[stat] = EvRules.MaxAllowed(dataSet.EvSystem, s.NewEvs, stat)">@EvRules.MaxPerStat(dataSet.EvSystem)</button>
                                     </div>
                                 </div>
                             }
@@ -58,26 +59,28 @@
                         <div class="small @(s.NewEvs.Total > EvRules.MaxTotal(dataSet.EvSystem) ? "text-danger" : "text-muted")">合計 @s.NewEvs.Total / @EvRules.MaxTotal(dataSet.EvSystem)</div>
                     </div>
                     <div class="form-group mb-2">
-                        <label>性格</label>
-                        <SearchableSelect TItem="Nature"
-                            Items="data.Natures"
-                            DisplayText="@(n => n.Describe())"
-                            ValueSelector="@(n => n.Name)"
-                            SelectedValue="@(s.NewNature?.Name ?? "")"
-                            SelectedValueChanged="@(v => s.NewNature = data.FindNature(v))"
-                            Placeholder="性格を入力..." />
+                        <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります（片方だけ押したときは、もう片方を攻撃・特攻の振り方に合わせて補います）。名前で探すこともできます。</Help></label>
+                        <NaturePicker Natures="data.Natures" Value="s.NewNature" ValueChanged="@(n => s.NewNature = n)"
+                            Physical="@(s.NewEvs.Attack >= s.NewEvs.SpAttack)" />
                     </div>
                     <div class="form-group mb-3">
                         <label>特性</label>
-                        <select class="form-select" value="@(s.NewAbility?.Id.ToString() ?? "")" disabled="@(s.NewPokemon is null || data.AbilitiesOf(s.NewPokemon).Count <= 1)" @onchange="@(e => s.NewAbility = data.FindAbility(ParseId(e.Value)))">
-                            @if (s.NewPokemon is not null)
-                            {
-                                @foreach (var a in data.AbilitiesOf(s.NewPokemon))
+                        @if (s.NewPokemon is not null && data.AbilitiesOf(s.NewPokemon).Count == 1)
+                        {
+                            <FixedField Value="@s.NewAbility?.Name" Reason="@FixedField.SingleAbilityReason" />
+                        }
+                        else
+                        {
+                            <select class="form-select" value="@(s.NewAbility?.Id.ToString() ?? "")" disabled="@(s.NewPokemon is null)" @onchange="@(e => s.NewAbility = data.FindAbility(ParseId(e.Value)))">
+                                @if (s.NewPokemon is not null)
                                 {
-                                    <option value="@a.Id">@a.Name</option>
+                                    @foreach (var a in data.AbilitiesOf(s.NewPokemon))
+                                    {
+                                        <option value="@a.Id">@a.Name</option>
+                                    }
                                 }
-                            }
-                        </select>
+                            </select>
+                        }
                     </div>
                     @if (s.NewPokemon is not null)
                     {
@@ -141,7 +144,7 @@
                             <label class="form-label">持ち物</label>
                             @if (TeamEntryIsMega)
                             {
-                                <input class="form-control" value="@(s.TeamItem?.Name ?? "")" disabled />
+                                <FixedField Value="@s.TeamItem?.Name" Reason="@FixedField.MegaReason" />
                             }
                             else
                             {
@@ -151,7 +154,9 @@
                                     ValueSelector="@(i => i.Id.ToString())"
                                     SelectedValue="@(s.TeamItem?.Id.ToString() ?? "")"
                                     SelectedValueChanged="@(v => s.TeamItem = data.FindItem(ParseId(v)))"
-                                    Placeholder="持ち物を入力（任意）..." />
+                                    Dropdown="true"
+                                    EmptyOption="持ち物なし"
+                                    Placeholder="持ち物なし（入力して検索）" />
                             }
                         </div>
                     </div>
@@ -263,7 +268,7 @@
     private void OnNewPokemonChanged(string value)
     {
         s.NewPokemon = data?.FindPokemon(ParseId(value));
-        s.NewAbility = s.NewPokemon is null ? null : data?.AbilitiesOf(s.NewPokemon).FirstOrDefault();
+        s.NewAbility = s.NewPokemon is null || data is null ? null : AbilityEffects.ChooseDefault(data.AbilitiesOf(s.NewPokemon), null);
     }
 
     private void OnTeamEntryChanged(ChangeEventArgs e)

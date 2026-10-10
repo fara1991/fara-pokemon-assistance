@@ -315,6 +315,13 @@ public sealed class UsageData
         return top ?? _dataSet.AbilitiesOf(pokemon).FirstOrDefault();
     }
 
+    /// <summary>
+    /// 計算機などで既定にする特性。天候・フィールドを作る特性や、<paramref name="side"/> で効く特性
+    /// （攻撃側はダメージが上がる特性、防御側は受けで効く特性）を、使用率 1 位より優先する。
+    /// </summary>
+    public Ability? DefaultAbility(Pokemon pokemon, Battle.AbilityEffects.Side side = Battle.AbilityEffects.Side.Attacker) =>
+        Battle.AbilityEffects.ChooseDefault(_dataSet.AbilitiesOf(pokemon), TopAbility(pokemon), side);
+
     public Move? TopMove(int pokemonId) =>
         MoveOrder(pokemonId).Select(_dataSet.FindMove).FirstOrDefault(m => m is not null && m.IsDamaging && _dataSet.CanLearn(pokemonId, m.Id));
 

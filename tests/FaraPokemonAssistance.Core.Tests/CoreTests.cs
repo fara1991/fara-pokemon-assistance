@@ -490,6 +490,39 @@ public class PokeCommandTests
     }
 
     [Fact]
+    public async Task Items_are_chosen_per_team_not_at_registration()
+    {
+        var cmd = NewCommand(out _);
+        // 登録では持ち物を指定しない（チームに入れるときに指定する）
+        var withItem = await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき さめはだ @こだわりスカーフ");
+        Assert.False(withItem.Success);
+        Assert.Contains("add team", withItem.Message);
+        Assert.True((await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき さめはだ")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech add team 1 1")).Success);
+        Assert.DoesNotContain("@", (await cmd.ExecuteAsync("!pokech more team 1")).Message);
+        Assert.True((await cmd.ExecuteAsync("!pokech add team 1 1 こだわりスカーフ")).Success);
+        Assert.Contains("@こだわりスカーフ", (await cmd.ExecuteAsync("!pokech more team 1")).Message);
+    }
+
+    [Fact]
+    public async Task Roster_loads_data_with_and_without_the_old_item_field()
+    {
+        // 持ち物の項目が無いデータと、一時期保存していた持ち物（ItemId）があるデータ
+        var store = new MemoryRosterStore
+        {
+            Json = """{"Version":1,"DataSets":{"Champions":{"NextId":3,"Pokemon":[{"Id":1,"PokemonId":445,"PokemonName":"ガブリアス","HP":0,"Attack":32,"Defense":0,"SpAttack":0,"SpDefense":0,"Speed":32,"Nature":"ようき","AbilityId":24,"TeraType":null},{"Id":2,"PokemonId":445,"PokemonName":"ガブリアス","HP":0,"Attack":32,"Defense":0,"SpAttack":0,"SpDefense":0,"Speed":32,"Nature":"ようき","AbilityId":24,"ItemId":264,"TeraType":null}],"Teams":[],"ActiveTeam":null}}}""",
+        };
+        var repo = new RosterRepository(store);
+        var entries = (await repo.GetAsync()).For("Champions").Pokemon;
+        Assert.Null(entries[0].ItemId);
+        Assert.Equal(264, entries[1].ItemId);
+        Assert.Equal(32, entries[1].Attack);
+        // 保存し直しても消えない
+        await repo.SaveAsync();
+        Assert.Contains("\"ItemId\": 264", store.Json);
+    }
+
+    [Fact]
     public async Task Calc_estimates_defense_investment()
     {
         var cmd = NewCommand(out _);

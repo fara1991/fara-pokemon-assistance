@@ -168,6 +168,10 @@ public sealed class PokeCommand
         var nature = new NameResolver<Nature>(data.Natures, n => n.Name).Resolve(args[7]);
         if (!nature.IsResolved) return Fail(NotFound("性格", args[7], nature.Candidates.Select(n => n.Name)));
 
+        // 持ち物は登録では指定しない（チームに入れるときに指定する）
+        if (args.Skip(8).Any(a => a.StartsWith('@') || a.StartsWith('＠')))
+            return Fail($"持ち物はチームに入れるときに指定してください（!{ds.CommandPrefix} add team チーム番号 登録ID 持ち物）");
+
         Ability? ability = null;
         if (args.Count > 8)
         {
@@ -356,11 +360,7 @@ public sealed class PokeCommand
         {
             var defender = request.Defender.Clone();
             defender.Ability = ability;
-            var result = calc.Calculate(new DamageRequest
-            {
-                Attacker = request.Attacker, Move = request.Move, Defender = defender,
-                Format = request.Format, IsCritical = request.IsCritical, Weather = request.Weather, Terrain = request.Terrain, Screen = request.Screen,
-            });
+            var result = calc.Calculate(request.With(defender: defender));
             if (result.MinDamage != baseline.MinDamage || result.MaxDamage != baseline.MaxDamage) distinct = true;
             lines.Add(result.MaxDamage == 0
                 ? $"{ability.Name}: 無効"
@@ -415,11 +415,7 @@ public sealed class PokeCommand
         {
             var defender = request.Defender.Clone();
             defender.Ability = ability;
-            var req = new DamageRequest
-            {
-                Attacker = request.Attacker, Move = request.Move, Defender = defender,
-                Format = request.Format, IsCritical = request.IsCritical, Weather = request.Weather, Terrain = request.Terrain, Screen = request.Screen,
-            };
+            var req = request.With(defender: defender);
             results.Add((ability, estimator.Run(req, observed, asPercent)));
         }
 

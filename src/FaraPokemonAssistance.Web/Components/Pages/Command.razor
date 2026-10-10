@@ -82,13 +82,18 @@
 <div class="card mt-4">
     <div class="card-header"><h5>コマンド一覧（@(App.DataSet?.Name ?? "")） <Help Title="接頭辞">!pokech = ポケモンチャンピオンズ、!pokesv = スカーレット・バイオレット、!pokess = ソード・シールド。!poke はチャンピオンズ扱いです。登録・削除・使用チームの変更は配信者本人とモデレーターだけが使えます。</Help></h5></div>
     <div class="card-body">
+        <p class="small mb-2 cmd-legend">
+            <code class="cmd-syntax"><span class="cmd-ph">名前</span></code> のように色の付いた部分は、実際の値（ポケモン名・番号など）に置き換えて打ちます。
+            <code class="cmd-syntax">[ ]</code> で囲んだ部分は省略できます（括弧は打ちません）。それ以外（<code>!@(App.CommandPrefix) more</code> など）はそのまま打ちます。
+        </p>
+        <div class="table-responsive">
         <table class="table table-sm cmd-table">
             <thead><tr><th>コマンド</th><th>内容</th><th>例</th></tr></thead>
             <tbody>
                 @foreach (var row in CommandRows())
                 {
                     <tr>
-                        <td><code>@row.Syntax</code></td>
+                        <td><code class="cmd-syntax">@RenderSyntax(row.Syntax)</code></td>
                         <td>@row.Description</td>
                         <td class="cmd-example">
                             @foreach (var ex in row.Examples)
@@ -100,15 +105,92 @@
                 }
             </tbody>
         </table>
-        <p class="small text-muted mb-1"><strong>dmg / calc のオプション（すべて任意、順不同）:</strong>
-            <code>A252</code> <code>H252</code>（@(EvRules.Label(App.DataSet?.EvSystem ?? EvSystem.Classic))。攻撃側は A/C/S、防御側は H/B/D に付きます）、性格名、持ち物名、特性名、
-            <code>攻:</code>/<code>防:</code>（どちら側か明示）、<code>+2</code>（攻撃側のランク）、<code>急所</code>、<code>壁</code>（リフレクター / ひかりのかべ）、<code>HP50%</code>（防御側の残り HP）、<code>攻:HP30%</code>（攻撃側の残り HP。もうか等）、<code>ダブル</code>、
-            @if (App.DataSet?.HasTerastal == true) { <span><code>テラス</code> <code>テラスほのお</code> <code>防:テラスみず</code>、</span> }
-            @if (App.DataSet?.HasDynamax == true) { <span><code>ダイマ</code>（攻撃側）<code>防:ダイマ</code>（防御側）、</span> }
-            天候 <code>晴れ</code> <code>雨</code> <code>砂嵐</code> <code>雪</code>、フィールド <code>エレキフィールド</code> <code>グラスフィールド</code> <code>サイコフィールド</code> <code>ミストフィールド</code>、
-            状態異常 <code>やけど</code> <code>まひ</code>（既定は攻撃側）<code>どく</code> <code>もうどく</code>（既定は防御側。定数ダメージを確定数に含める）。防御側の持ち物がオボンのみ・たべのこし・半減きのみなどなら、確定数に自動で反映します。
-        </p>
-        <p class="small text-muted mb-0">指定しなかった項目は「攻撃側は攻撃技に合わせて A か C に全振り、防御側は H 全振り、性格・持ち物・特性は使用率 1 位（無ければ第 1 特性）」で埋め、結果にそのまま表示します。使用チームにいるポケモンはチームの構成が優先されます。相手の特性で結果が変わる場合は「特性別:」が付きます。</p>
+        </div>
+        <h6 class="mt-3">dmg / calc のオプション <span class="small text-muted fw-normal">（すべて任意・順不同。コマンドの末尾に続けて書きます）</span></h6>
+        <div class="table-responsive">
+        <table class="table table-sm cmd-options">
+            <thead><tr><th>種類</th><th>書き方（例）</th><th>説明</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>@(EvRules.Label(App.DataSet?.EvSystem ?? EvSystem.Classic))</td>
+                    <td><code>A252</code> <code>H252</code></td>
+                    <td>攻撃側は A / C / S、防御側は H / B / D に付きます。</td>
+                </tr>
+                <tr>
+                    <td>性格・持ち物・特性</td>
+                    <td>名前をそのまま</td>
+                    <td>例: <code>いじっぱり</code> <code>こだわりハチマキ</code> <code>かたいツメ</code></td>
+                </tr>
+                <tr>
+                    <td>どちら側か</td>
+                    <td><code>攻:</code> <code>防:</code></td>
+                    <td>項目の前に付けて、攻撃側・防御側のどちらに付けるかを明示します。</td>
+                </tr>
+                <tr>
+                    <td>ランク</td>
+                    <td><code>+2</code></td>
+                    <td>攻撃側のランク補正。</td>
+                </tr>
+                <tr>
+                    <td>急所・壁</td>
+                    <td><code>急所</code> <code>壁</code></td>
+                    <td>壁はリフレクター / ひかりのかべ。</td>
+                </tr>
+                <tr>
+                    <td>残り HP</td>
+                    <td><code>HP50%</code> <code>攻:HP30%</code></td>
+                    <td>既定は防御側の残り HP。<code>攻:</code> を付けると攻撃側（もうか等）。</td>
+                </tr>
+                <tr>
+                    <td>バトル形式</td>
+                    <td><code>ダブル</code></td>
+                    <td>ダブルバトルとして計算します（複数対象の技・壁の倍率）。</td>
+                </tr>
+                @if (App.DataSet?.HasTerastal == true)
+                {
+                    <tr>
+                        <td>テラスタル</td>
+                        <td><code>テラス</code> <code>テラスほのお</code> <code>防:テラスみず</code></td>
+                        <td><code>テラス</code> だけなら技のタイプでテラスタルします。</td>
+                    </tr>
+                }
+                @if (App.DataSet?.HasDynamax == true)
+                {
+                    <tr>
+                        <td>ダイマックス</td>
+                        <td><code>ダイマ</code> <code>防:ダイマ</code></td>
+                        <td>既定は攻撃側。<code>防:</code> を付けると防御側。</td>
+                    </tr>
+                }
+                <tr>
+                    <td>天候</td>
+                    <td><code>晴れ</code> <code>雨</code> <code>砂嵐</code> <code>雪</code></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>フィールド</td>
+                    <td><code>エレキフィールド</code> <code>グラスフィールド</code> <code>サイコフィールド</code> <code>ミストフィールド</code></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>状態異常</td>
+                    <td><code>やけど</code> <code>まひ</code> <code>どく</code> <code>もうどく</code></td>
+                    <td>やけど・まひの既定は攻撃側、どく・もうどくの既定は防御側（定数ダメージを確定数に含めます）。</td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+
+        <h6 class="mt-3">指定しなかった項目</h6>
+        <ul class="small mb-0">
+            <li>攻撃側は、攻撃技に合わせて A か C に全振りします。</li>
+            <li>防御側は H に全振りします。</li>
+            <li>性格・持ち物は使用率 1 位にします。</li>
+            <li>特性は使用率 1 位（無ければ第 1 特性）にします。ただし天候・フィールドを作る特性やダメージが上がる特性を持っていれば、そちらを優先します。</li>
+            <li>使用チームにいるポケモンは、チームの構成が優先されます。</li>
+            <li>防御側の持ち物がオボンのみ・たべのこし・半減きのみなどなら、確定数に自動で反映します。</li>
+            <li>埋めた内容は結果にそのまま表示します。相手の特性で結果が変わる場合は「特性別:」が付きます。</li>
+        </ul>
     </div>
 </div>
 
@@ -298,24 +380,42 @@
         var evLabel = EvRules.Label(ds?.EvSystem ?? EvSystem.Classic);
         var evExample = points ? "4 32 0 0 0 30" : "4 252 0 0 0 252";
         var gimmick = ds?.HasTerastal == true ? " テラスほのお" : ds?.HasDynamax == true ? " ダイマ" : "";
-        yield return new($"{p} add 名前 H A B C D S 性格 [特性]",
+        // <...> は置き換える値（画面では色付きで表示）、[...] は省略できる部分
+        yield return new($"{p} add <名前> <H> <A> <B> <C> <D> <S> <性格> [<特性>]",
             points ? $"育成済みポケモンを登録（{evLabel}は各 0〜32、合計 66）" : $"育成済みポケモンを登録（{evLabel}は各 0〜252、合計 510）",
             new[] { $"{p} add ガブリアス {evExample} ようき さめはだ" });
-        yield return new($"{p} ls [名前]", "登録一覧（名前を付けるとそのポケモンだけ）", new[] { $"{p} ls", $"{p} ls ガブリアス" });
-        yield return new($"{p} more ID", "登録の詳細（性格・振り・特性・実数値・所属チーム）", new[] { $"{p} more 1" });
-        yield return new($"{p} rm ID", "登録を削除（チームからも外れる）", new[] { $"{p} rm 1" });
-        yield return new($"{p} add team 番号 ID [持ち物]", "チームに追加（6 体まで）。同じ ID をもう一度指定すると持ち物を更新", new[] { $"{p} add team 1 1 こだわりスカーフ" });
-        yield return new($"{p} rm team 番号 [名前]", "チームから外す（名前を省くとチームごと削除。0 体になったチームも自動で削除）", new[] { $"{p} rm team 1 ガブリアス", $"{p} rm team 1" });
-        yield return new($"{p} use team 番号", "使用チームにする。以降の dmg / calc / diff はこのチームの構成で計算", new[] { $"{p} use team 1" });
+        yield return new($"{p} ls [<名前>]", "登録一覧（名前を付けるとそのポケモンだけ）", new[] { $"{p} ls", $"{p} ls ガブリアス" });
+        yield return new($"{p} more <登録ID>", "登録の詳細（性格・振り・特性・実数値・所属チーム）", new[] { $"{p} more 1" });
+        yield return new($"{p} rm <登録ID>", "登録を削除（チームからも外れる）", new[] { $"{p} rm 1" });
+        yield return new($"{p} add team <チーム番号> <登録ID> [<持ち物>]", "チームに追加（6 体まで）。同じ登録 ID をもう一度指定すると持ち物を更新", new[] { $"{p} add team 1 1 こだわりスカーフ" });
+        yield return new($"{p} rm team <チーム番号> [<名前>]", "チームから外す（名前を省くとチームごと削除。0 体になったチームも自動で削除）", new[] { $"{p} rm team 1 ガブリアス", $"{p} rm team 1" });
+        yield return new($"{p} use team <チーム番号>", "使用チームにする。以降の dmg / calc / diff はこのチームの構成で計算", new[] { $"{p} use team 1" });
         yield return new($"{p} unuse team", "使用チームを解除（以降は使用率に基づく既定値で計算）", new[] { $"{p} unuse team" });
         yield return new($"{p} ls team", "チーム一覧", new[] { $"{p} ls team" });
-        yield return new($"{p} more team 番号", "チームの詳細", new[] { $"{p} more team 1" });
-        yield return new($"{p} dmg 攻撃側 技[±ランク] 防御側 [オプション]", "通常と急所のダメージと確定数。使用チームにいるポケモンはその構成（持ち物は括弧内に表示）",
+        yield return new($"{p} more team <チーム番号>", "チームの詳細", new[] { $"{p} more team 1" });
+        yield return new($"{p} dmg <攻撃側> <技>[<±ランク>] <防御側> [<オプション>]", "通常と急所のダメージと確定数。使用チームにいるポケモンはその構成（持ち物は括弧内に表示）。オプションは下の表",
             new[] { $"{p} dmg ガブリアス じしん リザードン", $"{p} dmg ガブリアス じしん+1 リザードン 晴れ 急所", $"{p} dmg ガブリアス げきりん ドドゲザン 壁 HP50%", $"{p} dmg イエッサン ワイドフォース メガリザードンX サイコフィールド", $"{p} dmg ガブリアス じしん リザードン A252 いじっぱり こだわりハチマキ{gimmick}" });
-        yield return new($"{p} calc 攻撃側 技[±ランク] 防御側 受けたダメージ [オプション]", "受けた（与えた）ダメージから相手の防御側の努力値と性格補正を推定。93 なら実数、45% なら割合（H も推定）",
+        yield return new($"{p} calc <攻撃側> <技>[<±ランク>] <防御側> <受けたダメージ> [<オプション>]", "受けた（与えた）ダメージから相手の防御側の努力値と性格補正を推定。93 なら実数、45% なら割合（H も推定）",
             new[] { $"{p} calc ガブリアス じしん リザードン 93", $"{p} calc ガブリアス じしん リザードン 45% サイコフィールド" });
-        yield return new($"{p} diff 自分 相手 [+1 天候 まひ 自:まひ]", "素早さ比較。自分は使用チームの実数値、相手は 無振り / 準速 / 最速 / スカーフ最速 / 最遅",
+        yield return new($"{p} diff <自分> <相手> [<オプション>]", "素早さ比較。自分は使用チームの実数値、相手は 無振り / 準速 / 最速 / スカーフ最速 / 最遅。オプションは +1（自分のランク）・天候・まひ（相手）・自:まひ",
             new[] { $"{p} diff ガブリアス リザードン", $"{p} diff ガブリアス リザードン +1 まひ" });
         yield return new($"{p} cmd ls", "使えるコマンドの一覧（!poke cmd ls でも可）", new[] { $"{p} cmd ls" });
     }
+
+    /// <summary>書式の &lt;...&gt; を置き換える値（色付き）として表示する。&lt; &gt; 自体は出さない。</summary>
+    private static RenderFragment RenderSyntax(string syntax) => __builder =>
+    {
+        foreach (var part in System.Text.RegularExpressions.Regex.Split(syntax, "(<[^>]+>)"))
+        {
+            if (part.Length == 0) continue;
+            if (part.StartsWith('<') && part.EndsWith('>'))
+            {
+                <span class="cmd-ph">@part[1..^1]</span>
+            }
+            else
+            {
+                @part
+            }
+        }
+    };
 }

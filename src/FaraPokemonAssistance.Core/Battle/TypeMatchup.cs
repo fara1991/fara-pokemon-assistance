@@ -36,4 +36,81 @@ public static class TypeMatchup
             advantage.OrderByDescending(e => e.Offense).ThenBy(e => e.Defense).ToList(),
             disadvantage.OrderByDescending(e => e.Defense).ThenBy(e => e.Offense).ToList());
     }
+
+    /// <param name="Pokemon">有利な相手。</param>
+    /// <param name="Offense">相手のタイプ一致技が、選んだポケモンに与える最大倍率（特性込み）。</param>
+    /// <param name="Defense">選んだポケモンのタイプ一致技を、相手が受ける最大倍率（特性込み）。</param>
+    /// <param name="Notes">特性で倍率が変わったときの説明（例: <c>きもったま(ゴーストに当たる)</c>）。</param>
+    public sealed record Counter(Pokemon Pokemon, double Offense, double Defense, IReadOnlyList<string> Notes)
+    {
+        public Counter(Pokemon pokemon, double offense, double defense) : this(pokemon, offense, defense, Array.Empty<string>()) { }
+    }
+
+    /// <summary>
+    /// 選んだポケモンに対してタイプ相性で有利なポケモン（最大 <paramref name="count"/> 匹）。
+    /// まず「タイプ一致技で抜群を取れて、選んだポケモンのタイプ一致技で抜群を取られない」相手を、
+    /// 足りなければ「抜群は取れないが、選んだポケモンのタイプ一致技を半減以下で受けられる」相手を足す。
+    /// それぞれの中では候補の並び順（使用率順など）を保つので、よく使われるポケモンが先に出る。
+    /// 特性（<paramref name="ability"/> と <paramref name="abilityOf"/>）を渡すと、きもったま・ふゆう・あついしぼうなども反映する。
+    /// </summary>
+    public static IReadOnlyList<Counter> Counters(TypeChart chart, Pokemon pokemon, IEnumerable<Pokemon> candidates, int count = 10,
+        Ability? ability = null, Func<Pokemon, Ability?>? abilityOf = null)
+    {
+        var strong = new List<Counter>();
+        var resist = new List<Counter>();
+        var seen = new HashSet<(int, string, string)>(); // 同じ種族・同じタイプ（メガシンカ前後など）は 1 匹だけ
+        foreach (var o in candidates)
+        {
+            if (o.SpeciesId == pokemon.SpeciesId && o.SpeciesId != 0 || o.Id == pokemon.Id) continue;
+            var oAbility = abilityOf?.Invoke(o);
+            var offense = AbilityMatchup.BestStab(chart, o, oAbility, pokemon, ability);
+            var defense = AbilityMatchup.BestStab(chart, pokemon, ability, o, oAbility);
+            var notes = offense.Notes.Concat(defense.Notes).Distinct().ToList();
+            var c = new Counter(o, offense.Multiplier, defense.Multiplier, notes);
+            if (c.Offense > 1.0 && c.Defense <= 1.0) strong.Add(c);
+            else if (c.Offense >= 1.0 && c.Defense < 1.0) resist.Add(c);
+        }
+        return strong.Concat(resist).Where(c => seen.Add((c.Pokemon.SpeciesId == 0 ? -c.Pokemon.Id : c.Pokemon.SpeciesId, c.Pokemon.Type1, c.Pokemon.Type2))).Take(count).ToList();
+    }
+
+    /// <param name="Move">技。</param>
+    /// <param name="Type">当たるときのタイプ（スキン系特性でノーマル技が変わったときはそのタイプ）。</param>
+    /// <param name="Multiplier">相手への倍率（両方の特性込み）。</param>
+    public sealed record SuperEffectiveMove(Move Move, string Type, double Multiplier);
+
+    /// <param name="Pokemon">攻撃するポケモン。</param>
+    /// <param name="Moves">相手に抜群を取れる技（威力の高い順）。</param>
+    public sealed record TypeAttacker(Pokemon Pokemon, IReadOnlyList<SuperEffectiveMove> Moves);
+
+    /// <summary>
+    /// 選んだタイプ（<paramref name="types"/>。2 つならその両方）を持つポケモンと、それぞれが覚える技のうち
+    /// <paramref name="target"/> に抜群を取れる技（威力の高い順・最大 <paramref name="movesPerPokemon"/> 個）。
+    /// 候補の並び順（使用率順など）を保つ。特性（相手の <paramref name="targetAbility"/>・攻撃側の <paramref name="abilityOf"/>）を反映する。
+    /// </summary>
+    public static IReadOnlyList<TypeAttacker> WithTypes(TypeChart chart, Pokemon target, Ability? targetAbility,
+        IEnumerable<Pokemon> candidates, IReadOnlyCollection<string> types, Func<Pokemon, IReadOnlyList<Move>> movesOf,
+        Func<Pokemon, Ability?>? abilityOf = null, int movesPerPokemon = 3)
+    {
+        if (types.Count == 0) return Array.Empty<TypeAttacker>();
+        var targetTypes = target.Types.ToList();
+        var list = new List<TypeAttacker>();
+        foreach (var p in candidates)
+        {
+            if (!types.All(p.HasType)) continue;
+            var ability = abilityOf?.Invoke(p);
+            var skin = AbilityEffects.SkinType(ability?.Identifier ?? "");
+            var moves = new List<SuperEffectiveMove>();
+            foreach (var m in movesOf(p))
+            {
+                if (!m.IsDamaging) continue;
+                var type = skin is not null && m.Type == "Normal" ? skin : m.Type;
+                var r = AbilityMatchup.Against(chart, type, targetTypes, targetAbility, ability);
+                if (r.Multiplier > 1.0) moves.Add(new SuperEffectiveMove(m, type, r.Multiplier));
+            }
+            // 威力の高い順。同じ威力なら倍率の高い順、それも同じなら覚える技の並び順
+            var top = moves.OrderByDescending(x => x.Move.Power).ThenByDescending(x => x.Multiplier).Take(movesPerPokemon).ToList();
+            list.Add(new TypeAttacker(p, top));
+        }
+        return list;
+    }
 }

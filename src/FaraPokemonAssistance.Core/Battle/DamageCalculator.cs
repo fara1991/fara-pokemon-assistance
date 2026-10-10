@@ -250,17 +250,7 @@ public sealed class DamageCalculator
     /// </summary>
     public IReadOnlyList<Move> SortByDamage(DamageRequest template, IEnumerable<Move> moves) =>
         moves
-            .Select(m => (Move: m, Damage: m.IsDamaging ? Calculate(new DamageRequest
-            {
-                Attacker = template.Attacker,
-                Move = m,
-                Defender = template.Defender,
-                Format = template.Format,
-                IsCritical = template.IsCritical,
-                Weather = template.Weather,
-                Terrain = template.Terrain,
-                Screen = template.Screen,
-            }).MaxDamage : -1))
+            .Select(m => (Move: m, Damage: m.IsDamaging ? Calculate(template.With(move: m)).MaxDamage : -1))
             .OrderByDescending(x => x.Damage)
             .Select(x => x.Move)
             .ToList();
@@ -486,9 +476,10 @@ public sealed class DamageCalculator
         var defName = defender.Ability?.Name ?? "";
 
         // 壁: 急所とすりぬけは無視。ダブルは 2732/4096
-        if (request.Screen && !request.IsCritical && attackerAbility != "infiltrator")
+        var physicalSide = isPhysical || move.UsesPhysicalDefense;
+        if (request.HasScreenFor(physicalSide) && !request.IsCritical && attackerAbility != "infiltrator")
         {
-            var wall = isPhysical || move.UsesPhysicalDefense ? "リフレクター" : "ひかりのかべ";
+            var wall = physicalSide ? "リフレクター" : "ひかりのかべ";
             if (request.Format == BattleFormat.Doubles) Apply(2732, $"{wall}(ダブル 0.67倍)");
             else Apply(2048, $"{wall}(0.5倍)");
         }
@@ -502,7 +493,7 @@ public sealed class DamageCalculator
 
         switch (defenderAbility)
         {
-            case "multiscale" or "shadow-shield" when firstHit && defender.HpPercent >= 100: Apply(2048, $"{defName}(HP満タン 0.5倍)"); break;
+            case "multiscale" or "shadow-shield" when firstHit && defender.IsFullHp: Apply(2048, $"{defName}(HP満タン 0.5倍)"); break;
             case "filter" or "solid-rock" or "prism-armor" when effectiveness > 1: Apply(3072, $"{defName}(0.75倍)"); break;
             case "ice-scales" when !isPhysical: Apply(2048, $"{defName}(特殊技0.5倍)"); break;
             case "punk-rock" when move.IsSound: Apply(2048, $"{defName}(音技0.5倍)"); break;
@@ -529,7 +520,8 @@ public sealed class DamageCalculator
         return ability == "protosynthesis" ? request.Weather == Weather.Sun : request.Terrain == Terrain.Electric;
     }
 
-    private static Stat HighestStat(PokemonBuild build)
+    /// <summary>ランク込みで一番高い能力（こだいかっせい・クォークチャージで上がる能力）。</summary>
+    public static Stat HighestStat(PokemonBuild build)
     {
         var stats = StatCalculator.CalculateAll(build);
         var best = Stat.Attack;
@@ -582,6 +574,52 @@ public static class AbilityEffects
         _ => null,
     };
 
+    /// <summary>
+    /// 攻撃側として持っていると、この計算機でダメージが上がる特性（条件付きのものも含む）。
+    /// ピンチ特性（もうか等）・こんじょう・スナイパーのように、状態異常・HP・急所が揃わないと効かないものは含めない。
+    /// </summary>
+    public static bool IsOffensive(string? ability) => ability is
+        "huge-power" or "pure-power" or "adaptability" or "technician" or "sheer-force" or "tough-claws" or
+        "pixilate" or "aerilate" or "refrigerate" or "galvanize" or "iron-fist" or "strong-jaw" or "mega-launcher" or
+        "punk-rock" or "sand-force" or "steelworker" or "steely-spirit" or "transistor" or "dragons-maw" or
+        "rocky-payload" or "water-bubble" or "sharpness" or "reckless" or "hustle" or "gorilla-tactics" or
+        "solar-power" or "orichalcum-pulse" or "hadron-engine" or "protosynthesis" or "quark-drive" or
+        "tinted-lens" or "neuroforce";
+
+    /// <summary>場に出ると天候・フィールドを作る特性（ひでり・サイコメイカーなど）。</summary>
+    public static bool SetsField(string? ability) =>
+        FieldEffects.WeatherFromAbility(ability) is not null || FieldEffects.TerrainFromAbility(ability) is not null;
+
+    /// <summary>既定の特性を選ぶときの立場。</summary>
+    public enum Side
+    {
+        /// <summary>攻撃側（ダメージが上がる特性を優先）。</summary>
+        Attacker,
+        /// <summary>防御側（ちょすい・あついしぼうなど受けで効く特性を優先）。</summary>
+        Defender,
+        /// <summary>どちらにもなる（タイプ相性表など）。使用率 1 位が攻撃・受けどちらかで効く特性ならそのまま使う。</summary>
+        Either,
+    }
+
+    /// <summary>
+    /// ポケモンを選んだときの既定の特性。天候・フィールドを作る特性か、<paramref name="side"/> で効く特性
+    /// （攻撃側はダメージが上がる特性、防御側は受けで効く特性）を持っていればそれを、
+    /// 無ければ使用率 1 位（<paramref name="usageTop"/>。無ければ第 1 特性）を選ぶ。
+    /// 使用率 1 位がもともとそういう特性ならそのまま使う（防御側のトリトドンはよびみずのまま）。
+    /// </summary>
+    public static Ability? ChooseDefault(IReadOnlyList<Ability> abilities, Ability? usageTop, Side side = Side.Attacker)
+    {
+        bool Offensive(Ability a) => side != Side.Defender && IsOffensive(a.Identifier);
+        bool Defensive(Ability a) => side != Side.Attacker && IsDefensive(a.Identifier);
+        if (usageTop is not null && (SetsField(usageTop.Identifier) || Offensive(usageTop) || Defensive(usageTop))) return usageTop;
+        // 天候・フィールドを作る特性を優先（技の並び順や場の状態にも効くため）
+        return abilities.FirstOrDefault(a => SetsField(a.Identifier))
+            ?? abilities.FirstOrDefault(Offensive)
+            ?? abilities.FirstOrDefault(Defensive)
+            ?? usageTop
+            ?? abilities.FirstOrDefault();
+    }
+
     /// <summary>防御側に付くのが自然な特性（チャットコマンドの振り分けに使う）。</summary>
     public static bool IsDefensive(string ability) => ability is
         "levitate" or "earth-eater" or "water-absorb" or "storm-drain" or "dry-skin" or "flash-fire" or "well-baked-body" or
@@ -610,7 +648,7 @@ public sealed class KnockOutOptions
     /// <summary>防御側の持ち物・状態・フィールドから条件を組み立て、反映した内容を modifiers に書き足す。</summary>
     public static KnockOutOptions For(DamageRequest request, PokemonBuild defender, int maxHp, bool grounded, int[] laterRolls, List<string> modifiers)
     {
-        var start = defender.HpPercent >= 100 ? maxHp : Math.Max(1, maxHp * Math.Clamp(defender.HpPercent, 1, 100) / 100);
+        var start = Math.Min(maxHp, defender.CurrentHp);
         if (start < maxHp) modifiers.Add($"防御側の残りHP {start}/{maxHp}");
         var eot = 0;
         var threshold = 0;

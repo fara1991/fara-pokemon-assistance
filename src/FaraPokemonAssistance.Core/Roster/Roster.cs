@@ -57,6 +57,11 @@ public sealed class RegisteredPokemon
     public int Speed { get; set; }
     public string Nature { get; set; } = "";
     public int? AbilityId { get; set; }
+    /// <summary>
+    /// 一時期、登録時に持ち物を保存していたときの項目。今は使わない（持ち物はチームに入れるときに選ぶ）が、
+    /// そのころの保存データを読み書きしても消えないように残している。
+    /// </summary>
+    public int? ItemId { get; set; }
     public string? TeraType { get; set; }
 
     [JsonIgnore]

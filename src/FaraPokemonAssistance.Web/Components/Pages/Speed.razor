@@ -3,6 +3,7 @@
 @using FaraPokemonAssistance.Core.Roster
 @inject DataCatalog Catalog
 @inject RosterRepository Repo
+@inject NavigationManager Nav
 
 <PageTitle>素早さ比較</PageTitle>
 
@@ -13,75 +14,107 @@
 
 @if (data is not null && dataSet is not null)
 {
-    <div class="split-row mb-3">
-        <div class="split-half">
-            <label class="form-label">天候（任意） <Help Title="天候">すいすい（雨）・ようりょくそ（晴れ）・すなかき（砂嵐）・ゆきかき（雪）の特性を持つポケモンは、その天候で素早さが 2 倍になります。</Help></label>
-            <select class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
-                @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w)</option> }
-            </select>
-        </div>
-        <div class="split-half">
-            <label class="form-label">フィールド（任意） <Help Title="フィールド">サーフテール（エレキフィールド）など、フィールドで素早さが変わる特性に使います。</Help></label>
-            <select class="form-select" value="@s.Terrain" @onchange="@(e => s.Terrain = ParseEnum(e.Value, Terrain.None))">
-                @foreach (var t in Enum.GetValues<Terrain>()) { <option value="@t">@FieldNames.Japanese(t)</option> }
-            </select>
-        </div>
-    </div>
+    var both = s.Builds[0] is not null && s.Builds[1] is not null;
+    <div class="calc-grid @(both ? "has-result-bar" : "")">
+        <div class="calc-col">@RenderSide(0)</div>
+        <div class="calc-col">@RenderSide(1)</div>
 
-    <div class="split-row">
-        <div class="split-half">@RenderSide(0)</div>
-        <div class="split-half">@RenderSide(1)</div>
-    </div>
-
-    @if (s.Builds[0] is { } a && s.Builds[1] is { } b)
-    {
-        var (speedA, notesA) = SpeedCalculator.Effective(a, s.Weather, s.Terrain);
-        var (speedB, notesB) = SpeedCalculator.Effective(b, s.Weather, s.Terrain);
-        var verdict = speedA > speedB ? $"{a.Pokemon.Name} が先に動きます"
-            : speedA < speedB ? $"{b.Pokemon.Name} が先に動きます"
-            : "同速です（どちらが先かはランダム）";
-        var cls = speedA == speedB ? "text-warning" : "text-success";
-        <div class="card mt-3 result-card">
-            <div class="card-header"><h5>結果</h5></div>
-            <div class="card-body">
-                <div class="row align-items-center g-2">
-                    <div class="col-md-5 text-center">
-                        <div><PokemonLabel Build="a" /></div>
-                        <div class="speed-value @(speedA > speedB ? "text-success" : "")">S@(speedA)</div>
-                        @if (notesA.Count > 0) { <div class="small text-muted">@string.Join("、", notesA)</div> }
-                    </div>
-                    <div class="col-md-2 speed-vs">vs</div>
-                    <div class="col-md-5 text-center">
-                        <div><PokemonLabel Build="b" /></div>
-                        <div class="speed-value @(speedB > speedA ? "text-success" : "")">S@(speedB)</div>
-                        @if (notesB.Count > 0) { <div class="small text-muted">@string.Join("、", notesB)</div> }
+        <div class="calc-col calc-side">
+            <div class="card">
+                <div class="card-header"><h5>場の状態</h5></div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-sm-6">
+                            <label class="form-label">天候 <Help Title="天候">すいすい（雨）・ようりょくそ（晴れ）・すなかき（砂嵐）・ゆきかき（雪）の特性を持つポケモンは、その天候で素早さが 2 倍になります。こだいかっせい（晴れ）で素早さが一番高いポケモンは 1.5 倍です。</Help></label>
+                            <select class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
+                                @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w)</option> }
+                            </select>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label">フィールド <Help Title="フィールド">サーフテール（エレキフィールドで 2 倍）、クォークチャージ（エレキフィールドで素早さが一番高いとき 1.5 倍）に使います。</Help></label>
+                            <select class="form-select" value="@s.Terrain" @onchange="@(e => s.Terrain = ParseEnum(e.Value, Terrain.None))">
+                                @foreach (var t in Enum.GetValues<Terrain>()) { <option value="@t">@FieldNames.Japanese(t)</option> }
+                            </select>
+                        </div>
                     </div>
                 </div>
-                <p class="fs-5 text-center mt-3 mb-0 @cls"><strong>@verdict</strong></p>
             </div>
-        </div>
 
-        <details class="mt-3">
-            <summary class="small">参考: 振り方別の素早さ（無振り / 準速 / 最速 / スカーフ最速 / 最遅）</summary>
-            <div class="split-row mt-2">
-                @foreach (var build in new[] { a, b })
+            @{
+                var speeds = new int?[2];
+                var notes = new List<string>?[2];
+                for (var i = 0; i < 2; i++)
                 {
-                    var reference = SpeedCalculator.OpponentReference(build.Pokemon, dataSet.EvSystem, Scarf, build.Status == StatusCondition.Paralysis);
-                    <div class="split-half">
-                        <table class="table table-sm">
-                            <thead><tr><th><PokemonLabel Pokemon="build.Pokemon" Small="true" /></th><th>S</th></tr></thead>
-                            <tbody>
-                            @foreach (var line in reference.Where(r => r.Label != "状態"))
+                    if (s.Builds[i] is { } bld)
+                    {
+                        var (sp, nt) = SpeedCalculator.Effective(bld, s.Weather, s.Terrain, s.Tailwind[i]);
+                        speeds[i] = sp;
+                        notes[i] = nt;
+                    }
+                }
+                var refSide = s.Builds[s.ReferenceSide] is not null ? s.ReferenceSide : s.Builds[0] is not null ? 0 : 1;
+            }
+            @if (s.Builds.Any(x => x is not null))
+            {
+                <div class="card result-card result-sticky">
+                    <div class="card-header"><h5>結果</h5></div>
+                    <div class="card-body">
+                        @if (s.Builds[0] is { } a && s.Builds[1] is { } b)
+                        {
+                            var speedA = speeds[0]!.Value;
+                            var speedB = speeds[1]!.Value;
+                            <div class="speed-versus">
+                                <div class="text-center">
+                                    <div><PokemonLabel Build="a" Small="true" /></div>
+                                    <div class="speed-value @(speedA > speedB ? "text-success" : "")">S@(speedA)</div>
+                                    @if (notes[0]!.Count > 0) { <div class="small text-muted">@string.Join("、", notes[0]!)</div> }
+                                </div>
+                                <div class="speed-vs">vs</div>
+                                <div class="text-center">
+                                    <div><PokemonLabel Build="b" Small="true" /></div>
+                                    <div class="speed-value @(speedB > speedA ? "text-success" : "")">S@(speedB)</div>
+                                    @if (notes[1]!.Count > 0) { <div class="small text-muted">@string.Join("、", notes[1]!)</div> }
+                                </div>
+                            </div>
+                            <p class="fs-6 text-center mt-2 mb-2 @(speedA == speedB ? "text-warning" : "text-success")"><strong>@Verdict(a, b, speedA, speedB)</strong></p>
+                        }
+                        else
+                        {
+                            <p class="text-muted small mb-2">2 体とも選ぶと、どちらが先に動くかを表示します。</p>
+                        }
+                        @* 振り方例: 2 体のどちらかをタブで切り替えて、狭い幅に収める *@
+                        <div class="speed-ref-tabs" role="tablist">
+                            <span class="small fw-bold me-1">振り方例 <Help Title="素早さの振り方例">相手の振り方が分からないときの目安です。無振り・準速（性格補正なし・最大振り）・最速（性格補正あり・最大振り）・スカーフ最速・最遅（性格補正下降・個体値 0）の素早さを出します。いまの天候・フィールド・ランク・まひ・おいかぜで素早さが変わるときは「今の条件」の列に、選んでいる特性が条件次第で素早さを上げるとき（ようりょくそ・かるわざなど）はその条件の列にも出します。右端は、もう 1 体の今の素早さと比べた先手・後手です。</Help></span>
+                            @for (var i = 0; i < 2; i++)
                             {
-                                <tr><td>@line.Label @(line.Note is null ? "" : $"({line.Note})")</td><td>@line.Value</td></tr>
+                                var side = i;
+                                if (s.Builds[side] is { } tabBuild)
+                                {
+                                    <button type="button" role="tab" aria-selected="@(refSide == side ? "true" : "false")"
+                                            class="btn btn-sm @(refSide == side ? "btn-primary" : "btn-outline-secondary")" @onclick="() => s.ReferenceSide = side">@tabBuild.Pokemon.Name</button>
+                                }
                             }
-                            </tbody>
-                        </table>
+                        </div>
+                        @RenderReference(s.Builds[refSide]!, s.Tailwind[refSide], speeds[1 - refSide], s.Builds[1 - refSide]?.Pokemon.Name)
+                    </div>
+                </div>
+                @if (s.Builds[0] is { } ba && s.Builds[1] is { } bb)
+                {
+                    @* 狭い画面では、結果の要点を画面の下に出したままにする *@
+                    <div class="result-bar">
+                        <div class="result-bar-summary">
+                            <strong>@Verdict(ba, bb, speeds[0]!.Value, speeds[1]!.Value)</strong>
+                            <span class="text-muted">（S@(speeds[0]) vs S@(speeds[1])）</span>
+                        </div>
                     </div>
                 }
-            </div>
-        </details>
-    }
+            }
+            else
+            {
+                <p class="text-muted small mb-0">2 体とも選ぶと、どちらが先に動くかを表示します。</p>
+            }
+        </div>
+    </div>
 }
 
 @code {
@@ -91,6 +124,10 @@
         public PokemonBuild?[] Builds { get; set; } = new PokemonBuild?[2];
         public Weather Weather { get; set; }
         public Terrain Terrain { get; set; }
+        /// <summary>それぞれの側のおいかぜ。</summary>
+        public bool[] Tailwind { get; set; } = new bool[2];
+        /// <summary>結果に振り方例を出しているポケモン（0 か 1）。</summary>
+        public int ReferenceSide { get; set; }
     }
 
     private State s = new();
@@ -100,11 +137,27 @@
 
     private Item? Scarf => data?.Items.FirstOrDefault(i => i.Id == 264);
 
+    /// <summary>素早さが変わる持ち物だけ（こだわりスカーフ・くろいてっきゅう・パワー系）。今持たせている持ち物は必ず含める。</summary>
+    private IReadOnlyList<Item> SpeedItems(PokemonBuild build)
+    {
+        var items = data!.Items.Where(SpeedCalculator.IsSpeedItem).ToList();
+        if (build.Item is not null && !items.Contains(build.Item)) items.Insert(0, build.Item);
+        return items;
+    }
+
     protected override async Task OnAppReadyAsync()
     {
         s = PageStates.Get<State>("speed2");
         await LoadAsync();
+        // ポケモン一覧から開いたとき（?p1=ID）は、ポケモン1 に入れてから URL を戻す
+        if (P1Query is > 0 and var id)
+        {
+            OnPokemonChanged(0, id.ToString());
+            Nav.NavigateTo("speed", replace: true);
+        }
     }
+
+    [SupplyParameterFromQuery(Name = "p1")] public int? P1Query { get; set; }
 
     protected override Task OnAppChangedAsync() => LoadAsync();
 
@@ -117,6 +170,7 @@
         {
             s.DataSetKey = App.DataSetKey;
             s.Builds = new PokemonBuild?[2];
+            s.Tailwind = new bool[2];
         }
     }
 
@@ -130,10 +184,12 @@
         if (pokemon is null || data is null || dataSet is null) { s.Builds[side] = null; return; }
         var member = teamMembers.FirstOrDefault(m => m.Entry.PokemonId == pokemon.Id);
         var build = member.Entry is not null ? RosterRepository.ToBuild(member.Entry, data, member.Item) : null;
+        var abilities = data.AbilitiesOf(pokemon);
         build ??= new PokemonBuild(pokemon, dataSet.EvSystem)
         {
-            Nature = data.FindNature("まじめ"),
-            Ability = data.AbilitiesOf(pokemon).FirstOrDefault(),
+            Nature = NatureSelection.Neutral(data.Natures),
+            // すいすい・ようりょくそなど素早さに関わる特性を優先。無ければ天候・フィールドを作る特性や火力の上がる特性
+            Ability = abilities.FirstOrDefault(ab => SpeedCalculator.IsSpeedAbility(ab.Identifier)) ?? AbilityEffects.ChooseDefault(abilities, null),
             EVs = new StatSet { Speed = EvRules.Full(dataSet.EvSystem) },
         };
         if (pokemon.IsMega) build.Item = data.FindItem(pokemon.MegaStoneId!.Value);
@@ -178,7 +234,7 @@
                 @if (build is not null)
                 {
                     var abilities = data.AbilitiesOf(build.Pokemon);
-                    <div class="mb-2"><PokemonLabel Build="build" /> <span class="small text-muted">素早さ種族値 @build.Pokemon.BaseStats.Speed</span></div>
+                    <div class="poke-summary mb-2"><PokemonLabel Build="build" /> <span class="small text-muted text-nowrap">素早さ種族値 @build.Pokemon.BaseStats.Speed</span></div>
                     <div class="form-group mb-2">
                         <label>S @EvRules.Label(dataSet.EvSystem) <Help Title="@($"素早さの{EvRules.Label(dataSet.EvSystem)}")">素早さに振る@(EvRules.Label(dataSet.EvSystem))です（0〜@(max)）。ボタンで 0 と最大を入れられます。</Help></label>
                         <div class="ev-grid">
@@ -187,33 +243,34 @@
                                        value="@build.EVs.Speed" @onchange="@(e => build.EVs[Stat.Speed] = Clamp(e.Value, max))" />
                                 <div class="ev-buttons">
                                     <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[Stat.Speed] = 0">0</button>
-                                    <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[Stat.Speed] = max">@max</button>
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[Stat.Speed] = EvRules.MaxAllowed(dataSet.EvSystem, build.EVs, Stat.Speed)">@max</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="form-group mb-2">
-                        <label>性格 <Help Title="性格">素早さ上昇（おくびょう・ようき等）は 1.1 倍、下降（ゆうかん・れいせい等）は 0.9 倍です。</Help></label>
-                        <SearchableSelect TItem="Nature" Items="data.Natures" DisplayText="@(n => n.Describe())" ValueSelector="@(n => n.Name)"
-                            SelectedValue="@(build.Nature?.Name ?? "")" SelectedValueChanged="@(v => build.Nature = data.FindNature(v))" Placeholder="性格..." />
+                        <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります。素早さ上昇（おくびょう・ようき等）は 1.1 倍、下降（ゆうかん・れいせい等）は 0.9 倍です。</Help></label>
+                        <NaturePicker Natures="data.Natures" Value="build.Nature" ValueChanged="@(n => build.Nature = n)" />
                     </div>
-                    <div class="form-group mb-2">
-                        <label>持ち物 <Help Title="持ち物">こだわりスカーフは 1.5 倍、くろいてっきゅうは 0.5 倍で計算します。メガシンカ後はメガストーンで固定です。</Help></label>
+                    <div class="build-grid mb-2">
+                    <div class="form-group">
+                        <label>持ち物 <Help Title="持ち物">素早さが変わる持ち物だけを表示します。こだわりスカーフは 1.5 倍、くろいてっきゅう・パワー系（パワーリストなど）は 0.5 倍で計算します。メガシンカ後はメガストーンで固定です。</Help></label>
                         @if (build.Pokemon.IsMega)
                         {
-                            <input class="form-control" value="@(build.Item?.Name ?? "")" disabled />
+                            <FixedField Value="@build.Item?.Name" Reason="@FixedField.MegaReason" />
                         }
                         else
                         {
-                            <SearchableSelect TItem="Item" Items="data.Items.Where(i => !i.IsMegaStone)" DisplayText="@(i => i.Name)" ValueSelector="@(i => i.Id.ToString())"
-                                SelectedValue="@(build.Item?.Id.ToString() ?? "")" SelectedValueChanged="@(v => build.Item = data.FindItem(ParseId(v)))" Placeholder="持ち物なし" />
+                            <SearchableSelect TItem="Item" Items="SpeedItems(build)" DisplayText="@(i => i.Name)" ValueSelector="@(i => i.Id.ToString())"
+                                SelectedValue="@(build.Item?.Id.ToString() ?? "")" SelectedValueChanged="@(v => build.Item = data.FindItem(ParseId(v)))"
+                                Dropdown="true" EmptyOption="持ち物なし" Placeholder="持ち物なし" />
                         }
                     </div>
-                    <div class="form-group mb-2">
+                    <div class="form-group">
                         <label>特性</label>
                         @if (abilities.Count <= 1)
                         {
-                            <input class="form-control" value="@(build.Ability?.Name ?? "")" disabled />
+                            <FixedField Value="@build.Ability?.Name" Reason="@FixedField.SingleAbilityReason" />
                         }
                         else
                         {
@@ -222,22 +279,86 @@
                             </select>
                         }
                     </div>
+                    </div>
                     <div class="row g-2">
                         <div class="col-6">
-                            <label class="form-label">ランク <Help Title="ランク補正">こうそくいどう等で上がった素早さのランクです。+1 で 1.5 倍、+2 で 2 倍、-1 で 2/3 倍になります。</Help></label>
+                            <label class="form-label">素早さランク <Help Title="素早さランク">こうそくいどう等で上がった素早さのランクです。+1 で 1.5 倍、+2 で 2 倍、-1 で 2/3 倍になります。</Help></label>
                             <select class="form-select" value="@build.Boosts.Speed" @onchange="@(e => build.Boosts[Stat.Speed] = Math.Clamp(ParseId(e.Value), -6, 6))">
                                 @for (var st = 6; st >= -6; st--) { <option value="@st">@(st > 0 ? "+" + st : st.ToString())</option> }
                             </select>
                         </div>
-                        <div class="col-6 d-flex align-items-end">
-                            <div class="form-check mb-2">
+                        <div class="col-6 d-flex flex-column justify-content-end">
+                            <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="para-@side" checked="@(build.Status == StatusCondition.Paralysis)" @onchange="@(e => build.Status = e.Value is true ? StatusCondition.Paralysis : StatusCondition.None)" />
-                                <label class="form-check-label" for="para-@side">まひ（素早さ 0.5 倍）</label>
+                                <label class="form-check-label" for="para-@side">まひ（0.5 倍）</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="tailwind-@side" checked="@s.Tailwind[side]" @onchange="@(e => s.Tailwind[side] = e.Value is true)" />
+                                <label class="form-check-label" for="tailwind-@side">おいかぜ（2 倍）</label>
                             </div>
                         </div>
                     </div>
                 }
             </div>
+        </div>
+    };
+
+    private static string Verdict(PokemonBuild a, PokemonBuild b, int speedA, int speedB) =>
+        speedA > speedB ? $"先手: {a.Pokemon.Name}" : speedA < speedB ? $"先手: {b.Pokemon.Name}" : "同速（どちらが先かはランダム）";
+
+    /// <summary>
+    /// 振り方別の素早さの表。今の条件・特性の発動条件で変わるときは列を足す。
+    /// <paramref name="opponentSpeed"/> があれば、その値（今の条件込み）と比べた先手・後手も出す。
+    /// </summary>
+    private RenderFragment RenderReference(PokemonBuild build, bool tailwind, int? opponentSpeed, string? opponentName) => __builder =>
+    {
+        // 振り方だけを置き換えて、結果の素早さと同じ計算（持ち物・特性・ランク・まひ・おいかぜ・天候・フィールド）をする
+        var rows = SpeedCalculator.ReferenceRows(build, data!.Natures, Scarf, s.Weather, s.Terrain, tailwind);
+        var (_, currentLabels) = SpeedCalculator.Effective(build, s.Weather, s.Terrain, tailwind);
+        var hasCurrent = rows.Any(r => r.Current != r.Base) || currentLabels.Count > 0;
+        var potential = SpeedCalculator.PotentialFactor(build, s.Weather, s.Terrain);
+        <div class="speed-reference-table">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th class="text-end">S</th>
+                        @if (hasCurrent)
+                        {
+                            <th class="text-end">今の条件<div class="small text-muted fw-normal">@string.Join("、", currentLabels)</div></th>
+                        }
+                        @if (potential is not null)
+                        {
+                            <th class="text-end">@potential.Label</th>
+                        }
+                        @if (opponentSpeed is not null)
+                        {
+                            <th class="text-center" title="@($"{opponentName} の今の素早さ S{opponentSpeed} と比べて")">vs S@(opponentSpeed)</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in rows)
+                    {
+                        <tr>
+                            <td>@row.Label @(row.Note is null ? "" : $"({row.Note})")</td>
+                            <td class="text-end">@row.Base</td>
+                            @if (hasCurrent)
+                            {
+                                <td class="text-end fw-bold">@row.Current</td>
+                            }
+                            @if (potential is not null)
+                            {
+                                <td class="text-end">@SpeedCalculator.Apply(row.Current, new[] { potential })</td>
+                            }
+                            @if (opponentSpeed is { } os)
+                            {
+                                <td class="text-center @(row.Current > os ? "counter-good" : row.Current < os ? "text-muted" : "text-warning")">@(row.Current > os ? "先" : row.Current < os ? "後" : "同")</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     };
 }

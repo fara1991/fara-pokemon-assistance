@@ -1,27 +1,97 @@
-/* ---- テーマ（Bootstrap 5.3 の data-bs-theme に合わせる） ---- */
+/* ---- テーマ（Bootstrap 5.3 の data-bs-theme に合わせる。fara-labs.com と同じ紫系） ---- */
 :root,
 [data-bs-theme="light"] {
-    --app-body-bg: #f6f7f9;
-    --app-card-border: #d9dde3;
-    --app-input-border: #8d97a3;
-    --app-muted: #5c6670;
-    --app-panel-bg: #eef1f4;
+    --app-body-bg: #f7f4fd;
+    --app-card-border: #d8cdf2;
+    --app-input-border: #9d8fc4;
+    --app-muted: #6b5f8a;
+    --app-panel-bg: #efe9fb;
     --app-note-bg: #fff8c5;
     --app-note-border: #e3c200;
+
+    --bs-primary: #7c3aed;
+    --bs-primary-rgb: 124, 58, 237;
+    --bs-primary-text-emphasis: #5b21b6;
+    --bs-primary-bg-subtle: #ede9fe;
+    --bs-primary-border-subtle: #c4b5fd;
+    --bs-link-color: #6d28d9;
+    --bs-link-color-rgb: 109, 40, 217;
+    --bs-link-hover-color: #a855f7;
+    --bs-link-hover-color-rgb: 168, 85, 247;
+    --bs-font-sans-serif: "Zen Kaku Gothic New", system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
 }
 
 [data-bs-theme="dark"] {
-    --app-body-bg: #161a1f;
-    --app-card-border: #343a40;
-    --app-input-border: #6c757d;
-    --app-muted: #adb5bd;
-    --app-panel-bg: #23282e;
-    --app-note-bg: #3b3600;
+    --app-body-bg: #0c0616;
+    --app-card-border: rgba(200, 170, 255, 0.16);
+    --app-input-border: #6e5f94;
+    --app-muted: #b4a7d1;
+    --app-panel-bg: #1a1030;
+    --app-note-bg: #2b2208;
     --app-note-border: #c9ad00;
+
+    --bs-body-bg: #0c0616;
+    --bs-body-bg-rgb: 12, 6, 22;
+    --bs-body-color: #f3edff;
+    --bs-body-color-rgb: 243, 237, 255;
+    --bs-emphasis-color: #ffffff;
+    --bs-secondary-color: #b4a7d1;
+    --bs-secondary-color-rgb: 180, 167, 209;
+    --bs-secondary-bg: #1a1030;
+    --bs-tertiary-color: #7f7399;
+    --bs-tertiary-bg: #140a26;
+    --bs-heading-color: #f3edff;
+    --bs-border-color: rgba(200, 170, 255, 0.16);
+    --bs-border-color-translucent: rgba(200, 170, 255, 0.16);
+    --bs-primary: #a855f7;
+    --bs-primary-rgb: 168, 85, 247;
+    --bs-primary-text-emphasis: #c4b5fd;
+    --bs-primary-bg-subtle: #2a194a;
+    --bs-primary-border-subtle: #5b3a9a;
+    --bs-link-color: #c4b5fd;
+    --bs-link-color-rgb: 196, 181, 253;
+    --bs-link-hover-color: #e879f9;
+    --bs-link-hover-color-rgb: 232, 121, 249;
+    --bs-code-color: #f0abfc;
 }
 
 body {
     background: var(--app-body-bg);
+}
+
+[data-bs-theme="dark"] body {
+    background: linear-gradient(180deg, #0c0616 0%, #140a26 100%) fixed;
+}
+
+.btn-primary {
+    --bs-btn-bg: #7c3aed;
+    --bs-btn-border-color: #7c3aed;
+    --bs-btn-hover-bg: #a855f7;
+    --bs-btn-hover-border-color: #a855f7;
+    --bs-btn-active-bg: #6d28d9;
+    --bs-btn-active-border-color: #6d28d9;
+    --bs-btn-disabled-bg: #7c3aed;
+    --bs-btn-disabled-border-color: #7c3aed;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--bs-primary);
+    --bs-btn-border-color: var(--bs-primary);
+    --bs-btn-hover-bg: #7c3aed;
+    --bs-btn-hover-border-color: #7c3aed;
+    --bs-btn-active-bg: #7c3aed;
+    --bs-btn-active-border-color: #7c3aed;
+}
+
+.form-check-input:checked {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #a855f7;
+    box-shadow: 0 0 0 0.25rem rgba(168, 85, 247, 0.25);
 }
 
 .valid.modified:not([type=checkbox]) {
@@ -87,6 +157,292 @@ body {
 .split-half {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* 左右の列は同じ高さに。各列の最初のカード（攻撃側・防御側）が余りを埋める */
+.split-half > .card:first-child {
+    flex: 1 1 auto;
+}
+
+/* ---- 計算機・素早さ比較の段組み（広い画面では 3 列: 左 | 右 | 場の状態と結果） ---- */
+.calc-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.calc-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+}
+
+@media (min-width: 768px) {
+    .calc-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+    }
+
+    .calc-col > .card:first-child {
+        flex: 1 1 auto;
+    }
+
+    /* 2 列のときは、場の状態と結果を下に全幅で並べる */
+    .calc-side {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+        align-items: start;
+    }
+
+    .calc-side > .card:first-child {
+        flex: initial;
+    }
+}
+
+@media (min-width: 1400px) {
+    .calc-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .calc-side {
+        grid-column: auto;
+        display: flex;
+        align-items: stretch;
+    }
+}
+
+/* ---- 計算機・素早さ比較の入力欄（PC ではページをスクロールせずに見えるよう詰める） ---- */
+.build-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem 0.75rem;
+    align-items: start;
+}
+
+.build-grid .form-group {
+    margin-bottom: 0 !important;
+}
+
+.build-grid .build-wide {
+    grid-column: 1 / -1;
+}
+
+.build-grid .build-check {
+    align-self: end;
+    margin-bottom: 0.4rem;
+}
+
+@media (min-width: 768px) {
+    .calc-grid .card-header {
+        padding: 0.45rem 0.85rem;
+    }
+
+    .calc-grid .card-body {
+        padding: 0.65rem 0.85rem;
+    }
+
+    .calc-grid .form-group {
+        margin-bottom: 0.45rem !important;
+    }
+
+    .calc-grid .build-grid .form-group {
+        margin-bottom: 0 !important;
+    }
+
+    .calc-grid .form-control:not(.form-control-sm),
+    .calc-grid .form-select:not(.form-select-sm) {
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+        font-size: 0.92rem;
+    }
+
+    .calc-grid .fixed-field {
+        min-height: calc(1.5em + 0.5rem + 2px);
+        padding-top: 0.15rem;
+        padding-bottom: 0.15rem;
+    }
+
+    .calc-grid .stats-summary {
+        margin-top: 0.4rem;
+        padding: 0.3rem 0.6rem;
+    }
+
+    .calc-grid .result-main {
+        font-size: 1.35rem;
+    }
+
+    .calc-grid .result-card hr {
+        margin: 0.5rem 0;
+    }
+
+    /* 努力値: 入力欄と 0 / 最大のボタンを横に並べる */
+    .calc-grid .ev-cell {
+        display: grid;
+        grid-template-columns: minmax(3.2rem, 4.5rem) auto;
+        column-gap: 0.25rem;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .calc-grid .ev-cell .ev-label {
+        grid-column: 1 / -1;
+        text-align: left;
+    }
+
+    .calc-grid .ev-buttons {
+        margin-top: 0;
+    }
+
+    .calc-grid .ev-buttons .btn {
+        padding: 0.1rem 0.4rem;
+    }
+
+    .calc-grid .page-header {
+        margin-bottom: 0.75rem;
+    }
+}
+
+.poke-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 0.6rem;
+}
+
+.field-checks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem 0.9rem;
+    font-size: 0.88rem;
+}
+
+.field-checks .form-check {
+    margin-bottom: 0;
+}
+
+.result-matchup {
+    font-size: 0.88rem;
+}
+
+@media (min-width: 768px) {
+    .calc-grid .hp-editor {
+        gap: 0.35rem;
+    }
+
+    .calc-grid .hp-input .input-group-text {
+        padding-left: 0.35rem;
+        padding-right: 0.35rem;
+    }
+
+    .calc-grid .result-card .card-body {
+        font-size: 0.88rem;
+    }
+
+    .calc-grid .result-card .chat-output {
+        font-size: 0.78rem;
+        padding: 0.5rem 0.65rem;
+    }
+
+    .calc-grid .speed-reference-card .table td,
+    .calc-grid .speed-reference-card .table th {
+        padding-top: 0.2rem;
+        padding-bottom: 0.2rem;
+    }
+}
+
+/* 閉じておける項目（努力値の推定など） */
+.collapsible-card > summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.collapsible-card > summary::-webkit-details-marker {
+    display: none;
+}
+
+.collapsible-card > summary::before {
+    content: "▸";
+    color: var(--app-muted);
+    transition: transform 0.15s;
+}
+
+.collapsible-card[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.collapsible-card:not([open]) > summary {
+    border-bottom: 0;
+}
+
+/* ---- 性格（上昇・下降のボタン） ---- */
+.nature-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.nature-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.nature-row-label {
+    flex: 0 0 2.4rem;
+    font-size: 0.8rem;
+}
+
+.nature-buttons {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.2rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.nature-buttons .btn {
+    padding: 0.15rem 0;
+    font-size: 0.75rem;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* ---- 残り HP ---- */
+.hp-editor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.hp-editor .form-range {
+    flex: 1 1 5rem;
+    min-width: 4.5rem;
+}
+
+.hp-input {
+    width: auto;
+    flex: 0 0 auto;
+}
+
+.hp-input .form-control {
+    width: 3.4rem;
+    flex: 0 0 auto;
+}
+
+.searchable-select-item.active {
+    background: var(--bs-primary-bg-subtle);
 }
 
 .stat-up {
@@ -167,11 +523,22 @@ body {
     font-size: 0.75rem;
 }
 
-/* ---- タイプ相性表 ---- */
+/* ---- タイプ相性表 ----
+   マスの大きさ（--tc-cell）は画面に合わせて縮め、PC（1400×900 / 1920×1080 など）では
+   表全体（右端の合計列も含む）がスクロールせずに見えるようにする。スマホは固定サイズで横スクロール */
 .type-chart {
+    --tc-cell: 2.4rem;
     width: auto;
-    font-size: 1rem;
+    font-size: calc(var(--tc-cell) * 0.42);
     text-align: center;
+}
+
+@media (min-width: 768px) {
+    .type-chart {
+        /* 縦: 画面の高さから見出し・凡例の分を引いて 19 行（見出し行 + 18 タイプ）で割る
+           横: 画面の幅からサイドバー・右のパネル・余白を引いて 21 列（見出し + 18 タイプ + 合計）で割る */
+        --tc-cell: clamp(1.5rem, min(calc((100vh - 12.5rem) / 19.6), calc((100vw - 230px - 20rem - 6rem) / 21)), 2.6rem);
+    }
 }
 
 .type-chart .type-head,
@@ -179,22 +546,94 @@ body {
     white-space: nowrap;
     font-weight: 600;
     background: var(--app-panel-bg);
-    width: 2.6rem;
-    padding: 0.2rem;
+    width: var(--tc-cell);
+    height: var(--tc-cell);
+    padding: 0.1rem;
+}
+
+.type-chart .type-icon {
+    width: calc(var(--tc-cell) - 0.45rem);
+    height: calc(var(--tc-cell) - 0.45rem);
+}
+
+.type-chart .poke-icon {
+    width: var(--tc-cell);
+    height: var(--tc-cell);
 }
 
 .type-chart .type-corner {
-    font-size: 0.7rem;
+    font-size: 0.6rem;
 }
 
 .type-chart td {
-    width: 2.6rem;
-    min-width: 2.6rem;
-    height: 2.6rem;
+    position: relative;
+    width: var(--tc-cell);
+    min-width: var(--tc-cell);
+    height: var(--tc-cell);
     padding: 0;
     vertical-align: middle;
     font-weight: 700;
     cursor: default;
+}
+
+/* 右端: 選んだポケモンに当たったときの最終的な倍率（特性込み） */
+.type-chart td.type-total {
+    width: auto;
+    min-width: calc(var(--tc-cell) * 1.45);
+    padding: 0 0.2rem;
+    font-size: calc(var(--tc-cell) * 0.36);
+    white-space: nowrap;
+    border-left: 2px solid var(--bs-primary);
+}
+
+.type-chart th.type-total-head {
+    border-left: 2px solid var(--bs-primary);
+    background: var(--bs-primary-bg-subtle);
+}
+
+.type-chart td.type-total-ability {
+    outline: 2px dashed #d97706;
+    outline-offset: -3px;
+}
+
+/* 特性で倍率が変わるマスの印 */
+.ability-badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    padding: 0 2px;
+    border-radius: 3px;
+    background: #d97706;
+    color: #fff;
+    font-size: max(0.55rem, calc(var(--tc-cell, 2.4rem) * 0.26));
+    line-height: 1.2;
+    font-weight: 700;
+}
+
+.type-mark .ability-badge {
+    position: static;
+    font-size: 0.7rem;
+}
+
+.ability-effects {
+    padding: 0.4rem 0.6rem;
+    border-left: 3px solid #d97706;
+    background: var(--app-panel-bg);
+    border-radius: 0.25rem;
+}
+
+.counter-note {
+    flex-basis: 100%;
+    font-size: 0.72rem;
+    color: #b45309;
+}
+
+[data-bs-theme="dark"] .counter-note {
+    color: #fbbf24;
+}
+
+.type-ability {
+    min-width: 9rem;
 }
 
 /* 記号で区別し、色は控えめな補助にする */
@@ -226,6 +665,112 @@ body {
     outline-offset: -2px;
 }
 
+/* ポケモンを選んだとき: そのタイプの列（受ける側）を強調し、ほかは少し薄くする */
+.type-chart-focus .type-dim {
+    opacity: 0.4;
+}
+
+.type-chart-focus td.type-selected {
+    box-shadow: inset 2px 0 0 var(--bs-primary), inset -2px 0 0 var(--bs-primary);
+}
+
+.type-chart-focus th.type-selected {
+    background: var(--bs-primary-bg-subtle);
+    box-shadow: inset 0 0 0 2px var(--bs-primary);
+}
+
+.type-chart-focus tbody tr:last-child td.type-selected {
+    box-shadow: inset 2px 0 0 var(--bs-primary), inset -2px 0 0 var(--bs-primary), inset 0 -2px 0 var(--bs-primary);
+}
+
+/* ポケモンを選んでいる間の攻撃タイプ（行見出し）は押せるボタン。選んだ行は枠で囲む */
+.type-chart th.type-head-toggle {
+    padding: 0;
+}
+
+.type-chart .type-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: var(--tc-cell);
+    padding: 0;
+    border: 0;
+    border-radius: 0.25rem;
+    background: transparent;
+    cursor: pointer;
+}
+
+.type-chart .type-toggle:hover {
+    background: var(--bs-primary-bg-subtle);
+}
+
+.type-chart .type-toggle:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: -2px;
+}
+
+.type-chart .type-toggle.active {
+    background: var(--bs-primary);
+    box-shadow: inset 0 0 0 2px #f0b400;
+}
+
+.type-chart-focus td.type-row-picked {
+    opacity: 1;
+    box-shadow: inset 0 2px 0 #f0b400, inset 0 -2px 0 #f0b400;
+}
+
+.type-pick-hint {
+    padding: 0.3rem 0.5rem;
+    border-left: 3px solid #f0b400;
+    background: var(--app-panel-bg);
+    border-radius: 0.25rem;
+}
+
+.type-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1rem 0.45rem;
+    border: 2px solid #f0b400;
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+.type-chip:hover {
+    background: var(--bs-primary);
+    color: #fff;
+}
+
+.type-attacker-list {
+    max-height: none;
+}
+
+.type-attacker-list li {
+    align-items: flex-start;
+    padding: 0.2rem 0.4rem;
+}
+
+.type-attacker-body {
+    min-width: 0;
+    flex: 1;
+}
+
+.type-attacker-moves {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.6rem;
+    font-size: 0.8rem;
+}
+
+.type-attacker-move {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    white-space: nowrap;
+}
+
 .type-chart-layout {
     display: flex;
     flex-wrap: wrap;
@@ -240,8 +785,66 @@ body {
 }
 
 .matchup-panel {
-    flex: 1 1 320px;
+    flex: 1 1 18rem;
     min-width: 0;
+}
+
+/* PC では表の横に置き、パネルが長くても中でスクロールして表を押し下げない。
+   スクロールするのは結果（.matchup-results）だけにし、ポケモンを選ぶ欄の候補一覧はパネルの外まで出せるようにする */
+@media (min-width: 768px) {
+    .type-chart-layout {
+        flex-wrap: nowrap;
+    }
+
+    .matchup-panel .card {
+        max-height: calc(100vh - 8.5rem);
+    }
+
+    .matchup-panel .card-body {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .matchup-panel .matchup-results {
+        min-height: 0;
+        overflow-y: auto;
+    }
+}
+
+.counter-list {
+    max-height: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+    gap: 0.4rem;
+    border: none;
+}
+
+.counter-list li {
+    padding: 0.15rem 0.4rem;
+}
+
+.counter-list li,
+.counter-list li + li {
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.25rem;
+}
+
+.counter-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.counter-good {
+    color: #198754;
+    font-weight: 700;
+}
+
+[data-bs-theme="dark"] .counter-good {
+    color: #6ee7a8;
 }
 
 .matchup-list {
@@ -389,14 +992,14 @@ body {
     cursor: pointer;
 }
 
-/* ---- 全体の見やすさ ---- */
+/* ---- 全体の見やすさ（画面の幅いっぱいを使う） ---- */
 .content {
-    max-width: 1280px;
+    max-width: none;
 }
 
 .page-header {
-    margin-bottom: 1.25rem;
-    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.6rem;
     border-bottom: 1px solid var(--app-card-border);
 }
 
@@ -474,6 +1077,49 @@ body {
     white-space: nowrap;
 }
 
+/* コマンドの書式: 置き換える値は色付きの斜体のチップ、それ以外はそのまま打つ文字 */
+.cmd-syntax {
+    color: var(--bs-body-color);
+}
+
+.cmd-table code.cmd-syntax,
+.cmd-table .cmd-example code {
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+.cmd-table td:nth-child(1) {
+    min-width: 14rem;
+    width: 34%;
+}
+
+.cmd-table td:nth-child(2) {
+    min-width: 12rem;
+    width: 33%;
+}
+
+.cmd-table td:nth-child(3) {
+    min-width: 12rem;
+}
+
+.cmd-ph,
+.cmd-table .cmd-example code {
+    white-space: nowrap;
+}
+
+.cmd-ph {
+    display: inline-block;
+    margin: 0 0.1em;
+    padding: 0 0.3em;
+    border-radius: 0.25rem;
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text-emphasis);
+    border: 1px dashed var(--bs-primary-border-subtle);
+    font-style: italic;
+    font-family: var(--bs-font-sans-serif);
+}
+
 .cmd-example {
     font-size: 0.8rem;
     color: var(--app-muted);
@@ -547,4 +1193,503 @@ body {
 .speed-value {
     font-size: 1.8rem;
     font-weight: 700;
+}
+
+.speed-versus {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.speed-versus .poke-label {
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.speed-versus .poke-label strong {
+    white-space: nowrap;
+}
+
+.speed-reference {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+    gap: 1rem;
+}
+
+.speed-reference-table {
+    overflow-x: auto;
+}
+
+/* ---- 変えられない項目（メガストーン・特性が 1 つ）。入力欄と見分けが付くよう、破線の枠と鍵・「固定」を付ける ---- */
+.fixed-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem 0.4rem;
+    min-height: calc(1.5em + 0.75rem + 2px);
+    padding: 0.3rem 0.6rem;
+    border: 1px dashed var(--app-input-border);
+    border-radius: var(--bs-border-radius);
+    background: var(--app-panel-bg);
+    cursor: not-allowed;
+}
+
+.fixed-field-sm {
+    min-height: calc(1.5em + 0.5rem + 2px);
+    padding: 0.15rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.fixed-lock {
+    flex: none;
+    color: var(--app-muted);
+}
+
+.fixed-value {
+    font-weight: 600;
+}
+
+.fixed-badge {
+    padding: 0 0.35rem;
+    border-radius: 0.25rem;
+    background: var(--app-muted);
+    color: var(--bs-body-bg);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.fixed-reason {
+    margin-left: auto;
+    color: var(--app-muted);
+    font-size: 0.75rem;
+}
+
+/* ---- 結果を見えたままにする ----
+   PC（3 列）: 結果カードを列の中で固定。狭い画面: 画面の下に要点のバー（押すと詳細を開く） */
+.result-bar {
+    display: none;
+}
+
+@media (min-width: 1400px) {
+    .result-sticky {
+        position: sticky;
+        top: 0.75rem;
+        z-index: 1;
+    }
+}
+
+@media (max-width: 1399.98px) {
+    .result-bar {
+        display: block;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1040;
+        background: var(--bs-body-bg);
+        border-top: 2px solid var(--bs-primary);
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.25);
+    }
+
+    .result-bar-summary {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.25rem 0.5rem;
+        width: 100%;
+        padding: 0.5rem 1rem;
+        border: 0;
+        background: transparent;
+        color: var(--bs-body-color);
+        text-align: left;
+        font-size: 0.95rem;
+    }
+
+    .result-bar-toggle {
+        margin-left: auto;
+        color: var(--app-muted);
+        font-size: 0.8rem;
+        white-space: nowrap;
+    }
+
+    .result-bar-detail {
+        max-height: 55vh;
+        overflow-y: auto;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--app-card-border);
+        font-size: 0.88rem;
+    }
+
+    /* バーで下の入力欄が隠れないよう、その分だけ余白を空ける */
+    .has-result-bar {
+        padding-bottom: 4rem;
+    }
+}
+
+/* サイドバーがある幅では、バーをサイドバーの右に出す */
+@media (min-width: 768px) and (max-width: 1399.98px) {
+    .result-bar {
+        left: 230px;
+    }
+}
+
+.speed-ref-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: 0.3rem;
+}
+
+.speed-ref-tabs .btn {
+    padding: 0.1rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* ---- タイプ相性表（スマホ）: 表の代わりに、受ける倍率をアイコンの一覧で出す ---- */
+.type-compact,
+.type-view-toggle {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    .type-compact {
+        display: block;
+    }
+
+    .type-view-toggle {
+        display: flex;
+    }
+
+    .type-chart-layout:not(.show-table) .type-chart-main {
+        display: none;
+    }
+
+    .type-chart-layout.show-table .type-compact {
+        display: none;
+    }
+}
+
+.compact-group + .compact-group {
+    margin-top: 0.35rem;
+}
+
+.compact-group-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-bottom: 0.15rem;
+}
+
+.compact-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.25rem;
+}
+
+.compact-cell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.05rem;
+    min-width: 0;
+    padding: 0.2rem 0 0.15rem;
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.3rem;
+    background: var(--app-panel-bg);
+    color: var(--bs-body-color);
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+button.compact-cell {
+    cursor: pointer;
+}
+
+.compact-cell .type-icon {
+    width: 1.75rem;
+    height: 1.75rem;
+}
+
+.compact-cell.active {
+    outline: 2px solid #f0b400;
+    outline-offset: -1px;
+    box-shadow: 0 0 0 2px rgba(240, 180, 0, 0.35);
+}
+
+.compact-cell .ability-badge {
+    font-size: 0.55rem;
+}
+
+.compact-pick .compact-name {
+    font-size: 0.68rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.compact-pick.active {
+    background: var(--bs-primary-bg-subtle);
+}
+
+/* ---- ポケモン一覧 ---- */
+.dex-filters .form-group {
+    margin-bottom: 0 !important;
+}
+
+.dex-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr));
+    gap: 0.5rem 0.75rem;
+}
+
+.dex-type-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.6rem;
+    margin-top: 0.6rem;
+}
+
+.dex-type-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+}
+
+.dex-type-btn {
+    padding: 0.1rem;
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.35rem;
+    background: transparent;
+    line-height: 0;
+    cursor: pointer;
+}
+
+.dex-type-btn:hover {
+    background: var(--bs-primary-bg-subtle);
+}
+
+.dex-type-btn.active {
+    background: var(--bs-primary);
+    border-color: #f0b400;
+    box-shadow: 0 0 0 2px rgba(240, 180, 0, 0.45);
+}
+
+.dex-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 1rem;
+    margin-top: 0.6rem;
+}
+
+.dex-sort-mobile {
+    display: none;
+    gap: 0.3rem;
+}
+
+.dex-sort-mobile .btn {
+    white-space: nowrap;
+}
+
+.dex-list {
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.375rem;
+    background: var(--bs-body-bg);
+}
+
+.dex-row {
+    display: grid;
+    grid-template-columns: 3.4rem minmax(10rem, 1.3fr) 4.6rem minmax(8rem, 2fr) repeat(6, 3rem) 3.6rem;
+    align-items: center;
+    gap: 0 0.4rem;
+    min-height: 52px;
+    padding: 0.1rem 0.6rem;
+    border-bottom: 1px solid var(--app-card-border);
+    cursor: pointer;
+}
+
+.dex-row:hover {
+    background: var(--app-panel-bg);
+}
+
+/* 見出しの行はスクロールしても上に残す */
+.dex-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    min-height: 2.2rem;
+    background: var(--app-panel-bg);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: default;
+    border-radius: 0.375rem 0.375rem 0 0;
+}
+
+.dex-sort {
+    padding: 0.35rem 0;
+    border: 0;
+    background: transparent;
+    color: var(--bs-body-color);
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.dex-sort:hover {
+    color: var(--bs-primary);
+}
+
+.dex-sort.dex-no {
+    text-align: left;
+}
+
+.dex-no {
+    color: var(--app-muted);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.dex-name {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    font-weight: 600;
+}
+
+.dex-name .poke-icon-sm {
+    width: 40px;
+    height: 40px;
+}
+
+.dex-abilities {
+    color: var(--app-muted);
+    font-size: 0.8rem;
+}
+
+.dex-stat {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.dex-total {
+    font-weight: 700;
+}
+
+.dex-item.selected > .dex-row {
+    background: var(--bs-primary-bg-subtle);
+}
+
+.dex-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.6rem 0.5rem 4rem;
+    border-bottom: 1px solid var(--app-card-border);
+    background: var(--bs-primary-bg-subtle);
+}
+
+/* スマホ: 1 匹ずつのカード（名前とタイプ / 特性 / 種族値 7 つ） */
+@media (max-width: 767.98px) {
+    .dex-head {
+        display: none;
+    }
+
+    .dex-sort-mobile {
+        display: flex;
+    }
+
+    .dex-row {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 0.1rem 0.25rem;
+        padding: 0.35rem 0.5rem;
+    }
+
+    .dex-row .dex-no {
+        grid-column: 1;
+        grid-row: 1;
+        font-size: 0.7rem;
+    }
+
+    .dex-row .dex-name {
+        grid-column: 2 / 6;
+        grid-row: 1;
+    }
+
+    .dex-row .dex-types-cell {
+        grid-column: 6 / 8;
+        grid-row: 1;
+        justify-self: end;
+    }
+
+    .dex-row .dex-abilities {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        font-size: 0.75rem;
+    }
+
+    .dex-row .dex-stat {
+        grid-row: 3;
+        text-align: center;
+        font-size: 0.82rem;
+    }
+
+    .dex-row .dex-stat::before {
+        content: attr(data-label);
+        display: block;
+        color: var(--app-muted);
+        font-size: 0.62rem;
+        font-weight: 400;
+    }
+
+    .dex-actions {
+        padding-left: 0.6rem;
+    }
+}
+
+/* 2 つ選んでいるときの、ほかのタイプ（外すまで選べない） */
+.type-chart .type-toggle.blocked,
+.compact-cell.blocked,
+.dex-type-btn.blocked {
+    opacity: 0.35;
+    filter: grayscale(0.6);
+    cursor: not-allowed;
+}
+
+.type-chart .type-toggle.blocked:hover,
+.dex-type-btn.blocked:hover {
+    background: transparent;
+}
+
+.type-full-hint {
+    color: #b45309;
+    font-weight: 600;
+}
+
+[data-bs-theme="dark"] .type-full-hint {
+    color: #fbbf24;
+}
+
+/* 並べ替えの印（並べ替えている見出しは色付きの ▲▼、それ以外は薄い ⇅） */
+.dex-sort-mark {
+    margin-left: 0.15rem;
+    font-size: 0.75em;
+    opacity: 0.35;
+}
+
+.dex-sort.sorted {
+    color: var(--bs-primary);
+}
+
+[data-bs-theme="dark"] .dex-sort.sorted {
+    color: #c4b5fd;
+}
+
+.dex-sort.sorted .dex-sort-mark {
+    opacity: 1;
 }
