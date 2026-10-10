@@ -7,6 +7,7 @@
         ValueSelector="@(n => n.Name)"
         SelectedValue="@(Value?.Name ?? "")"
         SelectedValueChanged="@(v => Change(Natures.FirstOrDefault(n => n.Name == v)))"
+        Dropdown="true"
         Placeholder="性格名で探す..." />
     @foreach (var (label, increased) in new[] { ("上昇", true), ("下降", false) })
     {

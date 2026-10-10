@@ -5,10 +5,12 @@
    - クリック / フォーカスで候補を開く。選択中なら、その名前を含む候補（リザードン → メガリザードンX など）だけを出し、
      いま選んでいるものを強調して見えるところまでスクロールする。入力欄が空なら全部出す
    - 入力欄の文字は選択中の名前のまま残し、全選択しておくので、打ち始めればそのまま置き換わる
-   - カタカナ・ひらがな・ローマ字（ie → イエッサン）で絞り込める。↑↓ で候補を移動、Enter で決定、Esc で閉じる *@
+   - カタカナ・ひらがな・ローマ字（ie → イエッサン）で絞り込める。↑↓ で候補を移動、Enter で決定、Esc で閉じる
+   - Dropdown="true" のときはセレクトと同じ見た目（右端に ∨）にし、開いたときは選択中でも全件を出す（持ち物・性格など候補の少ないもの）。
+     EmptyOption を渡すと先頭に「なし」の候補を出す *@
 <div class="searchable-select" @onfocusout="OnFocusOut">
     <input type="text"
-           class="form-control"
+           class="@(Dropdown ? "form-select searchable-select-combo" : "form-control")"
            placeholder="@Placeholder"
            value="@searchText"
            @oninput="OnTyped"
@@ -19,9 +21,14 @@
            onfocus="this.select()"
            disabled="@Disabled"
            autocomplete="off" />
-    @if (showDropdown && !Disabled && visible.Count > 0)
+    @if (showDropdown && !Disabled && (visible.Count > 0 || ShowEmptyOption))
     {
         <div class="searchable-select-dropdown" id="@listId">
+            @if (ShowEmptyOption)
+            {
+                <div class="searchable-select-item text-muted @(HasSelection ? "" : "active")"
+                     @onmousedown="SelectEmpty" @onmousedown:preventDefault>@EmptyOption</div>
+            }
             @for (var i = 0; i < visible.Count; i++)
             {
                 var item = visible[i];
@@ -59,6 +66,10 @@
     [Parameter] public EventCallback<string> SelectedValueChanged { get; set; }
     [Parameter] public string Placeholder { get; set; } = "入力して検索...";
     [Parameter] public bool Disabled { get; set; }
+    /// <summary>セレクト風（右端に ∨、開いたら全件）にする。</summary>
+    [Parameter] public bool Dropdown { get; set; }
+    /// <summary>先頭に出す「選択なし」の候補の文字（例: 持ち物なし）。null なら出さない。</summary>
+    [Parameter] public string? EmptyOption { get; set; }
     /// <summary>一度に表示する最大件数。</summary>
     [Parameter] public int MaxVisible { get; set; } = 400;
 
@@ -99,7 +110,8 @@
     private void Rebuild()
     {
         var matches = KanaSearch.Create(searchText);
-        var all = !string.IsNullOrWhiteSpace(searchText)
+        // セレクト風のときは、文字を打つまでは全件（選択中のものを強調）
+        var all = !string.IsNullOrWhiteSpace(searchText) && (userTyped || !Dropdown)
             ? Items.Where(item => matches(DisplayText(item))).ToList()
             : Items.ToList();
         visible = all.Take(MaxVisible).ToList();
@@ -107,6 +119,16 @@
         highlight = HasSelection ? visible.FindIndex(item => ValueSelector(item) == SelectedValue) : -1;
         if (highlight < 0 && userTyped && visible.Count > 0) highlight = 0;
         scrollPending = true;
+    }
+
+    private bool ShowEmptyOption => EmptyOption is not null && (!userTyped || string.IsNullOrWhiteSpace(searchText));
+
+    private async Task SelectEmpty()
+    {
+        searchText = "";
+        showDropdown = false;
+        userTyped = false;
+        if (HasSelection) await SelectedValueChanged.InvokeAsync("");
     }
 
     private void Open()
@@ -125,12 +147,21 @@
         Rebuild();
     }
 
-    private void OnFocusIn() => Open();
+    // フォーカスで開いた直後のクリック（同じ操作）では閉じない
+    private bool openedByFocus;
+
+    private void OnFocusIn()
+    {
+        Open();
+        openedByFocus = true;
+    }
 
     /// <summary>選んだ後も入力欄にフォーカスが残るので、もう一度クリックしたら候補を開き直す。</summary>
     private void OnClicked()
     {
         if (!showDropdown) Open();
+        else if (openedByFocus) openedByFocus = false;
+        else if (Dropdown && !userTyped) showDropdown = false; // セレクトと同じく、もう一度押すと閉じる
     }
 
     private async Task SelectItem(TItem item)
@@ -185,6 +216,7 @@
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
         preventDefaultKey = false;
+        openedByFocus = false;
         switch (e.Key)
         {
             case "Escape":

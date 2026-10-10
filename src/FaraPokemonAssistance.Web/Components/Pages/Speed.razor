@@ -110,6 +110,14 @@
 
     private Item? Scarf => data?.Items.FirstOrDefault(i => i.Id == 264);
 
+    /// <summary>素早さが変わる持ち物だけ（こだわりスカーフ・くろいてっきゅう・パワー系）。今持たせている持ち物は必ず含める。</summary>
+    private IReadOnlyList<Item> SpeedItems(PokemonBuild build)
+    {
+        var items = data!.Items.Where(SpeedCalculator.IsSpeedItem).ToList();
+        if (build.Item is not null && !items.Contains(build.Item)) items.Insert(0, build.Item);
+        return items;
+    }
+
     protected override async Task OnAppReadyAsync()
     {
         s = PageStates.Get<State>("speed2");
@@ -210,15 +218,16 @@
                         <NaturePicker Natures="data.Natures" Value="build.Nature" ValueChanged="@(n => build.Nature = n)" />
                     </div>
                     <div class="form-group mb-2">
-                        <label>持ち物 <Help Title="持ち物">こだわりスカーフは 1.5 倍、くろいてっきゅうは 0.5 倍で計算します。メガシンカ後はメガストーンで固定です。</Help></label>
+                        <label>持ち物 <Help Title="持ち物">素早さが変わる持ち物だけを表示します。こだわりスカーフは 1.5 倍、くろいてっきゅう・パワー系（パワーリストなど）は 0.5 倍で計算します。メガシンカ後はメガストーンで固定です。</Help></label>
                         @if (build.Pokemon.IsMega)
                         {
                             <input class="form-control" value="@(build.Item?.Name ?? "")" disabled />
                         }
                         else
                         {
-                            <SearchableSelect TItem="Item" Items="data.Items.Where(i => !i.IsMegaStone)" DisplayText="@(i => i.Name)" ValueSelector="@(i => i.Id.ToString())"
-                                SelectedValue="@(build.Item?.Id.ToString() ?? "")" SelectedValueChanged="@(v => build.Item = data.FindItem(ParseId(v)))" Placeholder="持ち物なし" />
+                            <SearchableSelect TItem="Item" Items="SpeedItems(build)" DisplayText="@(i => i.Name)" ValueSelector="@(i => i.Id.ToString())"
+                                SelectedValue="@(build.Item?.Id.ToString() ?? "")" SelectedValueChanged="@(v => build.Item = data.FindItem(ParseId(v)))"
+                                Dropdown="true" EmptyOption="持ち物なし" Placeholder="持ち物なし" />
                         }
                     </div>
                     <div class="form-group mb-2">

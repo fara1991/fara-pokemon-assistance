@@ -65,6 +65,7 @@
                             ValueSelector="@(n => n.Name)"
                             SelectedValue="@(s.NewNature?.Name ?? "")"
                             SelectedValueChanged="@(v => s.NewNature = data.FindNature(v))"
+                            Dropdown="true"
                             Placeholder="性格を入力..." />
                     </div>
                     <div class="form-group mb-3">
@@ -151,7 +152,9 @@
                                     ValueSelector="@(i => i.Id.ToString())"
                                     SelectedValue="@(s.TeamItem?.Id.ToString() ?? "")"
                                     SelectedValueChanged="@(v => s.TeamItem = data.FindItem(ParseId(v)))"
-                                    Placeholder="持ち物を入力（任意）..." />
+                                    Dropdown="true"
+                                    EmptyOption="持ち物なし"
+                                    Placeholder="持ち物なし（入力して検索）" />
                             }
                         </div>
                     </div>

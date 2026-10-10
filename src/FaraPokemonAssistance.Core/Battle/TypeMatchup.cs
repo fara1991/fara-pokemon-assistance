@@ -38,17 +38,23 @@ public static class TypeMatchup
     }
 
     /// <param name="Pokemon">有利な相手。</param>
-    /// <param name="Offense">相手のタイプ一致技が、選んだポケモンに与える最大倍率。</param>
-    /// <param name="Defense">選んだポケモンのタイプ一致技を、相手が受ける最大倍率。</param>
-    public sealed record Counter(Pokemon Pokemon, double Offense, double Defense);
+    /// <param name="Offense">相手のタイプ一致技が、選んだポケモンに与える最大倍率（特性込み）。</param>
+    /// <param name="Defense">選んだポケモンのタイプ一致技を、相手が受ける最大倍率（特性込み）。</param>
+    /// <param name="Notes">特性で倍率が変わったときの説明（例: <c>きもったま(ゴーストに当たる)</c>）。</param>
+    public sealed record Counter(Pokemon Pokemon, double Offense, double Defense, IReadOnlyList<string> Notes)
+    {
+        public Counter(Pokemon pokemon, double offense, double defense) : this(pokemon, offense, defense, Array.Empty<string>()) { }
+    }
 
     /// <summary>
     /// 選んだポケモンに対してタイプ相性で有利なポケモン（最大 <paramref name="count"/> 匹）。
     /// まず「タイプ一致技で抜群を取れて、選んだポケモンのタイプ一致技で抜群を取られない」相手を、
     /// 足りなければ「抜群は取れないが、選んだポケモンのタイプ一致技を半減以下で受けられる」相手を足す。
     /// それぞれの中では候補の並び順（使用率順など）を保つので、よく使われるポケモンが先に出る。
+    /// 特性（<paramref name="ability"/> と <paramref name="abilityOf"/>）を渡すと、きもったま・ふゆう・あついしぼうなども反映する。
     /// </summary>
-    public static IReadOnlyList<Counter> Counters(TypeChart chart, Pokemon pokemon, IEnumerable<Pokemon> candidates, int count = 10)
+    public static IReadOnlyList<Counter> Counters(TypeChart chart, Pokemon pokemon, IEnumerable<Pokemon> candidates, int count = 10,
+        Ability? ability = null, Func<Pokemon, Ability?>? abilityOf = null)
     {
         var strong = new List<Counter>();
         var resist = new List<Counter>();
@@ -56,7 +62,11 @@ public static class TypeMatchup
         foreach (var o in candidates)
         {
             if (o.SpeciesId == pokemon.SpeciesId && o.SpeciesId != 0 || o.Id == pokemon.Id) continue;
-            var c = new Counter(o, BestStab(chart, o, pokemon), BestStab(chart, pokemon, o));
+            var oAbility = abilityOf?.Invoke(o);
+            var offense = AbilityMatchup.BestStab(chart, o, oAbility, pokemon, ability);
+            var defense = AbilityMatchup.BestStab(chart, pokemon, ability, o, oAbility);
+            var notes = offense.Notes.Concat(defense.Notes).Distinct().ToList();
+            var c = new Counter(o, offense.Multiplier, defense.Multiplier, notes);
             if (c.Offense > 1.0 && c.Defense <= 1.0) strong.Add(c);
             else if (c.Offense >= 1.0 && c.Defense < 1.0) resist.Add(c);
         }
