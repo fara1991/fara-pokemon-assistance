@@ -1,27 +1,97 @@
-/* ---- テーマ（Bootstrap 5.3 の data-bs-theme に合わせる） ---- */
+/* ---- テーマ（Bootstrap 5.3 の data-bs-theme に合わせる。fara-labs.com と同じ紫系） ---- */
 :root,
 [data-bs-theme="light"] {
-    --app-body-bg: #f6f7f9;
-    --app-card-border: #d9dde3;
-    --app-input-border: #8d97a3;
-    --app-muted: #5c6670;
-    --app-panel-bg: #eef1f4;
+    --app-body-bg: #f7f4fd;
+    --app-card-border: #d8cdf2;
+    --app-input-border: #9d8fc4;
+    --app-muted: #6b5f8a;
+    --app-panel-bg: #efe9fb;
     --app-note-bg: #fff8c5;
     --app-note-border: #e3c200;
+
+    --bs-primary: #7c3aed;
+    --bs-primary-rgb: 124, 58, 237;
+    --bs-primary-text-emphasis: #5b21b6;
+    --bs-primary-bg-subtle: #ede9fe;
+    --bs-primary-border-subtle: #c4b5fd;
+    --bs-link-color: #6d28d9;
+    --bs-link-color-rgb: 109, 40, 217;
+    --bs-link-hover-color: #a855f7;
+    --bs-link-hover-color-rgb: 168, 85, 247;
+    --bs-font-sans-serif: "Zen Kaku Gothic New", system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
 }
 
 [data-bs-theme="dark"] {
-    --app-body-bg: #161a1f;
-    --app-card-border: #343a40;
-    --app-input-border: #6c757d;
-    --app-muted: #adb5bd;
-    --app-panel-bg: #23282e;
-    --app-note-bg: #3b3600;
+    --app-body-bg: #0c0616;
+    --app-card-border: rgba(200, 170, 255, 0.16);
+    --app-input-border: #6e5f94;
+    --app-muted: #b4a7d1;
+    --app-panel-bg: #1a1030;
+    --app-note-bg: #2b2208;
     --app-note-border: #c9ad00;
+
+    --bs-body-bg: #0c0616;
+    --bs-body-bg-rgb: 12, 6, 22;
+    --bs-body-color: #f3edff;
+    --bs-body-color-rgb: 243, 237, 255;
+    --bs-emphasis-color: #ffffff;
+    --bs-secondary-color: #b4a7d1;
+    --bs-secondary-color-rgb: 180, 167, 209;
+    --bs-secondary-bg: #1a1030;
+    --bs-tertiary-color: #7f7399;
+    --bs-tertiary-bg: #140a26;
+    --bs-heading-color: #f3edff;
+    --bs-border-color: rgba(200, 170, 255, 0.16);
+    --bs-border-color-translucent: rgba(200, 170, 255, 0.16);
+    --bs-primary: #a855f7;
+    --bs-primary-rgb: 168, 85, 247;
+    --bs-primary-text-emphasis: #c4b5fd;
+    --bs-primary-bg-subtle: #2a194a;
+    --bs-primary-border-subtle: #5b3a9a;
+    --bs-link-color: #c4b5fd;
+    --bs-link-color-rgb: 196, 181, 253;
+    --bs-link-hover-color: #e879f9;
+    --bs-link-hover-color-rgb: 232, 121, 249;
+    --bs-code-color: #f0abfc;
 }
 
 body {
     background: var(--app-body-bg);
+}
+
+[data-bs-theme="dark"] body {
+    background: linear-gradient(180deg, #0c0616 0%, #140a26 100%) fixed;
+}
+
+.btn-primary {
+    --bs-btn-bg: #7c3aed;
+    --bs-btn-border-color: #7c3aed;
+    --bs-btn-hover-bg: #a855f7;
+    --bs-btn-hover-border-color: #a855f7;
+    --bs-btn-active-bg: #6d28d9;
+    --bs-btn-active-border-color: #6d28d9;
+    --bs-btn-disabled-bg: #7c3aed;
+    --bs-btn-disabled-border-color: #7c3aed;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--bs-primary);
+    --bs-btn-border-color: var(--bs-primary);
+    --bs-btn-hover-bg: #7c3aed;
+    --bs-btn-hover-border-color: #7c3aed;
+    --bs-btn-active-bg: #7c3aed;
+    --bs-btn-active-border-color: #7c3aed;
+}
+
+.form-check-input:checked {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #a855f7;
+    box-shadow: 0 0 0 0.25rem rgba(168, 85, 247, 0.25);
 }
 
 .valid.modified:not([type=checkbox]) {
