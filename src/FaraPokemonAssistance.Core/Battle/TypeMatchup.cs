@@ -72,4 +72,45 @@ public static class TypeMatchup
         }
         return strong.Concat(resist).Where(c => seen.Add((c.Pokemon.SpeciesId == 0 ? -c.Pokemon.Id : c.Pokemon.SpeciesId, c.Pokemon.Type1, c.Pokemon.Type2))).Take(count).ToList();
     }
+
+    /// <param name="Move">技。</param>
+    /// <param name="Type">当たるときのタイプ（スキン系特性でノーマル技が変わったときはそのタイプ）。</param>
+    /// <param name="Multiplier">相手への倍率（両方の特性込み）。</param>
+    public sealed record SuperEffectiveMove(Move Move, string Type, double Multiplier);
+
+    /// <param name="Pokemon">攻撃するポケモン。</param>
+    /// <param name="Moves">相手に抜群を取れる技（威力の高い順）。</param>
+    public sealed record TypeAttacker(Pokemon Pokemon, IReadOnlyList<SuperEffectiveMove> Moves);
+
+    /// <summary>
+    /// 選んだタイプ（<paramref name="types"/>。2 つならその両方）を持つポケモンと、それぞれが覚える技のうち
+    /// <paramref name="target"/> に抜群を取れる技（威力の高い順・最大 <paramref name="movesPerPokemon"/> 個）。
+    /// 候補の並び順（使用率順など）を保つ。特性（相手の <paramref name="targetAbility"/>・攻撃側の <paramref name="abilityOf"/>）を反映する。
+    /// </summary>
+    public static IReadOnlyList<TypeAttacker> WithTypes(TypeChart chart, Pokemon target, Ability? targetAbility,
+        IEnumerable<Pokemon> candidates, IReadOnlyCollection<string> types, Func<Pokemon, IReadOnlyList<Move>> movesOf,
+        Func<Pokemon, Ability?>? abilityOf = null, int movesPerPokemon = 3)
+    {
+        if (types.Count == 0) return Array.Empty<TypeAttacker>();
+        var targetTypes = target.Types.ToList();
+        var list = new List<TypeAttacker>();
+        foreach (var p in candidates)
+        {
+            if (!types.All(p.HasType)) continue;
+            var ability = abilityOf?.Invoke(p);
+            var skin = AbilityEffects.SkinType(ability?.Identifier ?? "");
+            var moves = new List<SuperEffectiveMove>();
+            foreach (var m in movesOf(p))
+            {
+                if (!m.IsDamaging) continue;
+                var type = skin is not null && m.Type == "Normal" ? skin : m.Type;
+                var r = AbilityMatchup.Against(chart, type, targetTypes, targetAbility, ability);
+                if (r.Multiplier > 1.0) moves.Add(new SuperEffectiveMove(m, type, r.Multiplier));
+            }
+            // 威力の高い順。同じ威力なら倍率の高い順、それも同じなら覚える技の並び順
+            var top = moves.OrderByDescending(x => x.Move.Power).ThenByDescending(x => x.Multiplier).Take(movesPerPokemon).ToList();
+            list.Add(new TypeAttacker(p, top));
+        }
+        return list;
+    }
 }

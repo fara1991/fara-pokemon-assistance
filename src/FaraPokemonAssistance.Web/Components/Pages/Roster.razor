@@ -70,15 +70,22 @@
                     </div>
                     <div class="form-group mb-3">
                         <label>特性</label>
-                        <select class="form-select" value="@(s.NewAbility?.Id.ToString() ?? "")" disabled="@(s.NewPokemon is null || data.AbilitiesOf(s.NewPokemon).Count <= 1)" @onchange="@(e => s.NewAbility = data.FindAbility(ParseId(e.Value)))">
-                            @if (s.NewPokemon is not null)
-                            {
-                                @foreach (var a in data.AbilitiesOf(s.NewPokemon))
+                        @if (s.NewPokemon is not null && data.AbilitiesOf(s.NewPokemon).Count == 1)
+                        {
+                            <FixedField Value="@s.NewAbility?.Name" Reason="@FixedField.SingleAbilityReason" />
+                        }
+                        else
+                        {
+                            <select class="form-select" value="@(s.NewAbility?.Id.ToString() ?? "")" disabled="@(s.NewPokemon is null)" @onchange="@(e => s.NewAbility = data.FindAbility(ParseId(e.Value)))">
+                                @if (s.NewPokemon is not null)
                                 {
-                                    <option value="@a.Id">@a.Name</option>
+                                    @foreach (var a in data.AbilitiesOf(s.NewPokemon))
+                                    {
+                                        <option value="@a.Id">@a.Name</option>
+                                    }
                                 }
-                            }
-                        </select>
+                            </select>
+                        }
                     </div>
                     @if (s.NewPokemon is not null)
                     {
@@ -142,7 +149,7 @@
                             <label class="form-label">持ち物</label>
                             @if (TeamEntryIsMega)
                             {
-                                <input class="form-control" value="@(s.TeamItem?.Name ?? "")" disabled />
+                                <FixedField Value="@s.TeamItem?.Name" Reason="@FixedField.MegaReason" />
                             }
                             else
                             {

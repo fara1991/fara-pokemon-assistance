@@ -217,6 +217,179 @@ body {
     }
 }
 
+/* ---- 計算機・素早さ比較の入力欄（PC ではページをスクロールせずに見えるよう詰める） ---- */
+.build-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem 0.75rem;
+    align-items: start;
+}
+
+.build-grid .form-group {
+    margin-bottom: 0 !important;
+}
+
+.build-grid .build-wide {
+    grid-column: 1 / -1;
+}
+
+.build-grid .build-check {
+    align-self: end;
+    margin-bottom: 0.4rem;
+}
+
+@media (min-width: 768px) {
+    .calc-grid .card-header {
+        padding: 0.45rem 0.85rem;
+    }
+
+    .calc-grid .card-body {
+        padding: 0.65rem 0.85rem;
+    }
+
+    .calc-grid .form-group {
+        margin-bottom: 0.45rem !important;
+    }
+
+    .calc-grid .build-grid .form-group {
+        margin-bottom: 0 !important;
+    }
+
+    .calc-grid .form-control:not(.form-control-sm),
+    .calc-grid .form-select:not(.form-select-sm) {
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+        font-size: 0.92rem;
+    }
+
+    .calc-grid .fixed-field {
+        min-height: calc(1.5em + 0.5rem + 2px);
+        padding-top: 0.15rem;
+        padding-bottom: 0.15rem;
+    }
+
+    .calc-grid .stats-summary {
+        margin-top: 0.4rem;
+        padding: 0.3rem 0.6rem;
+    }
+
+    .calc-grid .result-main {
+        font-size: 1.35rem;
+    }
+
+    .calc-grid .result-card hr {
+        margin: 0.5rem 0;
+    }
+
+    /* 努力値: 入力欄と 0 / 最大のボタンを横に並べる */
+    .calc-grid .ev-cell {
+        display: grid;
+        grid-template-columns: minmax(3.2rem, 4.5rem) auto;
+        column-gap: 0.25rem;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .calc-grid .ev-cell .ev-label {
+        grid-column: 1 / -1;
+        text-align: left;
+    }
+
+    .calc-grid .ev-buttons {
+        margin-top: 0;
+    }
+
+    .calc-grid .ev-buttons .btn {
+        padding: 0.1rem 0.4rem;
+    }
+
+    .calc-grid .calc-button {
+        align-self: flex-start;
+        padding: 0.35rem 1.4rem;
+        font-size: 1.05rem;
+    }
+
+    .calc-grid .page-header {
+        margin-bottom: 0.75rem;
+    }
+}
+
+.poke-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 0.6rem;
+}
+
+.field-checks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem 0.9rem;
+    font-size: 0.88rem;
+}
+
+.field-checks .form-check {
+    margin-bottom: 0;
+}
+
+.result-matchup {
+    font-size: 0.88rem;
+}
+
+@media (min-width: 768px) {
+    .calc-grid .hp-editor {
+        gap: 0.35rem;
+    }
+
+    .calc-grid .hp-input .input-group-text {
+        padding-left: 0.35rem;
+        padding-right: 0.35rem;
+    }
+
+    .calc-grid .result-card .card-body {
+        font-size: 0.88rem;
+    }
+
+    .calc-grid .result-card .chat-output {
+        font-size: 0.78rem;
+        padding: 0.5rem 0.65rem;
+    }
+
+    .calc-grid .speed-reference-card .table td,
+    .calc-grid .speed-reference-card .table th {
+        padding-top: 0.2rem;
+        padding-bottom: 0.2rem;
+    }
+}
+
+/* 閉じておける項目（努力値の推定など） */
+.collapsible-card > summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.collapsible-card > summary::-webkit-details-marker {
+    display: none;
+}
+
+.collapsible-card > summary::before {
+    content: "▸";
+    color: var(--app-muted);
+    transition: transform 0.15s;
+}
+
+.collapsible-card[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.collapsible-card:not([open]) > summary {
+    border-bottom: 0;
+}
+
 /* ---- 性格（上昇・下降のボタン） ---- */
 .nature-picker {
     display: flex;
@@ -260,7 +433,8 @@ body {
 }
 
 .hp-editor .form-range {
-    flex: 1 1 100%;
+    flex: 1 1 5rem;
+    min-width: 4.5rem;
 }
 
 .hp-input {
@@ -269,7 +443,7 @@ body {
 }
 
 .hp-input .form-control {
-    width: 4.8rem;
+    width: 3.4rem;
     flex: 0 0 auto;
 }
 
@@ -515,6 +689,94 @@ body {
     box-shadow: inset 2px 0 0 var(--bs-primary), inset -2px 0 0 var(--bs-primary), inset 0 -2px 0 var(--bs-primary);
 }
 
+/* ポケモンを選んでいる間の攻撃タイプ（行見出し）は押せるボタン。選んだ行は枠で囲む */
+.type-chart th.type-head-toggle {
+    padding: 0;
+}
+
+.type-chart .type-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: var(--tc-cell);
+    padding: 0;
+    border: 0;
+    border-radius: 0.25rem;
+    background: transparent;
+    cursor: pointer;
+}
+
+.type-chart .type-toggle:hover {
+    background: var(--bs-primary-bg-subtle);
+}
+
+.type-chart .type-toggle:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: -2px;
+}
+
+.type-chart .type-toggle.active {
+    background: var(--bs-primary);
+    box-shadow: inset 0 0 0 2px #f0b400;
+}
+
+.type-chart-focus td.type-row-picked {
+    opacity: 1;
+    box-shadow: inset 0 2px 0 #f0b400, inset 0 -2px 0 #f0b400;
+}
+
+.type-pick-hint {
+    padding: 0.3rem 0.5rem;
+    border-left: 3px solid #f0b400;
+    background: var(--app-panel-bg);
+    border-radius: 0.25rem;
+}
+
+.type-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1rem 0.45rem;
+    border: 2px solid #f0b400;
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+.type-chip:hover {
+    background: var(--bs-primary);
+    color: #fff;
+}
+
+.type-attacker-list {
+    max-height: none;
+}
+
+.type-attacker-list li {
+    align-items: flex-start;
+    padding: 0.2rem 0.4rem;
+}
+
+.type-attacker-body {
+    min-width: 0;
+    flex: 1;
+}
+
+.type-attacker-moves {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.6rem;
+    font-size: 0.8rem;
+}
+
+.type-attacker-move {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    white-space: nowrap;
+}
+
 .type-chart-layout {
     display: flex;
     flex-wrap: wrap;
@@ -742,8 +1004,8 @@ body {
 }
 
 .page-header {
-    margin-bottom: 1.25rem;
-    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.6rem;
     border-bottom: 1px solid var(--app-card-border);
 }
 
@@ -963,4 +1225,49 @@ body {
 
 .speed-reference-table {
     overflow-x: auto;
+}
+
+/* ---- 変えられない項目（メガストーン・特性が 1 つ）。入力欄と見分けが付くよう、破線の枠と鍵・「固定」を付ける ---- */
+.fixed-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem 0.4rem;
+    min-height: calc(1.5em + 0.75rem + 2px);
+    padding: 0.3rem 0.6rem;
+    border: 1px dashed var(--app-input-border);
+    border-radius: var(--bs-border-radius);
+    background: var(--app-panel-bg);
+    cursor: not-allowed;
+}
+
+.fixed-field-sm {
+    min-height: calc(1.5em + 0.5rem + 2px);
+    padding: 0.15rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.fixed-lock {
+    flex: none;
+    color: var(--app-muted);
+}
+
+.fixed-value {
+    font-weight: 600;
+}
+
+.fixed-badge {
+    padding: 0 0.35rem;
+    border-radius: 0.25rem;
+    background: var(--app-muted);
+    color: var(--bs-body-bg);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.fixed-reason {
+    margin-left: auto;
+    color: var(--app-muted);
+    font-size: 0.75rem;
 }

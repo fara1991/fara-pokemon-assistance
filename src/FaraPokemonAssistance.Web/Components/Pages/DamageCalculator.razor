@@ -50,7 +50,7 @@
                     </div>
                     @if (s.Attacker is not null)
                     {
-                        <div class="mb-2"><PokemonLabel Build="s.Attacker" /> <span class="small text-muted">種族値 @FormatStats(s.Attacker.Pokemon.BaseStats)</span></div>
+                        <div class="poke-summary mb-2"><PokemonLabel Build="s.Attacker" /> <span class="small text-muted text-nowrap">種族値 @FormatStats(s.Attacker.Pokemon.BaseStats)</span></div>
                     }
                     <div class="form-group mb-3">
                         <label>技 <Help Title="技">攻撃側のポケモンが覚える技を、いまの攻撃側・防御側・天候・フィールド・壁で与える最大ダメージの多い順（火力の高い順）に表示します。防御側を選んでいないときは、タイプなし・種族値すべて 100 の相手で計算します。同じダメージなら使用率の高い順です。選んだ技の分類（物理 / 特殊）に合わせて、下の努力値・ランクの項目が切り替わります。</Help></label>
@@ -60,6 +60,7 @@
                             ValueSelector="@(m => m.Id.ToString())"
                             SelectedValue="@(s.Move?.Id.ToString() ?? "")"
                             SelectedValueChanged="@OnMoveChanged"
+                            Dropdown="true"
                             Placeholder="技名を入力...">
                             <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto">@CategoryText(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
                         </SearchableSelect>
@@ -107,7 +108,7 @@
                     </div>
                     @if (s.Defender is not null)
                     {
-                        <div class="mb-3"><PokemonLabel Build="s.Defender" /> <span class="small text-muted">種族値 @FormatStats(s.Defender.Pokemon.BaseStats)</span></div>
+                        <div class="poke-summary mb-2"><PokemonLabel Build="s.Defender" /> <span class="small text-muted text-nowrap">種族値 @FormatStats(s.Defender.Pokemon.BaseStats)</span></div>
                         @RenderBuildEditor(s.Defender, false)
                     }
                 </div>
@@ -138,7 +139,7 @@
                             </select>
                         </div>
                     </div>
-                    <div class="d-flex align-items-center gap-3 flex-wrap mt-3">
+                    <div class="field-checks mt-2">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="reflect" checked="@s.Reflect" @onchange="@(e => s.Reflect = e.Value is true)" />
                             <label class="form-check-label" for="reflect">リフレクター <Help Title="リフレクター">防御側の場のリフレクター。物理技のダメージが 0.5 倍（ダブルは約 0.67 倍）になります。オーロラベールは両方にチェックしてください。急所と特性すりぬけは壁を無視します。</Help></label>
@@ -156,7 +157,7 @@
             </div>
 
             <div>
-                <button class="btn btn-primary btn-lg" @onclick="Calculate">ダメージを計算</button>
+                <button class="btn btn-primary btn-lg calc-button" @onclick="Calculate">ダメージを計算</button>
             </div>
 
             @if (!string.IsNullOrEmpty(errorMessage))
@@ -171,10 +172,11 @@
                 <div class="card result-card">
                     <div class="card-header"><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージ、オボンのみ等の回復きのみ、たべのこし・くろいヘドロ、グラスフィールドの回復、半減きのみ（1 発目のみ）、マルチスケイル（満タン時の 1 発目のみ）も確定数に含めています。</Help></h5></div>
                     <div class="card-body">
-                        <p class="mb-2">
-                            <PokemonLabel Build="lastRequest.Attacker" Small="true" />
-                            <span class="mx-2">@lastRequest.Move.Name <TypeIcon Type="@result.MoveType" Small="true" /> →</span>
-                            <PokemonLabel Build="lastRequest.Defender" Small="true" />
+                        @* 入力欄に画像が出ているので、ここは 1 行の文字だけにする *@
+                        <p class="result-matchup mb-1">
+                            <strong>@lastRequest.Attacker.Pokemon.Name</strong>
+                            <span class="mx-1"><TypeIcon Type="@result.MoveType" Small="true" /> @lastRequest.Move.Name →</span>
+                            <strong>@lastRequest.Defender.Pokemon.Name</strong>
                         </p>
                         <p class="result-main mb-2">
                             <strong>@result.RangeText</strong>
@@ -203,9 +205,11 @@
 
             @if (s.Attacker is not null && s.Defender is not null)
             {
-                <div class="card">
-                    <div class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定（calc） <Help Title="努力値の推定">攻撃側に自分の構成、防御側に相手のポケモンを選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</Help></h5></div>
+                @* あまり使わないので、普段は閉じておく（推定結果があるときは開いたまま） *@
+                <details class="card collapsible-card" open="@(!string.IsNullOrEmpty(s.EstimateText))">
+                    <summary class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定（calc）</h5></summary>
                     <div class="card-body">
+                        <p class="small text-muted mb-2">攻撃側に自分の構成、防御側に相手のポケモンを選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</p>
                         <div class="input-group">
                             <span class="input-group-text">受けたダメージ</span>
                             <input class="form-control" placeholder="93 または 45%" value="@s.ObservedDamageText" @onchange="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
@@ -216,7 +220,7 @@
                             <div class="alert alert-light border chat-output mt-2 mb-0">@s.EstimateText</div>
                         }
                     </div>
-                </div>
+                </details>
             }
         </div>
     </div>
@@ -549,122 +553,125 @@
             <NaturePicker Natures="data.Natures" Value="build.Nature" ValueChanged="@(n => build.Nature = n)"
                 Physical="@(s.Move is null || s.Move.AttackStatUsed == Stat.Attack)" />
         </div>
-        <div class="form-group mb-3">
-            <label>持ち物 <Help Title="持ち物">@(isAttacker ? "攻撃側はダメージに関係する持ち物（こだわり系・いのちのたま・タイプ強化など）だけを表示します。" : "防御側は防御に関係する持ち物（とつげきチョッキ・しんかのきせきなど）だけを表示します。")メガシンカ後のポケモンはメガストーンで固定です。</Help></label>
-            @if (build.Pokemon.IsMega)
-            {
-                <input class="form-control" value="@(build.Item?.Name ?? "")" disabled />
-            }
-            else
-            {
-                <SearchableSelect TItem="Item"
-                    Items="items"
-                    DisplayText="@(i => i.Name)"
-                    ValueSelector="@(i => i.Id.ToString())"
-                    SelectedValue="@(build.Item?.Id.ToString() ?? "")"
-                    SelectedValueChanged="@(v => build.Item = data.FindItem(ParseId(v)))"
-                    Dropdown="true"
-                    EmptyOption="持ち物なし"
-                    Placeholder="持ち物なし" />
-            }
-        </div>
-        <div class="form-group mb-3">
-            <label>特性 <Help Title="特性">そのポケモンが持てる特性だけを表示します。特性が 1 つしかないポケモン（メガシンカ後など）は固定です。</Help></label>
-            @if (abilities.Count <= 1)
-            {
-                <input class="form-control" value="@(build.Ability?.Name ?? "")" disabled />
-            }
-            else
-            {
-                <select class="form-select" value="@(build.Ability?.Id.ToString() ?? "")" @onchange="@(e => SetAbility(build, ParseId(e.Value)))">
-                    @foreach (var a in abilities)
-                    {
-                        <option value="@a.Id">@a.Name</option>
-                    }
-                </select>
-            }
-        </div>
-        @if (dataSet!.HasTerastal)
-        {
+        @* PC では 2 列に並べて、ページをスクロールせずに見えるようにする *@
+        <div class="build-grid">
             <div class="form-group mb-3">
-                <label>テラスタル <Help Title="テラスタル">テラスタル後のタイプ。攻撃側はテラスタイプと同じ技が 1.5 倍（元のタイプとも一致なら 2 倍）、防御側は受けるタイプがテラスタイプだけになります。</Help></label>
-                <select class="form-select" value="@(build.TeraType ?? "")" @onchange="@(e => build.TeraType = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())">
-                    <option value="">なし</option>
-                    @foreach (var t in TypeNames.All)
+                <label>持ち物 <Help Title="持ち物">@(isAttacker ? "攻撃側はダメージに関係する持ち物（こだわり系・いのちのたま・タイプ強化など）だけを表示します。" : "防御側は防御に関係する持ち物（とつげきチョッキ・しんかのきせきなど）だけを表示します。")メガシンカ後のポケモンはメガストーンで固定です。</Help></label>
+                @if (build.Pokemon.IsMega)
+                {
+                    <FixedField Value="@build.Item?.Name" Reason="@FixedField.MegaReason" />
+                }
+                else
+                {
+                    <SearchableSelect TItem="Item"
+                        Items="items"
+                        DisplayText="@(i => i.Name)"
+                        ValueSelector="@(i => i.Id.ToString())"
+                        SelectedValue="@(build.Item?.Id.ToString() ?? "")"
+                        SelectedValueChanged="@(v => build.Item = data.FindItem(ParseId(v)))"
+                        Dropdown="true"
+                        EmptyOption="持ち物なし"
+                        Placeholder="持ち物なし" />
+                }
+            </div>
+            <div class="form-group mb-3">
+                <label>特性 <Help Title="特性">そのポケモンが持てる特性だけを表示します。特性が 1 つしかないポケモン（メガシンカ後など）は固定です。</Help></label>
+                @if (abilities.Count <= 1)
+                {
+                    <FixedField Value="@build.Ability?.Name" Reason="@FixedField.SingleAbilityReason" />
+                }
+                else
+                {
+                    <select class="form-select" value="@(build.Ability?.Id.ToString() ?? "")" @onchange="@(e => SetAbility(build, ParseId(e.Value)))">
+                        @foreach (var a in abilities)
+                        {
+                            <option value="@a.Id">@a.Name</option>
+                        }
+                    </select>
+                }
+            </div>
+            @if (dataSet!.HasTerastal)
+            {
+                <div class="form-group mb-3">
+                    <label>テラスタル <Help Title="テラスタル">テラスタル後のタイプ。攻撃側はテラスタイプと同じ技が 1.5 倍（元のタイプとも一致なら 2 倍）、防御側は受けるタイプがテラスタイプだけになります。</Help></label>
+                    <select class="form-select" value="@(build.TeraType ?? "")" @onchange="@(e => build.TeraType = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())">
+                        <option value="">なし</option>
+                        @foreach (var t in TypeNames.All)
+                        {
+                            <option value="@t">@TypeNames.ToJapanese(t)</option>
+                        }
+                    </select>
+                </div>
+            }
+            @if (dataSet.HasDynamax)
+            {
+                <div class="form-check build-check">
+                    <input class="form-check-input" type="checkbox" id="dmax-@side" checked="@build.IsDynamax" @onchange="@(e => build.IsDynamax = e.Value is true)" />
+                    <label class="form-check-label" for="dmax-@side">ダイマックス <Help Title="ダイマックス">HP が 2 倍になり、技はダイマックス技の威力（威力 90〜150、かくとう・どくは 70〜100）になります。</Help></label>
+                </div>
+            }
+            @if (evStats.Count > 0)
+            {
+                <div class="form-group @(evStats.Count > 1 ? "build-wide" : "")">
+                    <label>@EvRules.Label(build.EvSystem) <Help Title="@EvRules.Label(build.EvSystem)">@(build.EvSystem == EvSystem.Points ? "チャンピオンズは 1 ポイントで実数値が 1 上がります（各 0〜32、合計 66）。" : "各 0〜252、合計 510。4 ごとに実数値が 1 上がります。")選んだ技に関係する能力だけを表示しています。ボタンで 0 と最大を入れられます。</Help></label>
+                    <div class="ev-grid">
+                        @foreach (var stat in evStats)
+                        {
+                            <div class="ev-cell">
+                                <span class="ev-label">@StatNames.Letter(stat)（@StatNames.Japanese(stat)）</span>
+                                <input type="number" class="form-control form-control-sm" min="0" max="@EvRules.MaxPerStat(build.EvSystem)" step="@EvRules.Step(build.EvSystem)"
+                                       value="@build.EVs[stat]" @onchange="@(e => build.EVs[stat] = ClampEv(e.Value, build.EvSystem))" />
+                                <div class="ev-buttons">
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[stat] = 0">0</button>
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[stat] = EvRules.MaxPerStat(build.EvSystem)">@EvRules.MaxPerStat(build.EvSystem)</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div class="small @(build.EVs.Total > EvRules.MaxTotal(build.EvSystem) ? "text-danger" : "text-muted")">合計 @build.EVs.Total / @EvRules.MaxTotal(build.EvSystem)</div>
+                </div>
+            }
+            @if (boostStats.Count > 0)
+            {
+                <div class="form-group mb-2">
+                    <label>ランク補正 <Help Title="ランク補正">つるぎのまい等で変化した能力ランク（-6〜+6）。+1 で 1.5 倍、+2 で 2 倍、-1 で 2/3 倍です。</Help></label>
+                    <div class="ev-grid">
+                        @foreach (var stat in boostStats)
+                        {
+                            <div class="ev-cell">
+                                <span class="ev-label">@StatNames.Letter(stat)（@StatNames.Japanese(stat)）</span>
+                                <select class="form-select form-select-sm" value="@build.Boosts[stat]" @onchange="@(e => build.Boosts[stat] = ParseBoost(e.Value))">
+                                    @for (var b = 6; b >= -6; b--)
+                                    {
+                                        <option value="@b">@(b > 0 ? "+" + b : b.ToString())</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            <div class="form-group mb-2">
+                <label>状態異常 <Help Title="状態異常">やけどは物理技のダメージ 0.5 倍（こんじょう・からげんきは除く）。どく・もうどくは毎ターンの定数ダメージを確定数に含めます。まひは素早さ 0.5 倍です。</Help></label>
+                <select class="form-select form-select-sm" value="@build.Status" @onchange="@(e => build.Status = ParseEnum(e.Value, StatusCondition.None))">
+                    @foreach (var st in Enum.GetValues<StatusCondition>())
                     {
-                        <option value="@t">@TypeNames.ToJapanese(t)</option>
+                        <option value="@st">@StatusNames.Japanese(st)</option>
                     }
                 </select>
             </div>
-        }
-        @if (dataSet.HasDynamax)
-        {
-            <div class="form-check mb-3">
-                <input class="form-check-input" type="checkbox" id="dmax-@side" checked="@build.IsDynamax" @onchange="@(e => build.IsDynamax = e.Value is true)" />
-                <label class="form-check-label" for="dmax-@side">ダイマックス <Help Title="ダイマックス">HP が 2 倍になり、技はダイマックス技の威力（威力 90〜150、かくとう・どくは 70〜100）になります。</Help></label>
-            </div>
-        }
-        @if (evStats.Count > 0)
-        {
-            <div class="form-group mb-2">
-                <label>@EvRules.Label(build.EvSystem) <Help Title="@EvRules.Label(build.EvSystem)">@(build.EvSystem == EvSystem.Points ? "チャンピオンズは 1 ポイントで実数値が 1 上がります（各 0〜32、合計 66）。" : "各 0〜252、合計 510。4 ごとに実数値が 1 上がります。")選んだ技に関係する能力だけを表示しています。ボタンで 0 と最大を入れられます。</Help></label>
-                <div class="ev-grid">
-                    @foreach (var stat in evStats)
-                    {
-                        <div class="ev-cell">
-                            <span class="ev-label">@StatNames.Letter(stat)（@StatNames.Japanese(stat)）</span>
-                            <input type="number" class="form-control form-control-sm" min="0" max="@EvRules.MaxPerStat(build.EvSystem)" step="@EvRules.Step(build.EvSystem)"
-                                   value="@build.EVs[stat]" @onchange="@(e => build.EVs[stat] = ClampEv(e.Value, build.EvSystem))" />
-                            <div class="ev-buttons">
-                                <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[stat] = 0">0</button>
-                                <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[stat] = EvRules.MaxPerStat(build.EvSystem)">@EvRules.MaxPerStat(build.EvSystem)</button>
-                            </div>
-                        </div>
-                    }
-                </div>
-                <div class="small @(build.EVs.Total > EvRules.MaxTotal(build.EvSystem) ? "text-danger" : "text-muted")">合計 @build.EVs.Total / @EvRules.MaxTotal(build.EvSystem)</div>
-            </div>
-        }
-        @if (boostStats.Count > 0)
-        {
-            <div class="form-group mb-2">
-                <label>ランク補正 <Help Title="ランク補正">つるぎのまい等で変化した能力ランク（-6〜+6）。+1 で 1.5 倍、+2 で 2 倍、-1 で 2/3 倍です。</Help></label>
-                <div class="ev-grid">
-                    @foreach (var stat in boostStats)
-                    {
-                        <div class="ev-cell">
-                            <span class="ev-label">@StatNames.Letter(stat)（@StatNames.Japanese(stat)）</span>
-                            <select class="form-select form-select-sm" value="@build.Boosts[stat]" @onchange="@(e => build.Boosts[stat] = ParseBoost(e.Value))">
-                                @for (var b = 6; b >= -6; b--)
-                                {
-                                    <option value="@b">@(b > 0 ? "+" + b : b.ToString())</option>
-                                }
-                            </select>
-                        </div>
-                    }
-                </div>
-            </div>
-        }
-        <div class="form-group mb-2">
-            <label>状態異常 <Help Title="状態異常">やけどは物理技のダメージ 0.5 倍（こんじょう・からげんきは除く）。どく・もうどくは毎ターンの定数ダメージを確定数に含めます。まひは素早さ 0.5 倍です。</Help></label>
-            <select class="form-select form-select-sm" value="@build.Status" @onchange="@(e => build.Status = ParseEnum(e.Value, StatusCondition.None))">
-                @foreach (var st in Enum.GetValues<StatusCondition>())
-                {
-                    <option value="@st">@StatusNames.Japanese(st)</option>
-                }
-            </select>
-        </div>
-        <div class="form-group mb-2">
-            <label>残り HP <Help Title="残り HP">@(isAttacker ? "もうか・しんりょく・げきりゅう・むしのしらせは HP が 1/3 以下で対応タイプの技が 1.5 倍になります。" : "確定数を今の HP から数えます。マルチスケイル・ファントムガードは HP 満タンのときだけ効きます。")スライダーと % は割合、右の欄は実数値（例: 133 / 135）で指定できます。どちらを変えても、もう一方に反映されます。</Help></label>
-            <div class="hp-editor">
-                <input type="range" class="form-range" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @oninput="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
-                <div class="input-group input-group-sm hp-input">
-                    <input type="number" class="form-control" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
-                    <span class="input-group-text">%</span>
-                </div>
-                <div class="input-group input-group-sm hp-input">
-                    <input type="number" class="form-control" min="1" max="@build.MaxHp" value="@build.CurrentHp" aria-label="残り HP（実数値）" @onchange="@(e => build.CurrentHp = Math.Clamp(ParseId(e.Value), 1, build.MaxHp))" />
-                    <span class="input-group-text">/ @build.MaxHp</span>
+            <div class="form-group build-wide">
+                <label>残り HP <Help Title="残り HP">@(isAttacker ? "もうか・しんりょく・げきりゅう・むしのしらせは HP が 1/3 以下で対応タイプの技が 1.5 倍になります。" : "確定数を今の HP から数えます。マルチスケイル・ファントムガードは HP 満タンのときだけ効きます。")スライダーと % は割合、右の欄は実数値（例: 133 / 135）で指定できます。どちらを変えても、もう一方に反映されます。</Help></label>
+                <div class="hp-editor">
+                    <input type="range" class="form-range" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @oninput="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
+                    <div class="input-group input-group-sm hp-input">
+                        <input type="number" class="form-control" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
+                        <span class="input-group-text">%</span>
+                    </div>
+                    <div class="input-group input-group-sm hp-input">
+                        <input type="number" class="form-control" min="1" max="@build.MaxHp" value="@build.CurrentHp" aria-label="残り HP（実数値）" @onchange="@(e => build.CurrentHp = Math.Clamp(ParseId(e.Value), 1, build.MaxHp))" />
+                        <span class="input-group-text">/ @build.MaxHp</span>
+                    </div>
                 </div>
             </div>
         </div>
