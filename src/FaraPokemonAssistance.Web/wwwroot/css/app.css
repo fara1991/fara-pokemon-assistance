@@ -1433,3 +1433,221 @@ button.compact-cell {
 .compact-pick.active {
     background: var(--bs-primary-bg-subtle);
 }
+
+/* ---- ポケモン一覧 ---- */
+.dex-filters .form-group {
+    margin-bottom: 0 !important;
+}
+
+.dex-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr));
+    gap: 0.5rem 0.75rem;
+}
+
+.dex-type-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.6rem;
+    margin-top: 0.6rem;
+}
+
+.dex-type-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+}
+
+.dex-type-btn {
+    padding: 0.1rem;
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.35rem;
+    background: transparent;
+    line-height: 0;
+    cursor: pointer;
+}
+
+.dex-type-btn:hover {
+    background: var(--bs-primary-bg-subtle);
+}
+
+.dex-type-btn.active {
+    background: var(--bs-primary);
+    border-color: #f0b400;
+    box-shadow: 0 0 0 2px rgba(240, 180, 0, 0.45);
+}
+
+.dex-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 1rem;
+    margin-top: 0.6rem;
+}
+
+.dex-sort-mobile {
+    display: none;
+    gap: 0.3rem;
+}
+
+.dex-sort-mobile .btn {
+    white-space: nowrap;
+}
+
+.dex-list {
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.375rem;
+    background: var(--bs-body-bg);
+}
+
+.dex-row {
+    display: grid;
+    grid-template-columns: 3.4rem minmax(10rem, 1.3fr) 4.6rem minmax(8rem, 2fr) repeat(6, 3rem) 3.6rem;
+    align-items: center;
+    gap: 0 0.4rem;
+    min-height: 52px;
+    padding: 0.1rem 0.6rem;
+    border-bottom: 1px solid var(--app-card-border);
+    cursor: pointer;
+}
+
+.dex-row:hover {
+    background: var(--app-panel-bg);
+}
+
+/* 見出しの行はスクロールしても上に残す */
+.dex-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    min-height: 2.2rem;
+    background: var(--app-panel-bg);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: default;
+    border-radius: 0.375rem 0.375rem 0 0;
+}
+
+.dex-sort {
+    padding: 0.35rem 0;
+    border: 0;
+    background: transparent;
+    color: var(--bs-body-color);
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.dex-sort:hover {
+    color: var(--bs-primary);
+}
+
+.dex-sort.dex-no {
+    text-align: left;
+}
+
+.dex-no {
+    color: var(--app-muted);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.dex-name {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    font-weight: 600;
+}
+
+.dex-name .poke-icon-sm {
+    width: 40px;
+    height: 40px;
+}
+
+.dex-abilities {
+    color: var(--app-muted);
+    font-size: 0.8rem;
+}
+
+.dex-stat {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.dex-total {
+    font-weight: 700;
+}
+
+.dex-item.selected > .dex-row {
+    background: var(--bs-primary-bg-subtle);
+}
+
+.dex-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.6rem 0.5rem 4rem;
+    border-bottom: 1px solid var(--app-card-border);
+    background: var(--bs-primary-bg-subtle);
+}
+
+/* スマホ: 1 匹ずつのカード（名前とタイプ / 特性 / 種族値 7 つ） */
+@media (max-width: 767.98px) {
+    .dex-head {
+        display: none;
+    }
+
+    .dex-sort-mobile {
+        display: flex;
+    }
+
+    .dex-row {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 0.1rem 0.25rem;
+        padding: 0.35rem 0.5rem;
+    }
+
+    .dex-row .dex-no {
+        grid-column: 1;
+        grid-row: 1;
+        font-size: 0.7rem;
+    }
+
+    .dex-row .dex-name {
+        grid-column: 2 / 6;
+        grid-row: 1;
+    }
+
+    .dex-row .dex-types-cell {
+        grid-column: 6 / 8;
+        grid-row: 1;
+        justify-self: end;
+    }
+
+    .dex-row .dex-abilities {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        font-size: 0.75rem;
+    }
+
+    .dex-row .dex-stat {
+        grid-row: 3;
+        text-align: center;
+        font-size: 0.82rem;
+    }
+
+    .dex-row .dex-stat::before {
+        content: attr(data-label);
+        display: block;
+        color: var(--app-muted);
+        font-size: 0.62rem;
+        font-weight: 400;
+    }
+
+    .dex-actions {
+        padding-left: 0.6rem;
+    }
+}
