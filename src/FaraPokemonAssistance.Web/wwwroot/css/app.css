@@ -533,7 +533,8 @@ body {
     min-width: 0;
 }
 
-/* PC では表の横に置き、パネルが長くても中でスクロールして表を押し下げない */
+/* PC では表の横に置き、パネルが長くても中でスクロールして表を押し下げない。
+   スクロールするのは結果（.matchup-results）だけにし、ポケモンを選ぶ欄の候補一覧はパネルの外まで出せるようにする */
 @media (min-width: 768px) {
     .type-chart-layout {
         flex-wrap: nowrap;
@@ -541,6 +542,16 @@ body {
 
     .matchup-panel .card {
         max-height: calc(100vh - 8.5rem);
+    }
+
+    .matchup-panel .card-body {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .matchup-panel .matchup-results {
+        min-height: 0;
         overflow-y: auto;
     }
 }
