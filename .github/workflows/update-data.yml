@@ -26,8 +26,10 @@ jobs:
           python-version: "3.12"
 
       - name: Sync data from PokeAPI and Pokémon HOME
+        env:
+          SKIP_HOME: ${{ inputs.skip_home }}
         run: |
-          if [ "${{ inputs.skip_home }}" = "true" ]; then
+          if [ "$SKIP_HOME" = "true" ]; then
             python tools/sync_data.py --skip-home
           else
             python tools/sync_data.py

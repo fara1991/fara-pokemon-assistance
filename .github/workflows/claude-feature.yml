@@ -11,11 +11,15 @@ permissions:
 
 jobs:
   generate-feature:
+    # 公開リポジトリなので誰でも Issue を立てられ、Issue テンプレートでラベルも自動で付く。
+    # Issue の内容から生成したファイルを push するため、リポジトリの関係者が立てた Issue だけで動かす。
     if: |
-      contains(github.event.issue.labels.*.name, 'feature') ||
-      contains(github.event.issue.labels.*.name, 'bug') ||
-      contains(github.event.issue.labels.*.name, 'enhancement') ||
-      contains(github.event.issue.labels.*.name, 'refactor')
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) && (
+        contains(github.event.issue.labels.*.name, 'feature') ||
+        contains(github.event.issue.labels.*.name, 'bug') ||
+        contains(github.event.issue.labels.*.name, 'enhancement') ||
+        contains(github.event.issue.labels.*.name, 'refactor')
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -68,6 +72,15 @@ jobs:
           echo "Parsing Claude response..."
           grep -n "^## ファイル:" claude_output.txt | while IFS=: read -r line_num filepath_line; do
             filepath=$(echo "$filepath_line" | sed 's/^## ファイル: *//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+            # 先頭の ./ を外してから判定する（./.github/workflows/... ですり抜けないように）
+            while [[ "$filepath" == ./* ]]; do filepath="${filepath#./}"; done
+
+            # リポジトリの外・.git の中には書かない（絶対パス・.. を含むパス・.git/config など）
+            if [[ -z "$filepath" || "$filepath" == /* || "$filepath" == "~"* || "/$filepath/" == */../* || "$filepath" == .git || "$filepath" == .git/* ]]; then
+              echo "Skipping: $filepath (unsafe path)"
+              echo "- \`$filepath\`: Skipped (unsafe path)" >> skipped_files.txt
+              continue
+            fi
 
             if [[ "$filepath" == .github/workflows/* ]]; then
               echo "Skipping: $filepath (workflow restriction)"
@@ -121,13 +134,15 @@ jobs:
           IS_REFACTOR: ${{ contains(github.event.issue.labels.*.name, 'refactor') }}
         run: |
           if [[ "$IS_FEATURE" == "true" ]]; then
-            BRANCH="feature/issue-${ISSUE_NUMBER}"; PREFIX="feat"
+            PREFIX="feat"
           elif [[ "$IS_BUG" == "true" ]]; then
-            BRANCH="fix/issue-${ISSUE_NUMBER}"; PREFIX="fix"
+            PREFIX="fix"
           elif [[ "$IS_REFACTOR" == "true" ]]; then
-            BRANCH="feature/issue-${ISSUE_NUMBER}"; PREFIX="refactor"
+            PREFIX="refactor"
           else
-            BRANCH="enhance/issue-${ISSUE_NUMBER}"; PREFIX="enhance"
+            PREFIX="enhance"
           fi
+          # 前のステップで push したブランチ（ラベルによらず feature/issue-N）
+          BRANCH="feature/issue-${ISSUE_NUMBER}"
           PR_PAYLOAD=$(jq -n --arg title "${PREFIX}: ${ISSUE_TITLE} (fixes #${ISSUE_NUMBER})" --arg issue_num "${ISSUE_NUMBER}" --arg head "${BRANCH}" --arg base "master" '{title: $title, body: ("## 概要\n\nIssue #" + $issue_num + " の実装\n\n## 自動生成\n\nClaude AI 生成\n\n## 変更内容\n\nIMPLEMENTATION_SUMMARY.md 参照\n\nCloses #" + $issue_num), head: $head, base: $base}')
           curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/pulls" -d "$PR_PAYLOAD"
