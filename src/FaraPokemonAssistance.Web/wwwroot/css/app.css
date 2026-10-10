@@ -1651,3 +1651,45 @@ button.compact-cell {
         padding-left: 0.6rem;
     }
 }
+
+/* 2 つ選んでいるときの、ほかのタイプ（外すまで選べない） */
+.type-chart .type-toggle.blocked,
+.compact-cell.blocked,
+.dex-type-btn.blocked {
+    opacity: 0.35;
+    filter: grayscale(0.6);
+    cursor: not-allowed;
+}
+
+.type-chart .type-toggle.blocked:hover,
+.dex-type-btn.blocked:hover {
+    background: transparent;
+}
+
+.type-full-hint {
+    color: #b45309;
+    font-weight: 600;
+}
+
+[data-bs-theme="dark"] .type-full-hint {
+    color: #fbbf24;
+}
+
+/* 並べ替えの印（並べ替えている見出しは色付きの ▲▼、それ以外は薄い ⇅） */
+.dex-sort-mark {
+    margin-left: 0.15rem;
+    font-size: 0.75em;
+    opacity: 0.35;
+}
+
+.dex-sort.sorted {
+    color: var(--bs-primary);
+}
+
+[data-bs-theme="dark"] .dex-sort.sorted {
+    color: #c4b5fd;
+}
+
+.dex-sort.sorted .dex-sort-mark {
+    opacity: 1;
+}

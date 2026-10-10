@@ -351,6 +351,47 @@ public class SpeedConditionTests
         Assert.Equal(201, SpeedCalculator.Apply(201, Array.Empty<SpeedCalculator.SpeedFactor>()));
     }
 
+    [Fact]
+    public async Task Reference_rows_apply_the_same_modifiers_as_the_result()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var scarf = data.FindItem(264)!;
+        var garchomp = data.Pokemon.First(p => p.Name == "ガブリアス");
+        var build = new PokemonBuild(garchomp)
+        {
+            Nature = NatureSelection.Neutral(data.Natures),
+            EVs = new StatSet { Speed = 252 },
+            Item = scarf,
+        };
+        var rows = SpeedCalculator.ReferenceRows(build, data.Natures, scarf);
+        var semi = rows.Single(r => r.Label == "準速");
+        // スカーフを持っていれば「今の条件」は 1.5 倍で、結果の素早さと同じ
+        Assert.Equal(DamageCalculatorRound(semi.Base * 1.5), semi.Current);
+        Assert.Equal(SpeedCalculator.Effective(build).Speed, semi.Current);
+        // スカーフ最速の行はスカーフを 2 回掛けない
+        var scarfRow = rows.Single(r => r.Label == "スカーフ最速");
+        Assert.Equal(scarfRow.Base, scarfRow.Current);
+        Assert.Equal(DamageCalculatorRound(rows.Single(r => r.Label == "最速").Base * 1.5), scarfRow.Base);
+
+        // ランク +1・まひ・おいかぜも、結果と同じ計算
+        build.Boosts[Stat.Speed] = 1;
+        build.Status = StatusCondition.Paralysis;
+        var withAll = SpeedCalculator.ReferenceRows(build, data.Natures, scarf, tailwind: true);
+        Assert.Equal(SpeedCalculator.Effective(build, tailwind: true).Speed, withAll.Single(r => r.Label == "準速").Current);
+        var expected = SpeedCalculator.Apply(StatCalculator.ApplyBoost(semi.Base, 1), new[]
+        {
+            new SpeedCalculator.SpeedFactor("おいかぜ", 2.0), new SpeedCalculator.SpeedFactor("スカーフ", 1.5), new SpeedCalculator.SpeedFactor("まひ", 0.5, IsParalysis: true),
+        });
+        Assert.Equal(expected, withAll.Single(r => r.Label == "準速").Current);
+
+        // 持ち物なし・補正なしなら「今の条件」は振り方のまま。最遅は個体値 0
+        var plain = new PokemonBuild(garchomp) { Nature = NatureSelection.Neutral(data.Natures) };
+        var plainRows = SpeedCalculator.ReferenceRows(plain, data.Natures, scarf);
+        Assert.All(plainRows.Where(r => r.Label != "スカーフ最速"), r => Assert.Equal(r.Base, r.Current));
+        var slowest = plainRows.Single(r => r.Label == "最遅");
+        Assert.True(slowest.Base < DamageCalculatorRound(plainRows.Single(r => r.Label == "無振り").Base * 0.9));
+    }
+
     private static int DamageCalculatorRound(double v) => FaraPokemonAssistance.Core.Battle.DamageCalculator.PokeRound(v);
 }
 

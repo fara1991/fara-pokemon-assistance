@@ -5,7 +5,7 @@
 <PageTitle>ポケモン一覧</PageTitle>
 
 <div class="page-header">
-    <h3>ポケモン一覧 <Help Title="ポケモン一覧">左のメニューで選んでいるゲームに収録されているポケモンを、全国図鑑順に並べます（フォルム違い・メガシンカは元の姿のすぐ後ろ）。名前・タイプ（2 つまでで両方を持つもの）・特性・覚える技（2 つまでで両方を覚えるもの）・世代で絞り込めます。見出し（スマホでは「並び順」）で種族値の高い順・低い順に並べ替えられます。ポケモンを押すと、ダメージ計算機・素早さ比較・タイプ相性表で開けます。特性はデータに通常・隠れ特性の区別が無いため、まとめて表示しています。</Help></h3>
+    <h3>ポケモン一覧 <Help Title="ポケモン一覧">左のメニューで選んでいるゲームに収録されているポケモンを、全国図鑑順に並べます（フォルム違い・メガシンカは元の姿のすぐ後ろ）。名前・タイプ（2 つまでで両方を持つもの）・特性・覚える技（2 つまでで両方を覚えるもの）・世代で絞り込めます。見出し（スマホでは「並び順」）を押すたびに 昇順 → 降順 → 並べ替えなし（全国図鑑順）と切り替わります。ポケモンを押すと、ダメージ計算機・素早さ比較・タイプ相性表で開けます。特性はデータに通常・隠れ特性の区別が無いため、まとめて表示しています。</Help></h3>
     <p class="text-muted mb-0">@(data?.Info.Name ?? "")に収録されているポケモン（全国図鑑順）。条件で絞り込み、見出しを押すと並べ替えられます。</p>
 </div>
 
@@ -54,7 +54,9 @@
                     @foreach (var t in TypeNames.All)
                     {
                         var on = f.Types.Contains(t);
-                        <button type="button" class="dex-type-btn @(on ? "active" : "")" aria-pressed="@(on ? "true" : "false")" title="@TypeNames.ToJapanese(t)" @onclick="() => ToggleType(t)"><TypeIcon Type="@t" Small="true" /></button>
+                        var blocked = !on && f.Types.Count >= 2;
+                        <button type="button" class="dex-type-btn @(on ? "active" : "") @(blocked ? "blocked" : "")" aria-pressed="@(on ? "true" : "false")" disabled="@blocked"
+                                title="@(blocked ? "2 つまで。外してから選び直してください" : TypeNames.ToJapanese(t))" @onclick="() => ToggleType(t)"><TypeIcon Type="@t" Small="true" /></button>
                     }
                 </div>
             </div>
@@ -75,13 +77,14 @@
                     </div>
                 }
                 <div class="dex-sort-mobile">
-                    <select class="form-select form-select-sm" aria-label="並び順" value="@f.Sort" @onchange="@(e => { f.Sort = Enum.TryParse<PokedexSort>(e.Value?.ToString(), out var v) ? v : PokedexSort.Dex; Refresh(); })">
+                    @* 見出しと同じく: 項目を選ぶと昇順、ボタンで 昇順 → 降順 → 並べ替えなし（図鑑順） *@
+                    <select class="form-select form-select-sm" aria-label="並び順" value="@f.Sort" @onchange="@(e => { f.Sort = Enum.TryParse<PokedexSort>(e.Value?.ToString(), out var v) ? v : PokedexSort.Dex; f.Descending = false; Refresh(); })">
                         @foreach (var (sort, label) in SortColumns)
                         {
-                            <option value="@sort">@label</option>
+                            <option value="@sort">@(sort == PokedexSort.Dex ? "並べ替えなし（図鑑順）" : label)</option>
                         }
                     </select>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => { f.Descending = !f.Descending; Refresh(); }">@(f.Descending ? "高い順 ↓" : "低い順 ↑")</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="昇順 → 降順 → 並べ替えなし" @onclick="() => SortBy(f.Sort)">@SortStateText()</button>
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" @onclick="ClearFilters">条件をクリア</button>
             </div>
@@ -94,14 +97,14 @@
             {
                 if (sort == PokedexSort.Dex)
                 {
-                    <button type="button" class="dex-sort dex-no" @onclick="() => SortBy(sort)">No.@SortMark(sort)</button>
+                    <button type="button" class="dex-sort dex-no @SortClass(sort)" title="@SortTitle(sort, "図鑑番号")" @onclick="() => SortBy(sort)">No.<span class="dex-sort-mark">@SortMark(sort)</span></button>
                     <div class="dex-name">ポケモン</div>
                     <div class="dex-types-cell">タイプ</div>
                     <div class="dex-abilities">特性</div>
                 }
                 else
                 {
-                    <button type="button" class="dex-sort dex-stat @(sort == PokedexSort.Total ? "dex-total" : "")" title="@label で並べ替え" @onclick="() => SortBy(sort)">@ShortLabel(sort)@SortMark(sort)</button>
+                    <button type="button" class="dex-sort dex-stat @(sort == PokedexSort.Total ? "dex-total" : "") @SortClass(sort)" title="@SortTitle(sort, label)" @onclick="() => SortBy(sort)">@ShortLabel(sort)<span class="dex-sort-mark">@SortMark(sort)</span></button>
                 }
             }
         </div>
@@ -214,31 +217,49 @@
         Refresh();
     }
 
-    /// <summary>タイプの選択を切り替える（2 つまで。3 つ目は一番前に選んだものと入れ替える）。</summary>
+    /// <summary>タイプの選択を切り替える（2 つまで。2 つ選んでいるときは、外すまで新しく選べない）。</summary>
     private void ToggleType(string type)
     {
         var types = s.Filter.Types;
-        if (!types.Remove(type))
-        {
-            if (types.Count >= 2) types.RemoveAt(0);
-            types.Add(type);
-        }
+        if (!types.Remove(type) && types.Count < 2) types.Add(type);
         Refresh();
     }
 
-    /// <summary>同じ見出しをもう一度押すと昇順・降順を切り替える。種族値は高い順から。</summary>
+    /// <summary>
+    /// 見出しを押すたびに 昇順 → 降順 → 並べ替えなし（全国図鑑順）と切り替える。
+    /// 図鑑番号の見出しは 降順 ↔ 並べ替えなし（もともと図鑑番号の昇順なので）。
+    /// </summary>
     private void SortBy(PokedexSort sort)
     {
-        if (s.Filter.Sort == sort) s.Filter.Descending = !s.Filter.Descending;
+        var f = s.Filter;
+        if (f.Sort != sort)
+        {
+            f.Sort = sort;
+            f.Descending = false;
+        }
+        else if (!f.Descending) f.Descending = true;
         else
         {
-            s.Filter.Sort = sort;
-            s.Filter.Descending = sort != PokedexSort.Dex;
+            f.Sort = PokedexSort.Dex;
+            f.Descending = false;
         }
         Refresh();
     }
 
-    private string SortMark(PokedexSort sort) => s.Filter.Sort != sort ? "" : s.Filter.Descending ? " ▼" : " ▲";
+    private bool IsSorted(PokedexSort sort) => s.Filter.Sort == sort && (sort != PokedexSort.Dex || s.Filter.Descending);
+
+    /// <summary>並べ替えている見出しには ▲（昇順）/ ▼（降順）、それ以外は薄い ⇅。</summary>
+    private string SortMark(PokedexSort sort) => !IsSorted(sort) ? "⇅" : s.Filter.Descending ? "▼" : "▲";
+
+    private string SortClass(PokedexSort sort) => IsSorted(sort) ? "sorted" : "";
+
+    private string SortTitle(PokedexSort sort, string label) =>
+        !IsSorted(sort) ? $"{label}の昇順で並べ替え"
+        : s.Filter.Descending ? $"{label}の降順で並べ替え中（押すと並べ替えなし）" : $"{label}の昇順で並べ替え中（押すと降順）";
+
+    private string SortStateText() =>
+        s.Filter.Sort == PokedexSort.Dex ? (s.Filter.Descending ? "▼ 降順" : "並べ替えなし")
+        : s.Filter.Descending ? "▼ 降順" : "▲ 昇順";
 
     private static string ShortLabel(PokedexSort sort) => sort switch
     {

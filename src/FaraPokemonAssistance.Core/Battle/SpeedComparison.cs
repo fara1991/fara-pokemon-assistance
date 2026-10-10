@@ -148,9 +148,55 @@ public static class SpeedCalculator
         };
         if (scarf is not null)
             lines.Add(new("スカーフ最速", Paralyze(DamageCalculator.PokeRound(Raw(full, 1.1) * 1.5)), scarf.Name));
-        lines.Add(new("最遅", Calc(0, 0.9), "個体値0"));
+        // 最遅: 従来の努力値のゲームは個体値 0。チャンピオンズは個体値を変えられないので性格補正だけ
+        var slow = new PokemonBuild(pokemon, system);
+        if (system == EvSystem.Classic) slow.IVs[Stat.Speed] = 0;
+        lines.Add(new("最遅", Paralyze(StatCalculator.Calculate(slow, Stat.Speed, 0, 0.9)), system == EvSystem.Classic ? "個体値0" : null));
         if (paralyzed) lines.Add(new("状態", 0, "まひ"));
         return lines;
+    }
+
+    /// <param name="Label">振り方（無振り・準速・最速・スカーフ最速・最遅）。</param>
+    /// <param name="Note">補足（持ち物の名前・個体値 0 など）。</param>
+    /// <param name="Base">その振り方の素早さ（ランク・持ち物・特性・まひ・おいかぜなし。スカーフ最速だけはスカーフ込み）。</param>
+    /// <param name="Current">いまの構成（持ち物・特性・ランク・まひ）と場の状態（天候・フィールド・おいかぜ）を掛けた素早さ。</param>
+    public sealed record ReferenceRow(string Label, string? Note, int Base, int Current);
+
+    /// <summary>
+    /// 素早さ比較の「振り方例」。<paramref name="build"/> の努力値・性格だけを振り方ごとに置き換え、
+    /// それ以外（持ち物・特性・ランク・状態）はそのままにして <see cref="Effective"/> で計算するので、結果の素早さと同じ補正がかかる。
+    /// スカーフ最速の行は、持ち物をこだわりスカーフにして計算する（もともとスカーフを持っていても 2 回は掛けない）。
+    /// </summary>
+    public static IReadOnlyList<ReferenceRow> ReferenceRows(PokemonBuild build, IReadOnlyList<Nature> natures, Item? scarf,
+        Weather weather = Weather.None, Terrain terrain = Terrain.None, bool tailwind = false)
+    {
+        var full = EvRules.Full(build.EvSystem);
+        var classic = build.EvSystem == EvSystem.Classic;
+        ReferenceRow Row(string label, string? note, int ev, Nature? nature, bool scarfRow = false, bool slowest = false)
+        {
+            var b = build.Clone();
+            b.EVs[Stat.Speed] = ev;
+            b.Nature = nature;
+            if (slowest && classic) b.IVs[Stat.Speed] = 0;
+            var plain = StatCalculator.Calculate(b, Stat.Speed);
+            if (scarfRow)
+            {
+                b.Item = scarf;
+                plain = DamageCalculator.PokeRound(plain * 1.5);
+            }
+            return new ReferenceRow(label, note, plain, Effective(b, weather, terrain, tailwind).Speed);
+        }
+
+        var rows = new List<ReferenceRow>
+        {
+            Row("無振り", null, 0, NatureSelection.Neutral(natures)),
+            Row("準速", null, full, NatureSelection.Neutral(natures)),
+            Row("最速", null, full, NatureSelection.WithIncreased(natures, build.Nature, Stat.Speed)),
+        };
+        if (scarf is not null)
+            rows.Add(Row("スカーフ最速", scarf.Name, full, NatureSelection.WithIncreased(natures, build.Nature, Stat.Speed), scarfRow: true));
+        rows.Add(Row("最遅", classic ? "個体値0" : null, 0, NatureSelection.WithDecreased(natures, build.Nature, Stat.Speed), slowest: true));
+        return rows;
     }
 
     public static string Format(PokemonBuild mine, int mySpeed, IReadOnlyList<string> myNotes, Pokemon opponent, PokemonBuild? opponentBuild, int? opponentSpeed, IReadOnlyList<string>? opponentNotes, IReadOnlyList<SpeedLine> reference)

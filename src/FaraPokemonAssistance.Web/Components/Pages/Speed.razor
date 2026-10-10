@@ -282,7 +282,7 @@
                     </div>
                     <div class="row g-2">
                         <div class="col-6">
-                            <label class="form-label">ランク <Help Title="ランク補正">こうそくいどう等で上がった素早さのランクです。+1 で 1.5 倍、+2 で 2 倍、-1 で 2/3 倍になります。</Help></label>
+                            <label class="form-label">素早さランク <Help Title="素早さランク">こうそくいどう等で上がった素早さのランクです。+1 で 1.5 倍、+2 で 2 倍、-1 で 2/3 倍になります。</Help></label>
                             <select class="form-select" value="@build.Boosts.Speed" @onchange="@(e => build.Boosts[Stat.Speed] = Math.Clamp(ParseId(e.Value), -6, 6))">
                                 @for (var st = 6; st >= -6; st--) { <option value="@st">@(st > 0 ? "+" + st : st.ToString())</option> }
                             </select>
@@ -312,13 +312,11 @@
     /// </summary>
     private RenderFragment RenderReference(PokemonBuild build, bool tailwind, int? opponentSpeed, string? opponentName) => __builder =>
     {
-        var reference = SpeedCalculator.OpponentReference(build.Pokemon, dataSet!.EvSystem, Scarf).Where(r => r.Label != "状態").ToList();
-        var boost = build.Boosts.Speed;
-        var factors = SpeedCalculator.ConditionFactors(build, s.Weather, s.Terrain, tailwind);
-        var hasCurrent = boost != 0 || factors.Count > 0;
+        // 振り方だけを置き換えて、結果の素早さと同じ計算（持ち物・特性・ランク・まひ・おいかぜ・天候・フィールド）をする
+        var rows = SpeedCalculator.ReferenceRows(build, data!.Natures, Scarf, s.Weather, s.Terrain, tailwind);
+        var (_, currentLabels) = SpeedCalculator.Effective(build, s.Weather, s.Terrain, tailwind);
+        var hasCurrent = rows.Any(r => r.Current != r.Base) || currentLabels.Count > 0;
         var potential = SpeedCalculator.PotentialFactor(build, s.Weather, s.Terrain);
-        var currentLabels = (boost != 0 ? new[] { $"S{(boost > 0 ? "+" : "")}{boost}" } : Array.Empty<string>()).Concat(factors.Select(f => f.Label)).ToList();
-        int Current(int v) => SpeedCalculator.Apply(StatCalculator.ApplyBoost(v, boost), factors);
         <div class="speed-reference-table">
             <table class="table table-sm mb-0">
                 <thead>
@@ -340,23 +338,22 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var line in reference)
+                    @foreach (var row in rows)
                     {
                         <tr>
-                            <td>@line.Label @(line.Note is null ? "" : $"({line.Note})")</td>
-                            <td class="text-end">@line.Value</td>
+                            <td>@row.Label @(row.Note is null ? "" : $"({row.Note})")</td>
+                            <td class="text-end">@row.Base</td>
                             @if (hasCurrent)
                             {
-                                <td class="text-end fw-bold">@Current(line.Value)</td>
+                                <td class="text-end fw-bold">@row.Current</td>
                             }
                             @if (potential is not null)
                             {
-                                <td class="text-end">@SpeedCalculator.Apply(Current(line.Value), new[] { potential })</td>
+                                <td class="text-end">@SpeedCalculator.Apply(row.Current, new[] { potential })</td>
                             }
                             @if (opponentSpeed is { } os)
                             {
-                                var mine = Current(line.Value);
-                                <td class="text-center @(mine > os ? "counter-good" : mine < os ? "text-muted" : "text-warning")">@(mine > os ? "先" : mine < os ? "後" : "同")</td>
+                                <td class="text-center @(row.Current > os ? "counter-good" : row.Current < os ? "text-muted" : "text-warning")">@(row.Current > os ? "先" : row.Current < os ? "後" : "同")</td>
                             }
                         </tr>
                     }
