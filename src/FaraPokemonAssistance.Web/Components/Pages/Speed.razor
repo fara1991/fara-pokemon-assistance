@@ -14,8 +14,20 @@
 @if (data is not null && dataSet is not null)
 {
     <div class="calc-grid">
-        <div class="calc-col">@RenderSide(0)</div>
-        <div class="calc-col">@RenderSide(1)</div>
+        @* 振り方例は、それぞれのポケモンの列の下に出す（PC でページをスクロールせずに見えるように） *@
+        @for (var i = 0; i < 2; i++)
+        {
+            var side = i;
+            <div class="calc-col">
+                @RenderSide(side)
+                @if (s.Builds[side] is { } build)
+                {
+                    <div class="card speed-reference-card">
+                        <div class="card-body">@RenderReference(build, s.Tailwind[side])</div>
+                    </div>
+                }
+            </div>
+        }
 
         <div class="calc-col calc-side">
             <div class="card">
@@ -72,24 +84,6 @@
             }
         </div>
     </div>
-
-    @if (s.Builds.Any(x => x is not null))
-    {
-        <div class="card mt-3">
-            <div class="card-header"><h5>素早さの振り方例 <Help Title="素早さの振り方例">相手の振り方が分からないときの目安です。無振り・準速（性格補正なし・最大振り）・最速（性格補正あり・最大振り）・スカーフ最速・最遅（性格補正下降・個体値 0）の素早さを出します。いまの天候・フィールド・ランク・まひ・おいかぜで素早さが変わるときは「今の条件」の列に、選んでいる特性が条件次第で素早さを上げるとき（ようりょくそ・かるわざなど）はその条件の列にも出します。</Help></h5></div>
-            <div class="card-body">
-                <div class="speed-reference">
-                    @for (var i = 0; i < 2; i++)
-                    {
-                        if (s.Builds[i] is { } build)
-                        {
-                            @RenderReference(build, s.Tailwind[i])
-                        }
-                    }
-                </div>
-            </div>
-        </div>
-    }
 }
 
 @code {
@@ -199,7 +193,7 @@
                 @if (build is not null)
                 {
                     var abilities = data.AbilitiesOf(build.Pokemon);
-                    <div class="mb-2"><PokemonLabel Build="build" /> <span class="small text-muted">素早さ種族値 @build.Pokemon.BaseStats.Speed</span></div>
+                    <div class="poke-summary mb-2"><PokemonLabel Build="build" /> <span class="small text-muted text-nowrap">素早さ種族値 @build.Pokemon.BaseStats.Speed</span></div>
                     <div class="form-group mb-2">
                         <label>S @EvRules.Label(dataSet.EvSystem) <Help Title="@($"素早さの{EvRules.Label(dataSet.EvSystem)}")">素早さに振る@(EvRules.Label(dataSet.EvSystem))です（0〜@(max)）。ボタンで 0 と最大を入れられます。</Help></label>
                         <div class="ev-grid">
@@ -217,11 +211,12 @@
                         <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります。素早さ上昇（おくびょう・ようき等）は 1.1 倍、下降（ゆうかん・れいせい等）は 0.9 倍です。</Help></label>
                         <NaturePicker Natures="data.Natures" Value="build.Nature" ValueChanged="@(n => build.Nature = n)" />
                     </div>
-                    <div class="form-group mb-2">
+                    <div class="build-grid mb-2">
+                    <div class="form-group">
                         <label>持ち物 <Help Title="持ち物">素早さが変わる持ち物だけを表示します。こだわりスカーフは 1.5 倍、くろいてっきゅう・パワー系（パワーリストなど）は 0.5 倍で計算します。メガシンカ後はメガストーンで固定です。</Help></label>
                         @if (build.Pokemon.IsMega)
                         {
-                            <input class="form-control" value="@(build.Item?.Name ?? "")" disabled />
+                            <FixedField Value="@build.Item?.Name" Reason="@FixedField.MegaReason" />
                         }
                         else
                         {
@@ -230,11 +225,11 @@
                                 Dropdown="true" EmptyOption="持ち物なし" Placeholder="持ち物なし" />
                         }
                     </div>
-                    <div class="form-group mb-2">
+                    <div class="form-group">
                         <label>特性</label>
                         @if (abilities.Count <= 1)
                         {
-                            <input class="form-control" value="@(build.Ability?.Name ?? "")" disabled />
+                            <FixedField Value="@build.Ability?.Name" Reason="@FixedField.SingleAbilityReason" />
                         }
                         else
                         {
@@ -242,6 +237,7 @@
                                 @foreach (var ab in abilities) { <option value="@ab.Id">@ab.Name</option> }
                             </select>
                         }
+                    </div>
                     </div>
                     <div class="row g-2">
                         <div class="col-6">
@@ -280,7 +276,7 @@
             <table class="table table-sm mb-0">
                 <thead>
                     <tr>
-                        <th><PokemonLabel Pokemon="build.Pokemon" Small="true" /></th>
+                        <th>素早さの振り方例 <Help Title="素早さの振り方例">相手の振り方が分からないときの目安です。無振り・準速（性格補正なし・最大振り）・最速（性格補正あり・最大振り）・スカーフ最速・最遅（性格補正下降・個体値 0）の素早さを出します。いまの天候・フィールド・ランク・まひ・おいかぜで素早さが変わるときは「今の条件」の列に、選んでいる特性が条件次第で素早さを上げるとき（ようりょくそ・かるわざなど）はその条件の列にも出します。</Help></th>
                         <th class="text-end">S</th>
                         @if (hasCurrent)
                         {

@@ -363,6 +363,46 @@ public class CounterTests
         Assert.Equal(0.5, counters[0].Defense);
         Assert.Equal(2, TypeMatchup.Counters(Chart, fire, new[] { water1, ground, water2 }, count: 2).Count);
     }
+
+    private static Move M(int id, string name, string type, int power, MoveCategory category = MoveCategory.Special) =>
+        new() { Id = id, Name = name, Type = type, Power = power, Category = category };
+
+    [Fact]
+    public void WithTypes_lists_pokemon_with_all_selected_types_and_their_super_effective_moves()
+    {
+        var target = Make(1, "ほのお", "Fire");
+        var waterGrass = Make(2, "みずくさ", "Water", "Grass");
+        var water = Make(3, "みず", "Water");
+        var grass = Make(4, "くさ", "Grass");
+        var surf = M(10, "なみのり", "Water", 90);
+        var hydroPump = M(11, "ハイドロポンプ", "Water", 110);
+        var earthquake = M(12, "じしん", "Ground", 100, MoveCategory.Physical);
+        var gigaDrain = M(13, "ギガドレイン", "Grass", 75);
+        var rainDance = new Move { Id = 14, Name = "あまごい", Type = "Water", Category = MoveCategory.Status };
+        IReadOnlyList<Move> MovesOf(Pokemon p) => p.Id switch
+        {
+            2 => new[] { gigaDrain, surf, rainDance },
+            3 => new[] { surf, hydroPump, earthquake, gigaDrain },
+            _ => new[] { gigaDrain },
+        };
+        var candidates = new[] { waterGrass, water, grass };
+
+        // みず 1 つ: みずを持つポケモン（候補の並び順のまま）。技は抜群のものだけを威力の高い順
+        var one = TypeMatchup.WithTypes(Chart, target, null, candidates, new[] { "Water" }, MovesOf);
+        Assert.Equal(new[] { "みずくさ", "みず" }, one.Select(a => a.Pokemon.Name));
+        Assert.Equal(new[] { "なみのり" }, one[0].Moves.Select(m => m.Move.Name));
+        Assert.Equal(new[] { "ハイドロポンプ", "じしん", "なみのり" }, one[1].Moves.Select(m => m.Move.Name));
+
+        // みず＋くさ: 両方を持つポケモンだけ
+        var two = TypeMatchup.WithTypes(Chart, target, null, candidates, new[] { "Water", "Grass" }, MovesOf);
+        Assert.Equal(new[] { "みずくさ" }, two.Select(a => a.Pokemon.Name));
+
+        // 相手の特性（ちょすい）でみず技は抜群でなくなる
+        var waterAbsorb = new Ability { Id = 11, Identifier = "water-absorb", Name = "ちょすい" };
+        var absorbed = TypeMatchup.WithTypes(Chart, target, waterAbsorb, candidates, new[] { "Water" }, MovesOf);
+        Assert.Empty(absorbed[0].Moves);
+        Assert.Equal(new[] { "じしん" }, absorbed[1].Moves.Select(m => m.Move.Name));
+    }
 }
 
 public class AbilityMatchupTests
