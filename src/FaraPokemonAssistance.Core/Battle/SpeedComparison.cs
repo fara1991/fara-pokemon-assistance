@@ -14,7 +14,10 @@ public static class SpeedCalculator
     public sealed record SpeedLine(string Label, int Value, string? Note);
 
     /// <summary>素早さに掛かる補正 1 つ（特性・まひ・おいかぜなど）。</summary>
-    public sealed record SpeedFactor(string Label, double Multiplier);
+    /// <param name="Label">表示する説明（例: <c>おいかぜ(2倍)</c>）。</param>
+    /// <param name="Multiplier">倍率。</param>
+    /// <param name="IsParalysis">まひ。ほかの補正をまとめて掛けた後に半分（切り捨て）にする。</param>
+    public sealed record SpeedFactor(string Label, double Multiplier, bool IsParalysis = false);
 
     private const int ItemIdBoosterEnergy = 1696;
 
@@ -29,17 +32,10 @@ public static class SpeedCalculator
             speed = StatCalculator.ApplyBoost(speed, boost);
             notes.Add($"S{(boost > 0 ? "+" : "")}{boost}");
         }
-        foreach (var factor in ConditionFactors(build, weather, terrain, tailwind))
-        {
-            speed = DamageCalculator.PokeRound(speed * factor.Multiplier);
-            notes.Add(factor.Label);
-        }
-        if (ItemFactor(build) is { } item)
-        {
-            speed = DamageCalculator.PokeRound(speed * item.Multiplier);
-            notes.Add(item.Label);
-        }
-        return (speed, notes);
+        var factors = ConditionFactors(build, weather, terrain, tailwind).ToList();
+        if (ItemFactor(build) is { } item) factors.Add(item);
+        notes.AddRange(factors.Select(f => f.Label));
+        return (Apply(speed, factors), notes);
     }
 
     /// <summary>
@@ -67,7 +63,7 @@ public static class SpeedCalculator
         if (build.Status != StatusCondition.None && ability == "quick-feet")
             list.Add(new SpeedFactor(build.Status == StatusCondition.Paralysis ? $"まひ+{name}(1.5倍)" : $"{name}(1.5倍)", 1.5));
         else if (build.Status == StatusCondition.Paralysis)
-            list.Add(new SpeedFactor("まひ(0.5倍)", 0.5));
+            list.Add(new SpeedFactor("まひ(0.5倍)", 0.5, IsParalysis: true));
 
         if (tailwind) list.Add(new SpeedFactor("おいかぜ(2倍)", 2.0));
         return list;
@@ -102,11 +98,21 @@ public static class SpeedCalculator
     public static bool IsSpeedAbility(string? ability) => ability is
         "swift-swim" or "chlorophyll" or "sand-rush" or "slush-rush" or "surge-surfer" or "unburden" or "quick-feet";
 
-    /// <summary>素早さに補正を順に掛ける。</summary>
+    /// <summary>
+    /// 素早さに補正を掛ける。ゲームと同じく、特性・持ち物・おいかぜの倍率は 4096 を 1 倍として掛け合わせてから 1 回だけ丸め、
+    /// まひはその後で半分（切り捨て）にする（例: S103 でスカーフ＋まひ → 154 → 77）。
+    /// </summary>
     public static int Apply(int speed, IEnumerable<SpeedFactor> factors)
     {
-        foreach (var f in factors) speed = DamageCalculator.PokeRound(speed * f.Multiplier);
-        return speed;
+        var modifier = 4096;
+        var paralyzed = false;
+        foreach (var f in factors)
+        {
+            if (f.IsParalysis) { paralyzed = true; continue; }
+            modifier = (modifier * (int)Math.Round(f.Multiplier * 4096) + 2048) >> 12;
+        }
+        if (modifier != 4096) speed = DamageCalculator.PokeRound(speed * modifier / 4096.0);
+        return paralyzed ? speed / 2 : speed;
     }
 
     private static SpeedFactor? ItemFactor(PokemonBuild build) => build.Item switch
@@ -129,11 +135,10 @@ public static class SpeedCalculator
     public static IReadOnlyList<SpeedLine> OpponentReference(Pokemon pokemon, EvSystem system, Item? scarf, bool paralyzed = false)
     {
         var full = EvRules.Full(system);
-        int Calc(int ev, double mod)
-        {
-            var v = StatCalculator.Calculate(new PokemonBuild(pokemon, system), Stat.Speed, ev, mod);
-            return paralyzed ? DamageCalculator.PokeRound(v * 0.5) : v;
-        }
+        int Raw(int ev, double mod) => StatCalculator.Calculate(new PokemonBuild(pokemon, system), Stat.Speed, ev, mod);
+        // まひはスカーフなどを掛けた後で半分にする
+        int Paralyze(int v) => paralyzed ? v / 2 : v;
+        int Calc(int ev, double mod) => Paralyze(Raw(ev, mod));
 
         var lines = new List<SpeedLine>
         {
@@ -142,7 +147,7 @@ public static class SpeedCalculator
             new("最速", Calc(full, 1.1), null),
         };
         if (scarf is not null)
-            lines.Add(new("スカーフ最速", DamageCalculator.PokeRound(Calc(full, 1.1) * 1.5), scarf.Name));
+            lines.Add(new("スカーフ最速", Paralyze(DamageCalculator.PokeRound(Raw(full, 1.1) * 1.5)), scarf.Name));
         lines.Add(new("最遅", Calc(0, 0.9), "個体値0"));
         if (paralyzed) lines.Add(new("状態", 0, "まひ"));
         return lines;
