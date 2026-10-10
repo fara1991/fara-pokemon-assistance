@@ -31,7 +31,7 @@ dotnet add package FaraPokemonAssistance.Core --source local
 
 ## 2. 起動時に DataCatalog と登録データを用意する
 
-データは GitHub Pages に公開された CSV を使い、1 日キャッシュします。取り直しに失敗したとき（回線断・タイムアウト）は古いキャッシュで続行します。登録したポケモン・チームはローカルの JSON に保存します。
+データは https://pokemon.fara-labs.com/ に公開された CSV を使い、1 日キャッシュします。取り直しに失敗したとき（回線断・タイムアウト）は古いキャッシュで続行します。登録したポケモン・チームはローカルの JSON に保存します。
 
 ```csharp
 using FaraPokemonAssistance.Core.Data;
@@ -40,7 +40,7 @@ using FaraPokemonAssistance.Core.Text;
 
 public sealed class PokemonAssistService
 {
-    private const string DataUrl = "https://pokemon.app-fara.com/data/";
+    private const string DataUrl = "https://pokemon.fara-labs.com/data/";
 
     private readonly PokeCommand _command;
 
@@ -99,10 +99,10 @@ private async void TwitchClientOnMessageReceived(object? sender, OnMessageReceiv
 
 ```bash
 dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコフィールド"
-dotnet run --project src/FaraPokemonAssistance.Cli -- --data https://pokemon.app-fara.com/data/ "!pokesv diff ガブリアス ハバタクカミ"
+dotnet run --project src/FaraPokemonAssistance.Cli -- --data https://pokemon.fara-labs.com/data/ "!pokesv diff ガブリアス ハバタクカミ"
 ```
 
-ブラウザ: https://pokemon.app-fara.com/command
+ブラウザ: https://pokemon.fara-labs.com/command
 
 ## 注意
 

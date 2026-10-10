@@ -1,7 +1,7 @@
 namespace FaraPokemonAssistance.Core.Data;
 
 /// <summary>
-/// データファイル（CSV）の取得元。ローカルフォルダ、HTTP（GitHub Pages）などを差し替えられる。
+/// データファイル（CSV）の取得元。ローカルフォルダ、HTTP（公開サイト）などを差し替えられる。
 /// </summary>
 public interface IDataSource
 {
@@ -30,14 +30,14 @@ public sealed class FileDataSource : IDataSource
     }
 }
 
-/// <summary>HTTP で読む（Blazor WebAssembly、または公開済みの GitHub Pages からボットが取得する用途）。</summary>
+/// <summary>HTTP で読む（Blazor WebAssembly、または公開サイトからボットが取得する用途）。</summary>
 public sealed class HttpDataSource : IDataSource
 {
     private readonly HttpClient _httpClient;
     private readonly string _baseUrl;
 
     /// <param name="httpClient">HttpClient。</param>
-    /// <param name="baseUrl">データルートの URL（例: <c>https://pokemon.app-fara.com/data/</c>）。</param>
+    /// <param name="baseUrl">データルートの URL（例: <c>https://pokemon.fara-labs.com/data/</c>）。</param>
     public HttpDataSource(HttpClient httpClient, string baseUrl)
     {
         _httpClient = httpClient;
