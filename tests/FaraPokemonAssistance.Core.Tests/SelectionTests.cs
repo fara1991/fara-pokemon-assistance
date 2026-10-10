@@ -95,6 +95,26 @@ public class DefaultAbilityTests
     }
 }
 
+public class EvMaxTests
+{
+    [Fact]
+    public void Max_button_fills_only_what_fits_in_the_total()
+    {
+        // ポイント: 合計 64 振ってあり、空いている能力に最大を押すと 2
+        var points = new StatSet { Attack = 32, Speed = 32 };
+        Assert.Equal(2, EvRules.MaxAllowed(EvSystem.Points, points, Stat.HP));
+        // 振ってある能力自身の分は数えない
+        Assert.Equal(32, EvRules.MaxAllowed(EvSystem.Points, points, Stat.Attack));
+        Assert.Equal(32, EvRules.MaxAllowed(EvSystem.Points, new StatSet(), Stat.HP));
+        // 従来: 252・252 なら残り 6 → 4 刻みで 4、6 能力目は 0
+        var classic = new StatSet { Attack = 252, Speed = 252 };
+        Assert.Equal(4, EvRules.MaxAllowed(EvSystem.Classic, classic, Stat.HP));
+        classic.HP = 4;
+        Assert.Equal(0, EvRules.MaxAllowed(EvSystem.Classic, classic, Stat.Defense));
+        Assert.Equal(252, EvRules.MaxAllowed(EvSystem.Classic, new StatSet { HP = 4 }, Stat.Attack));
+    }
+}
+
 public class ExactHpTests
 {
     private static Pokemon Mon() =>

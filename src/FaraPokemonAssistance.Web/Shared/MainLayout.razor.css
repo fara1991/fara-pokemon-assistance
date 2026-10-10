@@ -23,6 +23,13 @@ main {
     main {
         width: 100%;
     }
+
+    /* スマホでは上のメニューのバーをスクロールしても上に固定する */
+    .sidebar {
+        position: sticky;
+        top: 0;
+        z-index: 1030;
+    }
 }
 
 @media (min-width: 768px) {

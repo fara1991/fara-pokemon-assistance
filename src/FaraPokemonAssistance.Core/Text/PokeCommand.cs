@@ -17,7 +17,7 @@ public sealed class PokeCommandOptions
 /// <summary>
 /// <c>!pokech</c> / <c>!pokesv</c> / <c>!pokess</c> で始まるコマンド群。接頭辞でデータセットが決まる。
 /// <list type="bullet">
-/// <item><c>add 名前 H A B C D S 性格 [特性]</c> 登録、<c>ls [名前]</c> 一覧、<c>more ID</c> 詳細、<c>rm ID</c> 削除</item>
+/// <item><c>add 名前 H A B C D S 性格 [特性] [@持ち物]</c> 登録、<c>ls [名前]</c> 一覧、<c>more ID</c> 詳細、<c>rm ID</c> 削除</item>
 /// <item><c>add team 番号 ID [持ち物]</c>、<c>rm team 番号 [名前]</c>、<c>use team 番号</c>、<c>ls team</c>、<c>more team 番号</c></item>
 /// <item><c>dmg 攻撃側 技±ランク 防御側 [オプション]</c> 通常と急所、<c>calc 攻撃側 技±ランク 防御側 受けたダメージ[%]</c> 努力値推定、<c>diff 自分 相手</c> 素早さ比較</item>
 /// </list>
@@ -40,7 +40,7 @@ public sealed class PokeCommand
     }
 
     public static string Usage(string prefix) =>
-        $"!{prefix} add 名前 H A B C D S 性格 | ls [名前] | more ID | rm ID | add team 番号 ID [持ち物] | rm team 番号 [名前] | use team 番号 | unuse team | ls team | more team 番号 | dmg 攻撃 技±ランク 防御 | calc 攻撃 技 防御 ダメージ | diff 自分 相手";
+        $"!{prefix} add 名前 H A B C D S 性格 [特性] [@持ち物] | ls [名前] | more ID | rm ID | add team 番号 ID [持ち物] | rm team 番号 [名前] | use team 番号 | unuse team | ls team | more team 番号 | dmg 攻撃 技±ランク 防御 | calc 攻撃 技 防御 ダメージ | diff 自分 相手";
 
     /// <summary>メッセージがこのコマンド群のものかを判定し、接頭辞と残りを返す。</summary>
     public async Task<(DataSetInfo DataSet, string Arguments)?> MatchAsync(string message, CancellationToken ct = default)
@@ -68,7 +68,7 @@ public sealed class PokeCommand
     public static string CommandList(IEnumerable<DataSetInfo> dataSets)
     {
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
-        return "登録: add 名前 H A B C D S 性格 [特性] / ls [名前] / more ID / rm ID ｜ " +
+        return "登録: add 名前 H A B C D S 性格 [特性] [@持ち物] / ls [名前] / more ID / rm ID ｜ " +
                "チーム: add team 番号 ID [持ち物] / rm team 番号 [名前] / use team 番号 / unuse team / ls team / more team 番号 ｜ " +
                "計算: dmg 攻撃 技±ランク 防御 [努力値 性格 持ち物 特性 急所 やけど どく まひ 天候 …] / calc 攻撃 技 防御 ダメージ[%] / diff 自分 相手 [まひ] ｜ " +
                $"接頭辞: {prefixes}（!poke はチャンピオンズ）";
@@ -150,7 +150,7 @@ public sealed class PokeCommand
         if (!options.AllowMutations) return Fail("登録は配信者・モデレーターのみ行えます");
         var system = ds.EvSystem;
         if (args.Count < 8)
-            return Fail($"書式: !{ds.CommandPrefix} add 名前 H A B C D S 性格 [特性]（{EvRules.Label(system)}は各 0〜{EvRules.MaxPerStat(system)}、合計 {EvRules.MaxTotal(system)} まで）");
+            return Fail($"書式: !{ds.CommandPrefix} add 名前 H A B C D S 性格 [特性] [@持ち物]（{EvRules.Label(system)}は各 0〜{EvRules.MaxPerStat(system)}、合計 {EvRules.MaxTotal(system)} まで）");
 
         var pokemon = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
         if (!pokemon.IsResolved) return Fail(NotFound("ポケモン", args[0], pokemon.Candidates.Select(p => p.Name)));
@@ -168,19 +168,34 @@ public sealed class PokeCommand
         var nature = new NameResolver<Nature>(data.Natures, n => n.Name).Resolve(args[7]);
         if (!nature.IsResolved) return Fail(NotFound("性格", args[7], nature.Candidates.Select(n => n.Name)));
 
+        // 残りの引数: 「@」で始まるものから後ろは持ち物（「@こだわり スカーフ」のような空白入りも可）、それより前は特性
+        var extra = args.Skip(8).ToList();
+        var itemStart = extra.FindIndex(a => a.StartsWith('@') || a.StartsWith('＠'));
+        Item? item = null;
+        if (itemStart >= 0)
+        {
+            var itemText = string.Join(" ", extra.Skip(itemStart)).TrimStart('@', '＠').Trim();
+            var itemMatch = new NameResolver<Item>(data.Items, i => i.Name).Resolve(itemText);
+            if (!itemMatch.IsResolved) return Fail(NotFound("持ち物", itemText, itemMatch.Candidates.Select(i => i.Name)));
+            item = itemMatch.Value;
+            extra = extra.Take(itemStart).ToList();
+        }
+        // メガシンカ後のポケモンはメガストーン固定
+        if (pokemon.Value!.MegaStoneId is { } stoneId) item = data.FindItem(stoneId) ?? item;
+
         Ability? ability = null;
-        if (args.Count > 8)
+        if (extra.Count > 0)
         {
             var own = data.AbilitiesOf(pokemon.Value!);
-            var abilityMatch = new NameResolver<Ability>(own, a => a.Name).Resolve(args[8]);
+            var abilityMatch = new NameResolver<Ability>(own, a => a.Name).Resolve(extra[0]);
             if (!abilityMatch.IsResolved)
                 return Fail($"{pokemon.Value!.Name}の特性は {string.Join("/", own.Select(a => a.Name))} のいずれかです");
             ability = abilityMatch.Value;
         }
         ability ??= (await UsageOrNullAsync(data, options.Format, ct).ConfigureAwait(false))?.TopAbility(pokemon.Value!) ?? data.AbilitiesOf(pokemon.Value!).FirstOrDefault();
 
-        var entry = await _roster.AddPokemonAsync(ds.Key, pokemon.Value!, evs, nature.Value!, ability, ct).ConfigureAwait(false);
-        var build = RosterRepository.ToBuild(entry, data)!;
+        var entry = await _roster.AddPokemonAsync(ds.Key, pokemon.Value!, evs, nature.Value!, ability, item, ct).ConfigureAwait(false);
+        var build = RosterRepository.ToBuild(entry, data, item)!;
         return Ok($"#{entry.Id} {pokemon.Value!.Name} を登録しました: {Describe(entry, build)}");
     }
 
@@ -205,7 +220,7 @@ public sealed class PokeCommand
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == id);
         if (entry is null) return Fail($"登録ID {id} はありません");
-        var build = RosterRepository.ToBuild(entry, data);
+        var build = RosterRepository.ToBuild(entry, data, RosterRepository.SavedItem(entry, data));
         if (build is null) return Fail($"#{id} {entry.PokemonName} は現在のデータに存在しません");
         var teams = roster.Teams.Where(t => t.Slots.Any(s => s.EntryId == id)).Select(t => t.Number).ToList();
         var teamText = teams.Count > 0 ? $" チーム{string.Join(",", teams)}" : "";
@@ -234,7 +249,9 @@ public sealed class PokeCommand
         if (args.Count < 2 || !int.TryParse(args[0], out var teamNo) || !int.TryParse(args[1], out var entryId))
             return Fail($"書式: !{ds.CommandPrefix} add team チーム番号 登録ID [持ち物]");
         Item? item = null;
-        if (args.Count > 2)
+        // 持ち物を省いたときは登録時の持ち物。「なし」なら持たせない
+        var noItem = args.Count > 2 && args[2] is "なし" or "持ち物なし";
+        if (args.Count > 2 && !noItem)
         {
             var itemMatch = new NameResolver<Item>(data.Items, i => i.Name).Resolve(string.Join(" ", args.Skip(2)));
             if (!itemMatch.IsResolved) return Fail(NotFound("持ち物", args[2], itemMatch.Candidates.Select(i => i.Name)));
@@ -243,6 +260,7 @@ public sealed class PokeCommand
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == entryId);
         if (entry is null) return Fail($"登録ID {entryId} はありません");
+        if (args.Count <= 2 && entry.ItemId is { } savedItem) item = data.FindItem(savedItem);
         var (team, _, replaced) = await _roster.AddToTeamAsync(ds.Key, teamNo, entryId, item, ct).ConfigureAwait(false);
         var itemText = item is null ? "持ち物なし" : $"@{item.Name}";
         return Ok($"チーム{team.Number} に #{entry.Id} {entry.PokemonName}({itemText}) を{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6）");
@@ -519,7 +537,8 @@ public sealed class PokeCommand
     {
         var stats = StatCalculator.CalculateAll(build);
         var ability = build.Ability?.Name ?? "特性不明";
-        return $"{entry.PokemonName} {entry.Nature} {entry.EVs.ToShortString()} {ability} 実数値 H{stats.HP}-A{stats.Attack}-B{stats.Defense}-C{stats.SpAttack}-D{stats.SpDefense}-S{stats.Speed}";
+        var item = build.Item is { } it ? $" @{it.Name}" : "";
+        return $"{entry.PokemonName} {entry.Nature} {entry.EVs.ToShortString()} {ability}{item} 実数値 H{stats.HP}-A{stats.Attack}-B{stats.Defense}-C{stats.SpAttack}-D{stats.SpDefense}-S{stats.Speed}";
     }
 
     private static string NotFound(string kind, string query, IEnumerable<string> candidates)
