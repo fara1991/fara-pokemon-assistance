@@ -25,7 +25,8 @@ public static class KanaSearch
 
         var (kana, rest) = RomajiToHiragana(q);
         var nexts = rest.Length == 0 ? new[] { "" } : NextKana(rest);
-        var patterns = nexts.Select(n => kana + n).Where(p => p.Length > 0).Distinct().ToArray();
+        // 末尾の英字が名前の一部（ポリゴンＺ・メガリザードンX など）のこともあるので、英字のままの形でも探す
+        var patterns = nexts.Select(n => kana + n).Append(kana + rest).Where(p => p.Length > 0).Distinct().ToArray();
         var loose = patterns.Select(p => p.Replace("ー", "")).Where(p => p.Length > 0).Distinct().ToArray();
         return text =>
         {

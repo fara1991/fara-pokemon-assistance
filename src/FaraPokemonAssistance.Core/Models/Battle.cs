@@ -20,8 +20,21 @@ public sealed class PokemonBuild
     public StatSet Boosts { get; set; } = new();
     /// <summary>状態異常。</summary>
     public StatusCondition Status { get; set; } = StatusCondition.None;
-    /// <summary>ダイマックス中（剣盾）。HP 2 倍、技はダイマックス技の威力になる。</summary>
-    public bool IsDynamax { get; set; }
+    /// <summary>
+    /// ダイマックス中（剣盾）。HP 2 倍、技はダイマックス技の威力になる。
+    /// 残り HP を実数値で指定しているときは、ゲームと同じく今の HP も 2 倍（戻すときは半分・切り上げ）にする。
+    /// </summary>
+    public bool IsDynamax
+    {
+        get => isDynamax;
+        set
+        {
+            if (value == isDynamax) return;
+            if (exactHp is { } hp) exactHp = value ? hp * 2 : (hp + 1) / 2;
+            isDynamax = value;
+        }
+    }
+    private bool isDynamax;
     private int hpPercent = 100;
     private int? exactHp;
 
@@ -115,7 +128,7 @@ public sealed class PokemonBuild
         TeraType = TeraType,
         Boosts = Boosts.Clone(),
         Status = Status,
-        IsDynamax = IsDynamax,
+        isDynamax = isDynamax,
     };
 
     /// <summary>チャット向けの短い説明（例: <c>C252 ひかえめ こだわりメガネ サイコメイカー</c>）。</summary>
