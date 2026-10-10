@@ -69,6 +69,9 @@
 
 .nav-scrollable:not(.collapse) {
     display: block;
+    /* 上に固定したバーから開くので、長いときはメニューの中でスクロールする */
+    max-height: calc(100vh - 3.5rem);
+    overflow-y: auto;
 }
 
 @media (min-width: 768px) {

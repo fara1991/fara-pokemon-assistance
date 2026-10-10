@@ -490,6 +490,41 @@ public class PokeCommandTests
     }
 
     [Fact]
+    public async Task Registered_item_is_saved_and_used_as_team_default()
+    {
+        var cmd = NewCommand(out var store);
+        var add = await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき さめはだ @こだわりスカーフ");
+        Assert.True(add.Success, add.Message);
+        Assert.Contains("@こだわりスカーフ", add.Message);
+        Assert.Contains("さめはだ", add.Message);
+        Assert.Contains("@こだわりスカーフ", (await cmd.ExecuteAsync("!pokech more 1")).Message);
+
+        // 持ち物を省くと登録時の持ち物、「なし」なら持たせない
+        Assert.True((await cmd.ExecuteAsync("!pokech add team 1 1")).Success);
+        Assert.Contains("@こだわりスカーフ", (await cmd.ExecuteAsync("!pokech more team 1")).Message);
+        Assert.True((await cmd.ExecuteAsync("!pokech add team 2 1 なし")).Success);
+        Assert.DoesNotContain("@", (await cmd.ExecuteAsync("!pokech more team 2")).Message);
+
+        // 保存した JSON に持ち物が入っている
+        Assert.Contains("\"ItemId\"", store.Json);
+        Assert.False((await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき @そんなどうぐ")).Success);
+    }
+
+    [Fact]
+    public async Task Roster_without_item_field_still_loads()
+    {
+        // 持ち物の項目が無かったころの保存データ
+        var store = new MemoryRosterStore
+        {
+            Json = """{"Version":1,"DataSets":{"Champions":{"NextId":2,"Pokemon":[{"Id":1,"PokemonId":445,"PokemonName":"ガブリアス","HP":0,"Attack":32,"Defense":0,"SpAttack":0,"SpDefense":0,"Speed":32,"Nature":"ようき","AbilityId":24,"TeraType":null}],"Teams":[],"ActiveTeam":null}}}""",
+        };
+        var repo = new RosterRepository(store);
+        var entry = (await repo.GetAsync()).For("Champions").Pokemon.Single();
+        Assert.Null(entry.ItemId);
+        Assert.Equal(32, entry.Attack);
+    }
+
+    [Fact]
     public async Task Calc_estimates_defense_investment()
     {
         var cmd = NewCommand(out _);

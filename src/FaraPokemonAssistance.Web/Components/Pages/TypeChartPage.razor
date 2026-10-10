@@ -10,7 +10,12 @@
     <p class="text-muted mb-0">縦が攻撃側、横が防御側です。</p>
 </div>
 
-<div class="type-chart-layout">
+@* スマホでは表の代わりに、選んだポケモン（またはタイプ）の受ける倍率を一覧で出す。表も切り替えて見られる *@
+<div class="type-view-toggle mb-2">
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => s.ShowTable = !s.ShowTable">@(s.ShowTable ? "一覧で見る" : "表で見る")</button>
+</div>
+
+<div class="type-chart-layout @(s.ShowTable ? "show-table" : "")">
 <div class="type-chart-main">
 <div class="type-legend mb-2">
     <span><span class="type-mark type-weak">◎</span> 効果抜群（2 倍）</span>
@@ -124,9 +129,10 @@
                         }
                     </div>
                 </div>
+                <div class="type-compact mb-2">@RenderCompact(selected.Types.ToList(), selectedAbility, true)</div>
                 @if (s.AttackTypes.Count == 0)
                 {
-                    <p class="type-pick-hint small mb-2">左の表の攻撃タイプのアイコンを押すと（2 つまで）、そのタイプのポケモンと @selected.Name に抜群を取れる技を出します。</p>
+                    <p class="type-pick-hint small mb-2">表の左端（スマホでは上の一覧）の攻撃タイプのアイコンを押すと（2 つまで）、そのタイプのポケモンと @selected.Name に抜群を取れる技を出します。</p>
                 }
                 else
                 {
@@ -218,6 +224,26 @@
             }
             else
             {
+                @* スマホ: ポケモンを選んでいないときは、受けるタイプ（2 つまで）を選んで倍率を見られる *@
+                @if (chart is not null)
+                {
+                    <div class="type-compact mb-2">
+                        <div class="small fw-bold mb-1">またはタイプを選ぶ（2 つまで）</div>
+                        <div class="compact-grid mb-2">
+                            @foreach (var t in TypeNames.All)
+                            {
+                                var on = s.DefenseTypes.Contains(t);
+                                <button type="button" class="compact-cell compact-pick @(on ? "active" : "")" aria-pressed="@(on ? "true" : "false")" @onclick="() => ToggleDefenseType(t)">
+                                    <TypeIcon Type="@t" /><span class="compact-name">@TypeNames.ToJapanese(t)</span>
+                                </button>
+                            }
+                        </div>
+                        @if (s.DefenseTypes.Count > 0)
+                        {
+                            @RenderCompact(s.DefenseTypes, null, false)
+                        }
+                    </div>
+                }
                 <p class="text-muted small mb-0">ポケモンを選ぶと、表でそのポケモンのタイプが強調され、特性込みの倍率と、そのポケモンにタイプ相性で有利なポケモンが表示されます。</p>
             }
             </div>
@@ -235,6 +261,10 @@
         public int AbilityId { get; set; }
         /// <summary>表の左端で選んだ攻撃タイプ（2 つまで。古い順）。</summary>
         public List<string> AttackTypes { get; set; } = new();
+        /// <summary>スマホでポケモンを選んでいないときに選んだ受けるタイプ（2 つまで。古い順）。</summary>
+        public List<string> DefenseTypes { get; set; } = new();
+        /// <summary>スマホで一覧の代わりに表を出すか。</summary>
+        public bool ShowTable { get; set; }
     }
 
     /// <summary>攻撃タイプで探したポケモンを一度に出す数。</summary>
@@ -330,6 +360,71 @@
         typeAttackers = TypeMatchup.WithTypes(chart, selected, selectedAbility, counterCandidates, s.AttackTypes,
             p => data.LearnableMoves(p.Id), DefaultAbility);
     }
+
+    /// <summary>受けるタイプの選択を切り替える（2 つまで。3 つ目は一番前に選んだものと入れ替える）。</summary>
+    private void ToggleDefenseType(string type)
+    {
+        if (!s.DefenseTypes.Remove(type))
+        {
+            if (s.DefenseTypes.Count >= 2) s.DefenseTypes.RemoveAt(0);
+            s.DefenseTypes.Add(type);
+        }
+    }
+
+    private static readonly (string Label, Func<double, bool> Match)[] CompactGroups =
+    {
+        ("弱点", m => m > 1),
+        ("等倍", m => m == 1),
+        ("半減", m => m > 0 && m < 1),
+        ("無効", m => m == 0),
+    };
+
+    /// <summary>
+    /// スマホ向けの一覧: 18 の攻撃タイプを、受ける倍率（特性込み）で 弱点 → 等倍 → 半減 → 無効 に分けて並べる。
+    /// <paramref name="pickAttack"/> なら、押すと攻撃タイプを選べる（表の左端と同じ）。
+    /// </summary>
+    private RenderFragment RenderCompact(IReadOnlyList<string> defenseTypes, Ability? ability, bool pickAttack) => __builder =>
+    {
+        var results = TypeNames.All.Select(a => (Type: a, Result: AbilityMatchup.Against(chart!, a, defenseTypes, ability))).ToList();
+        <div class="compact-matchup">
+            @foreach (var (label, match) in CompactGroups)
+            {
+                var group = results.Where(x => match(x.Result.Multiplier)).OrderByDescending(x => x.Result.Multiplier).ToList();
+                if (group.Count == 0) continue;
+                <div class="compact-group">
+                    <div class="compact-group-label">@label <span class="text-muted">@group.Count</span></div>
+                    <div class="compact-grid">
+                        @foreach (var (type, r) in group)
+                        {
+                            var title = $"{TypeNames.ToJapanese(type)}: {Times(r.Multiplier)}" + (r.ChangedByAbility ? $"（{string.Join("、", r.Notes)}）" : "");
+                            if (pickAttack)
+                            {
+                                var on = s.AttackTypes.Contains(type);
+                                <button type="button" class="compact-cell @CellClass(r.Multiplier) @(on ? "active" : "")" title="@title" aria-pressed="@(on ? "true" : "false")" @onclick="() => ToggleAttackType(type)">
+                                    <TypeIcon Type="@type" /><span class="compact-mult">@CompactTimes(r.Multiplier)</span>
+                                    @if (r.ChangedByAbility) { <span class="ability-badge">特</span> }
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="compact-cell @CellClass(r.Multiplier)" title="@title">
+                                    <TypeIcon Type="@type" /><span class="compact-mult">@CompactTimes(r.Multiplier)</span>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    };
+
+    private static string CompactTimes(double m) => m switch
+    {
+        0.125 => "×⅛",
+        0.25 => "×¼",
+        0.5 => "×½",
+        _ => $"×{m:0.##}",
+    };
 
     /// <summary>
     /// 攻撃タイプの選択を切り替える。選んでいるものを押すと外す。2 つ選んでいるときに 3 つ目を押すと、

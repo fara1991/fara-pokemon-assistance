@@ -13,21 +13,10 @@
 
 @if (data is not null && dataSet is not null)
 {
-    <div class="calc-grid">
-        @* 振り方例は、それぞれのポケモンの列の下に出す（PC でページをスクロールせずに見えるように） *@
-        @for (var i = 0; i < 2; i++)
-        {
-            var side = i;
-            <div class="calc-col">
-                @RenderSide(side)
-                @if (s.Builds[side] is { } build)
-                {
-                    <div class="card speed-reference-card">
-                        <div class="card-body">@RenderReference(build, s.Tailwind[side])</div>
-                    </div>
-                }
-            </div>
-        }
+    var both = s.Builds[0] is not null && s.Builds[1] is not null;
+    <div class="calc-grid @(both ? "has-result-bar" : "")">
+        <div class="calc-col">@RenderSide(0)</div>
+        <div class="calc-col">@RenderSide(1)</div>
 
         <div class="calc-col calc-side">
             <div class="card">
@@ -50,33 +39,74 @@
                 </div>
             </div>
 
-            @if (s.Builds[0] is { } a && s.Builds[1] is { } b)
+            @{
+                var speeds = new int?[2];
+                var notes = new List<string>?[2];
+                for (var i = 0; i < 2; i++)
+                {
+                    if (s.Builds[i] is { } bld)
+                    {
+                        var (sp, nt) = SpeedCalculator.Effective(bld, s.Weather, s.Terrain, s.Tailwind[i]);
+                        speeds[i] = sp;
+                        notes[i] = nt;
+                    }
+                }
+                var refSide = s.Builds[s.ReferenceSide] is not null ? s.ReferenceSide : s.Builds[0] is not null ? 0 : 1;
+            }
+            @if (s.Builds.Any(x => x is not null))
             {
-                var (speedA, notesA) = SpeedCalculator.Effective(a, s.Weather, s.Terrain, s.Tailwind[0]);
-                var (speedB, notesB) = SpeedCalculator.Effective(b, s.Weather, s.Terrain, s.Tailwind[1]);
-                var verdict = speedA > speedB ? $"{a.Pokemon.Name} が先に動きます"
-                    : speedA < speedB ? $"{b.Pokemon.Name} が先に動きます"
-                    : "同速です（どちらが先かはランダム）";
-                var cls = speedA == speedB ? "text-warning" : "text-success";
-                <div class="card result-card">
+                <div class="card result-card result-sticky">
                     <div class="card-header"><h5>結果</h5></div>
                     <div class="card-body">
-                        <div class="speed-versus">
-                            <div class="text-center">
-                                <div><PokemonLabel Build="a" /></div>
-                                <div class="speed-value @(speedA > speedB ? "text-success" : "")">S@(speedA)</div>
-                                @if (notesA.Count > 0) { <div class="small text-muted">@string.Join("、", notesA)</div> }
+                        @if (s.Builds[0] is { } a && s.Builds[1] is { } b)
+                        {
+                            var speedA = speeds[0]!.Value;
+                            var speedB = speeds[1]!.Value;
+                            <div class="speed-versus">
+                                <div class="text-center">
+                                    <div><PokemonLabel Build="a" Small="true" /></div>
+                                    <div class="speed-value @(speedA > speedB ? "text-success" : "")">S@(speedA)</div>
+                                    @if (notes[0]!.Count > 0) { <div class="small text-muted">@string.Join("、", notes[0]!)</div> }
+                                </div>
+                                <div class="speed-vs">vs</div>
+                                <div class="text-center">
+                                    <div><PokemonLabel Build="b" Small="true" /></div>
+                                    <div class="speed-value @(speedB > speedA ? "text-success" : "")">S@(speedB)</div>
+                                    @if (notes[1]!.Count > 0) { <div class="small text-muted">@string.Join("、", notes[1]!)</div> }
+                                </div>
                             </div>
-                            <div class="speed-vs">vs</div>
-                            <div class="text-center">
-                                <div><PokemonLabel Build="b" /></div>
-                                <div class="speed-value @(speedB > speedA ? "text-success" : "")">S@(speedB)</div>
-                                @if (notesB.Count > 0) { <div class="small text-muted">@string.Join("、", notesB)</div> }
-                            </div>
+                            <p class="fs-6 text-center mt-2 mb-2 @(speedA == speedB ? "text-warning" : "text-success")"><strong>@Verdict(a, b, speedA, speedB)</strong></p>
+                        }
+                        else
+                        {
+                            <p class="text-muted small mb-2">2 体とも選ぶと、どちらが先に動くかを表示します。</p>
+                        }
+                        @* 振り方例: 2 体のどちらかをタブで切り替えて、狭い幅に収める *@
+                        <div class="speed-ref-tabs" role="tablist">
+                            <span class="small fw-bold me-1">振り方例 <Help Title="素早さの振り方例">相手の振り方が分からないときの目安です。無振り・準速（性格補正なし・最大振り）・最速（性格補正あり・最大振り）・スカーフ最速・最遅（性格補正下降・個体値 0）の素早さを出します。いまの天候・フィールド・ランク・まひ・おいかぜで素早さが変わるときは「今の条件」の列に、選んでいる特性が条件次第で素早さを上げるとき（ようりょくそ・かるわざなど）はその条件の列にも出します。右端は、もう 1 体の今の素早さと比べた先手・後手です。</Help></span>
+                            @for (var i = 0; i < 2; i++)
+                            {
+                                var side = i;
+                                if (s.Builds[side] is { } tabBuild)
+                                {
+                                    <button type="button" role="tab" aria-selected="@(refSide == side ? "true" : "false")"
+                                            class="btn btn-sm @(refSide == side ? "btn-primary" : "btn-outline-secondary")" @onclick="() => s.ReferenceSide = side">@tabBuild.Pokemon.Name</button>
+                                }
+                            }
                         </div>
-                        <p class="fs-5 text-center mt-3 mb-0 @cls"><strong>@verdict</strong></p>
+                        @RenderReference(s.Builds[refSide]!, s.Tailwind[refSide], speeds[1 - refSide], s.Builds[1 - refSide]?.Pokemon.Name)
                     </div>
                 </div>
+                @if (s.Builds[0] is { } ba && s.Builds[1] is { } bb)
+                {
+                    @* 狭い画面では、結果の要点を画面の下に出したままにする *@
+                    <div class="result-bar">
+                        <div class="result-bar-summary">
+                            <strong>@Verdict(ba, bb, speeds[0]!.Value, speeds[1]!.Value)</strong>
+                            <span class="text-muted">（S@(speeds[0]) vs S@(speeds[1])）</span>
+                        </div>
+                    </div>
+                }
             }
             else
             {
@@ -95,6 +125,8 @@
         public Terrain Terrain { get; set; }
         /// <summary>それぞれの側のおいかぜ。</summary>
         public bool[] Tailwind { get; set; } = new bool[2];
+        /// <summary>結果に振り方例を出しているポケモン（0 か 1）。</summary>
+        public int ReferenceSide { get; set; }
     }
 
     private State s = new();
@@ -202,7 +234,7 @@
                                        value="@build.EVs.Speed" @onchange="@(e => build.EVs[Stat.Speed] = Clamp(e.Value, max))" />
                                 <div class="ev-buttons">
                                     <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[Stat.Speed] = 0">0</button>
-                                    <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[Stat.Speed] = max">@max</button>
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[Stat.Speed] = EvRules.MaxAllowed(dataSet.EvSystem, build.EVs, Stat.Speed)">@max</button>
                                 </div>
                             </div>
                         </div>
@@ -262,8 +294,14 @@
         </div>
     };
 
-    /// <summary>振り方別の素早さの表。今の条件・特性の発動条件で変わるときは列を足す。</summary>
-    private RenderFragment RenderReference(PokemonBuild build, bool tailwind) => __builder =>
+    private static string Verdict(PokemonBuild a, PokemonBuild b, int speedA, int speedB) =>
+        speedA > speedB ? $"先手: {a.Pokemon.Name}" : speedA < speedB ? $"先手: {b.Pokemon.Name}" : "同速（どちらが先かはランダム）";
+
+    /// <summary>
+    /// 振り方別の素早さの表。今の条件・特性の発動条件で変わるときは列を足す。
+    /// <paramref name="opponentSpeed"/> があれば、その値（今の条件込み）と比べた先手・後手も出す。
+    /// </summary>
+    private RenderFragment RenderReference(PokemonBuild build, bool tailwind, int? opponentSpeed, string? opponentName) => __builder =>
     {
         var reference = SpeedCalculator.OpponentReference(build.Pokemon, dataSet!.EvSystem, Scarf).Where(r => r.Label != "状態").ToList();
         var boost = build.Boosts.Speed;
@@ -276,7 +314,7 @@
             <table class="table table-sm mb-0">
                 <thead>
                     <tr>
-                        <th>素早さの振り方例 <Help Title="素早さの振り方例">相手の振り方が分からないときの目安です。無振り・準速（性格補正なし・最大振り）・最速（性格補正あり・最大振り）・スカーフ最速・最遅（性格補正下降・個体値 0）の素早さを出します。いまの天候・フィールド・ランク・まひ・おいかぜで素早さが変わるときは「今の条件」の列に、選んでいる特性が条件次第で素早さを上げるとき（ようりょくそ・かるわざなど）はその条件の列にも出します。</Help></th>
+                        <th></th>
                         <th class="text-end">S</th>
                         @if (hasCurrent)
                         {
@@ -285,6 +323,10 @@
                         @if (potential is not null)
                         {
                             <th class="text-end">@potential.Label</th>
+                        }
+                        @if (opponentSpeed is not null)
+                        {
+                            <th class="text-center" title="@($"{opponentName} の今の素早さ S{opponentSpeed} と比べて")">vs S@(opponentSpeed)</th>
                         }
                     </tr>
                 </thead>
@@ -301,6 +343,11 @@
                             @if (potential is not null)
                             {
                                 <td class="text-end">@SpeedCalculator.Apply(Current(line.Value), new[] { potential })</td>
+                            }
+                            @if (opponentSpeed is { } os)
+                            {
+                                var mine = Current(line.Value);
+                                <td class="text-center @(mine > os ? "counter-good" : mine < os ? "text-muted" : "text-warning")">@(mine > os ? "先" : mine < os ? "後" : "同")</td>
                             }
                         </tr>
                     }

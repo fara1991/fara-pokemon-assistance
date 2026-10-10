@@ -7,7 +7,7 @@
 <PageTitle>登録ポケモン・チーム</PageTitle>
 
 <div class="page-header">
-    <h3>登録ポケモン・チーム <Help Title="登録・チーム">育成済みのポケモン（努力値・性格・特性）を登録し、チームにまとめて「使用中」にすると、ダメージ計算機・素早さ比較・チャットコマンドでその構成が自動で使われます。データはこのブラウザだけに保存され、ゲームごとに分かれています。</Help></h3>
+    <h3>登録ポケモン・チーム <Help Title="登録・チーム">育成済みのポケモン（努力値・性格・特性・持ち物）を登録し、チームにまとめて「使用中」にすると、ダメージ計算機・素早さ比較・チャットコマンドでその構成が自動で使われます。データはこのブラウザだけに保存され、ゲームごとに分かれています。</Help></h3>
     <p class="text-muted mb-0">チャットの <code>!@(App.CommandPrefix) add / add team / use team / unuse team</code> と同じ内容をここで編集できます。チームが 0 体になると自動で削除されます。</p>
 </div>
 
@@ -40,7 +40,7 @@
                         }
                     </div>
                     <div class="form-group mb-2">
-                        <label>@EvRules.Label(dataSet.EvSystem)（各 0〜@EvRules.MaxPerStat(dataSet.EvSystem)、合計 @EvRules.MaxTotal(dataSet.EvSystem)） <Help Title="@EvRules.Label(dataSet.EvSystem)">@(dataSet.EvSystem == EvSystem.Points ? "チャンピオンズは 1 ポイントで実数値が 1 上がります。各 0〜32、合計 66 まで。" : "各 0〜252、合計 510 まで。4 刻みで実数値が 1 上がります。") ボタンで 0 と最大を入れられます。</Help></label>
+                        <label>@EvRules.Label(dataSet.EvSystem)（各 0〜@EvRules.MaxPerStat(dataSet.EvSystem)、合計 @EvRules.MaxTotal(dataSet.EvSystem)） <Help Title="@EvRules.Label(dataSet.EvSystem)">@(dataSet.EvSystem == EvSystem.Points ? "チャンピオンズは 1 ポイントで実数値が 1 上がります。各 0〜32、合計 66 まで。" : "各 0〜252、合計 510 まで。4 刻みで実数値が 1 上がります。") ボタンで 0 と最大を入れられます（合計の上限を超えるときは、入る分だけ）。</Help></label>
                         <div class="ev-grid">
                             @foreach (var stat in Enum.GetValues<Stat>())
                             {
@@ -50,7 +50,8 @@
                                            value="@s.NewEvs[stat]" @onchange="@(e => s.NewEvs[stat] = Clamp(e.Value, EvRules.MaxPerStat(dataSet.EvSystem)))" />
                                     <div class="ev-buttons">
                                         <button type="button" class="btn btn-outline-secondary" @onclick="() => s.NewEvs[stat] = 0">0</button>
-                                        <button type="button" class="btn btn-outline-secondary" @onclick="() => s.NewEvs[stat] = EvRules.MaxPerStat(dataSet.EvSystem)">@EvRules.MaxPerStat(dataSet.EvSystem)</button>
+                                        @* 合計の上限を超えるときは、入る分だけ振る *@
+                                        <button type="button" class="btn btn-outline-secondary" @onclick="() => s.NewEvs[stat] = EvRules.MaxAllowed(dataSet.EvSystem, s.NewEvs, stat)">@EvRules.MaxPerStat(dataSet.EvSystem)</button>
                                     </div>
                                 </div>
                             }
@@ -58,15 +59,28 @@
                         <div class="small @(s.NewEvs.Total > EvRules.MaxTotal(dataSet.EvSystem) ? "text-danger" : "text-muted")">合計 @s.NewEvs.Total / @EvRules.MaxTotal(dataSet.EvSystem)</div>
                     </div>
                     <div class="form-group mb-2">
-                        <label>性格</label>
-                        <SearchableSelect TItem="Nature"
-                            Items="data.Natures"
-                            DisplayText="@(n => n.Describe())"
-                            ValueSelector="@(n => n.Name)"
-                            SelectedValue="@(s.NewNature?.Name ?? "")"
-                            SelectedValueChanged="@(v => s.NewNature = data.FindNature(v))"
-                            Dropdown="true"
-                            Placeholder="性格を入力..." />
+                        <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります（片方だけ押したときは、もう片方を攻撃・特攻の振り方に合わせて補います）。名前で探すこともできます。</Help></label>
+                        <NaturePicker Natures="data.Natures" Value="s.NewNature" ValueChanged="@(n => s.NewNature = n)"
+                            Physical="@(s.NewEvs.Attack >= s.NewEvs.SpAttack)" />
+                    </div>
+                    <div class="form-group mb-2">
+                        <label>持ち物 <Help Title="持ち物">登録したポケモンをチームに入れるときの持ち物の既定値になります（チームごとに変えることもできます）。メガシンカ後のポケモンはメガストーンで固定です。</Help></label>
+                        @if (s.NewPokemon?.IsMega == true)
+                        {
+                            <FixedField Value="@s.NewItem?.Name" Reason="@FixedField.MegaReason" />
+                        }
+                        else
+                        {
+                            <SearchableSelect TItem="Item"
+                                Items="data.Items.Where(i => !i.IsMegaStone)"
+                                DisplayText="@(i => i.Name)"
+                                ValueSelector="@(i => i.Id.ToString())"
+                                SelectedValue="@(s.NewItem?.Id.ToString() ?? "")"
+                                SelectedValueChanged="@(v => s.NewItem = data.FindItem(ParseId(v)))"
+                                Dropdown="true"
+                                EmptyOption="持ち物なし"
+                                Placeholder="持ち物なし（入力して検索）" />
+                        }
                     </div>
                     <div class="form-group mb-3">
                         <label>特性</label>
@@ -105,7 +119,7 @@
                     else
                     {
                         <table class="table table-sm mb-0 align-middle">
-                            <thead><tr><th>ID</th><th>ポケモン</th><th>性格</th><th>@EvRules.Label(dataSet.EvSystem)</th><th>実数値</th><th></th></tr></thead>
+                            <thead><tr><th>ID</th><th>ポケモン</th><th>性格・持ち物</th><th>@EvRules.Label(dataSet.EvSystem)</th><th>実数値</th><th></th></tr></thead>
                             <tbody>
                             @foreach (var e in roster.Pokemon)
                             {
@@ -113,7 +127,7 @@
                                 <tr>
                                     <td>#@e.Id</td>
                                     <td><PokemonLabel Pokemon="data.FindPokemon(e.PokemonId)" Small="true" /><br /><small class="text-muted">@(build?.Ability?.Name)</small></td>
-                                    <td>@e.Nature</td>
+                                    <td>@e.Nature @if (RosterRepository.SavedItem(e, data) is { } savedItem) { <br /><small class="text-muted">@@@savedItem.Name</small> }</td>
                                     <td>@e.EVs.ToShortString()</td>
                                     <td class="small">@(build is null ? "-" : FormatStats(StatCalculator.CalculateAll(build)))</td>
                                     <td><button class="btn btn-outline-danger btn-sm" @onclick="() => RemovePokemonAsync(e.Id)">削除</button></td>
@@ -212,6 +226,7 @@
         public StatSet NewEvs { get; set; } = new();
         public Nature? NewNature { get; set; }
         public Ability? NewAbility { get; set; }
+        public Item? NewItem { get; set; }
         public int TeamNumber { get; set; } = 1;
         public int TeamEntryId { get; set; }
         public Item? TeamItem { get; set; }
@@ -246,6 +261,7 @@
                 s.NewEvs = new StatSet();
                 s.NewNature = data.FindNature("まじめ");
                 s.NewAbility = null;
+                s.NewItem = null;
                 s.TeamItem = null;
                 s.TeamEntryId = 0;
             }
@@ -274,6 +290,9 @@
     {
         s.NewPokemon = data?.FindPokemon(ParseId(value));
         s.NewAbility = s.NewPokemon is null || data is null ? null : AbilityEffects.ChooseDefault(data.AbilitiesOf(s.NewPokemon), null);
+        // メガシンカ後はメガストーン固定。それ以外のポケモンにメガストーンは残さない
+        if (s.NewPokemon?.MegaStoneId is { } stone) s.NewItem = data?.FindItem(stone);
+        else if (s.NewItem?.IsMegaStone == true) s.NewItem = null;
     }
 
     private void OnTeamEntryChanged(ChangeEventArgs e)
@@ -283,17 +302,19 @@
         var pokemon = entry is null ? null : data?.FindPokemon(entry.PokemonId);
         if (pokemon?.IsMega == true)
             s.TeamItem = data?.FindItem(pokemon.MegaStoneId!.Value);
+        else if (entry is not null && data is not null)
+            s.TeamItem = RosterRepository.SavedItem(entry, data); // 登録時の持ち物を既定にする
         else if (s.TeamItem?.IsMegaStone == true)
             s.TeamItem = null;
     }
 
-    private PokemonBuild NewBuild() => new(s.NewPokemon!, dataSet!.EvSystem) { EVs = s.NewEvs, Nature = s.NewNature, Ability = s.NewAbility };
+    private PokemonBuild NewBuild() => new(s.NewPokemon!, dataSet!.EvSystem) { EVs = s.NewEvs, Nature = s.NewNature, Ability = s.NewAbility, Item = s.NewItem };
 
     private async Task AddPokemonAsync()
     {
         if (data is null || dataSet is null || s.NewPokemon is null || s.NewNature is null) return;
         if (EvRules.Validate(dataSet.EvSystem, s.NewEvs) is { } error) { Show(error, true); return; }
-        var entry = await Repo.AddPokemonAsync(App.DataSetKey, s.NewPokemon, s.NewEvs.Clone(), s.NewNature, s.NewAbility);
+        var entry = await Repo.AddPokemonAsync(App.DataSetKey, s.NewPokemon, s.NewEvs.Clone(), s.NewNature, s.NewAbility, s.NewItem);
         Show($"#{entry.Id} {entry.PokemonName} を登録しました", false);
         s.NewEvs = new StatSet();
     }
