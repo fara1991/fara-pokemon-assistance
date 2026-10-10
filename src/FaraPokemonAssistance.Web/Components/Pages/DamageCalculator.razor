@@ -312,14 +312,15 @@
         _ => "変化",
     };
 
-    private PokemonBuild NewBuild(Pokemon pokemon)
+    private PokemonBuild NewBuild(Pokemon pokemon, bool isAttacker)
     {
+        var side = isAttacker ? AbilityEffects.Side.Attacker : AbilityEffects.Side.Defender;
         var build = new PokemonBuild(pokemon, dataSet?.EvSystem ?? EvSystem.Classic)
         {
             Nature = usage?.TopNature(pokemon.Id) ?? NeutralNature(),
             Item = usage?.TopItem(pokemon.Id),
             // 天候・フィールドを作る特性やダメージが上がる特性を優先（場の状態と技の並び順に反映される）
-            Ability = usage?.DefaultAbility(pokemon) ?? (data is null ? null : AbilityEffects.ChooseDefault(data.AbilitiesOf(pokemon), null)),
+            Ability = usage?.DefaultAbility(pokemon, side) ?? (data is null ? null : AbilityEffects.ChooseDefault(data.AbilitiesOf(pokemon), null, side)),
         };
         ApplyFixedChoices(build);
         return build;
@@ -345,7 +346,7 @@
             attackerMoves = Array.Empty<Move>();
             return;
         }
-        s.Attacker = NewBuild(pokemon);
+        s.Attacker = NewBuild(pokemon, true);
         ApplyFieldFromAbility(s.Attacker);
         RefreshAttackerLists();
         s.Move = DefaultMove(pokemon.Id);
@@ -368,7 +369,7 @@
             s.Defender = null;
             return;
         }
-        s.Defender = NewBuild(pokemon);
+        s.Defender = NewBuild(pokemon, false);
         ApplyFieldFromAbility(s.Defender);
         RefreshDefenderLists();
         ApplyDefaultEvs(s.Defender, s.Move, false);

@@ -590,18 +590,32 @@ public static class AbilityEffects
     public static bool SetsField(string? ability) =>
         FieldEffects.WeatherFromAbility(ability) is not null || FieldEffects.TerrainFromAbility(ability) is not null;
 
-    /// <summary>
-    /// ポケモンを選んだときの既定の特性。天候・フィールドを作る特性か、ダメージが上がる特性を持っていればそれを、
-    /// 無ければ使用率 1 位（<paramref name="usageTop"/>。無ければ第 1 特性）を選ぶ。
-    /// 使用率 1 位がもともとそういう特性ならそのまま使う。
-    /// </summary>
-    public static Ability? ChooseDefault(IReadOnlyList<Ability> abilities, Ability? usageTop)
+    /// <summary>既定の特性を選ぶときの立場。</summary>
+    public enum Side
     {
-        static bool Notable(Ability? a) => a is not null && (SetsField(a.Identifier) || IsOffensive(a.Identifier));
-        if (Notable(usageTop)) return usageTop;
+        /// <summary>攻撃側（ダメージが上がる特性を優先）。</summary>
+        Attacker,
+        /// <summary>防御側（ちょすい・あついしぼうなど受けで効く特性を優先）。</summary>
+        Defender,
+        /// <summary>どちらにもなる（タイプ相性表など）。使用率 1 位が攻撃・受けどちらかで効く特性ならそのまま使う。</summary>
+        Either,
+    }
+
+    /// <summary>
+    /// ポケモンを選んだときの既定の特性。天候・フィールドを作る特性か、<paramref name="side"/> で効く特性
+    /// （攻撃側はダメージが上がる特性、防御側は受けで効く特性）を持っていればそれを、
+    /// 無ければ使用率 1 位（<paramref name="usageTop"/>。無ければ第 1 特性）を選ぶ。
+    /// 使用率 1 位がもともとそういう特性ならそのまま使う（防御側のトリトドンはよびみずのまま）。
+    /// </summary>
+    public static Ability? ChooseDefault(IReadOnlyList<Ability> abilities, Ability? usageTop, Side side = Side.Attacker)
+    {
+        bool Offensive(Ability a) => side != Side.Defender && IsOffensive(a.Identifier);
+        bool Defensive(Ability a) => side != Side.Attacker && IsDefensive(a.Identifier);
+        if (usageTop is not null && (SetsField(usageTop.Identifier) || Offensive(usageTop) || Defensive(usageTop))) return usageTop;
         // 天候・フィールドを作る特性を優先（技の並び順や場の状態にも効くため）
         return abilities.FirstOrDefault(a => SetsField(a.Identifier))
-            ?? abilities.FirstOrDefault(a => IsOffensive(a.Identifier))
+            ?? abilities.FirstOrDefault(Offensive)
+            ?? abilities.FirstOrDefault(Defensive)
             ?? usageTop
             ?? abilities.FirstOrDefault();
     }

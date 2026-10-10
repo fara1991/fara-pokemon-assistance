@@ -220,7 +220,8 @@
         if (data is null) return null;
         if (!defaultAbilities.TryGetValue(p.Id, out var ability))
         {
-            ability = usage is { IsEmpty: false } ? usage.DefaultAbility(p) : AbilityEffects.ChooseDefault(data.AbilitiesOf(p), null);
+            // 受ける側・攻める側の両方に使うので、受けで効く特性（よびみずなど）も使用率 1 位なら残す
+            ability = usage is { IsEmpty: false } ? usage.DefaultAbility(p, AbilityEffects.Side.Either) : AbilityEffects.ChooseDefault(data.AbilitiesOf(p), null, AbilityEffects.Side.Either);
             defaultAbilities[p.Id] = ability;
         }
         return ability;
