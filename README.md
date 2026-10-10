@@ -144,7 +144,8 @@ npm run check                                            # dotnet publish + wran
 `master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（静的アセットのみの Worker `fara-pokemon`。設定は `wrangler.jsonc`）。
 手動で公開し直すときは **Actions → Deploy to Cloudflare Workers → Run workflow**。
 
-`develop` への push（PR のマージ含む）では `deploy-develop.yml` が確認用の https://develop.pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon-develop`。検索エンジンには載らないよう `X-Robots-Tag: noindex` を付けています）。本番には影響しません。
+`develop` への push（PR のマージ含む）では `deploy-develop.yml` が確認用の https://pokemon-dev.fara-labs.com/ に公開します（Worker `fara-pokemon-develop`。検索エンジンには載らないよう `X-Robots-Tag: noindex` を付けています）。本番には影響しません。
+確認用サイトは Cloudflare Access で自分だけが見られるようにしています（Zero Trust → Access → Applications。許可したメールアドレスに届くコードでログイン）。
 
 初回だけ、リポジトリの **Settings → Secrets and variables → Actions** に次を登録してください（値は fara-portfolio-site と同じものを使えます）。
 
@@ -153,7 +154,7 @@ npm run check                                            # dotnet publish + wran
 | Secrets | `CLOUDFLARE_API_TOKEN` | Cloudflare の API トークン（テンプレート Edit Cloudflare Workers、ゾーン `fara-labs.com`） |
 | Variables | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare のアカウント ID |
 
-Cloudflare の DNS に `pokemon` / `develop.pokemon` のレコード（GitHub Pages 時代の CNAME など）が残っていると、カスタムドメインの作成で失敗します。削除してから再実行してください。
+Cloudflare の DNS に `pokemon` / `pokemon-dev` のレコード（GitHub Pages 時代の CNAME など）が残っていると、カスタムドメインの作成で失敗します。削除してから再実行してください。
 
 ## ライセンス
 
