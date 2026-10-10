@@ -35,6 +35,11 @@
     <script>
         // 検索付きセレクトで、選択中の候補が見えるところまでスクロールする
         window.faraScrollIntoView = function (id) { var el = document.getElementById(id); if (el) el.scrollIntoView({ block: "nearest" }); };
+        // 検索付きセレクトの ↑↓・Enter で、ページのスクロールなどを起こさない。
+        // Blazor の @onkeydown:preventDefault は前回の描画時の値で決まり、次のキーに効いてしまうので、ここで止める
+        document.addEventListener("keydown", function (e) {
+            if ((e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") && e.target.closest && e.target.closest(".searchable-select")) e.preventDefault();
+        }, true);
     </script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>

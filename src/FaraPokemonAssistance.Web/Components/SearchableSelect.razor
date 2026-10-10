@@ -17,7 +17,6 @@
            @onfocusin="OnFocusIn"
            @onclick="OnClicked"
            @onkeydown="@OnKeyDown"
-           @onkeydown:preventDefault="@preventDefaultKey"
            onfocus="this.select()"
            disabled="@Disabled"
            autocomplete="off" />
@@ -80,7 +79,6 @@
     private List<TItem> visible = new();
     private int hiddenCount;
     private int highlight = -1;
-    private bool preventDefaultKey;
     private bool scrollPending;
 
     private string ItemId(int index) => $"{listId}-{index}";
@@ -150,8 +148,12 @@
     // フォーカスで開いた直後のクリック（同じ操作）では閉じない
     private bool openedByFocus;
 
+    // フォーカスが外れてから閉じるまでの間に戻ってきたら閉じない
+    private int focusCount;
+
     private void OnFocusIn()
     {
+        focusCount++;
         Open();
         openedByFocus = true;
     }
@@ -175,7 +177,9 @@
 
     private async Task OnFocusOut()
     {
+        var count = focusCount;
         await Task.Delay(200);
+        if (count != focusCount) return;
         showDropdown = false;
 
         if (!userTyped)
@@ -215,7 +219,7 @@
 
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
-        preventDefaultKey = false;
+        // ↑↓・Enter の既定動作（スクロールなど）は index.html の keydown で止めている
         openedByFocus = false;
         switch (e.Key)
         {
@@ -225,18 +229,17 @@
                 userTyped = false;
                 break;
             case "ArrowDown":
-                preventDefaultKey = true;
                 if (!showDropdown) { Open(); break; }
                 if (visible.Count > 0) { highlight = Math.Min(highlight + 1, visible.Count - 1); scrollPending = true; }
                 break;
             case "ArrowUp":
-                preventDefaultKey = true;
                 if (showDropdown && visible.Count > 0) { highlight = Math.Max(highlight - 1, 0); scrollPending = true; }
                 break;
             case "Enter":
-                preventDefaultKey = true;
                 if (showDropdown && !Disabled)
                 {
+                    // 「なし」を選んでいる（強調が無い）ときに Enter を押したら、そのまま「なし」にする
+                    if (highlight < 0 && ShowEmptyOption && !HasSelection) { await SelectEmpty(); break; }
                     var pick = highlight >= 0 && highlight < visible.Count ? visible[highlight] : visible.FirstOrDefault();
                     if (pick != null) await SelectItem(pick);
                 }
