@@ -2,7 +2,7 @@
   // Cloudflare Workers（静的アセットのみ・Worker スクリプトなし）で公開する設定。
   // 公開するのは dotnet publish の出力（publish/wwwroot）。
   //   本番:   npx wrangler deploy               → https://pokemon.fara-labs.com/          （deploy.yml・master への push）
-  //   確認用: npx wrangler deploy --env develop → https://develop.pokemon.fara-labs.com/  （deploy-develop.yml・develop への push）
+  //   確認用: npx wrangler deploy --env develop → https://pokemon-dev.fara-labs.com/  （deploy-develop.yml・develop への push）
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "fara-pokemon",
   "compatibility_date": "2026-09-01",
@@ -26,7 +26,7 @@
       "workers_dev": false,
       "preview_urls": false,
       "routes": [
-        { "pattern": "develop.pokemon.fara-labs.com", "custom_domain": true }
+        { "pattern": "pokemon-dev.fara-labs.com", "custom_domain": true }
       ]
     }
   }

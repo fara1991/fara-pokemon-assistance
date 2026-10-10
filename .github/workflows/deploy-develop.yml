@@ -1,6 +1,6 @@
 name: Deploy to Cloudflare Workers (develop)
 
-# 確認用（https://develop.pokemon.fara-labs.com/）への公開。develop に push（PR のマージ含む）されるたびに実行。
+# 確認用（https://pokemon-dev.fara-labs.com/）への公開。develop に push（PR のマージ含む）されるたびに実行。
 # 本番には影響しない。手動で再実行したいときは Actions タブから develop を選んで Run workflow。
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
     if: github.ref == 'refs/heads/develop'
     environment:
       name: develop
-      url: https://develop.pokemon.fara-labs.com/
+      url: https://pokemon-dev.fara-labs.com/
     steps:
       - uses: actions/checkout@v4
 
