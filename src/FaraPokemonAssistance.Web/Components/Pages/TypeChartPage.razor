@@ -59,9 +59,10 @@
                     else
                     {
                         @* ポケモンを選んでいる間は、攻撃タイプを押して（2 つまで）そのタイプのポケモンを探せる *@
+                        var blocked = !picked && AttackFull;
                         <th class="type-head type-head-toggle">
-                            <button type="button" class="type-toggle @(picked ? "active" : "")" aria-pressed="@(picked ? "true" : "false")"
-                                    title="@(picked ? $"{TypeNames.ToJapanese(a)} の選択を外す" : $"{TypeNames.ToJapanese(a)} タイプのポケモンと、{selected.Name} に抜群を取れる技を出す")"
+                            <button type="button" class="type-toggle @(picked ? "active" : "") @(blocked ? "blocked" : "")" aria-pressed="@(picked ? "true" : "false")" disabled="@blocked"
+                                    title="@(picked ? $"{TypeNames.ToJapanese(a)} の選択を外す" : blocked ? FullHint : $"{TypeNames.ToJapanese(a)} タイプのポケモンと、{selected.Name} に抜群を取れる技を出す")"
                                     @onclick="() => ToggleAttackType(a)"><TypeIcon Type="@a" /></button>
                         </th>
                     }
@@ -88,7 +89,7 @@
 
 <div class="matchup-panel">
     <div class="card">
-        <div class="card-header"><h5>ポケモンとの相性 <Help Title="ポケモンとの相性">ポケモンを選ぶと、左の表でそのポケモンのタイプの列（受ける側）が強調され、右端に特性も含めた倍率の列が出ます。特性（あついしぼう・ふゆう・ちょすい・フィルターなど）で倍率が変わるときは、ここにも内容を出します。左の表で攻撃タイプのアイコンを押すと（2 つまで。3 つ目を押すと一番前に選んだものと入れ替わります）、そのタイプを持つポケモン（2 つなら両方を持つポケモン）と、それぞれが覚える技のうち選んだポケモンに抜群を取れる技（威力の高い順）を出します。有利なポケモンは「タイプ一致技で抜群を取れて、選んだポケモンのタイプ一致技で抜群を取られない」ポケモン（足りなければ、選んだポケモンのタイプ一致技を半減以下で受けられるポケモン）を最大 9 匹、使用率の高い順に出します。どちらの特性（きもったま・いろめがね・ふゆう・もらいび・かたやぶりなど）も含めます。相手の特性は計算機の既定と同じ選び方です。持ち物・テラスタルやタイプ一致でない技は考えていません。</Help></h5></div>
+        <div class="card-header"><h5>ポケモンとの相性 <Help Title="ポケモンとの相性">ポケモンを選ぶと、左の表でそのポケモンのタイプの列（受ける側）が強調され、右端に特性も含めた倍率の列が出ます。特性（あついしぼう・ふゆう・ちょすい・フィルターなど）で倍率が変わるときは、ここにも内容を出します。左の表で攻撃タイプのアイコンを押すと（2 つまで。2 つ選んでいるときは、どちらかを外してから選び直します）、そのタイプを持つポケモン（2 つなら両方を持つポケモン）と、それぞれが覚える技のうち選んだポケモンに抜群を取れる技（威力の高い順）を出します。有利なポケモンは「タイプ一致技で抜群を取れて、選んだポケモンのタイプ一致技で抜群を取られない」ポケモン（足りなければ、選んだポケモンのタイプ一致技を半減以下で受けられるポケモン）を最大 9 匹、使用率の高い順に出します。どちらの特性（きもったま・いろめがね・ふゆう・もらいび・かたやぶりなど）も含めます。相手の特性は計算機の既定と同じ選び方です。持ち物・テラスタルやタイプ一致でない技は考えていません。</Help></h5></div>
         <div class="card-body">
             <div class="form-group mb-2">
                 <label>ポケモン</label>
@@ -145,6 +146,10 @@
                             }
                             <h6 class="mb-0 ms-1">@(s.AttackTypes.Count == 2 ? "両方を持つ" : "を持つ")ポケモン <span class="text-muted small">（@typeAttackers.Count 匹）</span></h6>
                         </div>
+                        @if (AttackFull)
+                        {
+                            <p class="type-full-hint small mb-1">@FullHint</p>
+                        }
                         <p class="text-muted small mb-1">@selected.Name に抜群を取れる技（威力の高い順・特性込み。@(usageSorted ? "使用率の高い順" : "種族値合計の高い順")）</p>
                         @if (typeAttackers.Count == 0)
                         {
@@ -230,11 +235,16 @@
                 {
                     <div class="type-compact mb-2">
                         <div class="small fw-bold mb-1">またはタイプを選ぶ（2 つまで）</div>
+                        @if (s.DefenseTypes.Count >= 2)
+                        {
+                            <p class="type-full-hint small mb-1">@FullHint</p>
+                        }
                         <div class="compact-grid mb-2">
                             @foreach (var t in TypeNames.All)
                             {
                                 var on = s.DefenseTypes.Contains(t);
-                                <button type="button" class="compact-cell compact-pick @(on ? "active" : "")" aria-pressed="@(on ? "true" : "false")" @onclick="() => ToggleDefenseType(t)">
+                                var defBlocked = !on && s.DefenseTypes.Count >= 2;
+                                <button type="button" class="compact-cell compact-pick @(on ? "active" : "") @(defBlocked ? "blocked" : "")" aria-pressed="@(on ? "true" : "false")" disabled="@defBlocked" title="@(defBlocked ? FullHint : TypeNames.ToJapanese(t))" @onclick="() => ToggleDefenseType(t)">
                                     <TypeIcon Type="@t" /><span class="compact-name">@TypeNames.ToJapanese(t)</span>
                                 </button>
                             }
@@ -370,14 +380,10 @@
             p => data.LearnableMoves(p.Id), DefaultAbility);
     }
 
-    /// <summary>受けるタイプの選択を切り替える（2 つまで。3 つ目は一番前に選んだものと入れ替える）。</summary>
+    /// <summary>受けるタイプの選択を切り替える（2 つまで。2 つ選んでいるときは、外すまで新しく選べない）。</summary>
     private void ToggleDefenseType(string type)
     {
-        if (!s.DefenseTypes.Remove(type))
-        {
-            if (s.DefenseTypes.Count >= 2) s.DefenseTypes.RemoveAt(0);
-            s.DefenseTypes.Add(type);
-        }
+        if (!s.DefenseTypes.Remove(type) && s.DefenseTypes.Count < 2) s.DefenseTypes.Add(type);
     }
 
     private static readonly (string Label, Func<double, bool> Match)[] CompactGroups =
@@ -409,7 +415,8 @@
                             if (pickAttack)
                             {
                                 var on = s.AttackTypes.Contains(type);
-                                <button type="button" class="compact-cell @CellClass(r.Multiplier) @(on ? "active" : "")" title="@title" aria-pressed="@(on ? "true" : "false")" @onclick="() => ToggleAttackType(type)">
+                                var cellBlocked = !on && AttackFull;
+                                <button type="button" class="compact-cell @CellClass(r.Multiplier) @(on ? "active" : "") @(cellBlocked ? "blocked" : "")" title="@(cellBlocked ? $"{title}。{FullHint}" : title)" aria-pressed="@(on ? "true" : "false")" disabled="@cellBlocked" @onclick="() => ToggleAttackType(type)">
                                     <TypeIcon Type="@type" /><span class="compact-mult">@CompactTimes(r.Multiplier)</span>
                                     @if (r.ChangedByAbility) { <span class="ability-badge">特</span> }
                                 </button>
@@ -435,15 +442,20 @@
         _ => $"×{m:0.##}",
     };
 
+    private const string FullHint = "2 つまで。外してから選び直してください";
+
+    /// <summary>攻撃タイプを 2 つ選んでいる（ほかは外すまで選べない）。</summary>
+    private bool AttackFull => s.AttackTypes.Count >= 2;
+
     /// <summary>
-    /// 攻撃タイプの選択を切り替える。選んでいるものを押すと外す。2 つ選んでいるときに 3 つ目を押すと、
-    /// 一番前に選んだものと入れ替える（押したものが必ず反映されるようにする）。
+    /// 攻撃タイプの選択を切り替える。選んでいるものを押すと外す。2 つ選んでいるときは、
+    /// どちらかを外すまで新しく選べない（勝手に入れ替えない）。
     /// </summary>
     private void ToggleAttackType(string type)
     {
         if (!s.AttackTypes.Remove(type))
         {
-            if (s.AttackTypes.Count >= 2) s.AttackTypes.RemoveAt(0);
+            if (AttackFull) return;
             s.AttackTypes.Add(type);
         }
         Refresh();

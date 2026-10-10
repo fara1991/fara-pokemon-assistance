@@ -58,8 +58,8 @@ public sealed class RegisteredPokemon
     public string Nature { get; set; } = "";
     public int? AbilityId { get; set; }
     /// <summary>
-    /// 持ち物（登録時に指定したもの）。チームに入れるときの持ち物の既定値になる。
-    /// 以前のデータには無い項目なので null（持ち物なし）として読み込む。
+    /// 一時期、登録時に持ち物を保存していたときの項目。今は使わない（持ち物はチームに入れるときに選ぶ）が、
+    /// そのころの保存データを読み書きしても消えないように残している。
     /// </summary>
     public int? ItemId { get; set; }
     public string? TeraType { get; set; }
@@ -144,11 +144,7 @@ public sealed class RosterRepository
 
     // ---- 登録ポケモン
 
-    public async Task<RegisteredPokemon> AddPokemonAsync(string dataSetKey, Pokemon pokemon, StatSet evs, Nature nature, Ability? ability, CancellationToken ct = default) =>
-        await AddPokemonAsync(dataSetKey, pokemon, evs, nature, ability, null, ct).ConfigureAwait(false);
-
-    /// <summary>ポケモンを登録する。<paramref name="item"/> はチームに入れるときの持ち物の既定値として保存する。</summary>
-    public async Task<RegisteredPokemon> AddPokemonAsync(string dataSetKey, Pokemon pokemon, StatSet evs, Nature nature, Ability? ability, Item? item, CancellationToken ct = default)
+    public async Task<RegisteredPokemon> AddPokemonAsync(string dataSetKey, Pokemon pokemon, StatSet evs, Nature nature, Ability? ability, CancellationToken ct = default)
     {
         var roster = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey);
         var entry = new RegisteredPokemon
@@ -159,7 +155,6 @@ public sealed class RosterRepository
             EVs = evs,
             Nature = nature.Name,
             AbilityId = ability?.Id,
-            ItemId = item?.Id,
         };
         roster.Pokemon.Add(entry);
         await SaveAsync(ct).ConfigureAwait(false);
@@ -270,10 +265,6 @@ public sealed class RosterRepository
             TeraType = entry.TeraType,
         };
     }
-
-    /// <summary>登録時に指定した持ち物（無ければ null）。</summary>
-    public static Item? SavedItem(RegisteredPokemon entry, PokemonDataSet data) =>
-        entry.ItemId is { } id ? data.FindItem(id) : null;
 
     /// <summary>使用中チームのメンバー（登録ポケモンと持ち物）。</summary>
     public async Task<IReadOnlyList<(RegisteredPokemon Entry, Item? Item)>> ActiveTeamMembersAsync(string dataSetKey, PokemonDataSet data, CancellationToken ct = default)

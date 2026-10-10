@@ -490,38 +490,36 @@ public class PokeCommandTests
     }
 
     [Fact]
-    public async Task Registered_item_is_saved_and_used_as_team_default()
+    public async Task Items_are_chosen_per_team_not_at_registration()
     {
-        var cmd = NewCommand(out var store);
-        var add = await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき さめはだ @こだわりスカーフ");
-        Assert.True(add.Success, add.Message);
-        Assert.Contains("@こだわりスカーフ", add.Message);
-        Assert.Contains("さめはだ", add.Message);
-        Assert.Contains("@こだわりスカーフ", (await cmd.ExecuteAsync("!pokech more 1")).Message);
-
-        // 持ち物を省くと登録時の持ち物、「なし」なら持たせない
+        var cmd = NewCommand(out _);
+        // 登録では持ち物を指定しない（チームに入れるときに指定する）
+        var withItem = await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき さめはだ @こだわりスカーフ");
+        Assert.False(withItem.Success);
+        Assert.Contains("add team", withItem.Message);
+        Assert.True((await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき さめはだ")).Success);
         Assert.True((await cmd.ExecuteAsync("!pokech add team 1 1")).Success);
+        Assert.DoesNotContain("@", (await cmd.ExecuteAsync("!pokech more team 1")).Message);
+        Assert.True((await cmd.ExecuteAsync("!pokech add team 1 1 こだわりスカーフ")).Success);
         Assert.Contains("@こだわりスカーフ", (await cmd.ExecuteAsync("!pokech more team 1")).Message);
-        Assert.True((await cmd.ExecuteAsync("!pokech add team 2 1 なし")).Success);
-        Assert.DoesNotContain("@", (await cmd.ExecuteAsync("!pokech more team 2")).Message);
-
-        // 保存した JSON に持ち物が入っている
-        Assert.Contains("\"ItemId\"", store.Json);
-        Assert.False((await cmd.ExecuteAsync("!pokech add ガブリアス 4 32 0 0 0 30 ようき @そんなどうぐ")).Success);
     }
 
     [Fact]
-    public async Task Roster_without_item_field_still_loads()
+    public async Task Roster_loads_data_with_and_without_the_old_item_field()
     {
-        // 持ち物の項目が無かったころの保存データ
+        // 持ち物の項目が無いデータと、一時期保存していた持ち物（ItemId）があるデータ
         var store = new MemoryRosterStore
         {
-            Json = """{"Version":1,"DataSets":{"Champions":{"NextId":2,"Pokemon":[{"Id":1,"PokemonId":445,"PokemonName":"ガブリアス","HP":0,"Attack":32,"Defense":0,"SpAttack":0,"SpDefense":0,"Speed":32,"Nature":"ようき","AbilityId":24,"TeraType":null}],"Teams":[],"ActiveTeam":null}}}""",
+            Json = """{"Version":1,"DataSets":{"Champions":{"NextId":3,"Pokemon":[{"Id":1,"PokemonId":445,"PokemonName":"ガブリアス","HP":0,"Attack":32,"Defense":0,"SpAttack":0,"SpDefense":0,"Speed":32,"Nature":"ようき","AbilityId":24,"TeraType":null},{"Id":2,"PokemonId":445,"PokemonName":"ガブリアス","HP":0,"Attack":32,"Defense":0,"SpAttack":0,"SpDefense":0,"Speed":32,"Nature":"ようき","AbilityId":24,"ItemId":264,"TeraType":null}],"Teams":[],"ActiveTeam":null}}}""",
         };
         var repo = new RosterRepository(store);
-        var entry = (await repo.GetAsync()).For("Champions").Pokemon.Single();
-        Assert.Null(entry.ItemId);
-        Assert.Equal(32, entry.Attack);
+        var entries = (await repo.GetAsync()).For("Champions").Pokemon;
+        Assert.Null(entries[0].ItemId);
+        Assert.Equal(264, entries[1].ItemId);
+        Assert.Equal(32, entries[1].Attack);
+        // 保存し直しても消えない
+        await repo.SaveAsync();
+        Assert.Contains("\"ItemId\": 264", store.Json);
     }
 
     [Fact]
