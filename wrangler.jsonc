@@ -1,7 +1,8 @@
 {
   // Cloudflare Workers（静的アセットのみ・Worker スクリプトなし）で公開する設定。
   // 公開するのは dotnet publish の出力（publish/wwwroot）。
-  //   npx wrangler deploy → https://pokemon.fara-labs.com/（deploy.yml・master への push）
+  //   本番:   npx wrangler deploy               → https://pokemon.fara-labs.com/          （deploy.yml・master への push）
+  //   確認用: npx wrangler deploy --env develop → https://develop.pokemon.fara-labs.com/  （deploy-develop.yml・develop への push）
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "fara-pokemon",
   "compatibility_date": "2026-09-01",
@@ -14,5 +15,19 @@
   "preview_urls": false,
   "routes": [
     { "pattern": "pokemon.fara-labs.com", "custom_domain": true }
-  ]
+  ],
+  "env": {
+    "develop": {
+      // Worker 名は自動で fara-pokemon-develop になる
+      "assets": {
+        "directory": "./publish/wwwroot",
+        "not_found_handling": "single-page-application"
+      },
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [
+        { "pattern": "develop.pokemon.fara-labs.com", "custom_domain": true }
+      ]
+    }
+  }
 }
