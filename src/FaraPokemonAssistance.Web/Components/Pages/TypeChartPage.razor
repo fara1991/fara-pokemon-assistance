@@ -6,7 +6,7 @@
 <PageTitle>タイプ相性表</PageTitle>
 
 <div class="page-header">
-    <h3>タイプ相性表 <Help Title="タイプ相性表の見方">縦が攻撃する技のタイプ、横が受けるポケモンのタイプです。2 つのタイプを持つポケモンは、両方の倍率を掛け合わせます（例: ◎2 × △½ = 等倍）。マスにカーソルを合わせると、その行と列が強調されます。</Help></h3>
+    <h3>タイプ相性表 <Help Title="タイプ相性表の見方">縦が攻撃する技のタイプ、横が受けるポケモンのタイプです。2 つのタイプを持つポケモンは、両方の倍率を掛け合わせます（例: ◎2 × △½ = 等倍）。マスにカーソルを合わせると、その行と列が強調されます。右でポケモンを選ぶと、そのポケモンのタイプの列（受ける側）が強調されます。</Help></h3>
     <p class="text-muted mb-0">縦が攻撃側、横が防御側です。</p>
 </div>
 
@@ -22,13 +22,13 @@
 @if (chart is not null)
 {
     <div class="table-responsive">
-        <table class="table table-bordered table-sm type-chart" @onmouseleave="() => { hoverRow = null; hoverCol = null; }">
+        <table class="table table-bordered table-sm type-chart @(selected is null ? "" : "type-chart-focus")" @onmouseleave="() => { hoverRow = null; hoverCol = null; }">
             <thead>
                 <tr>
                     <th class="type-corner">攻＼防</th>
                     @foreach (var d in TypeNames.All)
                     {
-                        <th class="type-head @(hoverCol == d ? "type-hover" : "")"><TypeIcon Type="@d" /></th>
+                        <th class="type-head @ColumnClass(d) @HoverClass(hoverCol == d)"><TypeIcon Type="@d" /></th>
                     }
                 </tr>
             </thead>
@@ -36,12 +36,11 @@
             @foreach (var a in TypeNames.All)
             {
                 <tr>
-                    <th class="type-head @(hoverRow == a ? "type-hover" : "")"><TypeIcon Type="@a" /></th>
+                    <th class="type-head @HoverClass(hoverRow == a)"><TypeIcon Type="@a" /></th>
                     @foreach (var d in TypeNames.All)
                     {
                         var m = chart.Against(a, d);
-                        var hover = hoverRow == a || hoverCol == d ? "type-hover" : "";
-                        <td class="@CellClass(m) @hover" title="@TypeNames.ToJapanese(a) → @TypeNames.ToJapanese(d): @Describe(m)"
+                        <td class="@CellClass(m) @ColumnClass(d) @HoverClass(hoverRow == a || hoverCol == d)" title="@TypeNames.ToJapanese(a) → @TypeNames.ToJapanese(d): @Describe(m)"
                             @onmouseover="() => { hoverRow = a; hoverCol = d; }">@Mark(m)</td>
                     }
                 </tr>
@@ -54,7 +53,7 @@
 
 <div class="matchup-panel">
     <div class="card">
-        <div class="card-header"><h5>ポケモンとの相性 <Help Title="ポケモンとの相性">選んだポケモンから見て、タイプ一致技で抜群を取れて抜群を取られない相手を「強い相手」、抜群を取られて抜群を取れない相手を「弱い相手」として出します。倍率の大きい順、同じ倍率なら使用率の高い順です。特性・持ち物・テラスタルやタイプ一致でない技は考えていません。</Help></h5></div>
+        <div class="card-header"><h5>ポケモンとの相性 <Help Title="ポケモンとの相性">ポケモンを選ぶと、左の表でそのポケモンのタイプの列（受ける側）が強調され、そのポケモンにタイプ相性で有利なポケモンを最大 10 匹出します。有利な相手は「タイプ一致技で抜群を取れて、選んだポケモンのタイプ一致技で抜群を取られない」ポケモン（足りなければ、選んだポケモンのタイプ一致技を半減以下で受けられるポケモン）で、使用率の高い順です。特性・持ち物・テラスタルやタイプ一致でない技は考えていません。</Help></h5></div>
         <div class="card-body">
             <div class="form-group mb-2">
                 <label>ポケモン</label>
@@ -75,12 +74,35 @@
             @if (selected is not null && chart is not null)
             {
                 <div class="mb-3"><PokemonLabel Pokemon="selected" /></div>
-                @MatchupList("強い相手", "抜群を取れて、抜群を取られない", advantage, e => $"与 {Times(e.Offense)} / 受 {Times(e.Defense)}")
-                @MatchupList("弱い相手", "抜群を取られて、抜群を取れない", disadvantage, e => $"受 {Times(e.Defense)} / 与 {Times(e.Offense)}")
+                <h6 class="mb-1">有利なポケモン <span class="text-muted small">（@counters.Count 匹）</span></h6>
+                <p class="text-muted small mb-2">@selected.Name に抜群を取れて、抜群を取られにくい相手（@(usageSorted ? "使用率の高い順" : "種族値合計の高い順")）</p>
+                @if (counters.Count == 0)
+                {
+                    <p class="text-muted small mb-0">該当するポケモンはいません。</p>
+                }
+                else
+                {
+                    <ul class="matchup-list counter-list mb-0">
+                        @foreach (var c in counters)
+                        {
+                            <li>
+                                <PokemonIcon Pokemon="c.Pokemon" Small="true" />
+                                <div class="counter-name">
+                                    <span>@c.Pokemon.Name</span>
+                                    <PokemonTypes Pokemon="c.Pokemon" Small="true" />
+                                </div>
+                                <span class="ms-auto small text-nowrap text-end">
+                                    <span class="@(c.Offense > 1 ? "counter-good" : "text-muted")">与 @Times(c.Offense)</span><br />
+                                    <span class="@(c.Defense < 1 ? "counter-good" : "text-muted")">受 @Times(c.Defense)</span>
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                }
             }
             else
             {
-                <p class="text-muted small mb-0">ポケモンを選ぶと、そのポケモンが強い相手と弱い相手が表示されます。</p>
+                <p class="text-muted small mb-0">ポケモンを選ぶと、表でそのポケモンのタイプが強調され、そのポケモンにタイプ相性で有利なポケモンが表示されます。</p>
             }
         </div>
     </div>
@@ -100,8 +122,10 @@
     private string? hoverCol;
     private IReadOnlyList<Pokemon> pokemonList = Array.Empty<Pokemon>();
     private Pokemon? selected;
-    private IReadOnlyList<TypeMatchup.Entry> advantage = Array.Empty<TypeMatchup.Entry>();
-    private IReadOnlyList<TypeMatchup.Entry> disadvantage = Array.Empty<TypeMatchup.Entry>();
+    private IReadOnlyList<TypeMatchup.Counter> counters = Array.Empty<TypeMatchup.Counter>();
+    /// <summary>有利な相手を探す順番（使用率順。使用率が無ければ種族値合計の高い順）。</summary>
+    private IReadOnlyList<Pokemon> counterCandidates = Array.Empty<Pokemon>();
+    private bool usageSorted;
 
     protected override Task OnAppReadyAsync()
     {
@@ -119,6 +143,8 @@
         // 未収録（他データで補完した）ポケモンは、このゲームでは出てこないので除く
         var listed = data.Pokemon.Where(p => !p.IsProvisional);
         pokemonList = usage.IsEmpty ? listed.ToList() : listed.OrderBy(p => usage.RankOf(p.Id)).ToList();
+        usageSorted = !usage.IsEmpty;
+        counterCandidates = usage.IsEmpty ? listed.OrderByDescending(p => p.BaseStats.Total).ToList() : pokemonList;
         if (s.DataSetKey != App.DataSetKey)
         {
             s.DataSetKey = App.DataSetKey;
@@ -136,34 +162,17 @@
     private void Refresh()
     {
         selected = pokemonList.FirstOrDefault(p => p.Id == s.PokemonId);
-        (advantage, disadvantage) = selected is null || chart is null
-            ? (Array.Empty<TypeMatchup.Entry>(), Array.Empty<TypeMatchup.Entry>())
-            : TypeMatchup.For(chart, selected, pokemonList);
+        counters = selected is null || chart is null
+            ? Array.Empty<TypeMatchup.Counter>()
+            : TypeMatchup.Counters(chart, selected, counterCandidates, 10);
     }
 
-    private RenderFragment MatchupList(string title, string note, IReadOnlyList<TypeMatchup.Entry> entries, Func<TypeMatchup.Entry, string> detail) => __builder =>
-    {
-        <h6 class="mb-1">@title <span class="text-muted small">（@entries.Count 匹）</span></h6>
-        <p class="text-muted small mb-1">@note</p>
-        @if (entries.Count == 0)
-        {
-            <p class="text-muted small">該当するポケモンはいません。</p>
-        }
-        else
-        {
-            <ul class="matchup-list mb-3">
-                @foreach (var e in entries)
-                {
-                    <li>
-                        <PokemonIcon Pokemon="e.Opponent" Small="true" />
-                        <span>@e.Opponent.Name</span>
-                        <PokemonTypes Pokemon="e.Opponent" Small="true" />
-                        <span class="ms-auto small text-muted text-nowrap">@detail(e)</span>
-                    </li>
-                }
-            </ul>
-        }
-    };
+    /// <summary>選んだポケモンのタイプの列は強調、それ以外は薄くする。</summary>
+    private string ColumnClass(string defenseType) =>
+        selected is null ? "" : selected.HasType(defenseType) ? "type-selected" : "type-dim";
+
+    /// <summary>ポケモンを選んでいる間は、カーソルの行・列の枠を出さない。</summary>
+    private string HoverClass(bool hovered) => hovered && selected is null ? "type-hover" : "";
 
     private static string Times(double m) => m switch
     {

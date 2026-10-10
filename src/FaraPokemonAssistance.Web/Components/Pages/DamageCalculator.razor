@@ -18,8 +18,8 @@
 
 @if (data is not null && dataSet is not null)
 {
-    <div class="split-row">
-        <div class="split-half">
+    <div class="calc-grid">
+        <div class="calc-col">
             <div class="card">
                 <div class="card-header"><h5>攻撃側</h5></div>
                 <div class="card-body">
@@ -37,7 +37,7 @@
                         </div>
                     }
                     <div class="form-group mb-2">
-                        <label>ポケモン <Help Title="ポケモン">名前の一部（ひらがなでも可）で絞り込めます。使用率の高い順に並んでいます。</Help></label>
+                        <label>ポケモン <Help Title="ポケモン">名前の一部（ひらがな・ローマ字でも可。例: ie → イエッサン）で絞り込めます。使用率の高い順に並んでいます。</Help></label>
                         <SearchableSelect TItem="Pokemon"
                             Items="pokemonList"
                             DisplayText="@(p => p.Name)"
@@ -76,7 +76,7 @@
             </div>
         </div>
 
-        <div class="split-half">
+        <div class="calc-col">
             <div class="card">
                 <div class="card-header"><h5>防御側</h5></div>
                 <div class="card-body">
@@ -112,7 +112,9 @@
                     }
                 </div>
             </div>
+        </div>
 
+        <div class="calc-col calc-side">
             <div class="card field-card">
                 <div class="card-header"><h5>場の状態 <Help Title="場の状態">天候・フィールドは、攻撃側・防御側の特性（ひでり・サイコメイカーなど）から自動で入ります。変えたいときは選び直してください。技の並び順にもここの条件が反映されます。</Help></h5></div>
                 <div class="card-body">
@@ -152,72 +154,72 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div class="mt-3">
-        <button class="btn btn-primary btn-lg" @onclick="Calculate">ダメージを計算</button>
-    </div>
-
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="alert alert-danger mt-3">@errorMessage</div>
-    }
-
-    @if (s.Result is not null && s.LastRequest is not null)
-    {
-        var result = s.Result;
-        var lastRequest = s.LastRequest;
-        <div class="card mt-3 result-card">
-            <div class="card-header"><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージ、オボンのみ等の回復きのみ、たべのこし・くろいヘドロ、グラスフィールドの回復、半減きのみ（1 発目のみ）、マルチスケイル（満タン時の 1 発目のみ）も確定数に含めています。</Help></h5></div>
-            <div class="card-body">
-                <p class="mb-2">
-                    <PokemonLabel Build="lastRequest.Attacker" Small="true" />
-                    <span class="mx-2">@lastRequest.Move.Name <TypeIcon Type="@result.MoveType" Small="true" /> →</span>
-                    <PokemonLabel Build="lastRequest.Defender" Small="true" />
-                </p>
-                <p class="result-main mb-2">
-                    <strong>@result.RangeText</strong>
-                    <span class="ms-2 badge @(result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@result.KnockOut</span>
-                    @if (result.TypeEffectiveness != 1.0)
-                    {
-                        <span class="ms-2 badge bg-secondary">@result.EffectivenessText</span>
-                    }
-                </p>
-                <p class="mb-1"><strong>防御側 HP:</strong> @result.DefenderHP　<strong>攻撃実数値:</strong> @result.AttackStat　<strong>防御実数値:</strong> @result.DefenseStat　<strong>威力:</strong> @result.BasePower（@TypeNames.ToJapanese(result.MoveType)）</p>
-                @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
-                {
-                    <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>
-                }
-                <p class="mb-1"><strong>乱数:</strong> <span class="font-monospace">@string.Join(" ", result.Rolls)</span></p>
-                @if (result.Modifiers.Count > 0)
-                {
-                    <p class="mb-1"><strong>補正:</strong> @string.Join("、", result.Modifiers)</p>
-                }
-                <hr />
-                <p class="mb-1 text-muted small">チャットでの表示</p>
-                <div class="alert alert-light border chat-output mb-0">@DamageCommand.Format(lastRequest, result, data.Info)</div>
+            <div>
+                <button class="btn btn-primary btn-lg" @onclick="Calculate">ダメージを計算</button>
             </div>
-        </div>
-    }
 
-    @if (s.Attacker is not null && s.Defender is not null)
-    {
-        <div class="card mt-3">
-            <div class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定（calc） <Help Title="努力値の推定">攻撃側に自分の構成、防御側に相手のポケモンを選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</Help></h5></div>
-            <div class="card-body">
-                <div class="input-group" style="max-width: 420px;">
-                    <span class="input-group-text">受けたダメージ</span>
-                    <input class="form-control" placeholder="93 または 45%" value="@s.ObservedDamageText" @onchange="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
-                    <button class="btn btn-outline-primary" @onclick="EstimateEvs">推定</button>
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mb-0">@errorMessage</div>
+            }
+
+            @if (s.Result is not null && s.LastRequest is not null)
+            {
+                var result = s.Result;
+                var lastRequest = s.LastRequest;
+                <div class="card result-card">
+                    <div class="card-header"><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージ、オボンのみ等の回復きのみ、たべのこし・くろいヘドロ、グラスフィールドの回復、半減きのみ（1 発目のみ）、マルチスケイル（満タン時の 1 発目のみ）も確定数に含めています。</Help></h5></div>
+                    <div class="card-body">
+                        <p class="mb-2">
+                            <PokemonLabel Build="lastRequest.Attacker" Small="true" />
+                            <span class="mx-2">@lastRequest.Move.Name <TypeIcon Type="@result.MoveType" Small="true" /> →</span>
+                            <PokemonLabel Build="lastRequest.Defender" Small="true" />
+                        </p>
+                        <p class="result-main mb-2">
+                            <strong>@result.RangeText</strong>
+                            <span class="ms-2 badge @(result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@result.KnockOut</span>
+                            @if (result.TypeEffectiveness != 1.0)
+                            {
+                                <span class="ms-2 badge bg-secondary">@result.EffectivenessText</span>
+                            }
+                        </p>
+                        <p class="mb-1"><strong>防御側 HP:</strong> @result.DefenderHP　<strong>攻撃実数値:</strong> @result.AttackStat　<strong>防御実数値:</strong> @result.DefenseStat　<strong>威力:</strong> @result.BasePower（@TypeNames.ToJapanese(result.MoveType)）</p>
+                        @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
+                        {
+                            <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>
+                        }
+                        <p class="mb-1"><strong>乱数:</strong> <span class="font-monospace">@string.Join(" ", result.Rolls)</span></p>
+                        @if (result.Modifiers.Count > 0)
+                        {
+                            <p class="mb-1"><strong>補正:</strong> @string.Join("、", result.Modifiers)</p>
+                        }
+                        <hr />
+                        <p class="mb-1 text-muted small">チャットでの表示</p>
+                        <div class="alert alert-light border chat-output mb-0">@DamageCommand.Format(lastRequest, result, data.Info)</div>
+                    </div>
                 </div>
-                @if (!string.IsNullOrEmpty(s.EstimateText))
-                {
-                    <div class="alert alert-light border chat-output mt-2 mb-0">@s.EstimateText</div>
-                }
-            </div>
+            }
+
+            @if (s.Attacker is not null && s.Defender is not null)
+            {
+                <div class="card">
+                    <div class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定（calc） <Help Title="努力値の推定">攻撃側に自分の構成、防御側に相手のポケモンを選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</Help></h5></div>
+                    <div class="card-body">
+                        <div class="input-group">
+                            <span class="input-group-text">受けたダメージ</span>
+                            <input class="form-control" placeholder="93 または 45%" value="@s.ObservedDamageText" @onchange="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
+                            <button class="btn btn-outline-primary" @onclick="EstimateEvs">推定</button>
+                        </div>
+                        @if (!string.IsNullOrEmpty(s.EstimateText))
+                        {
+                            <div class="alert alert-light border chat-output mt-2 mb-0">@s.EstimateText</div>
+                        }
+                    </div>
+                </div>
+            }
         </div>
-    }
+    </div>
 }
 
 @code {
@@ -316,7 +318,8 @@
         {
             Nature = usage?.TopNature(pokemon.Id) ?? NeutralNature(),
             Item = usage?.TopItem(pokemon.Id),
-            Ability = usage?.TopAbility(pokemon) ?? data?.AbilitiesOf(pokemon).FirstOrDefault(),
+            // 天候・フィールドを作る特性やダメージが上がる特性を優先（場の状態と技の並び順に反映される）
+            Ability = usage?.DefaultAbility(pokemon) ?? (data is null ? null : AbilityEffects.ChooseDefault(data.AbilitiesOf(pokemon), null)),
         };
         ApplyFixedChoices(build);
         return build;
@@ -431,23 +434,7 @@
         ApplyFieldFromAbility(build);
     }
 
-    private static readonly Stat[] NatureStats = { Stat.Attack, Stat.Defense, Stat.SpAttack, Stat.SpDefense, Stat.Speed };
-
-    private static Stat? ParseStat(object? value) => Enum.TryParse<Stat>(value?.ToString(), out var st) ? st : null;
-
-    /// <summary>上げる能力・下げる能力から性格を決める。片方だけ選んだときは、選んだ技の分類に合わせて相手側を補う。</summary>
-    private void SetNature(PokemonBuild build, Stat? up, Stat? down)
-    {
-        if (data is null) return;
-        if (up is null && down is null) { build.Nature = NeutralNature(); return; }
-        var physical = s.Move is null || s.Move.AttackStatUsed == Stat.Attack;
-        up ??= down == Stat.Attack || (down != Stat.SpAttack && !physical) ? Stat.SpAttack : Stat.Attack;
-        down ??= up == Stat.Attack ? Stat.SpAttack : up == Stat.SpAttack ? Stat.Attack : physical ? Stat.SpAttack : Stat.Attack;
-        if (up == down) { build.Nature = NeutralNature(); return; }
-        build.Nature = data.Natures.FirstOrDefault(n => n.IncreasedStat == up && n.DecreasedStat == down) ?? build.Nature;
-    }
-
-    private Nature? NeutralNature() => data?.FindNature("まじめ") ?? data?.Natures.FirstOrDefault(n => n.IsNeutral);
+    private Nature? NeutralNature() => data is null ? null : NatureSelection.Neutral(data.Natures);
 
     /// <summary>技に合わせて、攻撃側は A か C、防御側は H に全振り。既に振ってある側はそのまま。</summary>
     private static void ApplyDefaultEvs(PokemonBuild build, Move? move, bool isAttacker)
@@ -504,7 +491,7 @@
         var stats = StatCalculator.CalculateAll(b);
         return string.Join(",", b.Pokemon.Id, b.Level, stats.HP, stats.Attack, stats.Defense, stats.SpAttack, stats.SpDefense, stats.Speed,
             b.Boosts.Attack, b.Boosts.Defense, b.Boosts.SpAttack, b.Boosts.SpDefense, b.Ability?.Identifier, b.Item?.Id,
-            b.TeraType, b.Status, b.IsDynamax, b.HpPercent);
+            b.TeraType, b.Status, b.IsDynamax, b.CurrentHp);
     }
 
     // 既定の技は使用率 1 位（代用した使用率でもよい）。努力値の既定もこの技に合わせるので、並び順の先頭とは限らない
@@ -557,30 +544,9 @@
         var boostStats = BoostStats(isAttacker);
         var side = isAttacker ? "atk" : "def";
         <div class="form-group mb-3">
-            <label>性格 <Help Title="性格">上がる能力は 1.1 倍、下がる能力は 0.9 倍。実数値の赤が上昇、青が下降です。</Help></label>
-            <SearchableSelect TItem="Nature"
-                Items="data.Natures"
-                DisplayText="@(n => n.Describe())"
-                ValueSelector="@(n => n.Name)"
-                SelectedValue="@(build.Nature?.Name ?? "")"
-                SelectedValueChanged="@(v => build.Nature = data.FindNature(v))"
-                Placeholder="性格を入力..." />
-            <div class="nature-picker mt-1">
-                <select class="form-select form-select-sm" value="@(build.Nature?.IncreasedStat?.ToString() ?? "")" @onchange="@(e => SetNature(build, ParseStat(e.Value), build.Nature?.DecreasedStat))" aria-label="上がる能力">
-                    <option value="">上昇なし</option>
-                    @foreach (var st in NatureStats)
-                    {
-                        <option value="@st">@StatNames.Japanese(st) ↑</option>
-                    }
-                </select>
-                <select class="form-select form-select-sm" value="@(build.Nature?.DecreasedStat?.ToString() ?? "")" @onchange="@(e => SetNature(build, build.Nature?.IncreasedStat, ParseStat(e.Value)))" aria-label="下がる能力">
-                    <option value="">下降なし</option>
-                    @foreach (var st in NatureStats)
-                    {
-                        <option value="@st">@StatNames.Japanese(st) ↓</option>
-                    }
-                </select>
-            </div>
+            <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります（片方だけ押したときは、もう片方を技の分類に合わせて補います）。名前で探すこともできます。上がる能力は 1.1 倍、下がる能力は 0.9 倍。実数値の赤が上昇、青が下降です。</Help></label>
+            <NaturePicker Natures="data.Natures" Value="build.Nature" ValueChanged="@(n => build.Nature = n)"
+                Physical="@(s.Move is null || s.Move.AttackStatUsed == Stat.Attack)" />
         </div>
         <div class="form-group mb-3">
             <label>持ち物 <Help Title="持ち物">@(isAttacker ? "攻撃側はダメージに関係する持ち物（こだわり系・いのちのたま・タイプ強化など）だけを表示します。" : "防御側は防御に関係する持ち物（とつげきチョッキ・しんかのきせきなど）だけを表示します。")メガシンカ後のポケモンはメガストーンで固定です。</Help></label>
@@ -686,11 +652,17 @@
             </select>
         </div>
         <div class="form-group mb-2">
-            <label>残り HP（%） <Help Title="残り HP">@(isAttacker ? "もうか・しんりょく・げきりゅう・むしのしらせは HP が 1/3 以下で対応タイプの技が 1.5 倍になります。" : "確定数を今の HP から数えます。マルチスケイル・ファントムガードは HP 満タンのときだけ効きます。")100 で満タンです。</Help></label>
-            <div class="d-flex align-items-center gap-2">
-                <input type="range" class="form-range" min="1" max="100" value="@build.HpPercent" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
-                <input type="number" class="form-control form-control-sm" style="width: 5rem;" min="1" max="100" value="@build.HpPercent" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
-                <span class="small text-muted text-nowrap">@build.CurrentHp / @build.MaxHp</span>
+            <label>残り HP <Help Title="残り HP">@(isAttacker ? "もうか・しんりょく・げきりゅう・むしのしらせは HP が 1/3 以下で対応タイプの技が 1.5 倍になります。" : "確定数を今の HP から数えます。マルチスケイル・ファントムガードは HP 満タンのときだけ効きます。")スライダーと % は割合、右の欄は実数値（例: 133 / 135）で指定できます。どちらを変えても、もう一方に反映されます。</Help></label>
+            <div class="hp-editor">
+                <input type="range" class="form-range" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
+                <div class="input-group input-group-sm hp-input">
+                    <input type="number" class="form-control" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
+                    <span class="input-group-text">%</span>
+                </div>
+                <div class="input-group input-group-sm hp-input">
+                    <input type="number" class="form-control" min="1" max="@build.MaxHp" value="@build.CurrentHp" aria-label="残り HP（実数値）" @onchange="@(e => build.CurrentHp = Math.Clamp(ParseId(e.Value), 1, build.MaxHp))" />
+                    <span class="input-group-text">/ @build.MaxHp</span>
+                </div>
             </div>
         </div>
         <div class="stats-summary">

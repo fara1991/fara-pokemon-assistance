@@ -263,7 +263,7 @@
     private void OnNewPokemonChanged(string value)
     {
         s.NewPokemon = data?.FindPokemon(ParseId(value));
-        s.NewAbility = s.NewPokemon is null ? null : data?.AbilitiesOf(s.NewPokemon).FirstOrDefault();
+        s.NewAbility = s.NewPokemon is null || data is null ? null : AbilityEffects.ChooseDefault(data.AbilitiesOf(s.NewPokemon), null);
     }
 
     private void OnTeamEntryChanged(ChangeEventArgs e)

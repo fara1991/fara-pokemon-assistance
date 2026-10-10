@@ -11,8 +11,13 @@ public static class SpeedCalculator
 
     public sealed record SpeedLine(string Label, int Value, string? Note);
 
-    /// <summary>ランク・持ち物・一部の特性を含めた素早さ。</summary>
-    public static (int Speed, List<string> Notes) Effective(PokemonBuild build, Weather weather = Weather.None, Terrain terrain = Terrain.None)
+    /// <summary>素早さに掛かる補正 1 つ（特性・まひ・おいかぜなど）。</summary>
+    public sealed record SpeedFactor(string Label, double Multiplier);
+
+    private const int ItemIdBoosterEnergy = 1696;
+
+    /// <summary>ランク・持ち物・特性・まひ・おいかぜを含めた素早さ。</summary>
+    public static (int Speed, List<string> Notes) Effective(PokemonBuild build, Weather weather = Weather.None, Terrain terrain = Terrain.None, bool tailwind = false)
     {
         var notes = new List<string>();
         var speed = StatCalculator.Calculate(build, Stat.Speed);
@@ -22,47 +27,95 @@ public static class SpeedCalculator
             speed = StatCalculator.ApplyBoost(speed, boost);
             notes.Add($"S{(boost > 0 ? "+" : "")}{boost}");
         }
-        var ability = build.Ability?.Identifier ?? "";
-        var abilityMod = ability switch
+        foreach (var factor in ConditionFactors(build, weather, terrain, tailwind))
         {
-            "swift-swim" when weather == Weather.Rain => 2.0,
-            "chlorophyll" when weather == Weather.Sun => 2.0,
-            "sand-rush" when weather == Weather.Sand => 2.0,
-            "slush-rush" when weather == Weather.Snow => 2.0,
-            "surge-surfer" when terrain == Terrain.Electric => 2.0,
-            "unburden" => 1.0, // 発動条件が不明なので適用しない
-            _ => 1.0,
-        };
-        if (abilityMod != 1.0)
-        {
-            speed = DamageCalculator.PokeRound(speed * abilityMod);
-            notes.Add($"{build.Ability!.Name}(2倍)");
+            speed = DamageCalculator.PokeRound(speed * factor.Multiplier);
+            notes.Add(factor.Label);
         }
-        if (build.Status == StatusCondition.Paralysis)
+        if (ItemFactor(build) is { } item)
         {
-            if (ability == "quick-feet")
-            {
-                speed = DamageCalculator.PokeRound(speed * 1.5);
-                notes.Add($"まひ+{build.Ability!.Name}(1.5倍)");
-            }
-            else
-            {
-                speed = DamageCalculator.PokeRound(speed * 0.5);
-                notes.Add("まひ(0.5倍)");
-            }
-        }
-        if (build.Item?.Id == ItemIdChoiceScarf)
-        {
-            speed = DamageCalculator.PokeRound(speed * 1.5);
-            notes.Add("こだわりスカーフ(1.5倍)");
-        }
-        else if (build.Item?.Id == ItemIdIronBall)
-        {
-            speed = DamageCalculator.PokeRound(speed * 0.5);
-            notes.Add("くろいてっきゅう(0.5倍)");
+            speed = DamageCalculator.PokeRound(speed * item.Multiplier);
+            notes.Add(item.Label);
         }
         return (speed, notes);
     }
+
+    /// <summary>
+    /// 今の天候・フィールド・状態で掛かる補正（特性・ブーストエナジー・まひ・おいかぜ）。持ち物（スカーフ等）とランクは含めない。
+    /// </summary>
+    public static IReadOnlyList<SpeedFactor> ConditionFactors(PokemonBuild build, Weather weather = Weather.None, Terrain terrain = Terrain.None, bool tailwind = false)
+    {
+        var list = new List<SpeedFactor>();
+        var ability = build.Ability?.Identifier ?? "";
+        var name = build.Ability?.Name ?? "";
+        var doubled = ability switch
+        {
+            "swift-swim" => weather == Weather.Rain,
+            "chlorophyll" => weather == Weather.Sun,
+            "sand-rush" => weather == Weather.Sand,
+            "slush-rush" => weather == Weather.Snow,
+            "surge-surfer" => terrain == Terrain.Electric,
+            _ => false, // かるわざは発動したか分からないので、ここでは掛けない（PotentialFactor で別に出す）
+        };
+        if (doubled) list.Add(new SpeedFactor($"{name}(2倍)", 2.0));
+        if (ability is "protosynthesis" or "quark-drive" && ParadoxActive(build, ability, weather, terrain) &&
+            DamageCalculator.HighestStat(build) == Stat.Speed)
+            list.Add(new SpeedFactor($"{name}(1.5倍)", 1.5));
+
+        if (build.Status != StatusCondition.None && ability == "quick-feet")
+            list.Add(new SpeedFactor(build.Status == StatusCondition.Paralysis ? $"まひ+{name}(1.5倍)" : $"{name}(1.5倍)", 1.5));
+        else if (build.Status == StatusCondition.Paralysis)
+            list.Add(new SpeedFactor("まひ(0.5倍)", 0.5));
+
+        if (tailwind) list.Add(new SpeedFactor("おいかぜ(2倍)", 2.0));
+        return list;
+    }
+
+    /// <summary>
+    /// 選んでいる特性が、条件がそろえば素早さを上げる（今はまだ上がっていない）場合、その条件と倍率。
+    /// 例: ようりょくそで晴れでない → 「晴れ(ようりょくそ)」2 倍。かるわざは「持ち物消費後」。
+    /// </summary>
+    public static SpeedFactor? PotentialFactor(PokemonBuild build, Weather weather = Weather.None, Terrain terrain = Terrain.None)
+    {
+        var ability = build.Ability?.Identifier ?? "";
+        var name = build.Ability?.Name ?? "";
+        var active = ConditionFactors(build, weather, terrain);
+        if (name.Length > 0 && active.Any(f => f.Label.Contains(name, StringComparison.Ordinal))) return null;
+        return ability switch
+        {
+            "swift-swim" => new SpeedFactor($"雨のとき({name} 2倍)", 2.0),
+            "chlorophyll" => new SpeedFactor($"晴れのとき({name} 2倍)", 2.0),
+            "sand-rush" => new SpeedFactor($"砂嵐のとき({name} 2倍)", 2.0),
+            "slush-rush" => new SpeedFactor($"雪のとき({name} 2倍)", 2.0),
+            "surge-surfer" => new SpeedFactor($"エレキフィールドのとき({name} 2倍)", 2.0),
+            "unburden" => new SpeedFactor($"持ち物がなくなったとき({name} 2倍)", 2.0),
+            "quick-feet" => new SpeedFactor($"状態異常のとき({name} 1.5倍)", 1.5),
+            "protosynthesis" when DamageCalculator.HighestStat(build) == Stat.Speed => new SpeedFactor($"晴れ・ブーストエナジー({name} 1.5倍)", 1.5),
+            "quark-drive" when DamageCalculator.HighestStat(build) == Stat.Speed => new SpeedFactor($"エレキフィールド・ブーストエナジー({name} 1.5倍)", 1.5),
+            _ => null,
+        };
+    }
+
+    /// <summary>条件がそろうと素早さが上がる特性（すいすい・ようりょくそ・かるわざなど）。素早さ比較の既定の特性に使う。</summary>
+    public static bool IsSpeedAbility(string? ability) => ability is
+        "swift-swim" or "chlorophyll" or "sand-rush" or "slush-rush" or "surge-surfer" or "unburden" or "quick-feet";
+
+    /// <summary>素早さに補正を順に掛ける。</summary>
+    public static int Apply(int speed, IEnumerable<SpeedFactor> factors)
+    {
+        foreach (var f in factors) speed = DamageCalculator.PokeRound(speed * f.Multiplier);
+        return speed;
+    }
+
+    private static SpeedFactor? ItemFactor(PokemonBuild build) => build.Item?.Id switch
+    {
+        ItemIdChoiceScarf => new SpeedFactor("こだわりスカーフ(1.5倍)", 1.5),
+        ItemIdIronBall => new SpeedFactor("くろいてっきゅう(0.5倍)", 0.5),
+        _ => null,
+    };
+
+    private static bool ParadoxActive(PokemonBuild build, string ability, Weather weather, Terrain terrain) =>
+        build.Item?.Id == ItemIdBoosterEnergy || (ability == "protosynthesis" ? weather == Weather.Sun : terrain == Terrain.Electric);
 
     /// <summary>相手の努力値・性格が不明なときの代表値（無振り / 準速 / 最速 / スカーフ最速）。</summary>
     public static IReadOnlyList<SpeedLine> OpponentReference(Pokemon pokemon, EvSystem system, Item? scarf, bool paralyzed = false)

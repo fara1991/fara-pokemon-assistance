@@ -2,9 +2,10 @@
 @inject IJSRuntime JS
 
 @* 検索できるセレクト。
-   - クリック / フォーカスで候補を全部開き、いま選んでいるものを強調して見えるところまでスクロールする
+   - クリック / フォーカスで候補を開く。選択中なら、その名前を含む候補（リザードン → メガリザードンX など）だけを出し、
+     いま選んでいるものを強調して見えるところまでスクロールする。入力欄が空なら全部出す
    - 入力欄の文字は選択中の名前のまま残し、全選択しておくので、打ち始めればそのまま置き換わる
-   - 文字を打ったときだけ絞り込む。↑↓ で候補を移動、Enter で決定、Esc で閉じる *@
+   - カタカナ・ひらがな・ローマ字（ie → イエッサン）で絞り込める。↑↓ で候補を移動、Enter で決定、Esc で閉じる *@
 <div class="searchable-select" @onfocusout="OnFocusOut">
     <input type="text"
            class="form-control"
@@ -77,21 +78,6 @@
 
     private TItem? Selected => HasSelection ? Items.FirstOrDefault(item => ValueSelector(item) == SelectedValue) : default;
 
-    private static bool KanaContains(string text, string query) =>
-        ToHiragana(text).Contains(ToHiragana(query), StringComparison.OrdinalIgnoreCase);
-
-    private static string ToHiragana(string input)
-    {
-        var chars = input.ToCharArray();
-        for (int i = 0; i < chars.Length; i++)
-        {
-            // Katakana (U+30A1-U+30F6) -> Hiragana (U+3041-U+3096)
-            if (chars[i] >= 'ァ' && chars[i] <= 'ヶ')
-                chars[i] = (char)(chars[i] - 0x60);
-        }
-        return new string(chars);
-    }
-
     protected override void OnParametersSet()
     {
         if (showDropdown) return;
@@ -109,11 +95,12 @@
         }
     }
 
-    /// <summary>候補を作り直す。文字を打っていないときは全件、打ったら絞り込み。</summary>
+    /// <summary>候補を作り直す。入力欄が空なら全件、文字があればそれを含むものだけ（開いた直後は選択中の名前で絞る）。</summary>
     private void Rebuild()
     {
-        var all = userTyped && !string.IsNullOrWhiteSpace(searchText)
-            ? Items.Where(item => KanaContains(DisplayText(item), searchText)).ToList()
+        var matches = KanaSearch.Create(searchText);
+        var all = !string.IsNullOrWhiteSpace(searchText)
+            ? Items.Where(item => matches(DisplayText(item))).ToList()
             : Items.ToList();
         visible = all.Take(MaxVisible).ToList();
         hiddenCount = all.Count - visible.Count;
@@ -180,7 +167,8 @@
             ?? Items.FirstOrDefault(item => DisplayText(item) == searchText);
         if (match == null)
         {
-            var candidates = Items.Where(item => KanaContains(DisplayText(item), searchText)).Take(2).ToList();
+            var matches = KanaSearch.Create(searchText);
+            var candidates = Items.Where(item => matches(DisplayText(item))).Take(2).ToList();
             if (candidates.Count == 1) match = candidates[0];
         }
         if (match != null)

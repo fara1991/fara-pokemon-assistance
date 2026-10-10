@@ -1,0 +1,44 @@
+@* 性格の選択。「上昇」「下降」のボタンを 1 回押すだけで能力を選べる。名前で探す欄も残す。
+   片方だけ押したときは、もう片方を技の分類（Physical）に合わせて補う（NatureSelection 参照）。 *@
+<div class="nature-picker">
+    <SearchableSelect TItem="Nature"
+        Items="Natures"
+        DisplayText="@(n => n.Describe())"
+        ValueSelector="@(n => n.Name)"
+        SelectedValue="@(Value?.Name ?? "")"
+        SelectedValueChanged="@(v => Change(Natures.FirstOrDefault(n => n.Name == v)))"
+        Placeholder="性格名で探す..." />
+    @foreach (var (label, increased) in new[] { ("上昇", true), ("下降", false) })
+    {
+        var current = increased ? Value?.IncreasedStat : Value?.DecreasedStat;
+        <div class="nature-row">
+            <span class="nature-row-label @(increased ? "stat-up" : "stat-down")">@label</span>
+            <div class="nature-buttons" role="group" aria-label="@(label)する能力">
+                <button type="button" class="btn btn-sm @(current is null ? "btn-primary" : "btn-outline-secondary")"
+                        aria-pressed="@(current is null)"
+                        @onclick="() => Change(increased ? NatureSelection.WithIncreased(Natures, Value, null, Physical) : NatureSelection.WithDecreased(Natures, Value, null, Physical))">なし</button>
+                @foreach (var stat in NatureSelection.Stats)
+                {
+                    var st = stat;
+                    <button type="button" class="btn btn-sm @(current == st ? "btn-primary" : "btn-outline-secondary")"
+                            aria-pressed="@(current == st)"
+                            @onclick="() => Change(increased ? NatureSelection.WithIncreased(Natures, Value, st, Physical) : NatureSelection.WithDecreased(Natures, Value, st, Physical))">@StatNames.Japanese(st)</button>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<Nature> Natures { get; set; } = Array.Empty<Nature>();
+    [Parameter] public Nature? Value { get; set; }
+    [Parameter] public EventCallback<Nature?> ValueChanged { get; set; }
+    /// <summary>片方だけ選んだとき、物理技向け（特攻を下げる）に補うか。false なら特殊技向け（攻撃を下げる）。</summary>
+    [Parameter] public bool Physical { get; set; } = true;
+
+    private async Task Change(Nature? nature)
+    {
+        if (nature is null || nature == Value) return;
+        await ValueChanged.InvokeAsync(nature);
+    }
+}
