@@ -2,6 +2,7 @@
 @inherits AppPageBase
 @using FaraPokemonAssistance.Core.Battle
 @inject DataCatalog Catalog
+@inject NavigationManager Nav
 
 <PageTitle>タイプ相性表</PageTitle>
 
@@ -288,11 +289,19 @@
     private readonly Dictionary<int, Ability?> defaultAbilities = new();
     private bool usageSorted;
 
-    protected override Task OnAppReadyAsync()
+    protected override async Task OnAppReadyAsync()
     {
         s = PageStates.Get<State>("types");
-        return LoadAsync();
+        await LoadAsync();
+        // ポケモン一覧から開いたとき（?pokemon=ID）は、そのポケモンを選んでから URL を戻す
+        if (PokemonQuery is > 0 and var id)
+        {
+            OnSelectedChanged(id.ToString());
+            Nav.NavigateTo("types", replace: true);
+        }
     }
+
+    [SupplyParameterFromQuery(Name = "pokemon")] public int? PokemonQuery { get; set; }
 
     protected override Task OnAppChangedAsync() => LoadAsync();
 

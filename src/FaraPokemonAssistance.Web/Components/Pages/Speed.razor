@@ -3,6 +3,7 @@
 @using FaraPokemonAssistance.Core.Roster
 @inject DataCatalog Catalog
 @inject RosterRepository Repo
+@inject NavigationManager Nav
 
 <PageTitle>素早さ比較</PageTitle>
 
@@ -148,7 +149,15 @@
     {
         s = PageStates.Get<State>("speed2");
         await LoadAsync();
+        // ポケモン一覧から開いたとき（?p1=ID）は、ポケモン1 に入れてから URL を戻す
+        if (P1Query is > 0 and var id)
+        {
+            OnPokemonChanged(0, id.ToString());
+            Nav.NavigateTo("speed", replace: true);
+        }
     }
+
+    [SupplyParameterFromQuery(Name = "p1")] public int? P1Query { get; set; }
 
     protected override Task OnAppChangedAsync() => LoadAsync();
 

@@ -1,0 +1,269 @@
+@page "/pokedex"
+@inherits AppPageBase
+@inject DataCatalog Catalog
+
+<PageTitle>ポケモン一覧</PageTitle>
+
+<div class="page-header">
+    <h3>ポケモン一覧 <Help Title="ポケモン一覧">左のメニューで選んでいるゲームに収録されているポケモンを、全国図鑑順に並べます（フォルム違い・メガシンカは元の姿のすぐ後ろ）。名前・タイプ（2 つまでで両方を持つもの）・特性・覚える技（2 つまでで両方を覚えるもの）・世代で絞り込めます。見出し（スマホでは「並び順」）で種族値の高い順・低い順に並べ替えられます。ポケモンを押すと、ダメージ計算機・素早さ比較・タイプ相性表で開けます。特性はデータに通常・隠れ特性の区別が無いため、まとめて表示しています。</Help></h3>
+    <p class="text-muted mb-0">@(data?.Info.Name ?? "")に収録されているポケモン（全国図鑑順）。条件で絞り込み、見出しを押すと並べ替えられます。</p>
+</div>
+
+@if (data is not null && dex is not null)
+{
+    var f = s.Filter;
+    <div class="card mb-2">
+        <div class="card-body dex-filters">
+            <div class="dex-filter-grid">
+                <div class="form-group">
+                    <label for="dex-name">名前</label>
+                    <input id="dex-name" class="form-control" placeholder="カタカナ・ひらがな・ローマ字" value="@f.Name" @oninput="@(e => { f.Name = e.Value?.ToString() ?? ""; Refresh(); })" />
+                </div>
+                <div class="form-group">
+                    <label>特性</label>
+                    <SearchableSelect TItem="Ability" Items="abilityChoices" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
+                        SelectedValue="@(f.AbilityId == 0 ? "" : f.AbilityId.ToString())" SelectedValueChanged="@(v => { f.AbilityId = ParseId(v); Refresh(); })"
+                        Dropdown="true" EmptyOption="指定なし" Placeholder="指定なし（入力して検索）" />
+                </div>
+                @for (var i = 0; i < 2; i++)
+                {
+                    var slot = i;
+                    <div class="form-group">
+                        <label>覚える技@(slot + 1)</label>
+                        <SearchableSelect TItem="Move" Items="moveChoices" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
+                            SelectedValue="@(MoveAt(slot) == 0 ? "" : MoveAt(slot).ToString())" SelectedValueChanged="@(v => SetMove(slot, ParseId(v)))"
+                            Dropdown="true" EmptyOption="指定なし" Placeholder="指定なし（入力して検索）">
+                            <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto small">@CategoryText(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
+                        </SearchableSelect>
+                    </div>
+                }
+                <div class="form-group">
+                    <label for="dex-gen">世代</label>
+                    <select id="dex-gen" class="form-select" value="@f.Generation" @onchange="@(e => { f.Generation = ParseId(e.Value); Refresh(); })">
+                        <option value="0">すべて</option>
+                        @for (var g = 1; g <= 9; g++)
+                        {
+                            <option value="@g">第@(g)世代</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="dex-type-row">
+                <span class="small fw-bold">タイプ（2 つまで）</span>
+                <div class="dex-type-buttons">
+                    @foreach (var t in TypeNames.All)
+                    {
+                        var on = f.Types.Contains(t);
+                        <button type="button" class="dex-type-btn @(on ? "active" : "")" aria-pressed="@(on ? "true" : "false")" title="@TypeNames.ToJapanese(t)" @onclick="() => ToggleType(t)"><TypeIcon Type="@t" Small="true" /></button>
+                    }
+                </div>
+            </div>
+            <div class="dex-summary">
+                <strong>@results.Count 匹</strong>
+                @if (hasMega)
+                {
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" id="dex-mega" checked="@f.MegaOnly" @onchange="@(e => { f.MegaOnly = e.Value is true; Refresh(); })" />
+                        <label class="form-check-label" for="dex-mega">メガシンカのみ</label>
+                    </div>
+                }
+                @if (hasProvisional)
+                {
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" id="dex-prov" checked="@f.IncludeProvisional" @onchange="@(e => { f.IncludeProvisional = e.Value is true; Refresh(); })" />
+                        <label class="form-check-label" for="dex-prov">未収録も表示</label>
+                    </div>
+                }
+                <div class="dex-sort-mobile">
+                    <select class="form-select form-select-sm" aria-label="並び順" value="@f.Sort" @onchange="@(e => { f.Sort = Enum.TryParse<PokedexSort>(e.Value?.ToString(), out var v) ? v : PokedexSort.Dex; Refresh(); })">
+                        @foreach (var (sort, label) in SortColumns)
+                        {
+                            <option value="@sort">@label</option>
+                        }
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => { f.Descending = !f.Descending; Refresh(); }">@(f.Descending ? "高い順 ↓" : "低い順 ↑")</button>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" @onclick="ClearFilters">条件をクリア</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="dex-list">
+        <div class="dex-row dex-head" role="row">
+            @foreach (var (sort, label) in SortColumns)
+            {
+                if (sort == PokedexSort.Dex)
+                {
+                    <button type="button" class="dex-sort dex-no" @onclick="() => SortBy(sort)">No.@SortMark(sort)</button>
+                    <div class="dex-name">ポケモン</div>
+                    <div class="dex-types-cell">タイプ</div>
+                    <div class="dex-abilities">特性</div>
+                }
+                else
+                {
+                    <button type="button" class="dex-sort dex-stat @(sort == PokedexSort.Total ? "dex-total" : "")" title="@label で並べ替え" @onclick="() => SortBy(sort)">@ShortLabel(sort)@SortMark(sort)</button>
+                }
+            }
+        </div>
+        @if (results.Count == 0)
+        {
+            <p class="text-muted p-3 mb-0">条件に合うポケモンはいません。</p>
+        }
+        <Virtualize TItem="Pokemon" Items="results" Context="p" ItemSize="54" OverscanCount="8">
+            <div class="dex-item @(s.SelectedId == p.Id ? "selected" : "")" @key="p.Id">
+                <div class="dex-row" role="row" @onclick="() => s.SelectedId = s.SelectedId == p.Id ? 0 : p.Id">
+                    <div class="dex-no">@Pokedex.DexNumber(p).ToString("0000")</div>
+                    <div class="dex-name"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name@(p.IsProvisional ? "※未収録" : "")</span></div>
+                    <div class="dex-types-cell"><PokemonTypes Pokemon="p" Small="true" /></div>
+                    <div class="dex-abilities">@AbilityText(p)</div>
+                    <div class="dex-stat" data-label="H">@p.BaseStats.HP</div>
+                    <div class="dex-stat" data-label="A">@p.BaseStats.Attack</div>
+                    <div class="dex-stat" data-label="B">@p.BaseStats.Defense</div>
+                    <div class="dex-stat" data-label="C">@p.BaseStats.SpAttack</div>
+                    <div class="dex-stat" data-label="D">@p.BaseStats.SpDefense</div>
+                    <div class="dex-stat" data-label="S">@p.BaseStats.Speed</div>
+                    <div class="dex-stat dex-total" data-label="計">@p.BaseStats.Total</div>
+                </div>
+                @if (s.SelectedId == p.Id)
+                {
+                    <div class="dex-actions">
+                        <span class="small text-muted">@p.Name を開く:</span>
+                        <a class="btn btn-sm btn-outline-primary" href="@($"damage-calculator?attacker={p.Id}")">ダメージ計算（攻撃側）</a>
+                        <a class="btn btn-sm btn-outline-primary" href="@($"damage-calculator?defender={p.Id}")">ダメージ計算（防御側）</a>
+                        <a class="btn btn-sm btn-outline-primary" href="@($"speed?p1={p.Id}")">素早さ比較</a>
+                        <a class="btn btn-sm btn-outline-primary" href="@($"types?pokemon={p.Id}")">タイプ相性表</a>
+                    </div>
+                }
+            </div>
+        </Virtualize>
+    </div>
+}
+
+@code {
+    public sealed class State
+    {
+        public string DataSetKey { get; set; } = "";
+        public PokedexFilter Filter { get; set; } = new();
+        /// <summary>押して開いているポケモン（0 なら無し）。</summary>
+        public int SelectedId { get; set; }
+    }
+
+    private static readonly (PokedexSort Sort, string Label)[] SortColumns =
+    {
+        (PokedexSort.Dex, "全国図鑑順"),
+        (PokedexSort.HP, "HP"),
+        (PokedexSort.Attack, "攻撃"),
+        (PokedexSort.Defense, "防御"),
+        (PokedexSort.SpAttack, "特攻"),
+        (PokedexSort.SpDefense, "特防"),
+        (PokedexSort.Speed, "素早さ"),
+        (PokedexSort.Total, "合計"),
+    };
+
+    private State s = new();
+    private PokemonDataSet? data;
+    private Pokedex? dex;
+    private List<Pokemon> results = new();
+    private IReadOnlyList<Ability> abilityChoices = Array.Empty<Ability>();
+    private IReadOnlyList<Move> moveChoices = Array.Empty<Move>();
+    private bool hasMega;
+    private bool hasProvisional;
+
+    protected override async Task OnAppReadyAsync()
+    {
+        s = PageStates.Get<State>("pokedex");
+        await LoadAsync();
+    }
+
+    protected override Task OnAppChangedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        data = await Catalog.GetDataSetAsync(App.DataSetKey);
+        dex = new Pokedex(data);
+        if (s.DataSetKey != App.DataSetKey)
+        {
+            // 特性・技の ID はゲームごとに違うことがあるので、並び順以外は戻す
+            s.DataSetKey = App.DataSetKey;
+            s.Filter = new PokedexFilter { Sort = s.Filter.Sort, Descending = s.Filter.Descending };
+            s.SelectedId = 0;
+        }
+        var listed = data.Pokemon.Where(p => !p.IsProvisional).ToList();
+        hasMega = data.Pokemon.Any(p => p.IsMega);
+        hasProvisional = data.Pokemon.Any(p => p.IsProvisional);
+        var abilityIds = data.Pokemon.SelectMany(p => p.AbilityIds).ToHashSet();
+        abilityChoices = data.Abilities.Where(a => abilityIds.Contains(a.Id)).OrderBy(a => a.Name, StringComparer.Ordinal).ToList();
+        moveChoices = data.Moves.OrderBy(m => m.Name, StringComparer.Ordinal).ToList();
+        Refresh();
+    }
+
+    private void Refresh()
+    {
+        if (dex is null) return;
+        results = dex.Query(s.Filter).ToList();
+    }
+
+    private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;
+
+    private int MoveAt(int slot) => slot < s.Filter.MoveIds.Count ? s.Filter.MoveIds[slot] : 0;
+
+    private void SetMove(int slot, int moveId)
+    {
+        while (s.Filter.MoveIds.Count <= slot) s.Filter.MoveIds.Add(0);
+        s.Filter.MoveIds[slot] = moveId;
+        Refresh();
+    }
+
+    /// <summary>タイプの選択を切り替える（2 つまで。3 つ目は一番前に選んだものと入れ替える）。</summary>
+    private void ToggleType(string type)
+    {
+        var types = s.Filter.Types;
+        if (!types.Remove(type))
+        {
+            if (types.Count >= 2) types.RemoveAt(0);
+            types.Add(type);
+        }
+        Refresh();
+    }
+
+    /// <summary>同じ見出しをもう一度押すと昇順・降順を切り替える。種族値は高い順から。</summary>
+    private void SortBy(PokedexSort sort)
+    {
+        if (s.Filter.Sort == sort) s.Filter.Descending = !s.Filter.Descending;
+        else
+        {
+            s.Filter.Sort = sort;
+            s.Filter.Descending = sort != PokedexSort.Dex;
+        }
+        Refresh();
+    }
+
+    private string SortMark(PokedexSort sort) => s.Filter.Sort != sort ? "" : s.Filter.Descending ? " ▼" : " ▲";
+
+    private static string ShortLabel(PokedexSort sort) => sort switch
+    {
+        PokedexSort.HP => "H",
+        PokedexSort.Attack => "A",
+        PokedexSort.Defense => "B",
+        PokedexSort.SpAttack => "C",
+        PokedexSort.SpDefense => "D",
+        PokedexSort.Speed => "S",
+        PokedexSort.Total => "合計",
+        _ => "",
+    };
+
+    private void ClearFilters()
+    {
+        s.Filter = new PokedexFilter { Sort = s.Filter.Sort, Descending = s.Filter.Descending };
+        Refresh();
+    }
+
+    private string AbilityText(Pokemon p) => data is null ? "" : string.Join("・", data.AbilitiesOf(p).Select(a => a.Name));
+
+    private static string CategoryText(Move m) => m.Category switch
+    {
+        MoveCategory.Physical => "物理",
+        MoveCategory.Special => "特殊",
+        _ => "変化",
+    };
+}

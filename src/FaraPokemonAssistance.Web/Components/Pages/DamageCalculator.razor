@@ -3,6 +3,7 @@
 @using FaraPokemonAssistance.Core.Roster
 @inject DataCatalog Catalog
 @inject RosterRepository Repo
+@inject NavigationManager Nav
 
 <PageTitle>ダメージ計算機</PageTitle>
 
@@ -253,7 +254,17 @@
     {
         s = PageStates.Get<State>("damage");
         await LoadDataSet();
+        // ポケモン一覧から開いたとき（?attacker=ID / ?defender=ID）は、そのポケモンを入れてから URL を戻す
+        if (AttackerQuery is > 0 || DefenderQuery is > 0)
+        {
+            if (AttackerQuery is > 0 and var a) OnAttackerChanged(a.ToString());
+            if (DefenderQuery is > 0 and var d) OnDefenderChanged(d.ToString());
+            Nav.NavigateTo("damage-calculator", replace: true);
+        }
     }
+
+    [SupplyParameterFromQuery(Name = "attacker")] public int? AttackerQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "defender")] public int? DefenderQuery { get; set; }
 
     protected override Task OnAppChangedAsync() => LoadDataSet();
 
