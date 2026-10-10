@@ -157,6 +157,23 @@ body {
 .split-half {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* 左右の列は同じ高さに。各列の最初のカード（攻撃側・防御側）が余りを埋める */
+.split-half > .card:first-child {
+    flex: 1 1 auto;
+}
+
+.nature-picker {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.searchable-select-item.active {
+    background: var(--bs-primary-bg-subtle);
 }
 
 .stat-up {

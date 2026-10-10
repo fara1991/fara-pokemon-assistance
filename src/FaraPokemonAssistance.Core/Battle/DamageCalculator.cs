@@ -250,17 +250,7 @@ public sealed class DamageCalculator
     /// </summary>
     public IReadOnlyList<Move> SortByDamage(DamageRequest template, IEnumerable<Move> moves) =>
         moves
-            .Select(m => (Move: m, Damage: m.IsDamaging ? Calculate(new DamageRequest
-            {
-                Attacker = template.Attacker,
-                Move = m,
-                Defender = template.Defender,
-                Format = template.Format,
-                IsCritical = template.IsCritical,
-                Weather = template.Weather,
-                Terrain = template.Terrain,
-                Screen = template.Screen,
-            }).MaxDamage : -1))
+            .Select(m => (Move: m, Damage: m.IsDamaging ? Calculate(template.With(move: m)).MaxDamage : -1))
             .OrderByDescending(x => x.Damage)
             .Select(x => x.Move)
             .ToList();
@@ -486,9 +476,10 @@ public sealed class DamageCalculator
         var defName = defender.Ability?.Name ?? "";
 
         // 壁: 急所とすりぬけは無視。ダブルは 2732/4096
-        if (request.Screen && !request.IsCritical && attackerAbility != "infiltrator")
+        var physicalSide = isPhysical || move.UsesPhysicalDefense;
+        if (request.HasScreenFor(physicalSide) && !request.IsCritical && attackerAbility != "infiltrator")
         {
-            var wall = isPhysical || move.UsesPhysicalDefense ? "リフレクター" : "ひかりのかべ";
+            var wall = physicalSide ? "リフレクター" : "ひかりのかべ";
             if (request.Format == BattleFormat.Doubles) Apply(2732, $"{wall}(ダブル 0.67倍)");
             else Apply(2048, $"{wall}(0.5倍)");
         }

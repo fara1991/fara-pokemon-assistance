@@ -97,8 +97,30 @@ public sealed class DamageRequest
     public bool IsCritical { get; init; }
     public Weather Weather { get; init; } = Weather.None;
     public Terrain Terrain { get; init; } = Terrain.None;
-    /// <summary>防御側の場に壁がある（物理ならリフレクター、特殊ならひかりのかべ、またはオーロラベール）。</summary>
+    /// <summary>防御側の場にオーロラベールがある（物理・特殊の両方に効く）。チャットの「壁」もこれ。</summary>
     public bool Screen { get; init; }
+    /// <summary>防御側の場にリフレクターがある（物理技を半減）。</summary>
+    public bool Reflect { get; init; }
+    /// <summary>防御側の場にひかりのかべがある（特殊技を半減）。</summary>
+    public bool LightScreen { get; init; }
+
+    /// <summary>その分類の技に壁が効くか。</summary>
+    public bool HasScreenFor(bool physical) => Screen || (physical ? Reflect : LightScreen);
+
+    /// <summary>技や防御側だけ差し替えた複製（場の条件はそのまま）。</summary>
+    public DamageRequest With(Move? move = null, PokemonBuild? defender = null, PokemonBuild? attacker = null) => new()
+    {
+        Attacker = attacker ?? Attacker,
+        Move = move ?? Move,
+        Defender = defender ?? Defender,
+        Format = Format,
+        IsCritical = IsCritical,
+        Weather = Weather,
+        Terrain = Terrain,
+        Screen = Screen,
+        Reflect = Reflect,
+        LightScreen = LightScreen,
+    };
 }
 
 /// <summary>確定数。<see cref="Hits"/> 発で倒せる確率が <see cref="Probability"/>。</summary>
