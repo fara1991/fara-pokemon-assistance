@@ -18,7 +18,8 @@
   ],
   "env": {
     "develop": {
-      // Worker 名は自動で fara-pokemon-develop になる
+      // Worker 名（ダッシュボードで変更した名前に合わせる）
+      "name": "fara-pokemon-dev",
       "assets": {
         "directory": "./publish/wwwroot",
         "not_found_handling": "single-page-application"
