@@ -315,6 +315,10 @@ public sealed class UsageData
         return top ?? _dataSet.AbilitiesOf(pokemon).FirstOrDefault();
     }
 
+    /// <summary>計算機などで既定にする特性。天候・フィールドを作る特性やダメージが上がる特性を、使用率 1 位より優先する。</summary>
+    public Ability? DefaultAbility(Pokemon pokemon) =>
+        Battle.AbilityEffects.ChooseDefault(_dataSet.AbilitiesOf(pokemon), TopAbility(pokemon));
+
     public Move? TopMove(int pokemonId) =>
         MoveOrder(pokemonId).Select(_dataSet.FindMove).FirstOrDefault(m => m is not null && m.IsDamaging && _dataSet.CanLearn(pokemonId, m.Id));
 
