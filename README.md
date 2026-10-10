@@ -1,8 +1,8 @@
 # FaraPokemonAssistance
 
-ポケモン対戦アシスタント。ダメージ計算・素早さ比較・育成済みポケモンとチームの管理・タイプ相性を、**ブラウザ**（GitHub Pages）と **Twitch チャットのコマンド**（FaraBotModerator）の両方から使えるようにするプロジェクトです。
+ポケモン対戦アシスタント。ダメージ計算・素早さ比較・育成済みポケモンとチームの管理・タイプ相性を、**ブラウザ**（Cloudflare Workers）と **Twitch チャットのコマンド**（FaraBotModerator）の両方から使えるようにするプロジェクトです。
 
-- Web: https://pokemon.app-fara.com/
+- Web: https://pokemon.fara-labs.com/
 - チャット: `!dmg イエッサン♂ ワイドフォース メガリザードンX` → `イエッサン(C252 ひかえめ こだわりメガネ) ワイドフォース → メガリザードンX(H252 いじっぱり HP185): 61.6〜72.9% (114〜135) 確定2発 [効果抜群(2倍)]` のような 1 行が返ります。
 
 ## 構成
@@ -11,7 +11,7 @@
 fara-pokemon-assistance/
 ├── src/
 │   ├── FaraPokemonAssistance.Core/   計算ロジック・CSV 読み込み・名前解決・登録/チーム・チャットコマンド（クラスライブラリ）
-│   ├── FaraPokemonAssistance.Web/    Blazor WebAssembly（GitHub Pages に公開）
+│   ├── FaraPokemonAssistance.Web/    Blazor WebAssembly（Cloudflare Workers に公開）
 │   │   └── wwwroot/data/             ★ データ CSV。Web もボットもこのファイルを読む
 │   └── FaraPokemonAssistance.Cli/    コマンドをターミナルで試す / ボット組み込み前の動作確認用
 ├── tests/FaraPokemonAssistance.Core.Tests/
@@ -21,12 +21,12 @@ fara-pokemon-assistance/
 │   └── item_effects.csv              持ち物の効果（手入力）
 └── .github/workflows/
     ├── build.yml                     ビルド・テスト・NuGet パッケージ化
-    ├── pages.yml                     master へ push されたら GitHub Pages に公開
-    └── update-data.yml               毎週月曜にデータを再生成してコミット
+    ├── deploy.yml                    master へ push されたら Cloudflare Workers に公開
+    └── update-data.yml               毎週月曜にデータを再生成してコミット（変更があれば deploy.yml で公開）
 ```
 
 サーバーは存在しません。計算は Web ではブラウザ内、ボットでは FaraBotModerator のプロセス内で行います。
-ボットは `Core` を参照し、データは GitHub Pages 上の CSV（週 1 回自動更新）を取得してローカルにキャッシュします。
+ボットは `Core` を参照し、データは公開サイト上の CSV（週 1 回自動更新）を取得してローカルにキャッシュします。
 
 ## データ
 
@@ -104,7 +104,7 @@ dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサ�
 [docs/bot-integration.md](docs/bot-integration.md) を参照してください。要点:
 
 1. `FaraBotModerator.csproj` から `FaraPokemonAssistance.Core` を参照する（隣に clone して `ProjectReference`、または CI の成果物 `.nupkg`）。
-2. 起動時に `DataCatalog` を 1 つ作る。データ元は GitHub Pages の URL + ローカルキャッシュ。
+2. 起動時に `DataCatalog` を 1 つ作る。データ元は公開サイトの URL（`https://pokemon.fara-labs.com/data/`）+ ローカルキャッシュ。
 3. `OnMessageReceived` で `!pokech` / `!pokesv` / `!pokess` を見つけたら `PokeCommand.ExecuteAsync` の結果をそのまま `SendMessage`。登録・削除は配信者本人とモデレーターだけに許可する。
 
 ## 開発
@@ -113,6 +113,8 @@ dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサ�
 dotnet build FaraPokemonAssistance.sln
 dotnet test tests/FaraPokemonAssistance.Core.Tests
 dotnet run --project src/FaraPokemonAssistance.Web      # https://localhost:52017
+npm ci && npm run preview                                # Cloudflare と同じ動きで http://localhost:8787
+npm run check                                            # dotnet publish + wrangler deploy --dry-run
 ```
 
 ### 計算で考慮しているもの
@@ -136,10 +138,19 @@ dotnet run --project src/FaraPokemonAssistance.Web      # https://localhost:5201
 
 威力が状況で変わる技（ジャイロボール・はたきおとす等）の個別処理、連続技の回数指定。
 
-## GitHub Pages の初回設定
+## 公開（Cloudflare Workers）
 
-リポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** にしてください。
-以後は `master` への push で `pages.yml` が自動デプロイします。
+`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（静的アセットのみの Worker `fara-pokemon`。設定は `wrangler.jsonc`）。
+手動で公開し直すときは **Actions → Deploy to Cloudflare Workers → Run workflow**。
+
+初回だけ、リポジトリの **Settings → Secrets and variables → Actions** に次を登録してください（値は fara-portfolio-site と同じものを使えます）。
+
+| タブ | 名前 | 値 |
+|---|---|---|
+| Secrets | `CLOUDFLARE_API_TOKEN` | Cloudflare の API トークン（テンプレート Edit Cloudflare Workers、ゾーン `fara-labs.com`） |
+| Variables | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare のアカウント ID |
+
+Cloudflare の DNS に `pokemon` のレコード（GitHub Pages 時代の CNAME など）が残っていると、カスタムドメインの作成で失敗します。削除してから再実行してください。
 
 ## ライセンス
 

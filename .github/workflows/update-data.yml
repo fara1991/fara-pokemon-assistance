@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  actions: write   # 公開ワークフロー（deploy.yml）の起動に使う
 
 jobs:
   sync:
@@ -33,6 +34,7 @@ jobs:
           fi
 
       - name: Commit changes
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -43,3 +45,12 @@ jobs:
           fi
           git commit -m "data: weekly sync from PokeAPI / Pokémon HOME ($(date -u +%Y-%m-%d))"
           git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      # GITHUB_TOKEN での push では他のワークフローが起動しないため、公開は明示的に起動する。
+      # 変更が無かったときは上の「Commit changes」で何もしていないので、公開もしない。
+      - name: Deploy updated data
+        if: steps.commit.outputs.pushed == 'true' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref master
