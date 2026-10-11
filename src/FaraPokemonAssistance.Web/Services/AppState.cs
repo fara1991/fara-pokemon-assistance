@@ -68,7 +68,8 @@ public sealed class AppState
         try
         {
             await Task.Delay(1000);
-            foreach (var key in new[] { DataSetKey }.Concat(DataSets.Select(d => d.Key)).Distinct())
+            // 昔の世代（参照のみ）は選んだときに読み込む（先読みするデータを増やしすぎない）
+            foreach (var key in new[] { DataSetKey }.Concat(DataSets.Where(d => d.CalcSupported).Select(d => d.Key)).Distinct())
             {
                 var data = await _catalog.GetDataSetAsync(key);
                 await data.GetUsageAsync(BattleFormat.Singles);

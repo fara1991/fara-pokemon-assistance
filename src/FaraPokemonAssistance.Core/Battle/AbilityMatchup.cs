@@ -133,7 +133,7 @@ public static class AbilityMatchup
     public static IReadOnlyList<(string AttackType, Result Result)> ChangedByDefensiveAbility(TypeChart chart, IReadOnlyList<string> defenderTypes, Ability? ability)
     {
         if (ability is null) return Array.Empty<(string, Result)>();
-        return TypeNames.All
+        return chart.Types
             .Select(t => (AttackType: t, Result: Against(chart, t, defenderTypes, ability)))
             .Where(x => x.Result.ChangedByAbility)
             .ToList();

@@ -40,6 +40,7 @@ USER_AGENT = "FaraPokemonAssistance/1.0 (+https://github.com/fara1991/fara-pokem
 
 LANG_JA = "11"        # ja (kanji/kana)
 LANG_JA_HRKT = "1"    # ja-hrkt fallback
+LANG_EN = "9"         # 日本語名が無いときだけ使う
 TYPE_NAMES = {
     "normal": "Normal", "fighting": "Fighting", "flying": "Flying", "poison": "Poison",
     "ground": "Ground", "rock": "Rock", "bug": "Bug", "ghost": "Ghost", "steel": "Steel",
@@ -137,6 +138,8 @@ class Builder:
         self.move_names = {(r["move_id"], r["local_language_id"]): r["name"] for r in api.table("move_names")}
         self.item_names = {(r["item_id"], r["local_language_id"]): r["name"] for r in api.table("item_names")}
         self.types = {r["id"]: r["identifier"] for r in api.table("types")}
+        self.type_rows = {r["id"]: r for r in api.table("types")}
+        self.vg_order = {r["id"]: int(r["order"]) for r in api.table("version_groups")}
         self.pokemon = {r["id"]: r for r in api.table("pokemon")}
         self.species = {r["id"]: r for r in api.table("pokemon_species")}
         self.forms_by_pokemon: dict[str, dict[str, str]] = {}
@@ -239,9 +242,87 @@ class Builder:
         return " ".join(texts[vg].split())
 
     # -- per data set ----------------------------------------------------------------------
+    # -- 昔のゲーム（historical）: その世代の時点の値 -----------------------------------------
+    # PokeAPI の *_past.csv は「その世代までの値」（generation_id はその値だった最後の世代）。
+    # 対象の世代以降で一番早い世代の値を使い、無ければ今の値。move_changelog は「その版で変わる前の値」。
+    def _past(self, table: str) -> dict[str, list[dict[str, str]]]:
+        cache = getattr(self, "_past_cache", None)
+        if cache is None:
+            cache = self._past_cache = {}
+        if table not in cache:
+            rows: dict[str, list[dict[str, str]]] = defaultdict(list)
+            for r in self.api.table(table):
+                rows[r.get("pokemon_id") or r.get("move_id") or ""].append(r)
+            cache[table] = rows
+        return cache[table]
+
+    def type_exists(self, type_id: str, generation: int) -> bool:
+        row = self.type_rows.get(type_id)
+        return bool(row) and int(row["generation_id"] or 0) <= generation and type_id in self.types and \
+            self.types[type_id] in TYPE_NAMES
+
+    def types_for(self, pid: str, generation: int) -> dict[str, str]:
+        rows = [r for r in self._past("pokemon_types_past").get(pid, []) if int(r["generation_id"]) >= generation]
+        if not rows:
+            return dict(self.ptypes.get(pid, {}))
+        g = min(int(r["generation_id"]) for r in rows)
+        return {r["slot"]: TYPE_NAMES.get(self.types.get(r["type_id"], ""), "") for r in rows if int(r["generation_id"]) == g}
+
+    def stats_for(self, pid: str, generation: int) -> dict[str, int]:
+        st = dict(self.stats.get(pid, {}))
+        best: dict[str, tuple[int, int]] = {}
+        for r in self._past("pokemon_stats_past").get(pid, []):
+            g = int(r["generation_id"])
+            if g >= generation and (r["stat_id"] not in best or g < best[r["stat_id"]][0]):
+                best[r["stat_id"]] = (g, int(r["base_stat"]))
+        for stat_id, (_, value) in best.items():
+            if stat_id in STAT_KEYS:
+                st[STAT_KEYS[stat_id]] = value
+        if generation == 1 and "9" in best:
+            # 第 1 世代は「特殊」1 つ。特攻・特防の両方に入れる
+            st["SpAttack"] = st["SpDefense"] = best["9"][1]
+        return st
+
+    def abilities_for(self, pid: str, generation: int) -> list[tuple[int, int, str]]:
+        if generation <= 2:
+            return []  # 特性は第 3 世代から
+        slots = {slot: (hidden, slot, aid) for hidden, slot, aid in self.pokemon_abilities.get(pid, [])}
+        best: dict[int, tuple[int, dict[str, str]]] = {}
+        for r in self._past("pokemon_abilities_past").get(pid, []):
+            g, slot = int(r["generation_id"]), int(r["slot"])
+            if g >= generation and (slot not in best or g < best[slot][0]):
+                best[slot] = (g, r)
+        for slot, (_, r) in best.items():
+            if r["ability_id"]:
+                slots[slot] = (int(r["is_hidden"]), slot, r["ability_id"])
+            else:
+                slots.pop(slot, None)
+        return sorted(v for v in slots.values()
+                      if v[2] in self.abilities and int(self.abilities[v[2]]["generation_id"]) <= generation)
+
+    def move_for(self, mid: str, max_order: int, generation: int) -> dict[str, str] | None:
+        m = self.moves.get(mid)
+        if not m:
+            return None
+        m = dict(m)
+        changes = sorted((r for r in self._past("move_changelog").get(mid, [])
+                          if self.vg_order.get(r["changed_in_version_group_id"], 0) > max_order),
+                         key=lambda r: self.vg_order[r["changed_in_version_group_id"]])
+        for field in ("type_id", "power", "pp", "accuracy", "priority", "target_id", "effect_chance"):
+            for r in changes:
+                if r.get(field):
+                    m[field] = r[field]
+                    break
+        if generation <= 3 and m["damage_class_id"] != "1":
+            # 第 3 世代までは技のタイプで物理・特殊が決まる
+            m["damage_class_id"] = self.type_rows.get(m["type_id"], {}).get("damage_class_id") or m["damage_class_id"]
+        return m
+
     def build(self, ds: dict, out_dir: Path) -> None:
         vgs = [str(v) for v in ds["version_groups"]]
         generation = int(ds["generation"])
+        historical = bool(ds.get("historical"))
+        max_order = max(self.vg_order.get(v, 0) for v in vgs)
 
         learnset: dict[str, set[str]] = defaultdict(set)
         for vg in vgs:
@@ -277,10 +358,21 @@ class Builder:
                     if pid in self.pokemon and pid not in learnset:
                         learnset[pid] = set(moves)
                         provisional.add(pid)
+        default_of_species = {p["species_id"]: pid for pid, p in self.pokemon.items() if p["is_default"] == "1"}
+        if historical:
+            # 昔のゲーム: そのゲームまでに登場していた別フォルム（メガシンカ・ゲンシカイキ・リージョンフォームなど）を足す
+            for pid, p in self.pokemon.items():
+                form = self.forms_by_pokemon.get(pid)
+                if pid in learnset or p["is_default"] == "1" or not form:
+                    continue
+                intro = form.get("introduced_in_version_group_id") or ""
+                if not intro or self.vg_order.get(intro, 10 ** 6) > max_order:
+                    continue
+                if default_of_species.get(p["species_id"]) in learnset and self.is_battle_form(pid):
+                    learnset[pid] = set()
         pokemon_ids = sorted(learnset, key=int)
         # Pokemon forms that share a species but have no learnset of their own
         # (e.g. mega forms in some games) inherit the default form's moves.
-        default_of_species = {p["species_id"]: pid for pid, p in self.pokemon.items() if p["is_default"] == "1"}
         for pid in pokemon_ids:
             if not learnset[pid]:
                 base = default_of_species.get(self.pokemon[pid]["species_id"])
@@ -288,17 +380,20 @@ class Builder:
                     learnset[pid] = set(learnset[base])
 
         pokemon_rows, species_rows = [], []
+        used_abilities: set[str] = set()
         mega_stones: dict[str, tuple[str, str]] = {}
         for pid in pokemon_ids:
             name = self.display_name(pid)
-            st = self.stats.get(pid)
+            st = self.stats_for(pid, generation) if historical else self.stats.get(pid)
             if not name or not st or len(st) < 6:
                 continue
             p = self.pokemon[pid]
-            types = self.ptypes.get(pid, {})
+            types = self.types_for(pid, generation) if historical else self.ptypes.get(pid, {})
             nfe = 1 if p["species_id"] in self.evolves_from else 0
-            abilities = ";".join(aid for _, _, aid in sorted(self.pokemon_abilities.get(pid, []))
-                                 if aid in self.abilities)
+            ability_list = self.abilities_for(pid, generation) if historical else sorted(self.pokemon_abilities.get(pid, []))
+            ability_ids = [aid for _, _, aid in ability_list if aid in self.abilities]
+            used_abilities.update(ability_ids)
+            abilities = ";".join(ability_ids)
             stone = self.mega_stone(pid)
             if stone:
                 mega_stones[pid] = stone
@@ -324,7 +419,7 @@ class Builder:
         move_ids = sorted({m for pid in kept for m in learnset[pid]}, key=int)
         move_rows = []
         for mid in move_ids:
-            m = self.moves.get(mid)
+            m = self.move_for(mid, max_order, generation) if historical else self.moves.get(mid)
             name = pick_name(self.move_names, mid)
             if not m or not name:
                 continue
@@ -350,15 +445,15 @@ class Builder:
                    for pid in pokemon_ids if pid in kept])
 
         self.write_items(ds, out_dir, generation, mega_stones)
-        self.write_type_chart(out_dir)
-        self.write_abilities(out_dir, kept)
+        self.write_type_chart(out_dir, generation if historical else None)
+        self.write_abilities(out_dir, used_abilities)
 
-    def write_abilities(self, out_dir: Path, pokemon_ids: set[str]) -> None:
-        used = {aid for pid in pokemon_ids for _, _, aid in self.pokemon_abilities.get(pid, [])}
+    def write_abilities(self, out_dir: Path, used: set[str]) -> None:
         rows = []
         for aid in sorted(used, key=int):
             a = self.abilities.get(aid)
-            name = pick_name(self.ability_names, aid)
+            # 日本語名がまだ無い特性（新しいメガシンカの特性など）は英語名で出す（空欄にしない）
+            name = pick_name(self.ability_names, aid) or self.ability_names.get((aid, LANG_EN))
             if a and name:
                 rows.append([aid, a["identifier"], name])
         write_csv(out_dir / "abilities.csv", ["Id", "Identifier", "Name"], rows)
@@ -437,12 +532,23 @@ class Builder:
                   ["Id", "Name", "Category", "Effect", "AttackMultiplier", "DefenseMultiplier", "SpAttackMultiplier",
                    "SpDefenseMultiplier", "DamageMultiplier", "TypeBoost", "TypeBoostMultiplier"], rows)
 
-    def write_type_chart(self, out_dir: Path) -> None:
+    def write_type_chart(self, out_dir: Path, generation: int | None = None) -> None:
+        """タイプ相性。generation を渡すと、その世代の相性（type_efficacy_past）にし、まだ無いタイプ（あく・はがね・フェアリー）を除く。"""
+        factors = {(r["damage_type_id"], r["target_type_id"]): int(r["damage_factor"]) for r in self.api.table("type_efficacy")}
+        if generation is not None:
+            best: dict[tuple[str, str], tuple[int, int]] = {}
+            for r in self.api.table("type_efficacy_past"):
+                key, g = (r["damage_type_id"], r["target_type_id"]), int(r["generation_id"])
+                if g >= generation and (key not in best or g < best[key][0]):
+                    best[key] = (g, int(r["damage_factor"]))
+            for key, (_, factor) in best.items():
+                factors[key] = factor
+            factors = {k: v for k, v in factors.items()
+                       if self.type_exists(k[0], generation) and self.type_exists(k[1], generation)}
         rows = []
-        for r in self.api.table("type_efficacy"):
-            a = TYPE_NAMES.get(self.types.get(r["damage_type_id"], ""))
-            d = TYPE_NAMES.get(self.types.get(r["target_type_id"], ""))
-            factor = int(r["damage_factor"])
+        for (atk, dfn), factor in factors.items():
+            a = TYPE_NAMES.get(self.types.get(atk, ""))
+            d = TYPE_NAMES.get(self.types.get(dfn, ""))
             if a and d and factor != 100:
                 rows.append([a, d, factor / 100])
         write_csv(out_dir / "type_effectiveness.csv", ["AttackType", "DefenseType", "Multiplier"], rows)
@@ -555,9 +661,9 @@ def main() -> None:
     builder = Builder(api)
 
     write_csv(OUT_ROOT / "datasets.csv",
-              ["Key", "Name", "Generation", "EvSystem", "CommandPrefix", "Gimmick", "UsageFallback"],
+              ["Key", "Name", "Generation", "EvSystem", "CommandPrefix", "Gimmick", "UsageFallback", "Calc"],
               [[d["key"], d["name"], d["generation"], d.get("ev_system", "Classic"), d.get("command_prefix", ""),
-                d.get("gimmick", "None"), d.get("usage_fallback", "")]
+                d.get("gimmick", "None"), d.get("usage_fallback", ""), d.get("calc", "Full")]
                for d in config["datasets"]])
     # 最終更新日時（ホーム画面に表示する）
     (OUT_ROOT / "updated.txt").write_text(

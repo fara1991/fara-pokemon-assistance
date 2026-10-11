@@ -148,6 +148,8 @@ public sealed class DataCatalog
                 CommandPrefix = prefix,
                 Gimmick = gimmick,
                 UsageFallback = table.HasColumn("UsageFallback") ? table.Get(row, "UsageFallback") : "",
+                // Calc=Reference は参照のみ（計算機・素早さ比較・登録は使わない）
+                CalcSupported = !table.HasColumn("Calc") || !table.Get(row, "Calc").Equals("Reference", StringComparison.OrdinalIgnoreCase),
             };
         }).ToList();
     }

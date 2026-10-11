@@ -121,6 +121,8 @@ public sealed class PokeCommand
         var isTeam = args.Count > 0 && args[0].Equals("team", StringComparison.OrdinalIgnoreCase);
         if (isTeam) args.RemoveAt(0);
         var data = await _catalog.GetDataSetAsync(ds.Key, ct).ConfigureAwait(false);
+        if (!ds.CalcSupported && sub is not ("cmd" or "cmds" or "commands" or "help" or "?" or "ヘルプ"))
+            return Fail(NotCalcSupported(ds));
 
         switch (sub)
         {
@@ -525,6 +527,10 @@ public sealed class PokeCommand
         var ability = build.Ability?.Name ?? "特性不明";
         return $"{entry.PokemonName} {entry.Nature} {entry.EVs.ToShortString()} {ability} 実数値 H{stats.HP}-A{stats.Attack}-B{stats.Defense}-C{stats.SpAttack}-D{stats.SpDefense}-S{stats.Speed}";
     }
+
+    /// <summary>計算に対応していないゲーム（昔の世代）を指定されたときの案内。</summary>
+    public static string NotCalcSupported(DataSetInfo ds) =>
+        $"{ds.Name} はダメージ計算・素早さ比較・登録に対応していません（サイトのポケモン一覧・タイプ相性表で見られます）";
 
     private static string NotFound(string kind, string query, IEnumerable<string> candidates)
     {

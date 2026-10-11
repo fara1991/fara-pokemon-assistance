@@ -17,7 +17,11 @@
     <div class="alert alert-danger">@loadError</div>
 }
 
-@if (data is not null && dataSet is not null)
+@if (dataSet is { CalcSupported: false })
+{
+    <CalcUnsupported DataSet="dataSet" Feature="ダメージ計算" />
+}
+else if (data is not null && dataSet is not null)
 {
     UpdateResult();
     <div class="calc-grid @(s.Result is not null ? "has-result-bar" : "")">

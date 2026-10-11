@@ -116,6 +116,8 @@ public sealed class DamageCommand
         }
         if (tokens.Count < 3)
             return Fail($"攻撃側・技・防御側の 3 つを指定してください。{Usage}");
+        if (dataSets.FirstOrDefault(d => d.Key == dataSetKey) is { CalcSupported: false } refOnly)
+            return Fail(PokeCommand.NotCalcSupported(refOnly));
 
         var data = await _catalog.GetDataSetAsync(dataSetKey, ct).ConfigureAwait(false);
         var pokemonResolver = new NameResolver<Pokemon>(data.Pokemon, p => p.Name, PokemonAliases(data));

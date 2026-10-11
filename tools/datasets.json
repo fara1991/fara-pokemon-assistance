@@ -1,6 +1,120 @@
 {
   "datasets": [
     {
+      "key": "Gen1",
+      "name": "第1世代（赤・緑・青・ピカチュウ）",
+      "generation": 1,
+      "version_groups": [
+        1,
+        2
+      ],
+      "home": null,
+      "historical": true,
+      "note": "その世代の時点のタイプ・種族値・特性・技・タイプ相性（PokeAPI の *_past / move_changelog）で作る。",
+      "ev_system": "Classic",
+      "command_prefix": "pokerg",
+      "gimmick": "None",
+      "calc": "Reference"
+    },
+    {
+      "key": "Gen2",
+      "name": "第2世代（金・銀・クリスタル）",
+      "generation": 2,
+      "version_groups": [
+        3,
+        4
+      ],
+      "home": null,
+      "historical": true,
+      "note": "その世代の時点のタイプ・種族値・特性・技・タイプ相性（PokeAPI の *_past / move_changelog）で作る。",
+      "ev_system": "Classic",
+      "command_prefix": "pokegs",
+      "gimmick": "None",
+      "calc": "Reference"
+    },
+    {
+      "key": "Gen3",
+      "name": "第3世代（ルビー・サファイア・エメラルド・FRLG）",
+      "generation": 3,
+      "version_groups": [
+        5,
+        6,
+        7
+      ],
+      "home": null,
+      "historical": true,
+      "note": "その世代の時点のタイプ・種族値・特性・技・タイプ相性（PokeAPI の *_past / move_changelog）で作る。",
+      "ev_system": "Classic",
+      "command_prefix": "pokers",
+      "gimmick": "None",
+      "calc": "Reference"
+    },
+    {
+      "key": "Gen4",
+      "name": "第4世代（ダイヤモンド・パール・プラチナ・HGSS）",
+      "generation": 4,
+      "version_groups": [
+        8,
+        9,
+        10
+      ],
+      "home": null,
+      "historical": true,
+      "note": "その世代の時点のタイプ・種族値・特性・技・タイプ相性（PokeAPI の *_past / move_changelog）で作る。",
+      "ev_system": "Classic",
+      "command_prefix": "pokedp",
+      "gimmick": "None",
+      "calc": "Reference"
+    },
+    {
+      "key": "Gen5",
+      "name": "第5世代（ブラック・ホワイト・BW2）",
+      "generation": 5,
+      "version_groups": [
+        11,
+        14
+      ],
+      "home": null,
+      "historical": true,
+      "note": "その世代の時点のタイプ・種族値・特性・技・タイプ相性（PokeAPI の *_past / move_changelog）で作る。",
+      "ev_system": "Classic",
+      "command_prefix": "pokebw",
+      "gimmick": "None",
+      "calc": "Reference"
+    },
+    {
+      "key": "Gen6",
+      "name": "第6世代（X・Y・オメガルビー・アルファサファイア）",
+      "generation": 6,
+      "version_groups": [
+        15,
+        16
+      ],
+      "home": null,
+      "historical": true,
+      "note": "その世代の時点のタイプ・種族値・特性・技・タイプ相性（PokeAPI の *_past / move_changelog）で作る。",
+      "ev_system": "Classic",
+      "command_prefix": "pokexy",
+      "gimmick": "None",
+      "calc": "Reference"
+    },
+    {
+      "key": "Gen7",
+      "name": "第7世代（サン・ムーン・USUM）",
+      "generation": 7,
+      "version_groups": [
+        17,
+        18
+      ],
+      "home": null,
+      "historical": true,
+      "note": "その世代の時点のタイプ・種族値・特性・技・タイプ相性（PokeAPI の *_past / move_changelog）で作る。",
+      "ev_system": "Classic",
+      "command_prefix": "pokesm",
+      "gimmick": "None",
+      "calc": "Reference"
+    },
+    {
       "key": "Gen8",
       "name": "第8世代（ソード・シールド）",
       "generation": 8,
