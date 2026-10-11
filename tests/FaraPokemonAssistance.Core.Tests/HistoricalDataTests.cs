@@ -198,3 +198,39 @@ public class LegacyMechanicsTests
         Assert.Contains("Z技は第7世代だけ", gen6z.Message);
     }
 }
+
+/// <summary>第 2〜4 世代の のろい（タイプ「？？？」）。</summary>
+public class CurseTypelessTests
+{
+    [Theory]
+    [InlineData("Gen2")]
+    [InlineData("Gen3")]
+    [InlineData("Gen4")]
+    public async Task Curse_is_a_typeless_status_move_outside_the_type_chart(string key)
+    {
+        var data = await TestData.Catalog().GetDataSetAsync(key);
+        var curse = data.Moves.Single(m => m.Id == 174);
+        Assert.Equal(TypeNames.Unknown, curse.Type);
+        Assert.Equal(MoveCategory.Status, curse.Category);
+        Assert.False(curse.IsDamaging);
+        Assert.Equal("？？？", TypeNames.ToJapanese(curse.Type));
+        // タイプ相性表・タイプの一覧には入らない
+        Assert.DoesNotContain(TypeNames.Unknown, data.TypeChart.Types);
+        Assert.DoesNotContain(TypeNames.Unknown, TypeNames.All);
+        // カビゴンは覚える
+        var snorlax = data.Pokemon.First(p => p.SpeciesId == 143);
+        Assert.Contains(data.LearnableMoves(snorlax.Id), m => m.Id == 174);
+    }
+
+    [Fact]
+    public async Task Curse_deals_no_damage_and_is_ghost_from_gen5()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen3");
+        var calc = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart, 3);
+        var snorlax = new PokemonBuild(data.Pokemon.First(p => p.SpeciesId == 143));
+        var r = calc.Calculate(new DamageRequest { Attacker = snorlax, Move = data.Moves.Single(m => m.Id == 174), Defender = snorlax });
+        Assert.Equal(0, r.MaxDamage);
+        var gen5 = await TestData.Catalog().GetDataSetAsync("Gen5");
+        Assert.Equal("Ghost", gen5.Moves.Single(m => m.Id == 174).Type);
+    }
+}

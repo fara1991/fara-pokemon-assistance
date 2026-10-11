@@ -47,6 +47,8 @@ TYPE_NAMES = {
     "fire": "Fire", "water": "Water", "grass": "Grass", "electric": "Electric",
     "psychic": "Psychic", "ice": "Ice", "dragon": "Dragon", "dark": "Dark", "fairy": "Fairy",
 }
+# タイプ「？？？」（第 2〜4 世代の のろい）。タイプ相性表には入れない
+UNKNOWN_TYPE = "???"
 MOVE_TARGETS = {
     "9": "AllOthers",        # all-other-pokemon (earthquake)
     "11": "AllFoes",         # all-opponents (expanding force, dazzling gleam)
@@ -512,6 +514,9 @@ class Builder:
             if not m or not name:
                 continue
             type_name = TYPE_NAMES.get(self.types.get(m["type_id"], ""), "")
+            # 第 2〜4 世代の のろい はタイプが「？？？」（PokeAPI の unknown）。タイプなしの変化技として "???" で残す
+            if not type_name and self.types.get(m["type_id"]) == "unknown":
+                type_name = UNKNOWN_TYPE
             if not type_name:
                 continue
             move_rows.append([

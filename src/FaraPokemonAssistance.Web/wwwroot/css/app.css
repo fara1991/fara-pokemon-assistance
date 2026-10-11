@@ -911,6 +911,24 @@ body {
     height: 26px;
 }
 
+/* タイプ「？？？」（第 2〜4 世代の のろい）。画像の代わりに灰色の丸に「?」 */
+.type-icon-unknown {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #68a090;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.type-icon-unknown.type-icon-sm {
+    font-size: 0.8rem;
+}
+
 .type-icons {
     display: inline-flex;
     gap: 2px;
