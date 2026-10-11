@@ -126,6 +126,18 @@ public class LegacyMechanicsTests
     }
 
     [Fact]
+    public async Task Generation_5_has_no_terrain_and_double_critical_hits()
+    {
+        var command = new DamageCommand(TestData.Catalog());
+        var normal = await command.ExecuteAsync("ガブリアス げきりん ボーマンダ", new DamageCommandOptions { DataSetKey = "Gen5" });
+        var crit = await command.ExecuteAsync("ガブリアス げきりん ボーマンダ 急所", new DamageCommandOptions { DataSetKey = "Gen5" });
+        Assert.True(normal.Success, normal.Message);
+        Assert.True(crit.Success, crit.Message);
+        // 第 5 世代の急所は 2 倍
+        Assert.InRange(crit.Damage!.MaxDamage / (double)normal.Damage!.MaxDamage, 1.95, 2.05);
+    }
+
+    [Fact]
     public void Burn_damage_and_pinch_berries_follow_the_generation()
     {
         Assert.Equal(20, StatusNames.ResidualDamage(StatusCondition.Burn, 160, 1, generation: 6));
@@ -148,6 +160,8 @@ public class LegacyMechanicsTests
     {
         var sets = await TestData.Catalog().GetDataSetsAsync();
         Assert.True(sets.Single(s => s.Key == "Gen6").CalcSupported);
+        Assert.True(sets.Single(s => s.Key == "Gen5").CalcSupported);
+        Assert.False(sets.Single(s => s.Key == "Gen5").HasTerrain);
         Assert.True(sets.Single(s => s.Key == "Gen7").HasZMove);
         var command = new DamageCommand(TestData.Catalog());
         var normal = await command.ExecuteAsync("ガブリアス じしん ギルガルド", new DamageCommandOptions { DataSetKey = "Gen7" });

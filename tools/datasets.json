@@ -76,11 +76,11 @@
       ],
       "home": null,
       "historical": true,
-      "note": "その世代の時点のタイプ・種族値・特性・技・タイプ相性（PokeAPI の *_past / move_changelog）で作る。",
+      "note": "その世代の時点のタイプ・種族値・特性・技・タイプ相性（PokeAPI の *_past / move_changelog）で作る。ダメージ計算はその世代の補正の順番・丸めで行う。",
       "ev_system": "Classic",
       "command_prefix": "pokebw",
       "gimmick": "None",
-      "calc": "Reference"
+      "calc": "Full"
     },
     {
       "key": "Gen6",
