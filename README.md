@@ -23,7 +23,7 @@ fara-pokemon-battle-assistant/
     ├── build.yml                     ビルド・テスト・NuGet パッケージ化
     ├── deploy.yml                    master へ push されたら Cloudflare Workers（本番）に公開
     ├── deploy-develop.yml            develop へ push されたら確認用サイトに公開
-    └── update-data.yml               毎週月曜にデータを再生成してコミット（変更があれば deploy.yml で公開）
+    └── update-data.yml               毎週月曜にデータを再生成して develop にコミット（変更があれば deploy-develop.yml で確認用に公開。本番へは develop → master の PR で反映）
 ```
 
 サーバーは存在しません。計算は Web ではブラウザ内、ボットでは FaraBotModerator のプロセス内で行います。
