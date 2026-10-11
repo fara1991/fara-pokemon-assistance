@@ -75,6 +75,9 @@
     padding-left: 1rem;
     cursor: not-allowed;
     user-select: none;
+    -webkit-user-select: none;
+    /* スマホでタップしたときの反応（ハイライト）も出さない */
+    -webkit-tap-highlight-color: transparent;
 }
 
 .nav-scrollable {

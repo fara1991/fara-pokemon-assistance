@@ -18,15 +18,14 @@
 </div>
 <div class="type-chart-main">
 <div class="type-legend mb-2">
-    <span><span class="type-mark type-weak">○</span> 効果抜群（2 倍）</span>
-    <span><span class="type-mark type-resist">△</span> いまひとつ（½ 倍）</span>
-    <span><span class="type-mark type-immune">×</span> 効果なし（0 倍）</span>
+    @* 記号は表・スマホの一覧で共通（TypeMarks）。ポケモンを選んでいないときの表は ○ △ × だけ *@
+    @foreach (var (symbol, label) in TypeMarks.Legend.Where(x => selected is not null || x.Symbol is "○" or "△" or "×"))
+    {
+        <span><span class="type-mark @LegendClass(symbol)">@symbol</span> @LegendText(symbol, label)</span>
+    }
     <span><span class="type-mark">&nbsp;</span> 空欄は等倍</span>
     @if (selected is not null)
     {
-        <span><span class="type-mark type-weak">◎</span> 4 倍</span>
-        <span><span class="type-mark type-resist">▲</span> ¼ 倍</span>
-        <span><span class="type-mark type-resist"><span class="mk mk-eighth">▲<span class="mk-sub">⅛</span></span></span> ⅛ 倍</span>
         <span><span class="type-mark"><span class="ability-badge">特</span></span> 特性で倍率が変わる</span>
     }
 </div>
@@ -74,12 +73,12 @@
                         var badge = total is { ChangedByAbility: true } && selected!.HasType(d);
                         <td class="@CellClass(m) @ColumnClass(d) @HoverClass(hoverRow == a || hoverCol == d) @(picked ? "type-row-picked" : "")"
                             title="@CellTitle(a, d, m, badge ? total : null)"
-                            @onmouseover="() => { hoverRow = a; hoverCol = d; }"><span class="@MarkClass(m)">@TypeMarks.Symbol(m)@if (TypeMarks.IsEighth(m)) { <span class="mk-sub">⅛</span> }</span>@if (badge) { <span class="ability-badge">特</span> }</td>
+                            @onmouseover="() => { hoverRow = a; hoverCol = d; }"><span class="mk">@TypeMarks.Symbol(m)</span>@if (badge) { <span class="ability-badge">特</span> }</td>
                     }
                     @if (total is not null)
                     {
                         <td class="type-total type-selected @CellClass(total.Multiplier) @(total.ChangedByAbility ? "type-total-ability" : "") @(picked ? "type-row-picked" : "")"
-                            title="@TotalTitle(a, total)"><span class="@MarkClass(total.Multiplier)">@TypeMarks.Symbol(total.Multiplier)@if (TypeMarks.IsEighth(total.Multiplier)) { <span class="mk-sub">⅛</span> }</span>@if (total.ChangedByAbility) { <span class="ability-badge">特</span> }</td>
+                            title="@TotalTitle(a, total)"><span class="mk">@TypeMarks.Symbol(total.Multiplier)</span>@if (total.ChangedByAbility) { <span class="ability-badge">特</span> }</td>
                     }
                 </tr>
             }
@@ -407,6 +406,12 @@
     {
         var results = Types.Select(a => (Type: a, Result: AbilityMatchup.Against(chart!, a, defenseTypes, ability))).ToList();
         <div class="compact-matchup">
+            <div class="compact-legend small text-muted mb-1">
+                @foreach (var (symbol, text) in TypeMarks.Legend)
+                {
+                    <span><span class="@LegendClass(symbol)">@symbol</span>@text</span>
+                }
+            </div>
             @foreach (var (label, match) in CompactGroups)
             {
                 var group = results.Where(x => match(x.Result.Multiplier)).OrderByDescending(x => x.Result.Multiplier).ToList();
@@ -439,13 +444,8 @@
         </div>
     };
 
-    private static string CompactTimes(double m) => m switch
-    {
-        0.125 => "×⅛",
-        0.25 => "×¼",
-        0.5 => "×½",
-        _ => $"×{m:0.##}",
-    };
+    /// <summary>スマホの一覧のマスに出す記号（表と同じ。等倍は空欄）。</summary>
+    private static string CompactTimes(double m) => TypeMarks.Symbol(m);
 
     private const string FullHint = "2 つまで。外してから選び直してください";
 
@@ -493,8 +493,22 @@
         _ => $"×{m:0.##}",
     };
 
-    /// <summary>⅛ 倍のマスは ▲ に小さく ⅛ を添える。</summary>
-    private static string MarkClass(double m) => TypeMarks.IsEighth(m) ? "mk mk-eighth" : "mk";
+    /// <summary>凡例の記号の色（表のマスと同じ）。</summary>
+    private static string LegendClass(string symbol) => symbol switch
+    {
+        "◎" or "○" => "type-weak",
+        "×" => "type-immune",
+        _ => "type-resist",
+    };
+
+    /// <summary>凡例の説明（○ △ × は言葉も添える）。</summary>
+    private static string LegendText(string symbol, string label) => symbol switch
+    {
+        "○" => $"効果抜群（{label}）",
+        "△" => $"いまひとつ（{label}）",
+        "×" => $"効果なし（{label}）",
+        _ => label,
+    };
 
     private static string Describe(double m) => m switch
     {

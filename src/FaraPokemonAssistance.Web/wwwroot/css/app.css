@@ -581,26 +581,11 @@ body {
     border-left: 2px solid var(--bs-primary);
 }
 
-/* 記号（○ ◎ △ ▲）は同じ Geometric Shapes ブロックの字で、どのフォントでも絵文字にならない。⅛ 倍は ▲ に小さく ⅛ を添える */
+/* 記号（◎ ○ △ ▲ ▼）は同じ Geometric Shapes ブロックの字で、どのフォントでも絵文字にならない */
 .type-chart .mk {
     display: inline-block;
     line-height: 1;
     white-space: nowrap;
-}
-
-.mk-eighth {
-    display: inline-block;
-    position: relative;
-    padding-right: 0.3em;
-}
-
-.mk-sub {
-    position: absolute;
-    right: -0.1em;
-    bottom: -0.15em;
-    font-size: 0.5em;
-    font-weight: 700;
-    line-height: 1;
 }
 
 .type-chart th.type-total-head {
@@ -1489,6 +1474,21 @@ body {
     .type-chart-layout.show-table .type-compact {
         display: none;
     }
+}
+
+/* スマホの一覧の凡例（表の凡例は一覧のときは隠れるため） */
+.compact-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.6rem;
+}
+
+.compact-legend .type-weak,
+.compact-legend .type-resist,
+.compact-legend .type-immune {
+    background: none !important;
+    font-weight: 700;
+    margin-right: 0.1rem;
 }
 
 .compact-group + .compact-group {
