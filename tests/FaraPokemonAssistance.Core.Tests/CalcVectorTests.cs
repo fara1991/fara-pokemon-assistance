@@ -7,10 +7,10 @@ using Xunit;
 namespace FaraPokemonAssistance.Core.Tests;
 
 /// <summary>
-/// 昔の世代のダメージ計算を、公開されているダメージ計算ツール（@smogon/calc）の結果と比べる。
+/// 全世代と今のゲーム（剣盾・SV・チャンピオンズ）のダメージ計算を、公開されているダメージ計算ツール（@smogon/calc）の結果と比べる。
 /// 条件と期待値は tools/calc_vectors（make_scenarios.py → expected.js）で作った Data/calc_vectors.json。
 /// </summary>
-public class LegacyCalcVectorTests
+public class CalcVectorTests
 {
     private sealed record Side(int Id, int Level, int Nature, int[] Evs, int? Ability, string AbilitySmogon, int? Item, int[] Boosts, string Status, int? Hp);
     private sealed record MoveRef(int Id, string Smogon);
@@ -30,7 +30,7 @@ public class LegacyCalcVectorTests
 
     private static PokemonBuild Build(PokemonDataSet data, Side s)
     {
-        var b = new PokemonBuild(data.FindPokemon(s.Id)!, EvSystem.Classic)
+        var b = new PokemonBuild(data.FindPokemon(s.Id)!, data.Info.EvSystem)
         {
             Level = s.Level,
             Nature = data.FindNature(s.Nature),
@@ -49,17 +49,20 @@ public class LegacyCalcVectorTests
     }
 
     [Theory]
-    [InlineData(3)]
-    [InlineData(4)]
-    [InlineData(5)]
-    [InlineData(6)]
-    [InlineData(7)]
-    public async Task Matches_public_damage_calculator(int generation)
+    [InlineData("Gen3")]
+    [InlineData("Gen4")]
+    [InlineData("Gen5")]
+    [InlineData("Gen6")]
+    [InlineData("Gen7")]
+    [InlineData("Gen8")]
+    [InlineData("Gen9")]
+    [InlineData("Champions")]
+    public async Task Matches_public_damage_calculator(string key)
     {
-        var vectors = Load().Where(v => v.Gen == generation).ToList();
-        Assert.True(vectors.Count >= 200, $"第{generation}世代の比較データが少なすぎます（{vectors.Count}）");
-        var data = await TestData.Catalog().GetDataSetAsync($"Gen{generation}");
-        var calc = new DamageCalculator(data.TypeChart, generation);
+        var vectors = Load().Where(v => v.Key == key).ToList();
+        Assert.True(vectors.Count >= 200, $"{key} の比較データが少なすぎます（{vectors.Count}）");
+        var data = await TestData.Catalog().GetDataSetAsync(key);
+        var calc = new DamageCalculator(data.TypeChart, data.Info.Generation);
         var failures = new List<string>();
         foreach (var v in vectors)
         {
@@ -82,8 +85,11 @@ public class LegacyCalcVectorTests
             var result = calc.Calculate(request);
             if (defender.MaxHp != v.ExpectedMaxHp || !result.Rolls.SequenceEqual(v.Expected))
                 failures.Add($"{attacker.Pokemon.Name}({v.Attacker.AbilitySmogon},{attacker.Item?.Name}) {move.Name}({v.Move.Smogon}{(v.Z ? ",Z" : "")}{(v.Crit ? ",crit" : "")}) → {defender.Pokemon.Name}({v.Defender.AbilitySmogon},{defender.Item?.Name}) " +
-                    $"[{v.Weather},{v.Terrain},R{v.Reflect},L{v.LightScreen},D{v.Doubles}] hp {defender.MaxHp}/{v.ExpectedMaxHp}\n  expected {string.Join(",", v.Expected)}\n  actual   {string.Join(",", result.Rolls)}\n  {string.Join(" / ", result.Modifiers)}");
+                    $"[{v.Weather},{v.Terrain},R{v.Reflect},L{v.LightScreen},D{v.Doubles}] hp {defender.MaxHp}/{v.ExpectedMaxHp}\n  expected {string.Join(",", v.Expected)}\n  actual   {string.Join(",", result.Rolls)}\n  A{result.AttackStat} D{result.DefenseStat} BP{result.BasePower}: {string.Join(" / ", result.Modifiers)}");
         }
-        Assert.True(failures.Count == 0, $"{failures.Count}/{vectors.Count} 件が一致しません\n" + string.Join("\n", failures.Take(12)));
+        // 一致しない条件をすべてファイルに書き出す（CALC_VECTOR_REPORT にフォルダ名を入れたとき。原因調べ用）
+        if (Environment.GetEnvironmentVariable("CALC_VECTOR_REPORT") is { Length: > 0 } reportDir)
+            await File.WriteAllTextAsync(Path.Combine(reportDir, $"{key}.txt"), string.Join("\n", failures));
+        Assert.True(failures.Count == 0, $"{key}: {failures.Count}/{vectors.Count} 件が一致しません\n" + string.Join("\n", failures.Take(12)));
     }
 }

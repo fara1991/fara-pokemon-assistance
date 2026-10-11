@@ -129,7 +129,7 @@ internal sealed partial class LegacyDamageCalculator
             if (atkAbility == "technician" && basePower <= 60) { basePower = basePower * 3 / 2; modifiers.Add($"{atkName}(1.5倍)"); }
             if (IsMuscleBand(attackerItem, isPhysical)) { basePower = (int)Math.Floor(basePower * 1.1); modifiers.Add($"{attackerItem!.Name}(1.1倍)"); }
             else if (IsTypeBoost(attackerItem, moveType)) { basePower = (int)Math.Floor(basePower * 1.2); modifiers.Add($"{attackerItem!.Name}(1.2倍)"); }
-            if (atkAbility == "iron-fist" && flags.Contains("Punch")) { basePower = (int)Math.Floor(basePower * 1.2); modifiers.Add($"{atkName}(1.2倍)"); }
+            if (atkAbility == "iron-fist" && flags.Contains("Punch") || atkAbility == "reckless" && MoveEffects.IsRecoil(move)) { basePower = (int)Math.Floor(basePower * 1.2); modifiers.Add($"{atkName}(1.2倍)"); }
             else if (pinch) { basePower = basePower * 3 / 2; modifiers.Add($"{atkName}(HP1/3以下 1.5倍)"); }
             if (defAbility == "heatproof" && moveType == "Fire" || defAbility == "thick-fat" && moveType is "Fire" or "Ice")
             {

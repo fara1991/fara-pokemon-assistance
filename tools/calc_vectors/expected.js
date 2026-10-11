@@ -50,9 +50,12 @@ const SPECIAL_MOVES = new Set([
   'fishiousrend', 'boltbeak', 'risingvoltage', 'expandingforce', 'terrainpulse', 'mistyexplosion',
   'steelroller', 'grassyglide', 'lashout', 'poltergeist', 'gravapple', 'snore', 'sleeptalk',
   'fakeout', 'lastresort', 'belch', 'stuffcheeks',
+  // 溜め技でとくこうが上がる（この計算機では未対応）
+  'meteorbeam', 'electroshot',
 ]);
 
-const SMOGON_WEATHER = { Sun: 'Sun', Rain: 'Rain', Sand: 'Sand', Hail: 'Hail' };
+// 条件の Hail は、第 9 世代では雪（Snow）
+const smogonWeather = (w, gen) => (w === 'Hail' && gen >= 9 ? 'Snow' : w || undefined);
 const STATS = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'];
 
 function main() {
@@ -88,7 +91,8 @@ function main() {
         item = it.name;
         if (toID(item) === 'eviolite' && !!species.nfe !== (row.NotFullyEvolved === '1')) { bump('nfe-mismatch'); return null; }
       }
-      const evs = {}; STATS.forEach((st, i) => { evs[st] = side.evs[i]; });
+      // チャンピオンズの努力値はポイント。Lv50 では 1 ポイント = 実数値 +1 = 努力値 8
+      const evs = {}; STATS.forEach((st, i) => { evs[st] = side.evs[i] * (s.key === 'Champions' ? 8 : 1); });
       const boosts = { atk: side.boosts[0], def: side.boosts[1], spa: side.boosts[2], spd: side.boosts[3], spe: side.boosts[4] };
       const p = new Pokemon(gen, species.name, {
         level: side.level, ability: ability.name, item, nature: side.natureSmogon, evs, boosts,
@@ -105,6 +109,8 @@ function main() {
     if (!md) { bump('move-unknown'); continue; }
     if (SPECIAL_MOVES.has(mid)) { bump('move-special'); continue; }
     if (md.multihit || md.ignoreDefensive || md.overrideOffensiveStat || md.overrideOffensivePokemon || md.willCrit) { bump('move-special'); continue; }
+    // はたきおとすの威力が上がらない持ち物（このサイトでは自分のメガストーンだけ扱うので、ほかの外せない持ち物の条件は除く）
+    if (mid === 'knockoff' && s.defender.itemSmogon && /(-plate|-drive|-memory|-mask|^red-orb|^blue-orb|^griseous|^adamant-crystal|^lustrous-globe|^rusted-|-z$)/.test(s.defender.itemSmogon)) { bump('knockoff-unremovable-item'); continue; }
     const om = ours.moves[s.move.id];
     const cat = new Move(gen, md.name).category;
     if (md.basePower !== Number(om.Power) || md.type !== om.Type || cat !== om.Category) { bump('move-data'); continue; }
@@ -116,7 +122,7 @@ function main() {
     const move = new Move(gen, md.name, { isCrit: s.crit, useZ, item: s.attacker.itemSmogon ? attacker.item : undefined });
     const field = new Field({
       gameType: s.doubles ? 'Doubles' : 'Singles',
-      weather: SMOGON_WEATHER[s.weather],
+      weather: smogonWeather(s.weather, s.gen),
       terrain: s.terrain || undefined,
       defenderSide: { isReflect: s.reflect, isLightScreen: s.lightScreen },
     });

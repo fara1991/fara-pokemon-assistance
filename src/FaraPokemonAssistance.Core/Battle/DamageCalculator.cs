@@ -9,6 +9,7 @@ namespace FaraPokemonAssistance.Core.Battle;
 /// テラスタル・天候・フィールド・主要な特性（<see cref="AbilityEffects"/> 参照）。
 /// 壁・やけど・HP 依存の特性（もうか等・マルチスケイル）・回復きのみ / たべのこし / 半減きのみも反映する。
 /// 未対応: 一部の技固有処理（威力が変動する技など）。
+/// 世代（コンストラクターの generation）が 8（ソード・シールド）のときは、第 9 世代で増えた「雪」の効果（こおりタイプの防御上昇）を使わない。
 /// </summary>
 public sealed class DamageCalculator
 {
@@ -22,9 +23,13 @@ public sealed class DamageCalculator
     private const int ItemIdBoosterEnergy = 1696;
     private const int ItemIdPunchingGlove = 1700;
     private const int MoveIdFacade = 263;
+    private const int MoveIdKnockOff = 282;
+    private const int MoveIdSolarBeam = 76;
+    private const int MoveIdSolarBlade = 669;
 
     private readonly TypeChart _typeChart;
     private readonly LegacyDamageCalculator? _legacy;
+    private readonly int _generation;
 
     /// <summary>
     /// <paramref name="generation"/> はゲームの世代。第 3〜7 世代は <see cref="LegacyDamageCalculator"/>（その世代の補正の順番・丸め）で計算する。
@@ -32,6 +37,7 @@ public sealed class DamageCalculator
     public DamageCalculator(TypeChart typeChart, int generation = 9)
     {
         _typeChart = typeChart;
+        _generation = generation;
         if (generation is >= 3 and <= 7) _legacy = new LegacyDamageCalculator(typeChart, generation);
         else if (generation < 5) throw new NotSupportedException($"第{generation}世代のダメージ計算には対応していません");
     }
@@ -130,7 +136,7 @@ public sealed class DamageCalculator
             modifiers.Add("テラスタル(威力60保証)");
         }
         powerMod = ApplyPowerModifiers(request, attacker, defender, move, moveType, attackerAbility, defenderAbility,
-            attackerGrounded, defenderGrounded, powerMod, modifiers);
+            attackerGrounded, defenderGrounded, powerMod, modifiers, _generation);
         power = Math.Max(1, PokeRound(power * powerMod / 4096.0));
 
         // --- 攻撃側の実数値
@@ -157,7 +163,8 @@ public sealed class DamageCalculator
             defenseStat = PokeRound(defenseStat * 1.5);
             modifiers.Add("砂嵐(いわタイプの特防1.5倍)");
         }
-        if (request.Weather == Weather.Snow && isPhysical && defenderTypes.Contains("Ice"))
+        // 剣盾の「あられ」にはこおりタイプの防御上昇が無い（第 9 世代の「雪」だけ）
+        if (request.Weather == Weather.Snow && _generation >= 9 && isPhysical && defenderTypes.Contains("Ice"))
         {
             defenseStat = PokeRound(defenseStat * 1.5);
             modifiers.Add("雪(こおりタイプの防御1.5倍)");
@@ -194,9 +201,9 @@ public sealed class DamageCalculator
         // --- 急所
         if (request.IsCritical)
         {
-            var critMod = attackerAbility == "sniper" ? 2.25 : 1.5;
-            baseDamage = PokeRound(baseDamage * critMod);
-            modifiers.Add($"急所({critMod:0.##}倍)");
+            // スナイパーの 1.5 倍は急所の 1.5 倍とは別に、最後の補正（FinalModifier）で掛ける
+            baseDamage = PokeRound(baseDamage * 1.5);
+            modifiers.Add("急所(1.5倍)");
         }
 
         // --- タイプ一致
@@ -218,6 +225,10 @@ public sealed class DamageCalculator
 
         if (effectiveness != 1.0) modifiers.Add($"タイプ相性{effectiveness:0.##}倍");
 
+        // やけど: 物理技 0.5 倍（こんじょう・からげんきは除く）。最終補正とは別に、相性を掛けたあとで切り捨てて半分にする
+        var applyBurn = attacker.Status == StatusCondition.Burn && isPhysical && attackerAbility != "guts" && move.Id != MoveIdFacade;
+        if (applyBurn) modifiers.Add("やけど(物理0.5倍)");
+
         int[] ComputeRolls(int fm)
         {
             var result = new int[16];
@@ -226,6 +237,7 @@ public sealed class DamageCalculator
                 var damage = baseDamage * (85 + i) / 100;
                 if (isStab) damage = PokeRound(damage * stabMod / 4096.0);
                 damage = (int)Math.Floor(damage * effectiveness);
+                if (applyBurn) damage /= 2;
                 damage = PokeRound(damage * fm / 4096.0);
                 if (damage < 1) damage = 1;
                 result[i] = damage;
@@ -289,7 +301,7 @@ public sealed class DamageCalculator
 
     private static int ApplyPowerModifiers(DamageRequest request, PokemonBuild attacker, PokemonBuild defender, Move move,
         string moveType, string attackerAbility, string defenderAbility, bool attackerGrounded, bool defenderGrounded,
-        int mod, List<string> modifiers)
+        int mod, List<string> modifiers, int generation)
     {
         void Apply(int value, string text)
         {
@@ -303,12 +315,19 @@ public sealed class DamageCalculator
         // からげんき: 状態異常中は威力 2 倍
         if (move.Id == MoveIdFacade && attacker.Status is StatusCondition.Burn or StatusCondition.Poison or StatusCondition.BadlyPoisoned or StatusCondition.Paralysis)
             Apply(8192, "からげんき(状態異常で2倍)");
+        // はたきおとす: 相手が持ち物を持っていれば 1.5 倍（自分のメガストーンを持っているときを除く）
+        // （ダイマックス技は技が置き換わるので、はたきおとす・ソーラービームの補正は掛からない）
+        else if (move.Id == MoveIdKnockOff && !attacker.IsDynamax && MoveEffects.KnockOffBoosted(defender.Item, defender))
+            Apply(6144, "はたきおとす(持ち物があるので1.5倍)");
+        else if (move.Id is MoveIdSolarBeam or MoveIdSolarBlade && !attacker.IsDynamax && request.Weather is Weather.Rain or Weather.Sand or Weather.Snow)
+            Apply(2048, $"{move.Name}({FieldNames.Japanese(request.Weather, generation)}で0.5倍)");
 
         // 攻撃側の特性
+        // ダイマックス技は技が置き換わるので、ちからずく・すてみの対象にならない
         switch (attackerAbility)
         {
             case "technician" when move.Power <= 60: Apply(6144, $"{atkName}(1.5倍)"); break;
-            case "sheer-force" when move.EffectChance > 0: Apply(5325, $"{atkName}(1.3倍)"); break;
+            case "sheer-force" when !attacker.IsDynamax && MoveEffects.SheerForceBoosts(move, generation): Apply(5325, $"{atkName}(1.3倍)"); break;
             case "iron-fist" when move.HasFlag("Punch"): Apply(4915, $"{atkName}(1.2倍)"); break;
             case "strong-jaw" when move.HasFlag("Bite"): Apply(6144, $"{atkName}(1.5倍)"); break;
             case "mega-launcher" when move.HasFlag("Pulse"): Apply(6144, $"{atkName}(1.5倍)"); break;
@@ -321,7 +340,7 @@ public sealed class DamageCalculator
             case "rocky-payload" when moveType == "Rock": Apply(6144, $"{atkName}(1.5倍)"); break;
             case "water-bubble" when moveType == "Water": Apply(8192, $"{atkName}(2倍)"); break;
             case "sharpness" when move.HasFlag("Slicing"): Apply(6144, $"{atkName}(1.5倍)"); break;
-            case "reckless" when move.HasFlag("Recoil"): Apply(4915, $"{atkName}(1.2倍)"); break;
+            case "reckless" when !attacker.IsDynamax && MoveEffects.IsRecoil(move): Apply(4915, $"{atkName}(1.2倍)"); break;
         }
 
         // 防御側の特性（威力に掛かるもの）
@@ -491,12 +510,9 @@ public sealed class DamageCalculator
             else Apply(2048, $"{wall}(0.5倍)");
         }
 
-        // やけど: 物理技 0.5 倍（こんじょう・からげんきは除く）
-        if (attacker.Status == StatusCondition.Burn && isPhysical && attackerAbility != "guts" && move.Id != MoveIdFacade)
-            Apply(2048, "やけど(物理0.5倍)");
-
-        if (attackerAbility == "tinted-lens" && effectiveness < 1) Apply(8192, $"{atkName}(2倍)");
         if (attackerAbility == "neuroforce" && effectiveness > 1) Apply(5120, $"{atkName}(1.25倍)");
+        else if (attackerAbility == "sniper" && request.IsCritical) Apply(6144, $"{atkName}(急所に1.5倍)");
+        else if (attackerAbility == "tinted-lens" && effectiveness < 1) Apply(8192, $"{atkName}(2倍)");
 
         switch (defenderAbility)
         {
