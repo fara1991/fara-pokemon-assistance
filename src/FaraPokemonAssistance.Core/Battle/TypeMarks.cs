@@ -1,8 +1,8 @@
 namespace FaraPokemonAssistance.Core.Battle;
 
 /// <summary>
-/// タイプ相性表に出す記号。○ 2 倍、◎ 4 倍、△ ½ 倍、▲ ¼ 倍、× 効果なし、空欄は等倍。
-/// ⅛ 倍は ▲ のまま、表示側で小さく「⅛」を添える（<see cref="IsEighth"/>）。
+/// タイプ相性表に出す記号。◎ 4 倍、○ 2 倍、△ ½ 倍、▲ ¼ 倍、▼ ⅛ 倍、× 効果なし、空欄は等倍。
+/// 表・スマホの一覧・凡例のすべてでこの記号を使う（⅛ 倍はあついしぼうのトドゼルガがこおり技を受けるときなど）。
 /// 1.5 倍など 2 の累乗でない倍率（特性で変わったとき）は、向きだけ分かるよう ○ / △ の 1 つにする。
 /// </summary>
 public static class TypeMarks
@@ -23,10 +23,14 @@ public static class TypeMarks
     {
         if (multiplier == 0) return "×";
         if (multiplier == 1) return "";
-        var strong = Count(multiplier) >= 2;
-        return multiplier > 1 ? (strong ? "◎" : "○") : (strong ? "▲" : "△");
+        var count = Count(multiplier);
+        if (multiplier > 1) return count >= 2 ? "◎" : "○";
+        return count switch { >= 3 => "▼", 2 => "▲", _ => "△" };
     }
 
-    /// <summary>⅛ 倍か（▲ に小さく ⅛ を添える）。</summary>
-    public static bool IsEighth(double multiplier) => Math.Abs(multiplier - 0.125) < 1e-9;
+    /// <summary>凡例（記号と倍率。強い順）。</summary>
+    public static IReadOnlyList<(string Symbol, string Label)> Legend { get; } = new[]
+    {
+        ("◎", "4 倍"), ("○", "2 倍"), ("△", "½ 倍"), ("▲", "¼ 倍"), ("▼", "⅛ 倍"), ("×", "0 倍"),
+    };
 }

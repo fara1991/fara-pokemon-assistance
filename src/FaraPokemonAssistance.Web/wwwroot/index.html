@@ -40,6 +40,17 @@
         document.addEventListener("keydown", function (e) {
             if ((e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") && e.target.closest && e.target.closest(".searchable-select")) e.preventDefault();
         }, true);
+        // 無効にした項目（aria-disabled="true"。未対応の世代のメニューなど）は、クリック・中クリック・タップ・Enter で何も起こさない
+        ["click", "auxclick", "mousedown", "mouseup", "keydown"].forEach(function (type) {
+            document.addEventListener(type, function (e) {
+                if (type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+                if (type.indexOf("mouse") === 0 && e.button !== 1) return; // 中クリックの自動スクロール・新しいタブを止める
+                var el = e.target.closest && e.target.closest('[aria-disabled="true"]');
+                if (!el) return;
+                e.preventDefault();
+                e.stopPropagation();
+            }, true);
+        });
     </script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
