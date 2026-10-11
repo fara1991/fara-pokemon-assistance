@@ -89,12 +89,24 @@ public class CurrentGamesFixTests
     }
 
     [Fact]
-    public async Task Sheer_force_does_not_boost_dynamax_moves()
+    public async Task Dynamax_moves_get_no_move_specific_boosts()
     {
+        // ダイマックスすると技がダイマックス技に置き換わるので、ちからずく・すてみ・はたきおとす・ソーラービームの補正は掛からない
         var data = await Load("Gen8");
-        var attacker = Build(data, 445, "sheer-force");
-        attacker.IsDynamax = true;
-        Assert.False(Has(Calc(data, attacker, Build(data, 6), 53), "ちからずく"));
+        var leftovers = data.Items.First(i => i.Name == "たべのこし");
+        var target = Build(data, 6, item: leftovers);
+        var sheer = Build(data, 445, "sheer-force");
+        var reckless = Build(data, 445, "reckless");
+        var plain = Build(data, 445);
+        foreach (var a in new[] { sheer, reckless, plain }) a.IsDynamax = true;
+        Assert.False(Has(Calc(data, sheer, target, 53), "ちからずく"));
+        Assert.False(Has(Calc(data, reckless, target, 413), "すてみ"));
+        Assert.False(Has(Calc(data, plain, target, 282), "はたきおとす"));
+        Assert.False(Has(Calc(data, plain, target, 76, weather: Weather.Rain), "ソーラービーム"));
+        // ダイマックスしていなければ掛かる
+        plain.IsDynamax = false;
+        Assert.True(Has(Calc(data, plain, target, 282), "はたきおとす"));
+        Assert.True(Has(Calc(data, plain, target, 76, weather: Weather.Rain), "あめ") || Has(Calc(data, plain, target, 76, weather: Weather.Rain), "雨"));
     }
 
     [Theory]

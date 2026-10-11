@@ -316,13 +316,14 @@ public sealed class DamageCalculator
         if (move.Id == MoveIdFacade && attacker.Status is StatusCondition.Burn or StatusCondition.Poison or StatusCondition.BadlyPoisoned or StatusCondition.Paralysis)
             Apply(8192, "からげんき(状態異常で2倍)");
         // はたきおとす: 相手が持ち物を持っていれば 1.5 倍（自分のメガストーンを持っているときを除く）
-        else if (move.Id == MoveIdKnockOff && MoveEffects.KnockOffBoosted(defender.Item, defender))
+        // （ダイマックス技は技が置き換わるので、はたきおとす・ソーラービームの補正は掛からない）
+        else if (move.Id == MoveIdKnockOff && !attacker.IsDynamax && MoveEffects.KnockOffBoosted(defender.Item, defender))
             Apply(6144, "はたきおとす(持ち物があるので1.5倍)");
-        else if (move.Id is MoveIdSolarBeam or MoveIdSolarBlade && request.Weather is Weather.Rain or Weather.Sand or Weather.Snow)
+        else if (move.Id is MoveIdSolarBeam or MoveIdSolarBlade && !attacker.IsDynamax && request.Weather is Weather.Rain or Weather.Sand or Weather.Snow)
             Apply(2048, $"{move.Name}({FieldNames.Japanese(request.Weather, generation)}で0.5倍)");
 
         // 攻撃側の特性
-        // ダイマックス技は技が置き換わるので、ちからずく・すてみ・てつのこぶしの対象にならない
+        // ダイマックス技は技が置き換わるので、ちからずく・すてみの対象にならない
         switch (attackerAbility)
         {
             case "technician" when move.Power <= 60: Apply(6144, $"{atkName}(1.5倍)"); break;

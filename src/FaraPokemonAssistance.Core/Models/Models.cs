@@ -143,9 +143,9 @@ public static class FieldNames
         Weather.Sun => "晴れ", Weather.Rain => "雨", Weather.Sand => "砂嵐", Weather.Snow => "雪", _ => "なし",
     };
 
-    /// <summary>世代に合わせた天候の名前（第 7 世代までの「雪」の欄は「あられ」）。</summary>
+    /// <summary>世代に合わせた天候の名前（第 8 世代までの「雪」の欄は「あられ」）。</summary>
     public static string Japanese(Weather w, int generation) =>
-        w == Weather.Snow && generation <= 7 ? "あられ" : Japanese(w);
+        w == Weather.Snow && generation <= 8 ? "あられ" : Japanese(w);
 
     public static string Japanese(Terrain t) => t switch
     {
