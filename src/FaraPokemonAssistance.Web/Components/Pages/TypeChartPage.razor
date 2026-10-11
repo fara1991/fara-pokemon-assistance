@@ -11,12 +11,11 @@
     <p class="text-muted mb-0">縦が攻撃側、横が防御側です。</p>
 </div>
 
+<div class="type-chart-layout @(s.ShowTable ? "show-table" : "")">
 @* スマホでは表の代わりに、選んだポケモン（またはタイプ）の受ける倍率を一覧で出す。表も切り替えて見られる *@
-<div class="type-view-toggle mb-2">
+<div class="type-view-toggle">
     <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => s.ShowTable = !s.ShowTable">@(s.ShowTable ? "一覧で見る" : "表で見る")</button>
 </div>
-
-<div class="type-chart-layout @(s.ShowTable ? "show-table" : "")">
 <div class="type-chart-main">
 <div class="type-legend mb-2">
     <span><span class="type-mark type-weak">◎</span> 効果抜群（2 倍）</span>
@@ -25,6 +24,8 @@
     <span><span class="type-mark">&nbsp;</span> 空欄は等倍</span>
     @if (selected is not null)
     {
+        <span><span class="type-mark type-weak">◎◎</span> 4 倍</span>
+        <span><span class="type-mark type-resist">△△</span> ¼ 倍</span>
         <span><span class="type-mark"><span class="ability-badge">特</span></span> 特性で倍率が変わる</span>
     }
 </div>
@@ -32,7 +33,7 @@
 @if (chart is not null)
 {
     <div class="table-responsive type-chart-wrap">
-        <table class="table table-bordered table-sm type-chart mb-0 @(selected is null ? "" : "type-chart-focus")" @onmouseleave="() => { hoverRow = null; hoverCol = null; }">
+        <table class="table table-bordered table-sm type-chart mb-0 @(selected is null ? "" : "type-chart-focus")" style="--tc-cols:@(Types.Count + 1 + (selected is null ? 0 : 1))" @onmouseleave="() => { hoverRow = null; hoverCol = null; }">
             <thead>
                 <tr>
                     <th class="type-corner">攻＼防</th>
@@ -72,12 +73,12 @@
                         var badge = total is { ChangedByAbility: true } && selected!.HasType(d);
                         <td class="@CellClass(m) @ColumnClass(d) @HoverClass(hoverRow == a || hoverCol == d) @(picked ? "type-row-picked" : "")"
                             title="@CellTitle(a, d, m, badge ? total : null)"
-                            @onmouseover="() => { hoverRow = a; hoverCol = d; }">@Mark(m)@if (badge) { <span class="ability-badge">特</span> }</td>
+                            @onmouseover="() => { hoverRow = a; hoverCol = d; }"><span class="@MarkClass(m)">@TypeMarks.Symbol(m)</span>@if (badge) { <span class="ability-badge">特</span> }</td>
                     }
                     @if (total is not null)
                     {
                         <td class="type-total @CellClass(total.Multiplier) @(total.ChangedByAbility ? "type-total-ability" : "") @(picked ? "type-row-picked" : "")"
-                            title="@TotalTitle(a, total)">@Times(total.Multiplier)@if (total.ChangedByAbility) { <span class="ability-badge">特</span> }</td>
+                            title="@TotalTitle(a, total)"><span class="@MarkClass(total.Multiplier)">@TypeMarks.Symbol(total.Multiplier)</span>@if (total.ChangedByAbility) { <span class="ability-badge">特</span> }</td>
                     }
                 </tr>
             }
@@ -491,12 +492,12 @@
         _ => $"×{m:0.##}",
     };
 
-    private static string Mark(double m) => m switch
+    /// <summary>記号を 2 つ以上重ねるマスは、マスに収まるよう小さくする。</summary>
+    private static string MarkClass(double m) => TypeMarks.Count(m) switch
     {
-        0.0 => "×",
-        < 1.0 => "△",
-        > 1.0 => "◎",
-        _ => "",
+        >= 3 => "mk mk-3",
+        2 => "mk mk-2",
+        _ => "mk",
     };
 
     private static string Describe(double m) => m switch

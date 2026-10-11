@@ -525,7 +525,7 @@ body {
 
 /* ---- タイプ相性表 ----
    マスの大きさ（--tc-cell）は画面に合わせて縮め、PC（1400×900 / 1920×1080 など）では
-   表全体（右端の合計列も含む）がスクロールせずに見えるようにする。スマホは固定サイズで横スクロール */
+   表全体（右端の合計列も含む）がスクロールせずに見えるようにする。スマホも同じく、画面の幅を列の数で割って縮める */
 .type-chart {
     --tc-cell: 2.4rem;
     width: auto;
@@ -576,14 +576,26 @@ body {
     cursor: default;
 }
 
-/* 右端: 選んだポケモンに当たったときの最終的な倍率（特性込み） */
+/* 右端: 選んだポケモンに当たったときの最終的な倍率（特性込み）。ほかの列と同じ記号で出す */
 .type-chart td.type-total {
-    width: auto;
-    min-width: calc(var(--tc-cell) * 1.45);
-    padding: 0 0.2rem;
-    font-size: calc(var(--tc-cell) * 0.36);
-    white-space: nowrap;
     border-left: 2px solid var(--bs-primary);
+}
+
+/* 4 倍・¼ 倍は記号を重ねる（◎◎ / △△）ので、マスに収まるよう小さくする */
+.type-chart .mk {
+    display: inline-block;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.type-chart .mk-2 {
+    font-size: 0.72em;
+    letter-spacing: -0.06em;
+}
+
+.type-chart .mk-3 {
+    font-size: 0.5em;
+    letter-spacing: -0.06em;
 }
 
 .type-chart th.type-total-head {
@@ -877,7 +889,8 @@ body {
 
 .type-mark {
     display: inline-block;
-    width: 1.6rem;
+    min-width: 1.6rem;
+    padding: 0 0.15rem;
     height: 1.6rem;
     line-height: 1.6rem;
     text-align: center;
@@ -1357,6 +1370,107 @@ body {
 @media (max-width: 767.98px) {
     .type-compact {
         display: block;
+    }
+
+    /* ポケモンを選ぶ欄は表より上に出す。パネルの枠を外して、選ぶ欄・切り替え・表・結果の順に並べる */
+    .type-chart-layout {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+
+    .matchup-panel,
+    .matchup-panel .card,
+    .matchup-panel .card-body {
+        display: contents;
+    }
+
+    .matchup-panel .card-header {
+        order: 0;
+        padding: 0;
+        border: 0;
+        background: none;
+    }
+
+    .matchup-panel .card-header h5 {
+        font-size: 1rem;
+        margin: 0;
+    }
+
+    .matchup-panel .form-group {
+        order: 1;
+    }
+
+    .type-view-toggle {
+        order: 2;
+    }
+
+    .type-chart-main {
+        order: 3;
+    }
+
+    .matchup-results {
+        order: 4;
+    }
+
+    /* 表は画面の幅に収める（390px でも 360px でも横スクロールしない）。
+       マスの大きさは「画面の幅 ÷ 列の数」で決め、アイコンと記号の大きさもそれに合わせる */
+    .type-chart-wrap {
+        margin-inline: -1rem;
+        overflow-x: hidden;
+    }
+
+    .type-chart {
+        --tc-cell: min(2.4rem, calc((100vw - 1rem) / var(--tc-cols, 20)));
+        width: 100%;
+        table-layout: fixed;
+        font-size: calc(var(--tc-cell) * 0.62);
+    }
+
+    .type-chart th,
+    .type-chart td {
+        padding: 0;
+        line-height: 1;
+        overflow: hidden;
+    }
+
+    .type-chart .type-head,
+    .type-chart .type-corner {
+        padding: 0;
+    }
+
+    .type-chart .type-icon {
+        width: calc(var(--tc-cell) - 3px);
+        height: calc(var(--tc-cell) - 3px);
+    }
+
+    .type-chart .type-corner {
+        font-size: calc(var(--tc-cell) * 0.3);
+        white-space: normal;
+    }
+
+    .type-chart .poke-icon {
+        width: calc(var(--tc-cell) - 2px);
+        height: calc(var(--tc-cell) - 2px);
+    }
+
+    .type-chart td.type-total,
+    .type-chart th.type-total-head {
+        border-left-width: 1px;
+    }
+
+    .type-chart .ability-badge {
+        top: 0;
+        right: 0;
+        padding: 0 1px;
+        border-radius: 2px;
+        font-size: calc(var(--tc-cell) * 0.38);
+        line-height: 1.1;
+    }
+
+    .type-legend {
+        gap: 0.4rem 0.8rem;
+        font-size: 0.8rem;
     }
 
     .type-view-toggle {
