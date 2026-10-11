@@ -42,6 +42,33 @@ public static class MoveEffects
         884, 885, 886, 902, 903, 905, 914, 917, 918, 919,
     };
 
+    /// <summary>
+    /// きれあじで威力が上がる「切る」技か（技データに無いため ID で持つ。@smogon/calc の slicing フラグと同じ）。
+    /// </summary>
+    public static bool IsSlicing(Move move) => SlicingMoves.Contains(move.Id);
+
+    private static readonly HashSet<int> SlicingMoves = new()
+    {
+        15, 75, 163, 210, 314, 332, 348, 400, 403, 404, 427, 440, 533, 534, 548, 669, 781, 830, 845, 860, 869, 875, 891, 895, 910, 911,
+    };
+
+    /// <summary>かぜのりで無効になる風の技か（@smogon/calc の wind フラグと同じ）。</summary>
+    public static bool IsWind(Move move) => WindMoves.Contains(move.Id);
+
+    private static readonly HashSet<int> WindMoves = new()
+    {
+        16, 18, 59, 177, 196, 201, 239, 257, 314, 366, 542, 572, 584, 831, 846, 847, 848,
+    };
+
+    /// <summary>ジュエル（その タイプの技の威力を 1 回だけ上げる）なら、そのタイプ。</summary>
+    public static string? GemType(Item? item) => item?.Id switch
+    {
+        591 => "Fire", 592 => "Water", 593 => "Electric", 594 => "Grass", 595 => "Ice", 596 => "Fighting", 597 => "Poison",
+        598 => "Ground", 599 => "Flying", 600 => "Psychic", 601 => "Bug", 602 => "Rock", 603 => "Ghost", 604 => "Dark",
+        605 => "Steel", 668 => "Dragon", 669 => "Normal", 731 => "Fairy",
+        _ => null,
+    };
+
     /// <summary>すてみで威力が上がる反動技か（はずすと自分がダメージを受ける技を含む。技データの Recoil フラグ）。</summary>
     public static bool IsRecoil(Move move) => move.HasFlag("Recoil");
 }

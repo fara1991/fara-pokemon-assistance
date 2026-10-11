@@ -1106,3 +1106,100 @@ public class SortByDamageTests
         Assert.Same(expandingForce, vsGhost[0]);
     }
 }
+
+/// <summary>今のゲームの計算で対応した特性・持ち物（@smogon/calc との一致は CalcVectorTests でも確かめている）。</summary>
+public class ModernAbilityTests
+{
+    private static async Task<(PokemonDataSet Data, FaraPokemonAssistance.Core.Battle.DamageCalculator Calc)> Gen9()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        return (data, new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart, 9));
+    }
+
+    private static PokemonBuild Build(PokemonDataSet data, string name, string? ability = null) =>
+        new(data.Pokemon.First(p => p.Name == name))
+        {
+            Ability = ability is null ? null : data.AbilitiesOf(data.Pokemon.First(p => p.Name == name)).First(a => a.Identifier == ability),
+        };
+
+    [Fact]
+    public async Task Fluffy_halves_contact_and_doubles_fire_so_contact_fire_is_neutral()
+    {
+        var (data, calc) = await Gen9();
+        var attacker = Build(data, "ウインディ");
+        var fluffy = Build(data, "ハカドッグ", "fluffy");
+        var flareBlitz = data.Moves.First(m => m.Name == "フレアドライブ");   // 接触するほのお技
+        var flamethrower = data.Moves.First(m => m.Name == "かえんほうしゃ"); // 接触しないほのお技
+        var r = calc.Calculate(new DamageRequest { Attacker = attacker, Move = flareBlitz, Defender = fluffy });
+        Assert.Contains(r.Modifiers, m => m.Contains("接触技0.5倍"));
+        Assert.Contains(r.Modifiers, m => m.Contains("ほのお技2倍"));
+        var noContact = calc.Calculate(new DamageRequest { Attacker = attacker, Move = flamethrower, Defender = fluffy });
+        Assert.DoesNotContain(noContact.Modifiers, m => m.Contains("接触技"));
+        Assert.Contains(noContact.Modifiers, m => m.Contains("ほのお技2倍"));
+    }
+
+    [Fact]
+    public async Task Ruin_abilities_cloud_nine_and_shell_armor()
+    {
+        var (data, calc) = await Gen9();
+        var move = data.Moves.First(m => m.Name == "かみくだく");
+        var chienPao = Build(data, "パオジアン", "sword-of-ruin");
+        var target = Build(data, "ハピナス");
+        var r = calc.Calculate(new DamageRequest { Attacker = chienPao, Move = move, Defender = target });
+        Assert.Contains(r.Modifiers, m => m.Contains("わざわいのつるぎ(相手の防御0.75倍)"));
+
+        // わざわいのおふだ: 物理技の攻撃 0.75 倍
+        var wochien = Build(data, "チオンジェン", "tablets-of-ruin");
+        var vsTablets = calc.Calculate(new DamageRequest { Attacker = Build(data, "ガブリアス"), Move = move, Defender = wochien });
+        Assert.Contains(vsTablets.Modifiers, m => m.Contains("わざわいのおふだ"));
+
+        // ノーてんき: 晴れの補正が無い
+        var fire = data.Moves.First(m => m.Name == "かえんほうしゃ");
+        var golduck = Build(data, "ゴルダック", "cloud-nine");
+        var sun = calc.Calculate(new DamageRequest { Attacker = Build(data, "ウインディ"), Move = fire, Defender = golduck, Weather = Weather.Sun });
+        Assert.Contains(sun.Modifiers, m => m.Contains("天候の効果なし"));
+        Assert.DoesNotContain(sun.Modifiers, m => m.Contains("晴れ(0.5倍)"));
+
+        // シェルアーマー: 急所に当たらない
+        var shellder = Build(data, "パルシェン", "shell-armor");
+        var crit = calc.Calculate(new DamageRequest { Attacker = Build(data, "ガブリアス"), Move = move, Defender = shellder, IsCritical = true });
+        Assert.DoesNotContain(crit.Modifiers, m => m.StartsWith("急所"));
+        Assert.Contains(crit.Modifiers, m => m.Contains("急所に当たらない"));
+    }
+
+    [Fact]
+    public async Task Mold_breaker_cannot_ignore_shadow_shield_and_mycelium_might_ignores_nothing_for_attacks()
+    {
+        var (data, calc) = await Gen9();
+        var lunala = Build(data, "ルナアーラ", "shadow-shield");
+        var move = data.Moves.First(m => m.Name == "じしん");
+        var moldBreaker = Build(data, "ドリュウズ", "mold-breaker");
+        var r = calc.Calculate(new DamageRequest { Attacker = moldBreaker, Move = move, Defender = lunala });
+        Assert.Contains(r.Modifiers, m => m.Contains("HP満タン 0.5倍"));
+        Assert.True(AbilityEffects.IsIgnorable("multiscale"));
+        Assert.False(AbilityEffects.IsIgnorable("shadow-shield"));
+        Assert.False(AbilityEffects.IgnoresTargetAbility("mycelium-might"));
+    }
+
+    [Fact]
+    public async Task Muscle_band_uses_4505_and_tera_shell_resists()
+    {
+        var (data, calc) = await Gen9();
+        var band = data.Items.First(i => i.Name == "ちからのハチマキ");
+        var attacker = Build(data, "ガブリアス");
+        attacker.Item = band;
+        var move = data.Moves.First(m => m.Name == "じしん");
+        var r = calc.Calculate(new DamageRequest { Attacker = attacker, Move = move, Defender = Build(data, "ハピナス") });
+        // 威力 100 × 4505/4096 = 109.98… → 110（4506 でも同じなので、補正値は表示で確かめる）
+        Assert.Contains(r.Modifiers, m => m.Contains("ちからのハチマキ(1.1倍)"));
+        var terapagos = data.Pokemon.FirstOrDefault(p => p.Name.StartsWith("テラパゴス") && data.AbilitiesOf(p).Any(a => a.Identifier == "tera-shell"));
+        if (terapagos is null) return;
+        var defender = new PokemonBuild(terapagos) { Ability = data.AbilitiesOf(terapagos).First(a => a.Identifier == "tera-shell") };
+        var fighting = data.Moves.First(m => m.Name == "インファイト");
+        var full = calc.Calculate(new DamageRequest { Attacker = attacker, Move = fighting, Defender = defender });
+        Assert.Equal(0.5, full.TypeEffectiveness);
+        defender.HpPercent = 50;
+        var hurt = calc.Calculate(new DamageRequest { Attacker = attacker, Move = fighting, Defender = defender });
+        Assert.Equal(2.0, hurt.TypeEffectiveness);
+    }
+}

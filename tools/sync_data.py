@@ -58,6 +58,46 @@ MOVE_FLAGS_KEPT = {
     "contact": "Contact", "sound": "Sound", "punch": "Punch", "bite": "Bite",
     "ballistics": "Bullet", "pulse": "Pulse", "powder": "Powder", "recharge": "Recharge",
 }
+# PokeAPI に技フラグが入っていない第 9 世代の技（@smogon/calc のフラグに合わせて足す。かたいツメ・てつのこぶし・もふもふなどに使う）
+MOVE_FLAGS_EXTRA: dict[str, set[str]] = {
+    "dire-claw": {"Contact"},
+    "psyshield-bash": {"Contact"},
+    "stone-axe": {"Contact"},
+    "wave-crash": {"Contact"},
+    "headlong-rush": {"Contact", "Punch"},
+    "ceaseless-edge": {"Contact"},
+    "axe-kick": {"Contact"},
+    "order-up": {"Pulse"},
+    "jet-punch": {"Contact", "Punch"},
+    "spin-out": {"Contact"},
+    "population-bomb": {"Contact"},
+    "ice-spinner": {"Contact"},
+    "glaive-rush": {"Contact"},
+    "triple-dive": {"Contact"},
+    "mortal-spin": {"Contact"},
+    "kowtow-cleave": {"Contact"},
+    "torch-song": {"Sound"},
+    "aqua-step": {"Contact"},
+    "raging-bull": {"Contact"},
+    "psyblade": {"Contact"},
+    "collision-course": {"Contact"},
+    "electro-drift": {"Contact"},
+    "pounce": {"Contact"},
+    "trailblaze": {"Contact"},
+    "hyper-drill": {"Contact"},
+    "rage-fist": {"Contact", "Punch"},
+    "bitter-blade": {"Contact"},
+    "double-shock": {"Contact"},
+    "comeuppance": {"Contact"},
+    "syrup-bomb": {"Bullet"},
+    "mighty-cleave": {"Contact"},
+    "hard-press": {"Contact"},
+    "alluring-voice": {"Sound"},
+    "temper-flare": {"Contact"},
+    "supercell-slam": {"Contact"},
+    "psychic-noise": {"Sound"},
+    "upper-hand": {"Contact"},
+}
 # 反動技（すてみの対象）。反動ダメージを受ける技（move_meta の drain が負）に加え、PokeAPI の drain が 0 の反動技と、
 # はずすと自分がダメージを受ける技（飛び膝蹴り系）も含める。
 RECOIL_EXTRA_MOVES = {"wave-crash", "jump-kick", "high-jump-kick", "supercell-slam", "axe-kick"}
@@ -192,6 +232,7 @@ class Builder:
         for mid, r in self.moves.items():
             if r["identifier"] in RECOIL_EXTRA_MOVES:
                 self.move_flags[mid].add("Recoil")
+            self.move_flags[mid].update(MOVE_FLAGS_EXTRA.get(r["identifier"], ()))
         self.ability_names = {(r["ability_id"], r["local_language_id"]): r["name"] for r in api.table("ability_names")}
         self.abilities = {r["id"]: r for r in api.table("abilities") if r["is_main_series"] == "1"}
         self.pokemon_abilities: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
