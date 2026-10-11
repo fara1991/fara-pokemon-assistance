@@ -4,12 +4,13 @@ using FaraPokemonAssistance.Core.Models;
 namespace FaraPokemonAssistance.Core.Battle;
 
 /// <summary>
-/// 昔の世代（第 5〜7 世代）のダメージ計算。
-/// 補正を掛ける順番・丸め方は、公開されているダメージ計算ツール（@smogon/calc の gen56 / gen789）に合わせる。
+/// 昔の世代（第 3〜7 世代）のダメージ計算。
+/// 補正を掛ける順番・丸め方は、公開されているダメージ計算ツール（@smogon/calc の gen3 / gen4 / gen56 / gen789）に合わせる。
+/// 第 3〜4 世代は LegacyDamageCalculator.Gen34.cs。
 /// 第 8 世代以降は <see cref="DamageCalculator"/> の計算（今までの計算）をそのまま使う。
 /// 対応している特性・持ち物・技の範囲は第 9 世代の計算と同じ（威力が変動する技の多くは未対応）。
 /// </summary>
-internal sealed class LegacyDamageCalculator
+internal sealed partial class LegacyDamageCalculator
 {
     private const int ItemIdAirBalloon = 584;
     private const int MoveIdEarthquake = 89;
@@ -26,7 +27,7 @@ internal sealed class LegacyDamageCalculator
 
     public LegacyDamageCalculator(TypeChart chart, int generation)
     {
-        if (generation is < 5 or > 7) throw new ArgumentOutOfRangeException(nameof(generation), "第 5〜7 世代だけに対応しています");
+        if (generation is < 3 or > 7) throw new ArgumentOutOfRangeException(nameof(generation), "第 3〜7 世代だけに対応しています");
         _chart = chart;
         _gen = generation;
     }
@@ -42,6 +43,7 @@ internal sealed class LegacyDamageCalculator
 
     public DamageResult Calculate(DamageRequest request)
     {
+        if (_gen <= 4) return CalculateGen34(request);
         var attacker = request.Attacker;
         var defender = request.Defender;
         var move = request.Move;
@@ -174,9 +176,10 @@ internal sealed class LegacyDamageCalculator
         attack = Math.Max(1, DamageCalculator.PokeRound(attack * (double)Chain(atMods, 410, 131072) / 4096));
 
         // --- 防御側の実数値
-        var hitsPhysical = isPhysical || move.UsesPhysicalDefense;
+        // サイコショックなどは相手の防御で計算（Z 技にすると特防）
+        var hitsPhysical = isPhysical || move.UsesPhysicalDefense && !isZ;
         var defenseStatKind = hitsPhysical ? Stat.Defense : Stat.SpDefense;
-        if (move.UsesPhysicalDefense) modifiers.Add($"{move.Name}(相手の防御で計算)");
+        if (move.UsesPhysicalDefense && !isZ) modifiers.Add($"{move.Name}(相手の防御で計算)");
         var defense = StatCalculator.Calculate(defender, defenseStatKind);
         var defenseBoost = defender.Boosts[defenseStatKind];
         if (defenseBoost != 0 && !(isCritical && defenseBoost > 0))

@@ -1,8 +1,8 @@
 Key,Name,Generation,EvSystem,CommandPrefix,Gimmick,UsageFallback,Calc
 Gen1,第1世代（赤・緑・青・ピカチュウ）,1,Classic,pokerg,None,,Reference
 Gen2,第2世代（金・銀・クリスタル）,2,Classic,pokegs,None,,Reference
-Gen3,第3世代（ルビー・サファイア・エメラルド・FRLG）,3,Classic,pokers,None,,Reference
-Gen4,第4世代（ダイヤモンド・パール・プラチナ・HGSS）,4,Classic,pokedp,None,,Reference
+Gen3,第3世代（ルビー・サファイア・エメラルド・FRLG）,3,Classic,pokers,None,,Full
+Gen4,第4世代（ダイヤモンド・パール・プラチナ・HGSS）,4,Classic,pokedp,None,,Full
 Gen5,第5世代（ブラック・ホワイト・BW2）,5,Classic,pokebw,None,,Full
 Gen6,第6世代（X・Y・オメガルビー・アルファサファイア）,6,Classic,pokexy,None,,Full
 Gen7,第7世代（サン・ムーン・USUM）,7,Classic,pokesm,ZMove,,Full

@@ -42,8 +42,8 @@ const SPECIAL_MOVES = new Set([
   'beatup', 'rollout', 'iceball', 'furycutter', 'echoedvoice', 'round', 'avalanche', 'revenge', 'magnitude',
   'present', 'triplekick', 'foulplay', 'bodypress', 'psywave', 'nightshade', 'seismictoss', 'dragonrage',
   'sonicboom', 'superfang', 'endeavor', 'finalgambit', 'counter', 'mirrorcoat', 'metalburst', 'bide',
-  'naturesmadness', 'guardianofalola', 'spectralthief', 'skydrop', 'synchronoise', 'dreameater', 'explosion',
-  'selfdestruct', 'chipaway', 'sacredsword', 'darkestlariat', 'stormthrow', 'frostbreath', 'photongeyser',
+  'naturesmadness', 'guardianofalola', 'spectralthief', 'skydrop', 'synchronoise', 'dreameater',
+  'chipaway', 'sacredsword', 'darkestlariat', 'stormthrow', 'frostbreath', 'photongeyser',
   'lightthatburnsthesky', 'moongeistbeam', 'sunsteelstrike', 'menacingmoonrazemaelstrom', 'searingsunrazesmash',
   'thousandarrows', 'freezedry', 'flyingpress', 'pledge', 'grasspledge', 'firepledge', 'waterpledge', 'shellsidearm',
   'pikapapow', 'veeveevolley', 'struggle', 'futuresight', 'doomdesire', 'stompingtantrum', 'burnup',
@@ -106,8 +106,12 @@ function main() {
     if (SPECIAL_MOVES.has(mid)) { bump('move-special'); continue; }
     if (md.multihit || md.ignoreDefensive || md.overrideOffensiveStat || md.overrideOffensivePokemon || md.willCrit) { bump('move-special'); continue; }
     const om = ours.moves[s.move.id];
-    const cat = md.category;
+    const cat = new Move(gen, md.name).category;
     if (md.basePower !== Number(om.Power) || md.type !== om.Type || cat !== om.Category) { bump('move-data'); continue; }
+    // 複数対象かどうか（第 3 世代は相手 2 体だけの技かどうか）もデータと合っているものだけ
+    const target = md.target === 'allAdjacentFoes' ? 'AllFoes' : md.target === 'allAdjacent' ? 'AllOthers' : 'Single';
+    const ourTarget = om.Target === 'AllFoes' || om.Target === 'AllOthers' ? om.Target : 'Single';
+    if (s.doubles && (s.gen === 3 ? (target === 'AllFoes') !== (ourTarget === 'AllFoes') : (target === 'Single') !== (ourTarget === 'Single'))) { bump('move-target'); continue; }
     const useZ = !!s.z && !!(md.zMove && md.zMove.basePower);
     const move = new Move(gen, md.name, { isCrit: s.crit, useZ, item: s.attacker.itemSmogon ? attacker.item : undefined });
     const field = new Field({

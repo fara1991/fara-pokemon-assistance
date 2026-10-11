@@ -365,6 +365,10 @@ class Builder:
                         provisional.add(pid)
         default_of_species = {p["species_id"]: pid for pid, p in self.pokemon.items() if p["is_default"] == "1"}
         if historical:
+            # ぬしポケモン・おきがえピカチュウなど、対戦で使えないフォルムは入れない
+            for pid in [pid for pid in learnset if self.pokemon[pid]["is_default"] != "1"
+                        and any(w in self.pokemon[pid]["identifier"] for w in self.EXCLUDED_FORM_WORDS)]:
+                del learnset[pid]
             # 昔のゲーム: そのゲームまでに登場していた別フォルム（メガシンカ・ゲンシカイキ・リージョンフォームなど）を足す
             for pid, p in self.pokemon.items():
                 form = self.forms_by_pokemon.get(pid)
