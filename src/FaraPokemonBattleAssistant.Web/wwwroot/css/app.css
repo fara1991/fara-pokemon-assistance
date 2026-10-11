@@ -808,6 +808,13 @@ body {
         flex-wrap: nowrap;
     }
 
+    /* 表の列の幅は表に合わせる（凡例は折り返す）。凡例の 1 行の長さで列が広がり、表と右のパネルの間に空白ができないようにする */
+    .type-chart-main {
+        width: min-content;
+        /* 表がまだ無い（読み込み中の）ときも、表と同じくらいの幅を取って凡例が縦に潰れないようにする（.type-chart の --tc-cell × ポケモンを選んでいないときの 19 列。選ぶと列が増え、表に合わせて広がる） */
+        min-width: calc(clamp(1.5rem, min(calc((100vh - 12.5rem) / 19.6), calc((100vw - 230px - 20rem - 6rem) / 21)), 2.6rem) * 19);
+    }
+
     .matchup-panel .card {
         max-height: calc(100vh - 8.5rem);
     }
