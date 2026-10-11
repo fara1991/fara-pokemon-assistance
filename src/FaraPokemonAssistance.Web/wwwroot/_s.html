@@ -1,0 +1,5 @@
+<script>
+var q=new URLSearchParams(location.search);
+localStorage.setItem("fara-pokemon-assistance.settings", JSON.stringify({DataSetKey:q.get("ds")||"Champions",Format:"Singles",Theme:q.get("theme")||"light"}));
+location.replace(q.get("to"));
+</script>

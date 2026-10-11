@@ -72,6 +72,9 @@ else if (data is not null)
     </div>
 }
 
+@* 計算に対応していないゲームでは案内だけを出し、入力欄・コマンド一覧は出さない *@
+@if (App.DataSet is not { CalcSupported: false })
+{
 <label class="form-label" for="cmd-input">コマンド <Help Title="コマンド欄">Enter か「実行」でボットと同じ結果が返ります。接頭辞を省略すると選択中のゲーム（!@(App.CommandPrefix)）として実行します。オプション（努力値・性格・持ち物・急所など）は末尾に続けて書けます。</Help></label>
 <div class="input-group mb-2">
     <input id="cmd-input" class="form-control" placeholder="!@(App.CommandPrefix) dmg ガブリアス じしん リザードン" value="@s.Input" @oninput="OnInput" @onkeydown="OnKeyDown" />
@@ -197,6 +200,7 @@ else if (data is not null)
         </ul>
     </div>
 </div>
+}
 
 @code {
     public sealed class State
