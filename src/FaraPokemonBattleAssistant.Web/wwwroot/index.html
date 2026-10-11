@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja" data-bs-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pokémon Battle Assistant</title>
+    <base href="/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="FaraPokemonBattleAssistant.Web.styles.css" rel="stylesheet" />
+    <script>
+        // 読み込み中の画面でもテーマを合わせる（保存済みの設定を先に反映する）
+        try {
+            // 名前を変える前のキー（fara-pokemon-assistance.*）の設定・登録ポケモンは引き継がずに削除する
+            localStorage.removeItem("fara-pokemon-assistance.settings");
+            localStorage.removeItem("fara-pokemon-assistance.roster");
+            var s = JSON.parse(localStorage.getItem("fara-pokemon-battle-assistant.settings") || "{}");
+            if (s.Theme === "dark") document.documentElement.setAttribute("data-bs-theme", "dark");
+        } catch (e) { }
+    </script>
+</head>
+<body>
+    <div id="app">
+        <div class="loading-screen">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p>読み込み中...</p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        エラーが発生しました。ページを再読み込みしてください。
+        <a href="" class="reload">再読み込み</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <script>
+        // 検索付きセレクトで、選択中の候補が見えるところまでスクロールする
+        window.faraScrollIntoView = function (id) { var el = document.getElementById(id); if (el) el.scrollIntoView({ block: "nearest" }); };
+        // 検索付きセレクトの ↑↓・Enter で、ページのスクロールなどを起こさない。
+        // Blazor の @onkeydown:preventDefault は前回の描画時の値で決まり、次のキーに効いてしまうので、ここで止める
+        document.addEventListener("keydown", function (e) {
+            if ((e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") && e.target.closest && e.target.closest(".searchable-select")) e.preventDefault();
+        }, true);
+        // 無効にした項目（aria-disabled="true"。未対応の世代のメニューなど）は、クリック・中クリック・タップ・Enter で何も起こさない
+        ["click", "auxclick", "mousedown", "mouseup", "keydown"].forEach(function (type) {
+            document.addEventListener(type, function (e) {
+                if (type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+                if (type.indexOf("mouse") === 0 && e.button !== 1) return; // 中クリックの自動スクロール・新しいタブを止める
+                var el = e.target.closest && e.target.closest('[aria-disabled="true"]');
+                if (!el) return;
+                e.preventDefault();
+                e.stopPropagation();
+            }, true);
+        });
+    </script>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+</html>

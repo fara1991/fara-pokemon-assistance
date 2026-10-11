@@ -15,18 +15,18 @@ C:\repos\fara-pokemon-battle-assistant\
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\fara-pokemon-battle-assistant\src\FaraPokemonAssistance.Core\FaraPokemonAssistance.Core.csproj" />
+  <ProjectReference Include="..\fara-pokemon-battle-assistant\src\FaraPokemonBattleAssistant.Core\FaraPokemonBattleAssistant.Core.csproj" />
 </ItemGroup>
 ```
 
 ### 方法 B: NuGet パッケージ
 
-`build.yml` が `FaraPokemonAssistance.Core.<version>.nupkg` を Actions の成果物として出力します。
+`build.yml` が `FaraPokemonBattleAssistant.Core.<version>.nupkg` を Actions の成果物として出力します。
 ローカルフォルダをパッケージソースに追加して参照してください。
 
 ```powershell
 dotnet nuget add source C:\packages --name local
-dotnet add package FaraPokemonAssistance.Core --source local
+dotnet add package FaraPokemonBattleAssistant.Core --source local
 ```
 
 ## 2. 起動時に DataCatalog と登録データを用意する
@@ -34,9 +34,9 @@ dotnet add package FaraPokemonAssistance.Core --source local
 データは https://pokemon.fara-labs.com/ に公開された CSV を使い、1 日キャッシュします。取り直しに失敗したとき（回線断・タイムアウト）は古いキャッシュで続行します。登録したポケモン・チームはローカルの JSON に保存します。
 
 ```csharp
-using FaraPokemonAssistance.Core.Data;
-using FaraPokemonAssistance.Core.Roster;
-using FaraPokemonAssistance.Core.Text;
+using FaraPokemonBattleAssistant.Core.Data;
+using FaraPokemonBattleAssistant.Core.Roster;
+using FaraPokemonBattleAssistant.Core.Text;
 
 public sealed class PokemonAssistService
 {
@@ -98,8 +98,8 @@ private async void TwitchClientOnMessageReceived(object? sender, OnMessageReceiv
 ボットに組み込む前に、同じ文字列をターミナルやブラウザで試せます。
 
 ```bash
-dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコフィールド"
-dotnet run --project src/FaraPokemonAssistance.Cli -- --data https://pokemon.fara-labs.com/data/ "!pokesv diff ガブリアス ハバタクカミ"
+dotnet run --project src/FaraPokemonBattleAssistant.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコフィールド"
+dotnet run --project src/FaraPokemonBattleAssistant.Cli -- --data https://pokemon.fara-labs.com/data/ "!pokesv diff ガブリアス ハバタクカミ"
 ```
 
 ブラウザ: https://pokemon.fara-labs.com/command

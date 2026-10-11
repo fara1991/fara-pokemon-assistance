@@ -12,7 +12,7 @@ Usage
   python tools/sync_data.py --skip-home     # only PokeAPI data
   python tools/sync_data.py --only Champions
 
-Output goes to src/FaraPokemonAssistance.Web/wwwroot/data/<Key>/*.csv.
+Output goes to src/FaraPokemonBattleAssistant.Web/wwwroot/data/<Key>/*.csv.
 Hand-maintained inputs live next to this script: datasets.json, item_effects.csv.
 """
 from __future__ import annotations
@@ -31,12 +31,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS = Path(__file__).resolve().parent
-OUT_ROOT = ROOT / "src" / "FaraPokemonAssistance.Web" / "wwwroot" / "data"
+OUT_ROOT = ROOT / "src" / "FaraPokemonBattleAssistant.Web" / "wwwroot" / "data"
 POKEAPI_CSV = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/"
 SPRITE_URL = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{id}.png"
 HOME_LIST_URL = "https://api.battle.pokemon-home.com/tt/cbd/competition/rankmatch/list"
 HOME_RESOURCE_URL = "https://resource.pokemon-home.com/battledata/ranking/{resource}/{cid}/{rst}/{ts2}"
-USER_AGENT = "FaraPokemonAssistance/1.0 (+https://github.com/fara1991/fara-pokemon-battle-assistant)"
+USER_AGENT = "FaraPokemonBattleAssistant/1.0 (+https://github.com/fara1991/fara-pokemon-battle-assistant)"
 
 LANG_JA = "11"        # ja (kanji/kana)
 LANG_JA_HRKT = "1"    # ja-hrkt fallback

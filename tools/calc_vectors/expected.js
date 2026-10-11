@@ -1,7 +1,7 @@
 // 昔の世代のダメージ計算の期待値を、公開されているダメージ計算ツール（@smogon/calc）で付ける。
 //
 //   npm i --no-save @smogon/calc@0.12.0
-//   node tools/calc_vectors/expected.js scenarios.json > tests/FaraPokemonAssistance.Core.Tests/Data/calc_vectors.json
+//   node tools/calc_vectors/expected.js scenarios.json > tests/FaraPokemonBattleAssistant.Core.Tests/Data/calc_vectors.json
 //
 // make_scenarios.py が作った条件を読み、サイトのデータとツールのデータ（種族値・タイプ・技の威力など）が
 // 一致する条件だけを残して、乱数 16 通りのダメージを expected に入れる。データが違う条件や、
@@ -12,7 +12,7 @@ const path = require('path');
 const { calculate, Generations, Pokemon, Move, Field } = require('@smogon/calc');
 
 const root = path.resolve(__dirname, '..', '..');
-const dataDir = path.join(root, 'src', 'FaraPokemonAssistance.Web', 'wwwroot', 'data');
+const dataDir = path.join(root, 'src', 'FaraPokemonBattleAssistant.Web', 'wwwroot', 'data');
 const toID = (s) => ('' + s).toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 function readCsv(file) {

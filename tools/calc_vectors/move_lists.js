@@ -1,7 +1,7 @@
 // 技ごとの「ちからずくで威力が上がる」「すてみ（反動技）で威力が上がる」の期待値を、公開されているダメージ計算ツール（@smogon/calc）から作る。
 //
 //   npm i --no-save @smogon/calc@0.12.0
-//   node tools/calc_vectors/move_lists.js <PokeAPI CSV のキャッシュ> > tests/FaraPokemonAssistance.Core.Tests/Data/move_lists.json
+//   node tools/calc_vectors/move_lists.js <PokeAPI CSV のキャッシュ> > tests/FaraPokemonBattleAssistant.Core.Tests/Data/move_lists.json
 //
 // データセットごとに、サイトの技（PokeAPI の識別子で対応付け）のうちツールにも同じ技があるものを known に入れ、
 // そのうち追加効果がある技を sheerForce、反動技（はずすと自分がダメージを受ける技を含む）を recoil に入れる。
@@ -11,7 +11,7 @@ const path = require('path');
 const { Generations } = require('@smogon/calc');
 
 const root = path.resolve(__dirname, '..', '..');
-const dataDir = path.join(root, 'src', 'FaraPokemonAssistance.Web', 'wwwroot', 'data');
+const dataDir = path.join(root, 'src', 'FaraPokemonBattleAssistant.Web', 'wwwroot', 'data');
 const toID = (s) => ('' + s).toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 function readCsv(file) {

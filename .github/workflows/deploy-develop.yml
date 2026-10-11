@@ -39,7 +39,7 @@ jobs:
       - run: npm ci
 
       - name: Publish Blazor WebAssembly
-        run: dotnet publish src/FaraPokemonAssistance.Web --configuration Release --output publish
+        run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --output publish
 
       # 確認用サイトが検索結果に載らないようにする
       - name: Add noindex header
