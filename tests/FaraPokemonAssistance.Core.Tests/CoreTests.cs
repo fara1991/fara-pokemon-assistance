@@ -1203,3 +1203,131 @@ public class ModernAbilityTests
         Assert.Equal(2.0, hurt.TypeEffectiveness);
     }
 }
+
+/// <summary>技ごとの効果（@smogon/calc との一致は CalcVectorTests でも確かめている）。</summary>
+public class MoveEffectTests
+{
+    private static async Task<(PokemonDataSet Data, FaraPokemonAssistance.Core.Battle.DamageCalculator Calc)> Load(string key = "Gen9")
+    {
+        var data = await TestData.Catalog().GetDataSetAsync(key);
+        return (data, new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation));
+    }
+
+    private static PokemonBuild P(PokemonDataSet data, string name, string? ability = null)
+    {
+        var p = data.Pokemon.First(x => x.Name == name);
+        return new PokemonBuild(p, data.Info.EvSystem) { Ability = ability is null ? null : data.AbilitiesOf(p).FirstOrDefault(a => a.Identifier == ability) ?? data.Abilities.First(a => a.Identifier == ability) };
+    }
+
+    private static Move M(PokemonDataSet data, string name) => data.Moves.First(m => m.Name == name);
+
+    [Fact]
+    public async Task Weather_ball_and_terrain_pulse_change_type_and_double_power()
+    {
+        var (data, calc) = await Load();
+        var attacker = P(data, "ペリッパー");
+        var defender = P(data, "ナッシー");
+        var sun = calc.Calculate(new DamageRequest { Attacker = attacker, Move = M(data, "ウェザーボール"), Defender = defender, Weather = Weather.Sun });
+        Assert.Equal("Fire", sun.MoveType);
+        Assert.Equal(100, sun.BasePower);
+        var plain = calc.Calculate(new DamageRequest { Attacker = attacker, Move = M(data, "ウェザーボール"), Defender = defender });
+        Assert.Equal("Normal", plain.MoveType);
+        Assert.Equal(50, plain.BasePower);
+        var pulse = calc.Calculate(new DamageRequest { Attacker = P(data, "イエッサン(♂)"), Move = M(data, "だいちのはどう"), Defender = defender, Terrain = Terrain.Psychic });
+        Assert.Equal("Psychic", pulse.MoveType);
+    }
+
+    [Fact]
+    public async Task Hex_doubles_against_status_and_multi_hit_moves_add_up()
+    {
+        var (data, calc) = await Load();
+        var gengar = P(data, "ゲンガー");
+        var target = P(data, "カビゴン");
+        var hex = M(data, "たたりめ");
+        Assert.Equal(65, calc.Calculate(new DamageRequest { Attacker = gengar, Move = hex, Defender = P(data, "ゲンガー") }).BasePower);
+        var burned = P(data, "ゲンガー");
+        burned.Status = StatusCondition.Burn;
+        Assert.Equal(130, calc.Calculate(new DamageRequest { Attacker = gengar, Move = hex, Defender = burned }).BasePower);
+
+        // 2〜5 回の技は 3 回、スキルリンクは 5 回
+        var cloyster = P(data, "パルシェン", "shell-armor");
+        var icicle = M(data, "つららばり");
+        var three = calc.Calculate(new DamageRequest { Attacker = cloyster, Move = icicle, Defender = target });
+        Assert.Equal(3, three.Hits);
+        var link = P(data, "パルシェン", "skill-link");
+        var five = calc.Calculate(new DamageRequest { Attacker = link, Move = icicle, Defender = target });
+        Assert.Equal(5, five.Hits);
+        Assert.Equal(three.Rolls[0] / 3 * 5, five.Rolls[0]);
+        // トリプルアクセルは 20・40・60
+        var axel = calc.Calculate(new DamageRequest { Attacker = P(data, "ウェーニバル"), Move = M(data, "トリプルアクセル"), Defender = target });
+        Assert.Equal(3, axel.Hits);
+    }
+
+    [Fact]
+    public async Task Foul_play_body_press_and_sacred_sword_use_the_right_stats()
+    {
+        var (data, calc) = await Load();
+        var attacker = P(data, "ヤミラミ");
+        var strong = P(data, "ルカリオ");
+        strong.EVs = new StatSet { Attack = 252 };
+        strong.Boosts[Stat.Attack] = 2;
+        var foul = calc.Calculate(new DamageRequest { Attacker = attacker, Move = M(data, "イカサマ"), Defender = strong });
+        Assert.Equal(StatCalculator.ApplyBoost(StatCalculator.Calculate(strong, Stat.Attack), 2), foul.AttackStat);
+
+        var corviknight = P(data, "アーマーガア");
+        corviknight.EVs = new StatSet { Defense = 252 };
+        var press = calc.Calculate(new DamageRequest { Attacker = corviknight, Move = M(data, "ボディプレス"), Defender = strong });
+        Assert.Equal(StatCalculator.Calculate(corviknight, Stat.Defense), press.AttackStat);
+
+        var wall = P(data, "ルカリオ");
+        wall.Boosts[Stat.Defense] = 6;
+        var sword = calc.Calculate(new DamageRequest { Attacker = P(data, "コバルオン"), Move = M(data, "せいなるつるぎ"), Defender = wall });
+        Assert.Equal(StatCalculator.Calculate(wall, Stat.Defense), sword.DefenseStat);
+    }
+
+    [Fact]
+    public async Task Always_crit_screens_psychic_terrain_and_meteor_beam()
+    {
+        var (data, calc) = await Load();
+        var target = P(data, "カビゴン");
+        var crit = calc.Calculate(new DamageRequest { Attacker = P(data, "マスカーニャ"), Move = M(data, "トリックフラワー"), Defender = target });
+        Assert.Contains(crit.Modifiers, m => m.StartsWith("急所"));
+
+        var lucario = P(data, "ルカリオ");
+        var brick = calc.Calculate(new DamageRequest { Attacker = lucario, Move = M(data, "かわらわり"), Defender = target, Reflect = true });
+        Assert.DoesNotContain(brick.Modifiers, m => m.StartsWith("リフレクター"));
+        Assert.Contains(brick.Modifiers, m => m.Contains("壁を壊す"));
+
+        // サイコショックは特殊技なので、効く壁はひかりのかべ
+        var alakazam = P(data, "ヤミラミ");
+        var psyshock = M(data, "サイコショック");
+        Assert.DoesNotContain(calc.Calculate(new DamageRequest { Attacker = alakazam, Move = psyshock, Defender = target, Reflect = true }).Modifiers, m => m.StartsWith("リフレクター"));
+        Assert.Contains(calc.Calculate(new DamageRequest { Attacker = alakazam, Move = psyshock, Defender = target, LightScreen = true }).Modifiers, m => m.StartsWith("ひかりのかべ"));
+
+        // サイコフィールドでは地面にいる相手に先制技が出ない
+        var blocked = calc.Calculate(new DamageRequest { Attacker = lucario, Move = M(data, "しんそく"), Defender = target, Terrain = Terrain.Psychic });
+        Assert.Equal(0, blocked.MaxDamage);
+
+        var meteor = calc.Calculate(new DamageRequest { Attacker = P(data, "ジャラランガ"), Move = M(data, "メテオビーム"), Defender = target });
+        Assert.Contains(meteor.Modifiers, m => m.Contains("特攻+1"));
+    }
+
+    [Fact]
+    public async Task Knock_off_is_not_boosted_by_items_that_cannot_be_removed()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var plate = data.Items.First(i => i.Id == 275);       // ひのたまプレート
+        var booster = data.Items.First(i => i.Id == 1696);    // ブーストエナジー
+        var arceus = new PokemonBuild(data.Pokemon.First(p => p.SpeciesId == 493));
+        var other = new PokemonBuild(data.Pokemon.First(p => p.Name == "カビゴン"));
+        Assert.False(MoveEffects.KnockOffBoosted(plate, arceus));
+        Assert.True(MoveEffects.KnockOffBoosted(plate, other));
+        Assert.False(MoveEffects.KnockOffBoosted(null, other));
+        var paradox = data.Pokemon.First(p => p.Name == "ハバタクカミ");
+        var flutter = new PokemonBuild(paradox) { Ability = data.AbilitiesOf(paradox).First(a => a.Identifier == "protosynthesis") };
+        Assert.False(MoveEffects.KnockOffBoosted(booster, flutter));
+        Assert.True(MoveEffects.KnockOffBoosted(booster, other));
+        var z = new Item { Id = 817, Name = "ノーマルZ" };
+        Assert.False(MoveEffects.KnockOffBoosted(z, other));
+    }
+}

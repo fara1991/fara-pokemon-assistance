@@ -85,7 +85,8 @@ internal sealed partial class LegacyDamageCalculator
         // --- 技タイプ（スキン系・ノーマルスキン）
         var moveType = move.Type;
         var hasAte = false;
-        if (!isZ)
+        // ウェザーボールはスキン系特性でタイプが変わらない
+        if (!isZ && move.Id != MoveEffects.MoveIdWeatherBall)
         {
             var skin = SkinType(atkAbility);
             if (skin is not null && moveType == "Normal")
@@ -152,10 +153,12 @@ internal sealed partial class LegacyDamageCalculator
                 attackerItem, defenderItem, basePower, terrain, weather, attackerGrounded, defenderGrounded, modifiers);
         basePower = Math.Max(1, DamageCalculator.PokeRound(basePower * (double)Chain(bpMods, 41, 2097152) / 4096));
 
-        // --- 攻撃側の実数値
+        // --- 攻撃側の実数値（イカサマは相手の攻撃とランク）
         var attackStatKind = move.AttackStatUsed;
-        var attack = StatCalculator.Calculate(attacker, attackStatKind);
-        var attackBoost = attacker.Boosts[attackStatKind];
+        var attackSource = !isZ && move.Id == MoveEffects.MoveIdFoulPlay ? defender : attacker;
+        if (attackSource != attacker) modifiers.Add($"{move.Name}(相手の攻撃で計算)");
+        var attack = StatCalculator.Calculate(attackSource, attackStatKind);
+        var attackBoost = attackSource.Boosts[attackStatKind];
         if (attackBoost != 0 && !(isCritical && attackBoost < 0))
         {
             if (defAbility == "unaware") modifiers.Add($"{defName}(ランク無視)");
@@ -182,6 +185,11 @@ internal sealed partial class LegacyDamageCalculator
         if (move.UsesPhysicalDefense && !isZ) modifiers.Add($"{move.Name}(相手の防御で計算)");
         var defense = StatCalculator.Calculate(defender, defenseStatKind);
         var defenseBoost = defender.Boosts[defenseStatKind];
+        if (defenseBoost != 0 && !isZ && MoveEffects.IgnoresDefenseBoosts(move))
+        {
+            modifiers.Add($"{move.Name}(相手のランク変化を無視)");
+            defenseBoost = 0;
+        }
         if (defenseBoost != 0 && !(isCritical && defenseBoost > 0))
         {
             if (atkAbility == "unaware") modifiers.Add($"{atkName}(ランク無視)");
@@ -261,6 +269,7 @@ internal sealed partial class LegacyDamageCalculator
         return new DamageResult
         {
             Rolls = rolls,
+            LaterRolls = laterRolls,
             DefenderHP = defenderHp,
             TypeEffectiveness = effectiveness,
             IsStab = stab != 4096,
@@ -336,6 +345,10 @@ internal sealed partial class LegacyDamageCalculator
 
         if (move.Id == MoveIdFacade && attacker.Status is StatusCondition.Burn or StatusCondition.Paralysis or StatusCondition.Poison or StatusCondition.BadlyPoisoned)
             Add(8192, "からげんき(状態異常で2倍)");
+        else if (move.Id == MoveEffects.MoveIdBrine && defender.CurrentHp * 2 <= defender.MaxHp)
+            Add(8192, "しおみず(相手のHPが半分以下で2倍)");
+        else if (move.Id == MoveEffects.MoveIdVenoshock && defender.Status is StatusCondition.Poison or StatusCondition.BadlyPoisoned)
+            Add(8192, "ベノムショック(相手がどくで2倍)");
         else if (_gen > 5 && move.Id == MoveIdKnockOff && MoveEffects.KnockOffBoosted(defenderItem, defender)) Add(6144, "はたきおとす(持ち物があるので1.5倍)");
         else if (move.Id == MoveIdSolarBeam && weather is Weather.Rain or Weather.Sand or Weather.Snow) Add(2048, $"{move.Name}({FieldNames.Japanese(weather, _gen)}で0.5倍)");
 
@@ -363,6 +376,10 @@ internal sealed partial class LegacyDamageCalculator
 
         if (moveId == MoveIdFacade && attacker.Status is StatusCondition.Burn or StatusCondition.Paralysis or StatusCondition.Poison or StatusCondition.BadlyPoisoned)
             Add(8192, "からげんき(状態異常で2倍)");
+        else if (moveId == MoveEffects.MoveIdBrine && defender.CurrentHp * 2 <= defender.MaxHp)
+            Add(8192, "しおみず(相手のHPが半分以下で2倍)");
+        else if (moveId == MoveEffects.MoveIdVenoshock && defender.Status is StatusCondition.Poison or StatusCondition.BadlyPoisoned)
+            Add(8192, "ベノムショック(相手がどくで2倍)");
         else if (moveId == MoveIdKnockOff && MoveEffects.KnockOffBoosted(defenderItem, defender)) Add(6144, "はたきおとす(持ち物があるので1.5倍)");
         else if (moveId is MoveIdSolarBeam or MoveIdSolarBlade && weather is Weather.Rain or Weather.Sand or Weather.Snow)
             Add(2048, $"{move.Name}({FieldNames.Japanese(weather, _gen)}で0.5倍)");

@@ -9,10 +9,170 @@ namespace FaraPokemonAssistance.Core.Battle;
 public static class MoveEffects
 {
     private const int MoveIdRapidSpin = 229;
+    public const int MoveIdWeatherBall = 311;
+    public const int MoveIdTerrainPulse = 805;
+    public const int MoveIdFoulPlay = 492;
+    public const int MoveIdBodyPress = 776;
+    public const int MoveIdBrine = 362;
+    public const int MoveIdVenoshock = 474;
+    public const int MoveIdHex = 506;
+    public const int MoveIdInfernalParade = 844;
+    public const int MoveIdBarbBarrage = 839;
+    public const int MoveIdMeteorBeam = 800;
+    public const int MoveIdElectroShot = 905;
+    public const int MoveIdRagingBull = 873;
+    public const int MoveIdBrickBreak = 280;
+    public const int MoveIdPsychicFangs = 706;
+    public const int MoveIdCollisionCourse = 878;
+    public const int MoveIdElectroDrift = 879;
+    public const int MoveIdTripleKick = 167;
+    public const int MoveIdTripleAxel = 813;
 
-    /// <summary>はたきおとすの威力が上がるか（相手が持ち物を持っていて、それが自分のメガストーンではない）。</summary>
-    public static bool KnockOffBoosted(Item? item, PokemonBuild defender) =>
-        item is not null && !(item.IsMegaStone && item.MegaSpeciesId == defender.Pokemon.SpeciesId);
+    /// <summary>連続技の回数が決まっている技（ID → 回数）。</summary>
+    private static readonly Dictionary<int, int> FixedHits = new()
+    {
+        [24] = 2, [41] = 2, [155] = 2, [458] = 2, [530] = 2, [544] = 2, [742] = 2, [751] = 2, [814] = 2, [888] = 2, [911] = 2,
+        [167] = 3, [813] = 3, [818] = 3, [865] = 3,
+        [860] = 10,
+    };
+
+    /// <summary>2〜5 回当たる連続技。</summary>
+    private static readonly HashSet<int> TwoToFiveHits = new() { 3, 4, 31, 42, 131, 140, 154, 198, 292, 331, 333, 350, 541, 594, 799 };
+
+    /// <summary>2〜5 回当たる技か（回数は <see cref="HitCount"/> で決める）。</summary>
+    public static bool HitsTwoToFive(Move move) => TwoToFiveHits.Contains(move.Id);
+
+    /// <summary>
+    /// 連続技の回数（連続技でなければ 1）。2〜5 回の技は 3 回（スキルリンクは 5 回）とする（@smogon/calc の既定と同じ）。
+    /// トリプルキック・トリプルアクセルは 3 回（1 回ごとに威力が上がる。<see cref="PowerForHit"/>）、ネズミざんは 10 回。
+    /// </summary>
+    public static int HitCount(Move move, string? attackerAbility)
+    {
+        if (FixedHits.TryGetValue(move.Id, out var hits)) return hits;
+        if (TwoToFiveHits.Contains(move.Id)) return attackerAbility == "skill-link" ? 5 : 3;
+        return 1;
+    }
+
+    /// <summary>連続技の <paramref name="hit"/> 回目の威力（トリプルキックは 10・20・30、トリプルアクセルは 20・40・60）。</summary>
+    public static int PowerForHit(Move move, int hit) => move.Id switch
+    {
+        MoveIdTripleKick => 10 * hit,
+        MoveIdTripleAxel => 20 * hit,
+        _ => move.Power,
+    };
+
+    /// <summary>必ず急所に当たる技か（やまあらし・こおりのいぶき（第 5 世代から）、あんこくきょうだ・すいりゅうれんだ（第 8 世代から）、トリックフラワー）。</summary>
+    public static bool AlwaysCrits(Move move, int generation) => move.Id switch
+    {
+        480 or 524 => generation >= 5,
+        729 => generation == 7,
+        817 or 818 => generation >= 8,
+        870 => generation >= 9,
+        _ => false,
+    };
+
+    /// <summary>相手の防御・特防のランク変化を無視する技（せいなるつるぎ・DDラリアット・なしくずし）。</summary>
+    public static bool IgnoresDefenseBoosts(Move move) => move.Id is 498 or 533 or 663;
+
+    /// <summary>壁（リフレクター・ひかりのかべ・オーロラベール）を壊してから攻撃する技（かわらわり・サイコファング・レイジングブル）。</summary>
+    public static bool BreaksScreens(Move move, int generation) =>
+        move.Id == MoveIdBrickBreak || move.Id == MoveIdPsychicFangs && generation >= 7 || move.Id == MoveIdRagingBull;
+
+    /// <summary>ウェザーボールの、天候でのタイプ（天候なしなら null）。</summary>
+    public static string? WeatherBallType(Weather weather) => weather switch
+    {
+        Weather.Sun => "Fire",
+        Weather.Rain => "Water",
+        Weather.Sand => "Rock",
+        Weather.Snow => "Ice",
+        _ => null,
+    };
+
+    /// <summary>だいちのはどうの、フィールドでのタイプ（フィールドなしなら null）。</summary>
+    public static string? TerrainPulseType(Terrain terrain) => terrain switch
+    {
+        Terrain.Electric => "Electric",
+        Terrain.Grassy => "Grass",
+        Terrain.Psychic => "Psychic",
+        Terrain.Misty => "Fairy",
+        _ => null,
+    };
+
+    /// <summary>レイジングブルのタイプ（パルデアのケンタロスはすがたで変わる）。</summary>
+    public static string RagingBullType(Pokemon attacker, string moveType) => attacker.Id switch
+    {
+        10250 => "Fighting",
+        10251 => "Fire",
+        10252 => "Water",
+        _ => moveType,
+    };
+
+    /// <summary>相手の状態異常で威力が 2 倍になる技（たたりめ・たたりびは状態異常のとき、どくばりセンボンはどく・もうどくのとき）。</summary>
+    public static bool DoublesAgainstStatus(Move move, StatusCondition defenderStatus) => move.Id switch
+    {
+        MoveIdHex or MoveIdInfernalParade => defenderStatus != StatusCondition.None,
+        MoveIdBarbBarrage => defenderStatus is StatusCondition.Poison or StatusCondition.BadlyPoisoned,
+        _ => false,
+    };
+
+    /// <summary>溜めるときに特攻が 1 段階上がる技（メテオビーム・エレクトロビーム）。</summary>
+    public static bool RaisesSpAttackFirst(Move move) => move.Id is MoveIdMeteorBeam or MoveIdElectroShot;
+
+    /// <summary>タイプ・威力・分類だけを変えた技の複製。</summary>
+    public static Move With(Move move, string? type = null, int? power = null, MoveCategory? category = null) => new()
+    {
+        Id = move.Id,
+        Name = move.Name,
+        Type = type ?? move.Type,
+        Power = power ?? move.Power,
+        Accuracy = move.Accuracy,
+        PP = move.PP,
+        Category = category ?? move.Category,
+        Target = move.Target,
+        Priority = move.Priority,
+        Flags = move.Flags,
+        EffectChance = move.EffectChance,
+        Description = move.Description,
+    };
+
+    /// <summary>
+    /// はたきおとすの威力が上がるか。相手が持ち物を持っていて、それが はたきおとせる 持ち物のときだけ 1.5 倍
+    /// （はたきおとせない持ち物: Z クリスタル、自分のメガストーン、アルセウスのプレート、シルヴァディのメモリ、ゲノセクトのカセット、
+    /// ゲンシカイキの珠、ギラティナ・ディアルガ・パルキアの専用の持ち物、くちたけん・くちたたて、オーガポンのめん、
+    /// こだいかっせい・クォークチャージのポケモンのブーストエナジー）。
+    /// </summary>
+    public static bool KnockOffBoosted(Item? item, PokemonBuild defender)
+    {
+        if (item is null) return false;
+        var species = defender.Pokemon.SpeciesId;
+        if (item.IsMegaStone && item.MegaSpeciesId == species) return false;
+        if (ZCrystals.Contains(item.Id)) return false;
+        return item.Id switch
+        {
+            >= 275 and <= 290 or 684 or 1662 or 1664 => species != 493, // プレート（アルセウス）
+            >= 902 and <= 918 => species != 773,                         // メモリ（シルヴァディ）
+            >= 563 and <= 566 => species != 649,                         // カセット（ゲノセクト）
+            467 => species != 383,                                       // べにいろのたま（グラードン）
+            468 => species != 382,                                       // あいいろのたま（カイオーガ）
+            442 or 1661 => species != 487,                               // はっきんだま・だいはっきんだま（ギラティナ）
+            1659 => species != 483,                                      // だいこんごうだま（ディアルガ）
+            1660 => species != 484,                                      // だいしらたま（パルキア）
+            1161 => species != 888,                                      // くちたけん（ザシアン）
+            1162 => species != 889,                                      // くちたたて（ザマゼンタ）
+            2106 or 2107 or 2108 => species != 1017,                     // めん（オーガポン）
+            ItemIdBoosterEnergy => defender.Ability?.Identifier is not ("protosynthesis" or "quark-drive"),
+            _ => true,
+        };
+    }
+
+    private const int ItemIdBoosterEnergy = 1696;
+
+    /// <summary>Z クリスタル（持たせたポケモンからは はたきおとせない）。</summary>
+    private static readonly HashSet<int> ZCrystals = new()
+    {
+        817, 818, 819, 820, 821, 822, 823, 824, 825, 826, 827, 828, 829, 830, 831, 832, 833, 834, 835,
+        839, 840, 841, 842, 843, 844, 845, 846, 847, 877, 967, 968, 969, 970, 971, 972, 993,
+    };
 
     /// <summary>
     /// ちからずくで威力が上がる技か。基本は「追加効果がある技」（技データの追加効果の確率）だが、

@@ -304,6 +304,7 @@ internal sealed partial class LegacyDamageCalculator
             return new DamageResult
             {
                 Rolls = rolls,
+                LaterRolls = laterRolls,
                 DefenderHP = defenderHp,
                 TypeEffectiveness = eff,
                 IsStab = stab,
