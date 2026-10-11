@@ -469,9 +469,16 @@ public static class TypeNames
         ["Steel"] = "はがね", ["Fairy"] = "フェアリー",
     };
 
+    /// <summary>
+    /// タイプ「？？？」。第 2〜4 世代の のろい だけがこのタイプ（どのタイプにも等倍、タイプ一致にならない）。
+    /// タイプ相性表・タイプの一覧（<see cref="All"/>）には入れない。
+    /// </summary>
+    public const string Unknown = "???";
+
+    /// <summary>18 タイプ（「？？？」は含まない）。</summary>
     public static IReadOnlyCollection<string> All => Japanese.Keys;
 
-    public static string ToJapanese(string type) => Japanese.GetValueOrDefault(type, type);
+    public static string ToJapanese(string type) => type == Unknown ? "？？？" : Japanese.GetValueOrDefault(type, type);
 
     public static string? FromJapanese(string text)
     {

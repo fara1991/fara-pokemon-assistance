@@ -171,6 +171,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 171,あくむ,Ghost,0,100,15,Status,Single,0,,0,この技は 使えません 思い出すことが できなくなりますが 技を 忘れることを おすすめします
 172,かえんぐるま,Fire,60,100,25,Physical,Single,0,Contact,10,炎を まとい 相手に 突進して 攻撃する。 やけど状態に することが ある。
 173,いびき,Normal,40,100,15,Special,Single,0,Sound,30,自分が 寝ているときに 雑音を だして 攻撃する。 相手を ひるませることが ある。
+174,のろい,???,0,0,10,Status,Single,0,,0,使う ポケモンが ゴーストタイプと それ以外 とでは 効果が 変わる。
 175,じたばた,Normal,0,100,15,Physical,Single,0,Contact,0,じたばた 暴れて 攻撃する。 自分の ＨＰが 少ないほど 技の 威力は あがる。
 176,テクスチャー２,Normal,0,0,30,Status,Single,0,,0,相手が 最後に 使った技に 抵抗できる ように 自分の タイプを 変化させる。
 177,エアロブラスト,Flying,100,95,5,Special,Single,0,,0,空気の 渦を 発射して 攻撃する。 急所に 当たりやすい。
