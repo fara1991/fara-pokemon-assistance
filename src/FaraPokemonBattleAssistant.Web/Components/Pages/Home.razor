@@ -91,8 +91,9 @@
         nextUpdate = FormatJst(NextUpdateUtc(DateTime.UtcNow));
         try
         {
-            var text = (await Http.GetStringAsync("data/updated.txt")).Trim();
-            lastUpdated = DateTime.TryParse(text, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var dt)
+            // データと同じ読み方にする（ファイルが無いと SPA のフォールバックで index.html が 200 で返るため）
+            var text = (await new HttpDataSource(Http, "data/").ReadTextAsync("updated.txt"))?.Trim();
+            lastUpdated = string.IsNullOrEmpty(text) ? "不明" : DateTime.TryParse(text, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var dt)
                 ? FormatJst(dt)
                 : text;
         }

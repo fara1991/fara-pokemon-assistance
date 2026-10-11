@@ -50,7 +50,22 @@ public sealed class HttpDataSource : IDataSource
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             return null;
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        // 公開サイトは SPA 設定（not_found_handling: single-page-application）なので、
+        // 存在しないファイルにも 200 で index.html が返る。HTML はデータとして扱わず「無い」とみなす。
+        if (string.Equals(response.Content.Headers.ContentType?.MediaType, "text/html", StringComparison.OrdinalIgnoreCase))
+            return null;
+        var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        return LooksLikeHtml(text) ? null : text;
+    }
+
+    /// <summary>
+    /// 本文が HTML 文書（SPA のフォールバックの index.html など）に見えるか。データファイル（CSV・テキスト）は <c>&lt;</c> で始まらない。
+    /// </summary>
+    public static bool LooksLikeHtml(string text)
+    {
+        var t = text.AsSpan().TrimStart().TrimStart('\uFEFF').TrimStart();
+        return t.StartsWith("<!DOCTYPE", StringComparison.OrdinalIgnoreCase)
+            || t.StartsWith("<html", StringComparison.OrdinalIgnoreCase);
     }
 }
 
@@ -77,7 +92,13 @@ public sealed class CachingDataSource : IDataSource
         var missingMarker = cachePath + ".missing";
         var fresh = File.Exists(cachePath) && DateTime.UtcNow - File.GetLastWriteTimeUtc(cachePath) < _maxAge;
         if (fresh)
-            return await File.ReadAllTextAsync(cachePath, cancellationToken).ConfigureAwait(false);
+        {
+            var cached = await File.ReadAllTextAsync(cachePath, cancellationToken).ConfigureAwait(false);
+            // 以前の版が SPA のフォールバック（index.html）をデータとして保存していた場合は使わずに取り直す
+            if (!HttpDataSource.LooksLikeHtml(cached))
+                return cached;
+            fresh = false;
+        }
         if (File.Exists(missingMarker) && DateTime.UtcNow - File.GetLastWriteTimeUtc(missingMarker) < _maxAge)
             return null;
 
@@ -89,7 +110,10 @@ public sealed class CachingDataSource : IDataSource
         catch (Exception ex) when (IsTransient(ex, cancellationToken) && File.Exists(cachePath))
         {
             // ネットワーク断・HttpClient のタイムアウト（TaskCanceledException）などは古いキャッシュで続行する。
-            return await File.ReadAllTextAsync(cachePath, cancellationToken).ConfigureAwait(false);
+            var stale = await File.ReadAllTextAsync(cachePath, cancellationToken).ConfigureAwait(false);
+            if (HttpDataSource.LooksLikeHtml(stale))
+                throw;
+            return stale;
         }
 
         // 取得できたらキャッシュを更新する。書き込みに失敗しても取得した内容はそのまま返す。
@@ -99,6 +123,9 @@ public sealed class CachingDataSource : IDataSource
             if (text is null)
             {
                 await File.WriteAllTextAsync(missingMarker, string.Empty, cancellationToken).ConfigureAwait(false);
+                // 以前の版が保存した HTML などの古いキャッシュが残っていると、取り直し失敗時にそれを返してしまうので消す
+                if (File.Exists(cachePath))
+                    File.Delete(cachePath);
             }
             else
             {
