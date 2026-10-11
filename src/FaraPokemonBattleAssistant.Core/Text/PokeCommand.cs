@@ -120,9 +120,12 @@ public sealed class PokeCommand
         var args = tokens.Skip(1).ToList();
         var isTeam = args.Count > 0 && args[0].Equals("team", StringComparison.OrdinalIgnoreCase);
         if (isTeam) args.RemoveAt(0);
-        var data = await _catalog.GetDataSetAsync(ds.Key, ct).ConfigureAwait(false);
-        if (!ds.CalcSupported && sub is not ("cmd" or "cmds" or "commands" or "help" or "?" or "ヘルプ"))
+        // ヘルプと参照専用データセットの拒否はデータ本体を使わないので、データセットを読み込む前に返す
+        if (sub is "cmd" or "cmds" or "commands" or "help" or "?" or "ヘルプ")
+            return Ok(CommandList(await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false)));
+        if (!ds.CalcSupported)
             return Fail(NotCalcSupported(ds));
+        var data = await _catalog.GetDataSetAsync(ds.Key, ct).ConfigureAwait(false);
 
         switch (sub)
         {
@@ -139,8 +142,6 @@ public sealed class PokeCommand
             case "dmg" or "damage": return await DamageAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "calc" or "ev": return await CalcAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "diff" or "speed" or "spd": return await DiffAsync(ds, data, args, options, ct).ConfigureAwait(false);
-            case "cmd" or "cmds" or "commands" or "help" or "?" or "ヘルプ":
-                return Ok(CommandList(await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false)));
             default: return Fail($"不明なサブコマンド「{tokens[0]}」。{Usage(ds.CommandPrefix)}");
         }
     }
