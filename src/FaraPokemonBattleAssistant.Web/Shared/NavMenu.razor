@@ -64,12 +64,16 @@
         ("types", "タイプ相性表", false),
         ("pokedex", "ポケモン一覧", false),
         ("command", "チャットコマンド", true),
+        ("glossary", "用語・略語", false),
     };
 
-    // 計算・登録に対応していないゲーム（昔の世代）では、使えない項目を選べなくする
-    private bool CalcDisabled => App.DataSet is { CalcSupported: false };
+    // 計算・登録に対応していないゲーム（昔の世代）では、使えない項目を選べなくする。
+    // 設定を読み終えるまで（DataSet が決まるまで）も選べなくし、未対応のゲームで一瞬押せてしまうのを防ぐ
+    private bool CalcDisabled => App.DataSet is not { CalcSupported: true };
 
-    private string DisabledHint => $"{App.DataSet?.Name}は未対応です（ポケモン一覧とタイプ相性表のみ）";
+    private string DisabledHint => App.DataSet is null
+        ? "読み込み中です"
+        : $"{App.DataSet.Name}は未対応です（ポケモン一覧とタイプ相性表のみ）";
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 

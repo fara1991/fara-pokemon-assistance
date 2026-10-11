@@ -1,0 +1,66 @@
+@page "/glossary"
+
+<PageTitle>用語・略語 | Pokémon Battle Assistant</PageTitle>
+
+<div class="page-header">
+    <h3>用語・略語</h3>
+    <p class="text-muted mb-0">サイトとチャットコマンドで使っている略語と用語の意味です。</p>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">H・A・B・C・D・S（能力の略語）</h5>
+        <p class="card-text small">6 つの能力を 1 文字で表します。ポケモン一覧の種族値、登録したポケモンの努力値、チャットコマンドの <code>H252 A252 S4</code> などで使います。</p>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-2">
+                <thead><tr><th>略語</th><th>能力</th><th>関係するもの</th></tr></thead>
+                <tbody>
+                    <tr><th class="text-nowrap">H</th><td class="text-nowrap">HP</td><td>耐えられるダメージの量</td></tr>
+                    <tr><th class="text-nowrap">A</th><td class="text-nowrap">こうげき</td><td>物理技で与えるダメージ</td></tr>
+                    <tr><th class="text-nowrap">B</th><td class="text-nowrap">ぼうぎょ</td><td>物理技で受けるダメージ</td></tr>
+                    <tr><th class="text-nowrap">C</th><td class="text-nowrap">とくこう</td><td>特殊技で与えるダメージ</td></tr>
+                    <tr><th class="text-nowrap">D</th><td class="text-nowrap">とくぼう</td><td>特殊技で受けるダメージ</td></tr>
+                    <tr><th class="text-nowrap">S</th><td class="text-nowrap">すばやさ</td><td>行動する順番</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="card-text small mb-1">例: <code>H252 A252 S4</code> は、HP と こうげき に 252、すばやさ に 4 の努力値を振ったという意味です。0 の能力は書きません。</p>
+        <p class="card-text small text-muted mb-0">由来は HP・Attack・Block・Contact・Defense・Speed の頭文字とされています（B〜D は英語版の能力名とは一致しません）。</p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">能力値に関する用語</h5>
+        <dl class="row small mb-0">
+            <dt class="col-sm-3">種族値</dt>
+            <dd class="col-sm-9">ポケモンの種類ごとに決まっている能力の高さ。ポケモン一覧の数字がこれです。</dd>
+            <dt class="col-sm-3">個体値</dt>
+            <dd class="col-sm-9">同じ種類でも 1 匹ずつ違う能力の高さ（0〜31）。このサイトでは、指定しなければ 31 として計算します。</dd>
+            <dt class="col-sm-3">努力値</dt>
+            <dd class="col-sm-9">育て方で後から伸ばせる能力の高さ。1 つの能力に 252 まで、合計 510 まで振れます。ポケモンチャンピオンズでは代わりに「ポイント」（1 つの能力に 32 まで、合計 66 まで。1 ポイントで実数値 +1）を使い、<code>H32 A32 S2</code> のように書きます。</dd>
+            <dt class="col-sm-3">実数値</dt>
+            <dd class="col-sm-9">種族値・個体値・努力値・性格・レベルから計算した、実際の能力の数値。ダメージ計算にはこれを使います。</dd>
+            <dt class="col-sm-3">性格</dt>
+            <dd class="col-sm-9">1 つの能力を 1.1 倍、別の 1 つを 0.9 倍にします（例: ひかえめ は C が上がり A が下がる）。HP は変わりません。</dd>
+            <dt class="col-sm-3">ランク補正</dt>
+            <dd class="col-sm-9">つるぎのまい などで上がる・下がる能力の段階（-6〜+6）。<code>+1</code> は 1.5 倍です。</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">ダメージ計算に関する用語</h5>
+        <dl class="row small mb-0">
+            <dt class="col-sm-3">乱数</dt>
+            <dd class="col-sm-9">ダメージは毎回 85〜100% の範囲（16 通り）でばらつきます。結果の「〜」の幅がこれです。</dd>
+            <dt class="col-sm-3">確定数</dt>
+            <dd class="col-sm-9">相手を倒すのに必要な回数。「確定 2 発」は乱数に関係なく 2 回で倒せること、「乱数 2 発」は運がよければ 2 回で倒せることです。</dd>
+            <dt class="col-sm-3">タイプ一致</dt>
+            <dd class="col-sm-9">自分のタイプと同じタイプの技は 1.5 倍になります。</dd>
+            <dt class="col-sm-3">急所</dt>
+            <dd class="col-sm-9">ダメージが 1.5 倍（第 5 世代までは 2 倍）になり、こちらに不利なランク補正と相手の壁を無視します。</dd>
+        </dl>
+    </div>
+</div>
