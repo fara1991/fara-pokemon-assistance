@@ -609,9 +609,9 @@ public static class AbilityEffects
         "solar-power" or "orichalcum-pulse" or "hadron-engine" or "protosynthesis" or "quark-drive" or
         "tinted-lens" or "neuroforce";
 
-    /// <summary>場に出ると天候・フィールドを作る特性（ひでり・サイコメイカーなど）。</summary>
+    /// <summary>場に出ると天候・フィールドを作る特性（ひでり・サイコメイカー・デルタストリームなど）。</summary>
     public static bool SetsField(string? ability) =>
-        FieldEffects.WeatherFromAbility(ability) is not null || FieldEffects.TerrainFromAbility(ability) is not null;
+        FieldEffects.WeatherFromAbility(ability) is not null || FieldEffects.TerrainFromAbility(ability) is not null || ability == "delta-stream";
 
     /// <summary>既定の特性を選ぶときの立場。</summary>
     public enum Side

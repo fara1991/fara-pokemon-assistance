@@ -504,6 +504,126 @@ public class CounterTests
         var floating = TypeMatchup.WithTypes(OrderChart, target, levitate, new[] { attacker }, new[] { "Ground" }, MovesOf);
         Assert.Equal(new[] { "なみのり" }, floating[0].Moves.Select(m => m.Move.Name));
     }
+
+    private static Ability Ab(string identifier, string name) => new() { Id = identifier.GetHashCode(), Identifier = identifier, Name = name };
+
+    // 自分の特性で作る天候・フィールドのテスト用
+    private static readonly TypeChart FieldChart = TypeChart.Parse(
+        "AttackType,DefenseType,Multiplier\n" +
+        "Psychic,Fighting,2\nFighting,Psychic,0.5\nFire,Grass,2\nWater,Fire,2\nFire,Water,0.5\nWater,Grass,0.5\n" +
+        "Ice,Flying,2\nIce,Dragon,2\nRock,Flying,2\nElectric,Flying,2\nElectric,Water,2\nFire,Fire,0.5\nIce,Grass,2\n");
+
+    [Fact]
+    public void WithTypes_includes_terrain_the_attacker_sets_itself()
+    {
+        // イエッサン♂（サイコメイカー）→ かくとう: サイコフィールドでワイドフォースが 80 × 1.5 × 1.3 = 156 になり、威力 100 のサイコキネシス相当より上
+        var target = Make(1, "かくとう", "Fighting");
+        var indeedee = Make(2, "イエッサン", "Psychic", "Normal");
+        var psychic = M(94, "サイコキネシス", "Psychic", 90);
+        var psyshock = M(473, "サイコショック", "Psychic", 80);
+        var expandingForce = M(797, "ワイドフォース", "Psychic", 80);
+        var quick = new Move { Id = 1000, Name = "せんせいわざ", Type = "Psychic", Power = 100, Category = MoveCategory.Special, Priority = 1 };
+        IReadOnlyList<Move> MovesOf(Pokemon p) => new[] { psychic, psyshock, quick, expandingForce };
+        var surge = Ab("psychic-surge", "サイコメイカー");
+
+        // 特性を考えないときは威力の高い順（同点は並び順）
+        var plain = TypeMatchup.WithTypes(FieldChart, target, null, new[] { indeedee }, new[] { "Psychic" }, MovesOf, movesPerPokemon: 4);
+        Assert.Equal(new[] { "せんせいわざ", "サイコキネシス", "サイコショック", "ワイドフォース" }, plain[0].Moves.Select(m => m.Move.Name));
+        Assert.All(plain[0].Moves, m => Assert.Null(m.Field));
+
+        // サイコメイカー（第 9 世代）: ワイドフォースが 1 位、エスパー技は 1.3 倍、先制技は地面にいる相手に出ないので消える
+        var gen9 = TypeMatchup.WithTypes(FieldChart, target, null, new[] { indeedee }, new[] { "Psychic" }, MovesOf, _ => surge, movesPerPokemon: 4);
+        Assert.Equal(new[] { "ワイドフォース", "サイコキネシス", "サイコショック" }, gen9[0].Moves.Select(m => m.Move.Name));
+        Assert.Equal(156, gen9[0].Moves[0].DisplayPower);
+        Assert.Equal(117, gen9[0].Moves[1].DisplayPower);
+        Assert.Equal(156 * 2.0, TypeMatchup.Strength(gen9[0].Moves[0]), 6);
+        Assert.All(gen9[0].Moves, m => Assert.Equal("サイコフィールド", m.Field));
+
+        // 第 7 世代はフィールドの補正が 1.5 倍
+        var gen7 = TypeMatchup.WithTypes(FieldChart, target, null, new[] { indeedee }, new[] { "Psychic" }, MovesOf, _ => surge, movesPerPokemon: 4, generation: 7);
+        Assert.Equal(135, gen7[0].Moves.Single(m => m.Move.Name == "サイコキネシス").DisplayPower);
+
+        // ひこうタイプの相手（地面にいない）には先制技も出る
+        var flyingTarget = Make(3, "かくとうひこう", "Fighting", "Flying");
+        var vsFlying = TypeMatchup.WithTypes(FieldChart, flyingTarget, null, new[] { indeedee }, new[] { "Psychic" }, MovesOf, _ => surge, movesPerPokemon: 4);
+        Assert.Contains(vsFlying[0].Moves, m => m.Move.Name == "せんせいわざ");
+    }
+
+    [Fact]
+    public void WithTypes_includes_weather_the_attacker_sets_itself()
+    {
+        var grass = Make(1, "くさ", "Grass");
+        var fire = Make(2, "ほのお", "Fire");
+        var sunSetter = Make(3, "ひでり", "Fire");
+        var rainSetter = Make(4, "あめふらし", "Water");
+        var flamethrower = M(53, "かえんほうしゃ", "Fire", 90);
+        var weatherBall = M(311, "ウェザーボール", "Normal", 50);
+        var solarBeam = M(76, "ソーラービーム", "Grass", 120);
+        var surf = M(57, "なみのり", "Water", 90);
+        var hydroSteam = M(876, "ハイドロスチーム", "Water", 80);
+        IReadOnlyList<Move> MovesOf(Pokemon p) => new[] { flamethrower, weatherBall, solarBeam, surf, hydroSteam };
+        var drought = Ab("drought", "ひでり");
+        var drizzle = Ab("drizzle", "あめふらし");
+
+        // 晴れ: ほのお技 1.5 倍、ウェザーボールはほのお 100 × 1.5
+        var sun = TypeMatchup.WithTypes(FieldChart, grass, null, new[] { sunSetter }, new[] { "Fire" }, MovesOf, _ => drought, movesPerPokemon: 5);
+        Assert.Equal(new[] { "ウェザーボール", "かえんほうしゃ" }, sun[0].Moves.Select(m => m.Move.Name));
+        Assert.Equal("Fire", sun[0].Moves[0].Type);
+        Assert.Equal(150, sun[0].Moves[0].DisplayPower);
+        Assert.Equal(135, sun[0].Moves[1].DisplayPower);
+        Assert.Equal("晴れ", sun[0].Moves[0].Field);
+
+        // 晴れでもハイドロスチームは 1.5 倍、ほかのみず技は半分
+        var sunVsFire = TypeMatchup.WithTypes(FieldChart, fire, null, new[] { sunSetter }, new[] { "Fire" }, MovesOf, _ => drought, movesPerPokemon: 5);
+        Assert.Equal(new[] { "ハイドロスチーム", "なみのり" }, sunVsFire[0].Moves.Select(m => m.Move.Name));
+        Assert.Equal(new[] { 120, 45 }, sunVsFire[0].Moves.Select(m => m.DisplayPower));
+
+        // 雨: ソーラービームは半分、ウェザーボールはみず（くさには抜群でない）
+        var rain = TypeMatchup.WithTypes(FieldChart, fire, null, new[] { rainSetter }, new[] { "Water" }, MovesOf, _ => drizzle, movesPerPokemon: 5);
+        Assert.Equal(new[] { "ウェザーボール", "なみのり", "ハイドロスチーム" }, rain[0].Moves.Select(m => m.Move.Name));
+        Assert.Equal(new[] { 150, 135, 120 }, rain[0].Moves.Select(m => m.DisplayPower));
+        var rainVsGrass = TypeMatchup.WithTypes(FieldChart, grass, null, new[] { rainSetter }, new[] { "Water" }, MovesOf, _ => drizzle, movesPerPokemon: 5);
+        Assert.Equal(new[] { "かえんほうしゃ" }, rainVsGrass[0].Moves.Select(m => m.Move.Name));
+        Assert.Equal(45, rainVsGrass[0].Moves[0].DisplayPower);
+
+        // 相手がノーてんきなら天候の補正は無い
+        var cloudNine = Ab("cloud-nine", "ノーてんき");
+        var negated = TypeMatchup.WithTypes(FieldChart, grass, cloudNine, new[] { sunSetter }, new[] { "Fire" }, MovesOf, _ => drought, movesPerPokemon: 5);
+        Assert.Equal(new[] { "かえんほうしゃ" }, negated[0].Moves.Select(m => m.Move.Name));
+        Assert.Null(negated[0].Moves[0].Field);
+    }
+
+    [Fact]
+    public void WithTypes_handles_primal_weather_and_strong_winds()
+    {
+        var fire = Make(1, "ほのお", "Fire");
+        var dragonFlying = Make(2, "ドラゴンひこう", "Dragon", "Flying");
+        var groudon = Make(3, "ゲンシグラードン", "Ground", "Fire");
+        var rayquaza = Make(4, "メガレックウザ", "Dragon", "Flying");
+        var surf = M(57, "なみのり", "Water", 90);
+        var iceBeam = M(58, "れいとうビーム", "Ice", 90);
+        IReadOnlyList<Move> MovesOf(Pokemon p) => new[] { surf, iceBeam };
+        // おわりのだいち: みず技は出ない
+        var harsh = TypeMatchup.WithTypes(FieldChart, fire, null, new[] { groudon }, new[] { "Fire" }, MovesOf, _ => Ab("desolate-land", "おわりのだいち"));
+        Assert.Empty(harsh[0].Moves);
+        // デルタストリーム: ひこうの弱点が等倍になる（ドラゴンひこうへのこおり 4 倍 → 2 倍）
+        var winds = TypeMatchup.WithTypes(FieldChart, dragonFlying, null, new[] { rayquaza }, new[] { "Dragon" }, MovesOf, _ => Ab("delta-stream", "デルタストリーム"));
+        Assert.Equal(2.0, winds[0].Moves.Single().Multiplier);
+        Assert.Equal("デルタストリーム", winds[0].Moves.Single().Field);
+    }
+
+    [Fact]
+    public async Task WithTypes_ranks_expanding_force_first_for_psychic_surge_indeedee()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var indeedee = data.Pokemon.First(p => p.Name == "イエッサン(♂)");
+        var target = data.Pokemon.First(p => p.Name == "コノヨザル"); // かくとう・ゴースト
+        var surge = data.AbilitiesOf(indeedee).Single(a => a.Identifier == "psychic-surge");
+        var r = TypeMatchup.WithTypes(data.TypeChart, target, null, new[] { indeedee }, new[] { "Psychic" },
+            p => data.LearnableMoves(p.Id), _ => surge, generation: 9);
+        Assert.Equal("ワイドフォース", r[0].Moves[0].Move.Name);
+        Assert.Equal("サイコフィールド", r[0].Moves[0].Field);
+    }
 }
 
 public class AbilityMatchupTests

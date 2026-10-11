@@ -91,7 +91,7 @@
 
 <div class="matchup-panel">
     <div class="card">
-        <div class="card-header"><h5>ポケモンとの相性 <Help Title="ポケモンとの相性">ポケモンを選ぶと、左の表でそのポケモンのタイプの列（受ける側）が強調され、右端に特性も含めた倍率の列が出ます。特性（あついしぼう・ふゆう・ちょすい・フィルターなど）で倍率が変わるときは、ここにも内容を出します。左の表で攻撃タイプのアイコンを押すと（2 つまで。2 つ選んでいるときは、どちらかを外してから選び直します）、そのタイプを持つポケモン（2 つなら両方を持つポケモン）と、それぞれが覚える技のうち選んだポケモンに抜群を取れる技（威力×倍率の高い順。倍率は特性込み、タイプ一致は考えません。同点は使用率の高い順）を出します。有利なポケモンは「タイプ一致技で抜群を取れて、選んだポケモンのタイプ一致技で抜群を取られない」ポケモン（足りなければ、選んだポケモンのタイプ一致技を半減以下で受けられるポケモン）を最大 9 匹、使用率の高い順に出します。どちらの特性（きもったま・いろめがね・ふゆう・もらいび・かたやぶりなど）も含めます。相手の特性は計算機の既定と同じ選び方です。持ち物・テラスタルやタイプ一致でない技は考えていません。</Help></h5></div>
+        <div class="card-header"><h5>ポケモンとの相性 <Help Title="ポケモンとの相性">ポケモンを選ぶと、左の表でそのポケモンのタイプの列（受ける側）が強調され、右端に特性も含めた倍率の列が出ます。特性（あついしぼう・ふゆう・ちょすい・フィルターなど）で倍率が変わるときは、ここにも内容を出します。左の表で攻撃タイプのアイコンを押すと（2 つまで。2 つ選んでいるときは、どちらかを外してから選び直します）、そのタイプを持つポケモン（2 つなら両方を持つポケモン）と、それぞれが覚える技のうち選んだポケモンに抜群を取れる技（威力×倍率の高い順。倍率は特性込み、タイプ一致は考えません。同点は使用率の高い順）を出します。ひでり・サイコメイカー・ハドロンエンジンなど、自分の特性で天候・フィールドを作るポケモンは、その補正（晴れのほのお技 1.5 倍、フィールドの技 1.3 倍（第 7 世代は 1.5 倍）、サイコフィールドのワイドフォース、ウェザーボール・だいちのはどうのタイプ変化など）も込みで並べ、「サイコフィールド込み」のように出します。有利なポケモンは「タイプ一致技で抜群を取れて、選んだポケモンのタイプ一致技で抜群を取られない」ポケモン（足りなければ、選んだポケモンのタイプ一致技を半減以下で受けられるポケモン）を最大 9 匹、使用率の高い順に出します。どちらの特性（きもったま・いろめがね・ふゆう・もらいび・かたやぶりなど）も含めます。相手の特性は計算機の既定と同じ選び方です。持ち物・テラスタルやタイプ一致でない技は考えていません。</Help></h5></div>
         <div class="card-body">
             <div class="form-group mb-2">
                 <label>ポケモン</label>
@@ -155,7 +155,7 @@
                         {
                             <p class="type-full-hint small mb-1">@FullHint</p>
                         }
-                        <p class="text-muted small mb-1">@selected.Name に抜群を取れる技（技ごとに 威力×倍率（特性込み）の高い順。ポケモンは@(usageSorted ? "使用率の高い順" : "種族値合計の高い順")）</p>
+                        <p class="text-muted small mb-1">@selected.Name に抜群を取れる技（技ごとに 威力×倍率の高い順。倍率は特性込み、威力は自分の特性で作る天候・フィールドの補正込み。ポケモンは@(usageSorted ? "使用率の高い順" : "種族値合計の高い順")）</p>
                         @if (typeAttackers.Count == 0)
                         {
                             <p class="text-muted small mb-0">該当するポケモンはいません。</p>
@@ -178,7 +178,7 @@
                                                 <div class="type-attacker-moves">
                                                     @foreach (var mv in ta.Moves)
                                                     {
-                                                        <span class="type-attacker-move" title="@($"{mv.Move.Name}（{TypeNames.ToJapanese(mv.Type)}・威力 {mv.Move.Power}）→ {Times(mv.Multiplier)}")"><TypeIcon Type="@mv.Type" Small="true" />@mv.Move.Name <span class="text-muted">@mv.Move.Power</span> <span class="counter-good">@Times(mv.Multiplier)</span></span>
+                                                        <span class="type-attacker-move" title="@MoveTitle(mv)"><TypeIcon Type="@mv.Type" Small="true" />@mv.Move.Name <span class="text-muted">@mv.DisplayPower</span> <span class="counter-good">@Times(mv.Multiplier)</span>@if (mv.Field is not null) { <span class="field-note">@(mv.Field)込み</span> }</span>
                                                     }
                                                 </div>
                                             }
@@ -382,7 +382,7 @@
         abilityChanges = AbilityMatchup.ChangedByDefensiveAbility(chart, selected.Types.ToList(), selectedAbility);
         counters = TypeMatchup.Counters(chart, selected, counterCandidates, 9, selectedAbility, DefaultAbility);
         typeAttackers = TypeMatchup.WithTypes(chart, selected, selectedAbility, counterCandidates, s.AttackTypes,
-            p => data.LearnableMoves(p.Id), DefaultAbility);
+            p => data.LearnableMoves(p.Id), DefaultAbility, generation: data.Info.Generation);
     }
 
     /// <summary>受けるタイプの選択を切り替える（2 つまで。2 つ選んでいるときは、外すまで新しく選べない）。</summary>
@@ -446,6 +446,16 @@
         0.5 => "×½",
         _ => $"×{m:0.##}",
     };
+
+    /// <summary>抜群を取れる技のツールチップ。天候・フィールドで威力が変わったときは元の威力も出す。</summary>
+    private static string MoveTitle(TypeMatchup.SuperEffectiveMove mv)
+    {
+        var power = mv.Field is null || mv.DisplayPower == mv.Move.Power
+            ? $"威力 {mv.DisplayPower}"
+            : $"威力 {mv.Move.Power} → {mv.DisplayPower}（{mv.Field}込み）";
+        var field = mv.Field is not null && mv.DisplayPower == mv.Move.Power ? $"（{mv.Field}込み）" : "";
+        return $"{mv.Move.Name}（{TypeNames.ToJapanese(mv.Type)}・{power}）→ {Times(mv.Multiplier)}{field}。威力×倍率 {TypeMatchup.Strength(mv):0.#}";
+    }
 
     private const string FullHint = "2 つまで。外してから選び直してください";
 
