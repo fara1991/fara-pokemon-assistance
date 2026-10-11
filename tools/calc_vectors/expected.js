@@ -94,9 +94,11 @@ function main() {
       // チャンピオンズの努力値はポイント。Lv50 では 1 ポイント = 実数値 +1 = 努力値 8
       const evs = {}; STATS.forEach((st, i) => { evs[st] = side.evs[i] * (s.key === 'Champions' ? 8 : 1); });
       const boosts = { atk: side.boosts[0], def: side.boosts[1], spa: side.boosts[2], spd: side.boosts[3], spe: side.boosts[4] };
+      // こだいかっせい・クォークチャージは、ツールでは上がる能力（boostedStat）を指定したときだけ効く。auto は一番高い能力
+      const paradox = ['protosynthesis', 'quarkdrive'].includes(toID(ability.name));
       const p = new Pokemon(gen, species.name, {
         level: side.level, ability: ability.name, item, nature: side.natureSmogon, evs, boosts,
-        status: side.status || '', curHP: side.hp || undefined,
+        status: side.status || '', curHP: side.hp || undefined, boostedStat: paradox ? 'auto' : undefined,
       });
       return p;
     };

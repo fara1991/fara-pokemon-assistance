@@ -33,6 +33,10 @@ SUPPORTED_ABILITIES = {
     "tinted-lens", "neuroforce", "sniper", "infiltrator", "unaware", "scrappy", "levitate", "water-absorb",
     "volt-absorb", "motor-drive", "lightning-rod", "storm-drain", "sap-sipper", "flash-fire", "wonder-guard",
     "soundproof", "bulletproof", "adaptability", "battle-armor", "shell-armor", "air-lock", "cloud-nine",
+    "minds-eye", "protosynthesis", "quark-drive", "sword-of-ruin", "tablets-of-ruin", "vessel-of-ruin", "beads-of-ruin",
+    "tera-shell", "aura-guard", "fire-mane", "eelevate", "unnerve", "sharpness", "punk-rock", "ice-scales", "purifying-salt",
+    "steely-spirit", "rocky-payload", "transistor", "dragons-maw", "gorilla-tactics", "earth-eater", "well-baked-body",
+    "orichalcum-pulse", "hadron-engine", "queenly-majesty", "dazzling", "armor-tail", "wind-rider",
 }
 # ダメージに関わるが、この計算機では扱わない特性（条件に入れない）
 UNSUPPORTED_ABILITIES = {
@@ -46,14 +50,10 @@ UNSUPPORTED_ABILITIES = {
 
 # 剣盾・SV・チャンピオンズのダメージ計算（DamageCalculator 本体）がまだ扱っていない特性・技（条件から除く）。
 # 第 3〜7 世代の計算（LegacyDamageCalculator）は扱っているので、今のゲームの条件だけに適用する。
-MODERN_UNSUPPORTED_ABILITIES = {
-    "fire-mane", "eelevate", "scrappy", "protosynthesis", "quark-drive", "air-lock", "cloud-nine", "shell-armor", "battle-armor", "defeatist", "marvel-scale", "fluffy", "aura-guard",
-    "sword-of-ruin", "tablets-of-ruin", "vessel-of-ruin", "beads-of-ruin", "tera-shell",
-}
-# 本体と扱いが違う持ち物: ものしりメガネ・ちからのハチマキの補正値（本体は 4506、ツールは 4505）、フィールドのタネ（ツールは防御が上がる）
-MODERN_UNSUPPORTED_ITEMS = {"muscle-band", "wise-glasses", "electric-seed", "grassy-seed", "misty-seed", "psychic-seed"}
-# 壁の扱いが違う技（サイコショック系は特殊技なのに物理の壁が効く・かわらわり系は壁を壊さない）。条件から壁を外す
-MODERN_NO_SCREEN_MOVES = {"psyshock", "psystrike", "secret-sword", "brick-break", "psychic-fangs", "raging-bull"}
+MODERN_UNSUPPORTED_ABILITIES: set[str] = set()
+MODERN_UNSUPPORTED_ITEMS: set[str] = set()
+# 壁の扱いが違う技（かわらわり系は壁を壊さない）。条件から壁を外す
+MODERN_NO_SCREEN_MOVES = {"brick-break", "psychic-fangs", "raging-bull"}
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -163,12 +163,6 @@ def main() -> None:
                 mid = move_ident[m["Id"]]
                 if mid in MODERN_NO_SCREEN_MOVES:
                     sc["reflect"] = sc["lightScreen"] = False
-                if int(m["Priority"]) > 0 and sc["terrain"] == "Psychic":
-                    sc["terrain"] = ""
-                # かたやぶりは相手の特性を無視するが、シャドーシールドは無視できない（本体は無視してしまう）
-                if sc["attacker"]["abilitySmogon"] in ("mold-breaker", "teravolt", "turboblaze") and sc["defender"]["abilitySmogon"] == "shadow-shield":
-                    sc["attacker"]["ability"] = None
-                    sc["attacker"]["abilitySmogon"] = "run-away"
             if sc["z"]:
                 # Z 技を使うときの持ち物は Z クリスタル（ほかの持ち物の効果は無い）
                 sc["attacker"]["item"] = None
@@ -266,6 +260,95 @@ def main() -> None:
             return make(a, rng.choice(ice), moves[rng.choice(phys)], weather="Hail", crit=False)
         if ice:
             targeted(n, pick_snow)
+        # 特性・持ち物の効果が出る条件（天候・急所・状態異常・HP・持ち物などを合わせる）
+        item_by_ident = {item_ident.get(i["Id"]): i for i in items if item_ident.get(i["Id"])}
+
+        def with_item(side_: dict, ident: str) -> bool:
+            it = item_by_ident.get(ident)
+            if not it:
+                return False
+            side_["item"], side_["itemSmogon"] = int(it["Id"]), ident
+            return True
+
+        def ability_case(ident: str, role: str, count: int, adjust=None, **over) -> None:
+            holders = holders_of(ident)
+            if not holders:
+                return
+            def pick():
+                a = rng.choice(holders) if role == "attacker" else rng.choice(pokemon)
+                if not damaging(a):
+                    return None
+                d = rng.choice(holders) if role == "defender" else rng.choice(pokemon)
+                sc = make(a, d, moves[rng.choice(damaging(a))], ability_id(ident) if role == "attacker" else None,
+                          ability_id(ident) if role == "defender" else None, **over)
+                if adjust and adjust(sc) is False:
+                    return None
+                return sc
+            targeted(count, pick)
+
+        def full_hp(sc):
+            sc["defender"]["hp"] = None
+
+        def low_hp(side_name):
+            def f(sc):
+                sc[side_name]["hp"] = 1 + rng.randrange(20)  # どのポケモンでも HP 半分以下になる値
+            return f
+
+        def status(side_name, st="brn"):
+            def f(sc):
+                sc[side_name]["status"] = st
+            return f
+
+        m = max(1, n // 2)
+        for ident in ("air-lock", "cloud-nine"):
+            ability_case(ident, "defender", m, weather=rng.choice(["Sun", "Rain", "Sand", "Hail"]))
+            ability_case(ident, "attacker", m, weather=rng.choice(["Sun", "Rain", "Sand", "Hail"]))
+        for ident in ("shell-armor", "battle-armor"):
+            ability_case(ident, "defender", m, crit=True)
+        ability_case("scrappy", "attacker", m)
+        ability_case("minds-eye", "attacker", m)
+        ability_case("defeatist", "attacker", m, adjust=low_hp("attacker"))
+        ability_case("marvel-scale", "defender", m, adjust=status("defender"))
+        ability_case("fluffy", "defender", n)
+        ability_case("aura-guard", "defender", m)
+        ability_case("fire-mane", "attacker", m)
+        ability_case("eelevate", "defender", m)
+        for ident in ("sword-of-ruin", "beads-of-ruin"):
+            ability_case(ident, "attacker", n)
+        for ident in ("tablets-of-ruin", "vessel-of-ruin"):
+            ability_case(ident, "defender", n)
+        ability_case("tera-shell", "defender", n, adjust=full_hp)
+        ability_case("protosynthesis", "attacker", m, weather="Sun")
+        ability_case("protosynthesis", "defender", m, weather="Sun")
+        ability_case("quark-drive", "attacker", m, terrain="Electric")
+        ability_case("quark-drive", "defender", m, terrain="Electric")
+        if "booster-energy" in item_by_ident:
+            ability_case("protosynthesis", "attacker", m, adjust=lambda sc: with_item(sc["attacker"], "booster-energy"))
+            ability_case("quark-drive", "defender", m, adjust=lambda sc: with_item(sc["defender"], "booster-energy"))
+        ability_case("sharpness", "attacker", m)
+        ability_case("unnerve", "attacker", m)
+        for ident in ("mold-breaker", "teravolt", "turboblaze"):
+            ability_case(ident, "attacker", m)
+        # ちからのハチマキ・ものしりメガネ
+        def pick_band():
+            a = rng.choice(pokemon)
+            if not damaging(a):
+                return None
+            sc = make(a, rng.choice(pokemon), moves[rng.choice(damaging(a))])
+            return sc if with_item(sc["attacker"], rng.choice(["muscle-band", "wise-glasses"])) and not sc["z"] else None
+        if "muscle-band" in item_by_ident and gen >= 4:
+            targeted(n, pick_band)
+        # フィールドのシード（そのフィールドで防御・特防が上がる）
+        seeds = {"electric-seed": "Electric", "grassy-seed": "Grassy", "misty-seed": "Misty", "psychic-seed": "Psychic"}
+        def pick_seed():
+            a = rng.choice(pokemon)
+            if not damaging(a):
+                return None
+            seed = rng.choice(list(seeds))
+            sc = make(a, rng.choice(pokemon), moves[rng.choice(damaging(a))], terrain=seeds[seed])
+            return sc if with_item(sc["defender"], seed) else None
+        if modern and "electric-seed" in item_by_ident:
+            targeted(m, pick_seed)
     json.dump(scenarios, sys.stdout, ensure_ascii=False)
 
 

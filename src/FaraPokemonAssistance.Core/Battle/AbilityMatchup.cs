@@ -43,8 +43,9 @@ public static class AbilityMatchup
             multiplier *= m;
         }
 
-        // かたやぶり系は防御側の特性を無視する
-        var def = AbilityEffects.IgnoresTargetAbility(atk) ? "" : defenderAbility?.Identifier ?? "";
+        // かたやぶり系は防御側の特性を無視する（プリズムアーマーなど無視できない特性もある）
+        var def = defenderAbility?.Identifier ?? "";
+        if (AbilityEffects.IgnoresTargetAbility(atk) && AbilityEffects.IsIgnorable(def)) def = "";
         var defName = defenderAbility?.Name ?? "";
         if (multiplier > 0 && def.Length > 0)
         {
@@ -70,7 +71,7 @@ public static class AbilityMatchup
         what = "";
         switch (ability)
         {
-            case "levitate" or "earth-eater" when attackType == "Ground":
+            case "levitate" or "earth-eater" or "eelevate" when attackType == "Ground":
             case "water-absorb" or "storm-drain" or "dry-skin" when attackType == "Water":
             case "flash-fire" or "well-baked-body" when attackType == "Fire":
             case "volt-absorb" or "lightning-rod" or "motor-drive" when attackType == "Electric":
