@@ -34,12 +34,15 @@ else if (data is not null && dataSet is not null)
                                 @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w, dataSet.Generation)</option> }
                             </select>
                         </div>
+                        @if (dataSet.HasTerrain)
+                        {
                         <div class="col-sm-6">
                             <label class="form-label">フィールド <Help Title="フィールド">サーフテール（エレキフィールドで 2 倍）、クォークチャージ（エレキフィールドで素早さが一番高いとき 1.5 倍）に使います。</Help></label>
                             <select class="form-select" value="@s.Terrain" @onchange="@(e => s.Terrain = ParseEnum(e.Value, Terrain.None))">
                                 @foreach (var t in Enum.GetValues<Terrain>().Where(t => dataSet.HasTerrain && (t != Terrain.Psychic || dataSet.HasPsychicTerrain) || t == Terrain.None)) { <option value="@t">@FieldNames.Japanese(t)</option> }
                             </select>
                         </div>
+                        }
                     </div>
                 </div>
             </div>
