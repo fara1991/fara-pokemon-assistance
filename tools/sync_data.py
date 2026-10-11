@@ -36,7 +36,7 @@ POKEAPI_CSV = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/
 SPRITE_URL = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{id}.png"
 HOME_LIST_URL = "https://api.battle.pokemon-home.com/tt/cbd/competition/rankmatch/list"
 HOME_RESOURCE_URL = "https://resource.pokemon-home.com/battledata/ranking/{resource}/{cid}/{rst}/{ts2}"
-USER_AGENT = "FaraPokemonAssistance/1.0 (+https://github.com/fara1991/fara-pokemon-assistance)"
+USER_AGENT = "FaraPokemonAssistance/1.0 (+https://github.com/fara1991/fara-pokemon-battle-assistant)"
 
 LANG_JA = "11"        # ja (kanji/kana)
 LANG_JA_HRKT = "1"    # ja-hrkt fallback

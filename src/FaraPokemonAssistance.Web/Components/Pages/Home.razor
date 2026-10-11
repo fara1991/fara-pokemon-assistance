@@ -2,10 +2,10 @@
 @inherits AppPageBase
 @inject HttpClient Http
 
-<PageTitle>ホーム</PageTitle>
+<PageTitle>ホーム | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>ポケモン対戦アシスタント</h3>
+    <h3>Pokémon Battle Assistant</h3>
     <p class="text-muted mb-0">ダメージ計算・素早さ比較・育成済みポケモンとチームの管理・タイプ相性をまとめたサイトです。配信中は Twitch のチャットコマンドからも同じ機能を使えます。</p>
 </div>
 
@@ -71,6 +71,11 @@
     </div>
 </div>
 
+
+<p class="text-muted small mt-4 mb-0">
+    このサイトは個人が作った非公式のファンサイトで、任天堂・株式会社クリーチャーズ・株式会社ゲームフリーク・株式会社ポケモンとは関係ありません。
+    ポケモン・Pokémon は任天堂・クリーチャーズ・ゲームフリークの登録商標です。
+</p>
 
 @code {
     // update-data.yml の cron（17 3 * * 1 UTC = 毎週月曜 12:17 JST）

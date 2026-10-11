@@ -29,7 +29,7 @@ TOOLS = Path(__file__).resolve().parent
 ROOT = TOOLS.parent
 DATA = ROOT / "src" / "FaraPokemonAssistance.Web" / "wwwroot" / "data"
 POKEAPI_CSV = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/"
-UA = "FaraPokemonAssistance/1.0 (+https://github.com/fara1991/fara-pokemon-assistance)"
+UA = "FaraPokemonAssistance/1.0 (+https://github.com/fara1991/fara-pokemon-battle-assistant)"
 
 
 def table(cache: Path, name: str) -> list[dict[str, str]]:
