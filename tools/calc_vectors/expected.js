@@ -35,23 +35,21 @@ function readCsv(file) {
 // からげんき・はたきおとす・ソーラービーム・かわらわり・サイコファング・じしん・じならし・サイコショックなどは対応しているので含めない。
 const SPECIAL_MOVES = new Set([
   'payback', 'pursuit', 'electroball', 'gyroball', 'punishment', 'storedpower', 'powertrip', 'acrobatics',
-  'assurance', 'wakeupslap', 'smellingsalts', 'weatherball', 'fling', 'hex', 'brine', 'venoshock', 'retaliate',
+  'assurance', 'wakeupslap', 'smellingsalts', 'fling', 'retaliate',
   'fusionbolt', 'fusionflare', 'eruption', 'waterspout', 'flail', 'reversal', 'crushgrip', 'wringout',
   'grassknot', 'lowkick', 'heatcrash', 'heavyslam', 'return', 'frustration', 'trumpcard', 'naturalgift',
   'naturepower', 'judgment', 'technoblast', 'multiattack', 'revelationdance', 'hiddenpower', 'spitup',
   'beatup', 'rollout', 'iceball', 'furycutter', 'echoedvoice', 'round', 'avalanche', 'revenge', 'magnitude',
-  'present', 'triplekick', 'foulplay', 'bodypress', 'psywave', 'nightshade', 'seismictoss', 'dragonrage',
+  'present', 'psywave', 'nightshade', 'seismictoss', 'dragonrage',
   'sonicboom', 'superfang', 'endeavor', 'finalgambit', 'counter', 'mirrorcoat', 'metalburst', 'bide',
   'naturesmadness', 'guardianofalola', 'spectralthief', 'skydrop', 'synchronoise', 'dreameater',
-  'chipaway', 'sacredsword', 'darkestlariat', 'stormthrow', 'frostbreath', 'photongeyser',
+  'photongeyser',
   'lightthatburnsthesky', 'moongeistbeam', 'sunsteelstrike', 'menacingmoonrazemaelstrom', 'searingsunrazesmash',
   'thousandarrows', 'freezedry', 'flyingpress', 'pledge', 'grasspledge', 'firepledge', 'waterpledge', 'shellsidearm',
   'pikapapow', 'veeveevolley', 'struggle', 'futuresight', 'doomdesire', 'stompingtantrum', 'burnup',
-  'fishiousrend', 'boltbeak', 'risingvoltage', 'expandingforce', 'terrainpulse', 'mistyexplosion',
+  'fishiousrend', 'boltbeak',
   'steelroller', 'grassyglide', 'lashout', 'poltergeist', 'gravapple', 'snore', 'sleeptalk',
-  'fakeout', 'lastresort', 'belch', 'stuffcheeks',
-  // 溜め技でとくこうが上がる（この計算機では未対応）
-  'meteorbeam', 'electroshot',
+  'fakeout', 'lastresort', 'belch', 'stuffcheeks', 'waterShuriken', 'watershuriken',
 ]);
 
 // 条件の Hail は、第 9 世代では雪（Snow）
@@ -110,9 +108,21 @@ function main() {
     const md = gen.moves.get(mid);
     if (!md) { bump('move-unknown'); continue; }
     if (SPECIAL_MOVES.has(mid)) { bump('move-special'); continue; }
-    if (md.multihit || md.ignoreDefensive || md.overrideOffensiveStat || md.overrideOffensivePokemon || md.willCrit) { bump('move-special'); continue; }
-    // はたきおとすの威力が上がらない持ち物（このサイトでは自分のメガストーンだけ扱うので、ほかの外せない持ち物の条件は除く）
-    if (mid === 'knockoff' && s.defender.itemSmogon && /(-plate|-drive|-memory|-mask|^red-orb|^blue-orb|^griseous|^adamant-crystal|^lustrous-globe|^rusted-|-z$)/.test(s.defender.itemSmogon)) { bump('knockoff-unremovable-item'); continue; }
+    // 第 3 世代のウェザーボールは威力ではなくダメージが 2 倍（この計算機では未対応）
+    if (mid === 'weatherball' && s.gen === 3) { bump('move-special'); continue; }
+    // 連続技でツールの計算と扱いが違うもの（この計算機の方がゲームに合わせている）:
+    // ・第 5・6 世代のツールは、2 回目以降の急所・天候・複数対象の補正を掛けていない
+    // ・ツールはタラプのみ・アッキのみ・ひかりごけが毎回発動する（ゲームでは 1 回だけ）
+    if (md.multihit) {
+      if ((s.gen === 5 || s.gen === 6) && (s.crit || ['Sun', 'Rain'].includes(s.weather) || s.doubles)) { bump('multihit-tool-differs'); continue; }
+      if (['kee-berry', 'maranga-berry', 'luminous-moss'].includes(s.defender.itemSmogon)) { bump('multihit-tool-differs'); continue; }
+    }
+    // ツールの第 3〜6 世代の計算は、トリプルキックの威力を回ごとに上げていない（この計算機は 10・20・30 と上げる）
+    if (mid === 'triplekick' && s.gen <= 6) { bump('move-special'); continue; }
+    // はたきおとすの威力: チャンピオンズの「〜Z」のメガストーンは、ツールでは Z クリスタル扱い（だれが持っても はたきおとせない）になるので比べない
+    if (mid === 'knockoff' && s.defender.itemSmogon && /-z$/.test(s.defender.itemSmogon)) { bump('knockoff-unremovable-item'); continue; }
+    // ツールは はっきんだま を「ギラティナ（オリジンフォルム）」が持つときだけ はたきおとせないとする（ゲームではアナザーフォルムが持っても はたきおとせない）
+    if (mid === 'knockoff' && /^griseous/.test(s.defender.itemSmogon || '') && /^giratina/.test(s.defender.smogon)) { bump('knockoff-unremovable-item'); continue; }
     const om = ours.moves[s.move.id];
     const cat = new Move(gen, md.name).category;
     if (md.basePower !== Number(om.Power) || md.type !== om.Type || cat !== om.Category) { bump('move-data'); continue; }
@@ -121,7 +131,8 @@ function main() {
     const ourTarget = om.Target === 'AllFoes' || om.Target === 'AllOthers' ? om.Target : 'Single';
     if (s.doubles && (s.gen === 3 ? (target === 'AllFoes') !== (ourTarget === 'AllFoes') : (target === 'Single') !== (ourTarget === 'Single'))) { bump('move-target'); continue; }
     const useZ = !!s.z && !!(md.zMove && md.zMove.basePower);
-    const move = new Move(gen, md.name, { isCrit: s.crit, useZ, item: s.attacker.itemSmogon ? attacker.item : undefined });
+    // 連続技の回数は特性（スキルリンク）で変わるので、技にも特性を渡す
+    const move = new Move(gen, md.name, { isCrit: s.crit, useZ, item: s.attacker.itemSmogon ? attacker.item : undefined, ability: attacker.ability });
     const field = new Field({
       gameType: s.doubles ? 'Doubles' : 'Singles',
       weather: smogonWeather(s.weather, s.gen),
@@ -134,7 +145,12 @@ function main() {
     } catch (e) { bump('calc-error'); continue; }
     let damage = result.damage;
     if (typeof damage === 'number') damage = Array(16).fill(damage);
-    if (!Array.isArray(damage) || Array.isArray(damage[0])) { bump('damage-shape'); continue; }
+    // 連続技は回ごとの乱数 16 通り。この計算機は同じ乱数の番号どうしを足した合計を返すので、それと比べる
+    if (Array.isArray(damage) && Array.isArray(damage[0])) {
+      if (move.hits <= 1) { bump('damage-shape'); continue; }
+      damage = damage[0].map((_, i) => damage.reduce((sum, hit) => sum + hit[i], 0));
+    }
+    if (!Array.isArray(damage)) { bump('damage-shape'); continue; }
     if (attacker.maxHP() <= 0) { bump('hp'); continue; }
     out.push({ ...s, z: useZ, expected: damage, expectedMaxHp: defender.maxHP() });
   }

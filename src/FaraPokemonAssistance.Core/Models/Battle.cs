@@ -177,13 +177,13 @@ public sealed class DamageRequest
     public bool HasScreenFor(bool physical) => Screen || (physical ? Reflect : LightScreen);
 
     /// <summary>技や防御側だけ差し替えた複製（場の条件はそのまま）。</summary>
-    public DamageRequest With(Move? move = null, PokemonBuild? defender = null, PokemonBuild? attacker = null) => new()
+    public DamageRequest With(Move? move = null, PokemonBuild? defender = null, PokemonBuild? attacker = null, bool? isCritical = null) => new()
     {
         Attacker = attacker ?? Attacker,
         Move = move ?? Move,
         Defender = defender ?? Defender,
         Format = Format,
-        IsCritical = IsCritical,
+        IsCritical = isCritical ?? IsCritical,
         Weather = Weather,
         Terrain = Terrain,
         Screen = Screen,
@@ -208,7 +208,12 @@ public readonly record struct KnockOut(int Hits, double Probability)
 
 public sealed class DamageResult
 {
+    /// <summary>乱数 16 通りのダメージ（連続技は全部の回の合計）。</summary>
     public required int[] Rolls { get; init; }
+    /// <summary>2 回目以降に使ったとき（マルチスケイル・半減きのみが無くなった後）の乱数 16 通り。null なら <see cref="Rolls"/> と同じ。</summary>
+    internal int[]? LaterRolls { get; init; }
+    /// <summary>連続技の回数（連続技でなければ 1）。</summary>
+    public int Hits { get; init; } = 1;
     public int MinDamage => Rolls[0];
     public int MaxDamage => Rolls[^1];
     public required int DefenderHP { get; init; }

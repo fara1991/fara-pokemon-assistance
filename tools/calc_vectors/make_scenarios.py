@@ -52,8 +52,8 @@ UNSUPPORTED_ABILITIES = {
 # 第 3〜7 世代の計算（LegacyDamageCalculator）は扱っているので、今のゲームの条件だけに適用する。
 MODERN_UNSUPPORTED_ABILITIES: set[str] = set()
 MODERN_UNSUPPORTED_ITEMS: set[str] = set()
-# 壁の扱いが違う技（かわらわり系は壁を壊さない）。条件から壁を外す
-MODERN_NO_SCREEN_MOVES = {"brick-break", "psychic-fangs", "raging-bull"}
+# 壁の扱いが違う技（条件から壁を外す）
+MODERN_NO_SCREEN_MOVES: set[str] = set()
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -163,6 +163,10 @@ def main() -> None:
                 mid = move_ident[m["Id"]]
                 if mid in MODERN_NO_SCREEN_MOVES:
                     sc["reflect"] = sc["lightScreen"] = False
+                # オーラガード（チャンピオンズ）は、ツールの第 9 世代の計算ではかたやぶりで無視されない（チャンピオンズの計算では無視される）。比べない
+                if sc["attacker"]["abilitySmogon"] in ("mold-breaker", "teravolt", "turboblaze") and sc["defender"]["abilitySmogon"] == "aura-guard":
+                    sc["attacker"]["ability"] = None
+                    sc["attacker"]["abilitySmogon"] = "run-away"
             if sc["z"]:
                 # Z 技を使うときの持ち物は Z クリスタル（ほかの持ち物の効果は無い）
                 sc["attacker"]["item"] = None
@@ -349,6 +353,100 @@ def main() -> None:
             return sc if with_item(sc["defender"], seed) else None
         if modern and "electric-seed" in item_by_ident:
             targeted(m, pick_seed)
+        # 技ごとの効果が出る条件
+        by_ident = {move_ident[mid]: mv for mid, mv in moves.items() if mid in move_ident}
+
+        def move_case(idents: list[str], count: int, adjust=None, **over) -> None:
+            cands = [by_ident[i] for i in idents if i in by_ident and int(by_ident[i]["Power"]) > 0]
+            if not cands:
+                return
+            def pick():
+                sc = make(rng.choice(pokemon), rng.choice(pokemon), rng.choice(cands), **over)
+                if adjust and adjust(sc) is False:
+                    return None
+                return sc
+            targeted(count, pick)
+
+        def boosts(side_name, idx, value):
+            def f(sc):
+                b = list(sc[side_name]["boosts"])
+                b[idx] = value
+                sc[side_name]["boosts"] = b
+            return f
+
+        def tauros(sc):
+            forms = [p for p in pokemon if p["Id"] in ("128", "10250", "10251", "10252")]
+            if not forms:
+                return False
+            sc["attacker"] = side(rng.choice(forms))
+            sc["attacker"]["natureSmogon"] = NATURES_EN[sc["attacker"]["nature"]]
+
+        def field(key, values):
+            def f(sc):
+                sc[key] = rng.choice(values)
+            return f
+
+        def skill_link(sc):
+            aid = ability_id("skill-link")
+            if not aid:
+                return False
+            sc["attacker"]["ability"], sc["attacker"]["abilitySmogon"] = int(aid), "skill-link"
+
+        move_case(["weather-ball"], n, adjust=field("weather", ["Sun", "Rain", "Sand", "Hail"]))
+        move_case(["weather-ball"], m)
+        move_case(["hex", "infernal-parade"], m, adjust=lambda sc: sc["defender"].update(status=rng.choice(["brn", "par", "psn"])))
+        move_case(["barb-barrage", "venoshock"], m, adjust=status("defender", "psn"))
+        move_case(["brine"], m, adjust=low_hp("defender"))
+        move_case(["foul-play"], n, adjust=boosts("defender", 0, rng.choice([-1, 1, 2])))
+        move_case(["body-press"], n, adjust=boosts("attacker", 1, rng.choice([-1, 1, 2])))
+        move_case(["sacred-sword", "darkest-lariat", "chip-away"], n, adjust=boosts("defender", 1, 2))
+        move_case(["storm-throw", "frost-breath", "wicked-blow", "surging-strikes", "flower-trick"], n)
+        multi = [i for i in ("double-kick", "bullet-seed", "icicle-spear", "rock-blast", "scale-shot", "dragon-darts", "dual-wingbeat",
+                             "triple-axel", "triple-kick", "population-bomb", "surging-strikes", "pin-missile", "arm-thrust",
+                             "bone-rush", "tail-slap", "double-hit", "twin-beam", "triple-dive", "gear-grind")]
+        move_case(multi, n * 2)
+        move_case(["bullet-seed", "icicle-spear", "rock-blast", "scale-shot", "pin-missile", "tail-slap"], m, adjust=skill_link)
+        move_case(["brick-break", "psychic-fangs"], m, reflect=True, lightScreen=True)
+        move_case(["raging-bull"], m, adjust=tauros, reflect=True, lightScreen=True)
+        move_case(["meteor-beam", "electro-shot"], m)
+        move_case(["terrain-pulse"], m, adjust=field("terrain", ["Electric", "Grassy", "Psychic", "Misty"]))
+        move_case(["rising-voltage", "psyblade"], m, terrain="Electric")
+        move_case(["expanding-force"], m, terrain="Psychic")
+        move_case(["misty-explosion"], m, terrain="Misty")
+        move_case(["collision-course", "electro-drift"], m)
+        move_case(["psyshock", "psystrike", "secret-sword"], m, reflect=True, lightScreen=True)
+        # はたきおとす: はたきおとせない持ち物（持ち主専用の持ち物）と、ほかのポケモンが持ったとき
+        unremovable = [("arceus", "-plate"), ("silvally", "-memory"), ("genesect", "-drive"), ("groudon", "red-orb"), ("kyogre", "blue-orb"),
+                       ("giratina", "griseous"), ("dialga", "adamant-crystal"), ("palkia", "lustrous-globe"), ("zacian", "rusted-sword"),
+                       ("zamazenta", "rusted-shield"), ("ogerpon", "-mask")]
+        knock_items = [(sp, [i for i in item_by_ident if i.endswith(suffix) or i.startswith(suffix)]) for sp, suffix in unremovable]
+        def pick_unremovable():
+            sp, idents = rng.choice(knock_items)
+            if not idents:
+                return None
+            owners = [p for p in pokemon if poke_ident.get(p["Id"], "").startswith(sp)]
+            d = rng.choice(owners) if owners and rng.random() < 0.7 else rng.choice(pokemon)
+            sc = make(rng.choice(pokemon), d, knock)
+            with_item(sc["defender"], rng.choice(idents))
+            return sc
+        if knock and any(idents for _, idents in knock_items):
+            targeted(n, pick_unremovable)
+        if knock and "booster-energy" in item_by_ident:
+            for ident in ("protosynthesis", "quark-drive"):
+                holders = holders_of(ident)
+                if holders:
+                    def pick_booster(holders=holders, ident=ident):
+                        sc = make(rng.choice(pokemon), rng.choice(holders), knock, None, ability_id(ident))
+                        with_item(sc["defender"], "booster-energy")
+                        return sc
+                    targeted(m, pick_booster)
+        zs = [i for i in item_by_ident if i.endswith("-z--held")]
+        if knock and zs:
+            def pick_z():
+                sc = make(rng.choice(pokemon), rng.choice(pokemon), knock)
+                with_item(sc["defender"], rng.choice(zs))
+                return sc
+            targeted(m, pick_z)
     json.dump(scenarios, sys.stdout, ensure_ascii=False)
 
 
