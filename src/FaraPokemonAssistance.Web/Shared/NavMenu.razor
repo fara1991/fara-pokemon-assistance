@@ -37,13 +37,34 @@
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">ホーム</NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="damage-calculator">ダメージ計算機</NavLink>
+            @if (CalcDisabled)
+            {
+                <span class="nav-link nav-disabled" role="link" aria-disabled="true" title="@DisabledHint">ダメージ計算機</span>
+            }
+            else
+            {
+                <NavLink class="nav-link" href="damage-calculator">ダメージ計算機</NavLink>
+            }
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="speed">素早さ比較</NavLink>
+            @if (CalcDisabled)
+            {
+                <span class="nav-link nav-disabled" role="link" aria-disabled="true" title="@DisabledHint">素早さ比較</span>
+            }
+            else
+            {
+                <NavLink class="nav-link" href="speed">素早さ比較</NavLink>
+            }
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="roster">登録・チーム</NavLink>
+            @if (CalcDisabled)
+            {
+                <span class="nav-link nav-disabled" role="link" aria-disabled="true" title="@DisabledHint">登録・チーム</span>
+            }
+            else
+            {
+                <NavLink class="nav-link" href="roster">登録・チーム</NavLink>
+            }
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="types">タイプ相性表</NavLink>
@@ -52,13 +73,25 @@
             <NavLink class="nav-link" href="pokedex">ポケモン一覧</NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="command">チャットコマンド</NavLink>
+            @if (CalcDisabled)
+            {
+                <span class="nav-link nav-disabled" role="link" aria-disabled="true" title="@DisabledHint">チャットコマンド</span>
+            }
+            else
+            {
+                <NavLink class="nav-link" href="command">チャットコマンド</NavLink>
+            }
         </div>
     </nav>
 </div>
 
 @code {
     private bool collapseNavMenu = true;
+
+    // 計算・登録に対応していないゲーム（昔の世代）では、使えない項目を選べなくする
+    private bool CalcDisabled => App.DataSet is { CalcSupported: false };
+
+    private string DisabledHint => $"{App.DataSet?.Name}は未対応です（ポケモン一覧とタイプ相性表のみ）";
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 

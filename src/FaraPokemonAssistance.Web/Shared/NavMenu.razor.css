@@ -63,6 +63,20 @@
     color: white;
 }
 
+/* この世代では使えない項目: 選べないことが分かる見た目にする（クリックしても何も起きない） */
+.nav-item .nav-disabled {
+    color: #d7d7d7;
+    opacity: 0.4;
+    border-radius: 4px;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    line-height: 3rem;
+    padding-left: 1rem;
+    cursor: not-allowed;
+    user-select: none;
+}
+
 .nav-scrollable {
     display: none;
 }
