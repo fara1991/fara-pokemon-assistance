@@ -62,9 +62,10 @@ public static class StatusNames
     };
 
     /// <summary>ターン終了時の定数ダメージ（最大 HP と経過ターン数から）。</summary>
-    public static int ResidualDamage(StatusCondition s, int maxHp, int turn) => s switch
+    public static int ResidualDamage(StatusCondition s, int maxHp, int turn, int generation = 9) => s switch
     {
-        StatusCondition.Burn => Math.Max(1, maxHp / 16),
+        // やけどは第 6 世代まで 1/8、第 7 世代から 1/16
+        StatusCondition.Burn => Math.Max(1, maxHp / (generation <= 6 ? 8 : 16)),
         StatusCondition.Poison => Math.Max(1, maxHp / 8),
         StatusCondition.BadlyPoisoned => Math.Max(1, maxHp * Math.Min(turn, 15) / 16),
         _ => 0,
@@ -141,6 +142,10 @@ public static class FieldNames
     {
         Weather.Sun => "晴れ", Weather.Rain => "雨", Weather.Sand => "砂嵐", Weather.Snow => "雪", _ => "なし",
     };
+
+    /// <summary>世代に合わせた天候の名前（第 7 世代までの「雪」の欄は「あられ」）。</summary>
+    public static string Japanese(Weather w, int generation) =>
+        w == Weather.Snow && generation <= 7 ? "あられ" : Japanese(w);
 
     public static string Japanese(Terrain t) => t switch
     {
@@ -384,6 +389,8 @@ public sealed class Item
     public bool IsOffensive => Category is not (ItemCategory.ResistBerry) && (Category is ItemCategory.LifeOrb or ItemCategory.ExpertBelt or ItemCategory.TypeBoost or ItemCategory.LightBall or ItemCategory.ThickClub
         || AttackMultiplier != 1.0 || SpAttackMultiplier != 1.0 || DamageMultiplier != 1.0 || !string.IsNullOrEmpty(TypeBoost));
     public bool IsMegaStone => Category == ItemCategory.MegaStone;
+    /// <summary>メガストーンなら、それでメガシンカする種族の ID（データを読み込むときに、メガシンカ後のポケモンから求める）。</summary>
+    public int? MegaSpeciesId { get; internal set; }
 
     public override string ToString() => Name;
 }
@@ -419,6 +426,8 @@ public enum BattleGimmick
     None,
     Dynamax,
     Terastal,
+    /// <summary>Z 技（第 7 世代）。</summary>
+    ZMove,
 }
 
 /// <summary>データセット（世代・ゲーム）の定義。<c>data/datasets.csv</c> に対応。</summary>
@@ -441,6 +450,10 @@ public sealed class DataSetInfo
 
     public bool HasTerastal => Gimmick == BattleGimmick.Terastal;
     public bool HasDynamax => Gimmick == BattleGimmick.Dynamax;
+    public bool HasZMove => Gimmick == BattleGimmick.ZMove;
+    /// <summary>フィールド（エレキ・グラス・ミスト）があるか（第 6 世代から。サイコフィールドは第 7 世代から）。</summary>
+    public bool HasTerrain => Generation >= 6;
+    public bool HasPsychicTerrain => Generation >= 7;
 
     public override string ToString() => Name;
 }

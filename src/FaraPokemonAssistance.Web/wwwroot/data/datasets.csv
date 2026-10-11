@@ -4,8 +4,8 @@ Gen2,第2世代（金・銀・クリスタル）,2,Classic,pokegs,None,,Referenc
 Gen3,第3世代（ルビー・サファイア・エメラルド・FRLG）,3,Classic,pokers,None,,Reference
 Gen4,第4世代（ダイヤモンド・パール・プラチナ・HGSS）,4,Classic,pokedp,None,,Reference
 Gen5,第5世代（ブラック・ホワイト・BW2）,5,Classic,pokebw,None,,Reference
-Gen6,第6世代（X・Y・オメガルビー・アルファサファイア）,6,Classic,pokexy,None,,Reference
-Gen7,第7世代（サン・ムーン・USUM）,7,Classic,pokesm,None,,Reference
+Gen6,第6世代（X・Y・オメガルビー・アルファサファイア）,6,Classic,pokexy,None,,Full
+Gen7,第7世代（サン・ムーン・USUM）,7,Classic,pokesm,ZMove,,Full
 Gen8,第8世代（ソード・シールド）,8,Classic,pokess,Dynamax,,Full
 Gen9,第9世代（スカーレット・バイオレット）,9,Classic,pokesv,Terastal,,Full
 Champions,ポケモンチャンピオンズ,9,Points,pokech,None,Gen9,Full

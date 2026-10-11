@@ -74,6 +74,13 @@ else if (data is not null && dataSet is not null)
                         {
                             <div class="small text-muted mt-1"><TypeIcon Type="@s.Move.Type" Small="true" /> @CategoryText(s.Move) 威力 @(s.Move.Power > 0 ? s.Move.Power.ToString() : "-")@(s.Move.UsesPhysicalDefense ? "（相手の防御で計算）" : "")@(s.Move.IsFixedDamage ? "（固定ダメージ技のため計算できません）" : "")</div>
                         }
+                        @if (dataSet.HasZMove && s.Move is { IsDamaging: true })
+                        {
+                            <div class="form-check mt-1">
+                                <input class="form-check-input" type="checkbox" id="zmove" checked="@s.IsZMove" @onchange="@(e => s.IsZMove = e.Value is true)" />
+                                <label class="form-check-label" for="zmove">Z技にする（威力 @ZMove.Power(s.Move)） <Help Title="Z技">第7世代の Z 技として計算します。威力は元の技の威力から決まる Z 技の威力になり、持ち物は Z クリスタル扱い（ほかの持ち物の効果なし）です。接触・パンチなどの技の性質や追加効果は無くなるので、かたいツメ・てつのこぶし・ちからずくなどは効きません。スキン系の特性でタイプは変わりません。</Help></label>
+                            </div>
+                        }
                     </div>
                     @if (s.Attacker is not null)
                     {
@@ -127,23 +134,26 @@ else if (data is not null && dataSet is not null)
                 <div class="card-body">
                     <div class="row g-2">
                         <div class="col-sm-6">
-                            <label class="form-label mb-1" for="weather">天候 <Help Title="天候">晴れはほのお 1.5 倍・みず 0.5 倍、雨はその逆。砂嵐はいわタイプの特防 1.5 倍、雪はこおりタイプの防御 1.5 倍。天候で発動する特性（サンパワー等）にも使います。</Help></label>
+                            <label class="form-label mb-1" for="weather">天候 <Help Title="天候">晴れはほのお 1.5 倍・みず 0.5 倍、雨はその逆。砂嵐はいわタイプの特防 1.5 倍、雪はこおりタイプの防御 1.5 倍（第7世代までは「あられ」で、防御は上がりません）。天候で発動する特性（サンパワー等）にも使います。</Help></label>
                             <select id="weather" class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
                                 @foreach (var w in Enum.GetValues<Weather>())
                                 {
-                                    <option value="@w">@FieldNames.Japanese(w)</option>
+                                    <option value="@w">@FieldNames.Japanese(w, dataSet.Generation)</option>
                                 }
                             </select>
                         </div>
+                        @if (dataSet.HasTerrain)
+                        {
                         <div class="col-sm-6">
-                            <label class="form-label mb-1" for="terrain">フィールド <Help Title="フィールド">エレキ・グラス・サイコは対応タイプの技が 1.3 倍、ミストはドラゴン技が 0.5 倍。グラスではじしん系が半減、サイコではワイドフォースが強化されます。地面にいるポケモンにだけ効きます。</Help></label>
+                            <label class="form-label mb-1" for="terrain">フィールド <Help Title="フィールド">エレキ・グラス・サイコは対応タイプの技が 1.3 倍（第7世代までは 1.5 倍）、ミストはドラゴン技が 0.5 倍。グラスではじしん系が半減、サイコではワイドフォースが強化されます。地面にいるポケモンにだけ効きます。フィールドは第6世代から（サイコフィールドは第7世代から）です。</Help></label>
                             <select id="terrain" class="form-select" value="@s.Terrain" @onchange="@(e => s.Terrain = ParseEnum(e.Value, Terrain.None))">
-                                @foreach (var t in Enum.GetValues<Terrain>())
+                                @foreach (var t in Enum.GetValues<Terrain>().Where(t => t != Terrain.Psychic || dataSet.HasPsychicTerrain))
                                 {
                                     <option value="@t">@FieldNames.Japanese(t)</option>
                                 }
                             </select>
                         </div>
+                        }
                     </div>
                     <div class="field-checks mt-2">
                         <div class="form-check">
@@ -231,6 +241,8 @@ else if (data is not null && dataSet is not null)
         public PokemonBuild? Defender { get; set; }
         public Move? Move { get; set; }
         public bool IsCritical { get; set; }
+        /// <summary>Z 技として使う（第 7 世代）。</summary>
+        public bool IsZMove { get; set; }
         public bool Reflect { get; set; }
         public bool LightScreen { get; set; }
         public Weather Weather { get; set; }
@@ -298,6 +310,8 @@ else if (data is not null && dataSet is not null)
                 s.EstimateText = "";
             }
             s.Format = App.Format;
+            // そのゲームに無いフィールド（第 5 世代まで・サイコフィールドは第 6 世代まで）は外す
+            if (dataSet is { HasTerrain: false } || s.Terrain == Terrain.Psychic && dataSet is { HasPsychicTerrain: false }) s.Terrain = Terrain.None;
             RefreshAttackerLists();
             RefreshDefenderLists();
         }
@@ -421,13 +435,14 @@ else if (data is not null && dataSet is not null)
             Defender = s.Defender.Clone(),
             Format = App.Format,
             IsCritical = s.IsCritical,
+            IsZMove = UseZMove,
             Weather = s.Weather,
             Terrain = s.Terrain,
             Reflect = s.Reflect,
             LightScreen = s.LightScreen,
         };
         request.Defender.Item = null;
-        var estimate = new EvEstimator(data.TypeChart).Run(request, observed, asPercent);
+        var estimate = new EvEstimator(data.TypeChart, data.Info.Generation).Run(request, observed, asPercent);
         s.EstimateText = EvEstimator.Format(estimate, s.Defender.Pokemon, s.Move, data.Info.EvSystem) + "（相手は持ち物なし想定）";
     }
 
@@ -481,15 +496,15 @@ else if (data is not null && dataSet is not null)
         {
             if (data is null || s.Attacker is null) return attackerMoves;
             var defender = s.Defender ?? FaraPokemonAssistance.Core.Battle.DamageCalculator.NeutralDefender(s.Attacker.EvSystem);
-            var key = string.Join(";", BuildKey(s.Attacker), BuildKey(defender), s.Weather, s.Terrain, App.Format, s.IsCritical, s.Reflect, s.LightScreen,
+            var key = string.Join(";", BuildKey(s.Attacker), BuildKey(defender), s.Weather, s.Terrain, App.Format, s.IsCritical, s.Reflect, s.LightScreen, UseZMove,
                 attackerMoves.Count, attackerMoves.FirstOrDefault()?.Id);
             if (key != sortedMovesKey)
             {
                 sortedMovesKey = key;
-                sortedMoves = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart).SortByDamage(new DamageRequest
+                sortedMoves = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation).SortByDamage(new DamageRequest
                 {
                     Attacker = s.Attacker, Move = attackerMoves.FirstOrDefault() ?? new Move(), Defender = defender,
-                    Format = App.Format, IsCritical = s.IsCritical, Weather = s.Weather, Terrain = s.Terrain, Reflect = s.Reflect, LightScreen = s.LightScreen,
+                    Format = App.Format, IsCritical = s.IsCritical, Weather = s.Weather, Terrain = s.Terrain, Reflect = s.Reflect, LightScreen = s.LightScreen, IsZMove = UseZMove,
                 }, attackerMoves);
             }
             return sortedMoves;
@@ -743,6 +758,9 @@ else if (data is not null && dataSet is not null)
     /// 攻撃側・防御側・技がそろっていれば、結果を出す。描画のたびに呼ぶが、計算に関わる入力
     /// （構成の実数値・ランク・特性・持ち物・状態・残り HP・テラスタル・ダイマックス、技、場の状態、形式）が変わったときだけ計算し直す。
     /// </summary>
+    /// <summary>Z 技で計算するか（第 7 世代でチェックしたときだけ）。</summary>
+    private bool UseZMove => s.IsZMove && dataSet?.HasZMove == true;
+
     private void UpdateResult()
     {
         if (data is null || s.Attacker is null || s.Defender is null || s.Move is null)
@@ -754,7 +772,7 @@ else if (data is not null && dataSet is not null)
             return;
         }
         var key = string.Join(";", App.DataSetKey, BuildKey(s.Attacker), BuildKey(s.Defender), s.Move.Id,
-            s.Weather, s.Terrain, App.Format, s.IsCritical, s.Reflect, s.LightScreen);
+            s.Weather, s.Terrain, App.Format, s.IsCritical, s.Reflect, s.LightScreen, UseZMove);
         if (key == resultKey) return;
         resultKey = key;
         Calculate();
@@ -782,12 +800,13 @@ else if (data is not null && dataSet is not null)
                 Defender = s.Defender,
                 Format = App.Format,
                 IsCritical = s.IsCritical,
+                IsZMove = UseZMove,
                 Weather = s.Weather,
                 Terrain = s.Terrain,
                 Reflect = s.Reflect,
                 LightScreen = s.LightScreen,
             };
-            s.Result = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart).Calculate(s.LastRequest);
+            s.Result = new FaraPokemonAssistance.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation).Calculate(s.LastRequest);
         }
         catch (Exception ex)
         {

@@ -7,10 +7,12 @@ namespace FaraPokemonAssistance.Core.Battle;
 public sealed class EvEstimator
 {
     private readonly TypeChart _typeChart;
+    private readonly int _generation;
 
-    public EvEstimator(TypeChart typeChart)
+    public EvEstimator(TypeChart typeChart, int generation = 9)
     {
         _typeChart = typeChart;
+        _generation = generation;
     }
 
     public sealed record NatureBand(double Modifier, string Label, int MinEv, int MaxEv);
@@ -45,7 +47,7 @@ public sealed class EvEstimator
         if (system == EvSystem.Classic && !evValues.Contains(4)) evValues.Insert(1, 4);
 
         var natures = new (double Mod, string Label)[] { (1.1, "上昇補正"), (1.0, "補正なし"), (0.9, "下降補正") };
-        var calc = new DamageCalculator(_typeChart);
+        var calc = new DamageCalculator(_typeChart, _generation);
         var matchedStats = new HashSet<int>();
         var bands = new List<NatureBand>();
         int? hpMin = null, hpMax = null;

@@ -24,10 +24,16 @@ public sealed class DamageCalculator
     private const int MoveIdFacade = 263;
 
     private readonly TypeChart _typeChart;
+    private readonly LegacyDamageCalculator? _legacy;
 
-    public DamageCalculator(TypeChart typeChart)
+    /// <summary>
+    /// <paramref name="generation"/> はゲームの世代。第 5〜7 世代は <see cref="LegacyDamageCalculator"/>（その世代の補正の順番・丸め）で計算する。
+    /// </summary>
+    public DamageCalculator(TypeChart typeChart, int generation = 9)
     {
         _typeChart = typeChart;
+        if (generation is >= 5 and <= 7) _legacy = new LegacyDamageCalculator(typeChart, generation);
+        else if (generation < 5) throw new NotSupportedException($"第{generation}世代のダメージ計算には対応していません");
     }
 
     /// <summary>ダイマックス技の威力（かくとう・どくは低めの表）。</summary>
@@ -50,6 +56,7 @@ public sealed class DamageCalculator
 
     public DamageResult Calculate(DamageRequest request)
     {
+        if (_legacy is not null) return _legacy.Calculate(request);
         var attacker = request.Attacker;
         var defender = request.Defender;
         var move = request.Move;
@@ -646,7 +653,10 @@ public sealed class KnockOutOptions
     public static KnockOutOptions Default { get; } = new();
 
     /// <summary>防御側の持ち物・状態・フィールドから条件を組み立て、反映した内容を modifiers に書き足す。</summary>
-    public static KnockOutOptions For(DamageRequest request, PokemonBuild defender, int maxHp, bool grounded, int[] laterRolls, List<string> modifiers)
+    /// <summary>計算した世代（やけどの定数ダメージ・回復きのみの量が変わる）。</summary>
+    public int Generation { get; init; } = 9;
+
+    public static KnockOutOptions For(DamageRequest request, PokemonBuild defender, int maxHp, bool grounded, int[] laterRolls, List<string> modifiers, int generation = 9)
     {
         var start = Math.Min(maxHp, defender.CurrentHp);
         if (start < maxHp) modifiers.Add($"防御側の残りHP {start}/{maxHp}");
@@ -654,7 +664,7 @@ public sealed class KnockOutOptions
         var threshold = 0;
         var heal = 0;
         var sixteenth = Math.Max(1, maxHp / 16);
-        if (request.Terrain == Terrain.Grassy && grounded)
+        if (request.Terrain == Terrain.Grassy && grounded && generation >= 6)
         {
             eot += sixteenth;
             modifiers.Add("グラスフィールド(毎ターン1/16回復)を確定数に反映");
@@ -683,6 +693,17 @@ public sealed class KnockOutOptions
                 heal = 10;
                 modifiers.Add($"{item.Name}(HP1/2以下で10回復)を確定数に反映");
                 break;
+            case { Category: ItemCategory.PinchBerry } item when generation <= 6:
+                // 第 6 世代まで: HP 1/2 以下で 1/8 回復
+                threshold = maxHp / 2;
+                heal = Math.Max(1, maxHp / 8);
+                modifiers.Add($"{item.Name}(HP1/2以下で1/8回復)を確定数に反映");
+                break;
+            case { Category: ItemCategory.PinchBerry } item when generation == 7:
+                threshold = maxHp / 4;
+                heal = Math.Max(1, maxHp / 2);
+                modifiers.Add($"{item.Name}(HP1/4以下で1/2回復)を確定数に反映");
+                break;
             case { Category: ItemCategory.PinchBerry } item:
                 threshold = maxHp / 4;
                 heal = Math.Max(1, maxHp / 3);
@@ -697,6 +718,7 @@ public sealed class KnockOutOptions
             EndOfTurnHeal = eot,
             BerryThreshold = threshold,
             BerryHeal = heal,
+            Generation = generation,
         };
     }
 }
@@ -727,7 +749,7 @@ public static class KnockOutCalculator
         for (var hits = 1; hits <= MaxHits; hits++)
         {
             var hitRolls = hits == 1 ? rolls : options.LaterRolls ?? rolls;
-            var residual = StatusNames.ResidualDamage(options.Status, hp, hits);
+            var residual = StatusNames.ResidualDamage(options.Status, hp, hits, options.Generation);
             var next = new Dictionary<int, double>();
             foreach (var (key, p) in dist)
             {

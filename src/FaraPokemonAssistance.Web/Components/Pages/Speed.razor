@@ -31,13 +31,13 @@ else if (data is not null && dataSet is not null)
                         <div class="col-sm-6">
                             <label class="form-label">天候 <Help Title="天候">すいすい（雨）・ようりょくそ（晴れ）・すなかき（砂嵐）・ゆきかき（雪）の特性を持つポケモンは、その天候で素早さが 2 倍になります。こだいかっせい（晴れ）で素早さが一番高いポケモンは 1.5 倍です。</Help></label>
                             <select class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
-                                @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w)</option> }
+                                @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w, dataSet.Generation)</option> }
                             </select>
                         </div>
                         <div class="col-sm-6">
                             <label class="form-label">フィールド <Help Title="フィールド">サーフテール（エレキフィールドで 2 倍）、クォークチャージ（エレキフィールドで素早さが一番高いとき 1.5 倍）に使います。</Help></label>
                             <select class="form-select" value="@s.Terrain" @onchange="@(e => s.Terrain = ParseEnum(e.Value, Terrain.None))">
-                                @foreach (var t in Enum.GetValues<Terrain>()) { <option value="@t">@FieldNames.Japanese(t)</option> }
+                                @foreach (var t in Enum.GetValues<Terrain>().Where(t => dataSet.HasTerrain && (t != Terrain.Psychic || dataSet.HasPsychicTerrain) || t == Terrain.None)) { <option value="@t">@FieldNames.Japanese(t)</option> }
                             </select>
                         </div>
                     </div>
@@ -51,7 +51,7 @@ else if (data is not null && dataSet is not null)
                 {
                     if (s.Builds[i] is { } bld)
                     {
-                        var (sp, nt) = SpeedCalculator.Effective(bld, s.Weather, s.Terrain, s.Tailwind[i]);
+                        var (sp, nt) = SpeedCalculator.Effective(bld, s.Weather, s.Terrain, s.Tailwind[i], dataSet.Generation);
                         speeds[i] = sp;
                         notes[i] = nt;
                     }
@@ -176,6 +176,8 @@ else if (data is not null && dataSet is not null)
             s.Builds = new PokemonBuild?[2];
             s.Tailwind = new bool[2];
         }
+        // そのゲームに無いフィールドは外す
+        if (dataSet is { HasTerrain: false } || s.Terrain == Terrain.Psychic && dataSet is { HasPsychicTerrain: false }) s.Terrain = Terrain.None;
     }
 
     private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;
@@ -294,7 +296,7 @@ else if (data is not null && dataSet is not null)
                         <div class="col-6 d-flex flex-column justify-content-end">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="para-@side" checked="@(build.Status == StatusCondition.Paralysis)" @onchange="@(e => build.Status = e.Value is true ? StatusCondition.Paralysis : StatusCondition.None)" />
-                                <label class="form-check-label" for="para-@side">まひ（0.5 倍）</label>
+                                <label class="form-check-label" for="para-@side">まひ（@(dataSet.Generation <= 6 ? "1/4" : "0.5 倍")）</label>
                             </div>
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" id="tailwind-@side" checked="@s.Tailwind[side]" @onchange="@(e => s.Tailwind[side] = e.Value is true)" />
@@ -317,8 +319,8 @@ else if (data is not null && dataSet is not null)
     private RenderFragment RenderReference(PokemonBuild build, bool tailwind, int? opponentSpeed, string? opponentName) => __builder =>
     {
         // 振り方だけを置き換えて、結果の素早さと同じ計算（持ち物・特性・ランク・まひ・おいかぜ・天候・フィールド）をする
-        var rows = SpeedCalculator.ReferenceRows(build, data!.Natures, Scarf, s.Weather, s.Terrain, tailwind);
-        var (_, currentLabels) = SpeedCalculator.Effective(build, s.Weather, s.Terrain, tailwind);
+        var rows = SpeedCalculator.ReferenceRows(build, data!.Natures, Scarf, s.Weather, s.Terrain, tailwind, dataSet!.Generation);
+        var (_, currentLabels) = SpeedCalculator.Effective(build, s.Weather, s.Terrain, tailwind, dataSet!.Generation);
         var hasCurrent = rows.Any(r => r.Current != r.Base) || currentLabels.Count > 0;
         var potential = SpeedCalculator.PotentialFactor(build, s.Weather, s.Terrain);
         <div class="speed-reference-table">
