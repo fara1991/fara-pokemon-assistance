@@ -44,7 +44,7 @@
                     }
                     @if (selected is not null)
                     {
-                        <th class="type-head type-total-head" title="@selected.Name に当たったときの倍率（特性込み）"><PokemonIcon Pokemon="selected" Small="true" /></th>
+                        <th class="type-head type-total-head type-selected" title="@selected.Name に当たったときの倍率（特性込み）"><PokemonIcon Pokemon="selected" Small="true" /></th>
                     }
                 </tr>
             </thead>
@@ -78,7 +78,7 @@
                     }
                     @if (total is not null)
                     {
-                        <td class="type-total @CellClass(total.Multiplier) @(total.ChangedByAbility ? "type-total-ability" : "") @(picked ? "type-row-picked" : "")"
+                        <td class="type-total type-selected @CellClass(total.Multiplier) @(total.ChangedByAbility ? "type-total-ability" : "") @(picked ? "type-row-picked" : "")"
                             title="@TotalTitle(a, total)"><span class="@MarkClass(total.Multiplier)">@TypeMarks.Symbol(total.Multiplier)@if (TypeMarks.IsEighth(total.Multiplier)) { <span class="mk-sub">⅛</span> }</span>@if (total.ChangedByAbility) { <span class="ability-badge">特</span> }</td>
                     }
                 </tr>
