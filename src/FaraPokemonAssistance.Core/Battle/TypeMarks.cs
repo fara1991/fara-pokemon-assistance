@@ -1,13 +1,13 @@
 namespace FaraPokemonAssistance.Core.Battle;
 
 /// <summary>
-/// タイプ相性表に出す記号。◎ 効果抜群、△ いまひとつ、× 効果なし、空欄は等倍。
-/// 4 倍・¼ 倍のように 2 倍（½ 倍）を重ねた倍率は記号を重ねる（◎◎ / △△。⅛ 倍は △△△）。
-/// 1.5 倍など 2 の累乗でない倍率（特性で変わったとき）は、向きだけ分かるよう記号 1 つにする。
+/// タイプ相性表に出す記号。○ 2 倍、◎ 4 倍、△ ½ 倍、▲ ¼ 倍、× 効果なし、空欄は等倍。
+/// ⅛ 倍は ▲ のまま、表示側で小さく「⅛」を添える（<see cref="IsEighth"/>）。
+/// 1.5 倍など 2 の累乗でない倍率（特性で変わったとき）は、向きだけ分かるよう ○ / △ の 1 つにする。
 /// </summary>
 public static class TypeMarks
 {
-    /// <summary>記号を重ねる数（等倍と無効は 0）。2 の累乗の倍率は何段階かを表し、それ以外は 1。</summary>
+    /// <summary>倍率が 2 の何段階分か（等倍と無効は 0、最大 3）。2 の累乗でない倍率は 1。</summary>
     public static int Count(double multiplier)
     {
         if (multiplier <= 0 || multiplier == 1) return 0;
@@ -23,6 +23,10 @@ public static class TypeMarks
     {
         if (multiplier == 0) return "×";
         if (multiplier == 1) return "";
-        return new string(multiplier > 1 ? '◎' : '△', Count(multiplier));
+        var strong = Count(multiplier) >= 2;
+        return multiplier > 1 ? (strong ? "◎" : "○") : (strong ? "▲" : "△");
     }
+
+    /// <summary>⅛ 倍か（▲ に小さく ⅛ を添える）。</summary>
+    public static bool IsEighth(double multiplier) => Math.Abs(multiplier - 0.125) < 1e-9;
 }

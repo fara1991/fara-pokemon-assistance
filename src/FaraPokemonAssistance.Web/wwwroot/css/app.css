@@ -581,21 +581,26 @@ body {
     border-left: 2px solid var(--bs-primary);
 }
 
-/* 4 倍・¼ 倍は記号を重ねる（◎◎ / △△）ので、マスに収まるよう小さくする */
+/* 記号（○ ◎ △ ▲）は同じ Geometric Shapes ブロックの字で、どのフォントでも絵文字にならない。⅛ 倍は ▲ に小さく ⅛ を添える */
 .type-chart .mk {
     display: inline-block;
     line-height: 1;
     white-space: nowrap;
 }
 
-.type-chart .mk-2 {
-    font-size: 0.72em;
-    letter-spacing: -0.06em;
+.mk-eighth {
+    display: inline-block;
+    position: relative;
+    padding-right: 0.3em;
 }
 
-.type-chart .mk-3 {
+.mk-sub {
+    position: absolute;
+    right: -0.1em;
+    bottom: -0.15em;
     font-size: 0.5em;
-    letter-spacing: -0.06em;
+    font-weight: 700;
+    line-height: 1;
 }
 
 .type-chart th.type-total-head {

@@ -7,7 +7,7 @@
 <PageTitle>タイプ相性表</PageTitle>
 
 <div class="page-header">
-    <h3>タイプ相性表 <Help Title="タイプ相性表の見方">縦が攻撃する技のタイプ、横が受けるポケモンのタイプです。2 つのタイプを持つポケモンは、両方の倍率を掛け合わせます（例: ◎2 × △½ = 等倍）。マスにカーソルを合わせると、その行と列が強調されます。右でポケモンを選ぶと、そのポケモンのタイプの列（受ける側）が強調され、右端に特性も含めた最終的な倍率の列が出ます。特性で倍率が変わるマスには「特」が付きます（カーソルを合わせると理由が出ます）。ポケモンを選んでいる間は、左端の攻撃タイプのアイコンを押すと（2 つまで）、そのタイプのポケモンと、選んだポケモンに抜群を取れる技が右に出ます。</Help></h3>
+    <h3>タイプ相性表 <Help Title="タイプ相性表の見方">縦が攻撃する技のタイプ、横が受けるポケモンのタイプです。2 つのタイプを持つポケモンは、両方の倍率を掛け合わせます（例: ○2 × △½ = 等倍）。マスにカーソルを合わせると、その行と列が強調されます。右でポケモンを選ぶと、そのポケモンのタイプの列（受ける側）が強調され、右端に特性も含めた最終的な倍率の列が出ます。特性で倍率が変わるマスには「特」が付きます（カーソルを合わせると理由が出ます）。ポケモンを選んでいる間は、左端の攻撃タイプのアイコンを押すと（2 つまで）、そのタイプのポケモンと、選んだポケモンに抜群を取れる技が右に出ます。</Help></h3>
     <p class="text-muted mb-0">縦が攻撃側、横が防御側です。</p>
 </div>
 
@@ -18,14 +18,15 @@
 </div>
 <div class="type-chart-main">
 <div class="type-legend mb-2">
-    <span><span class="type-mark type-weak">◎</span> 効果抜群（2 倍）</span>
+    <span><span class="type-mark type-weak">○</span> 効果抜群（2 倍）</span>
     <span><span class="type-mark type-resist">△</span> いまひとつ（½ 倍）</span>
     <span><span class="type-mark type-immune">×</span> 効果なし（0 倍）</span>
     <span><span class="type-mark">&nbsp;</span> 空欄は等倍</span>
     @if (selected is not null)
     {
-        <span><span class="type-mark type-weak">◎◎</span> 4 倍</span>
-        <span><span class="type-mark type-resist">△△</span> ¼ 倍</span>
+        <span><span class="type-mark type-weak">◎</span> 4 倍</span>
+        <span><span class="type-mark type-resist">▲</span> ¼ 倍</span>
+        <span><span class="type-mark type-resist"><span class="mk mk-eighth">▲<span class="mk-sub">⅛</span></span></span> ⅛ 倍</span>
         <span><span class="type-mark"><span class="ability-badge">特</span></span> 特性で倍率が変わる</span>
     }
 </div>
@@ -73,12 +74,12 @@
                         var badge = total is { ChangedByAbility: true } && selected!.HasType(d);
                         <td class="@CellClass(m) @ColumnClass(d) @HoverClass(hoverRow == a || hoverCol == d) @(picked ? "type-row-picked" : "")"
                             title="@CellTitle(a, d, m, badge ? total : null)"
-                            @onmouseover="() => { hoverRow = a; hoverCol = d; }"><span class="@MarkClass(m)">@TypeMarks.Symbol(m)</span>@if (badge) { <span class="ability-badge">特</span> }</td>
+                            @onmouseover="() => { hoverRow = a; hoverCol = d; }"><span class="@MarkClass(m)">@TypeMarks.Symbol(m)@if (TypeMarks.IsEighth(m)) { <span class="mk-sub">⅛</span> }</span>@if (badge) { <span class="ability-badge">特</span> }</td>
                     }
                     @if (total is not null)
                     {
                         <td class="type-total @CellClass(total.Multiplier) @(total.ChangedByAbility ? "type-total-ability" : "") @(picked ? "type-row-picked" : "")"
-                            title="@TotalTitle(a, total)"><span class="@MarkClass(total.Multiplier)">@TypeMarks.Symbol(total.Multiplier)</span>@if (total.ChangedByAbility) { <span class="ability-badge">特</span> }</td>
+                            title="@TotalTitle(a, total)"><span class="@MarkClass(total.Multiplier)">@TypeMarks.Symbol(total.Multiplier)@if (TypeMarks.IsEighth(total.Multiplier)) { <span class="mk-sub">⅛</span> }</span>@if (total.ChangedByAbility) { <span class="ability-badge">特</span> }</td>
                     }
                 </tr>
             }
@@ -492,13 +493,8 @@
         _ => $"×{m:0.##}",
     };
 
-    /// <summary>記号を 2 つ以上重ねるマスは、マスに収まるよう小さくする。</summary>
-    private static string MarkClass(double m) => TypeMarks.Count(m) switch
-    {
-        >= 3 => "mk mk-3",
-        2 => "mk mk-2",
-        _ => "mk",
-    };
+    /// <summary>⅛ 倍のマスは ▲ に小さく ⅛ を添える。</summary>
+    private static string MarkClass(double m) => TypeMarks.IsEighth(m) ? "mk mk-eighth" : "mk";
 
     private static string Describe(double m) => m switch
     {
