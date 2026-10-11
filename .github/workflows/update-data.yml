@@ -1,5 +1,9 @@
 name: Update Pokémon data
 
+# データの更新は develop に commit する（master へは develop からのマージでのみ反映する運用のため）。
+# 本番（master）へは通常の develop → master の PR で届く。
+# 注意: schedule は常に既定ブランチ（master）のこのファイルで動くので、ここの変更は develop → master のマージ後に schedule へ反映される。
+
 on:
   schedule:
     # 毎週月曜 03:17 UTC（12:17 JST）。HOME のシーズン集計は月初めに切り替わるが週次で十分追従できる。
@@ -19,7 +23,10 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      # どのブランチから起動しても（schedule は master で起動する）develop を取得して develop に push する
       - uses: actions/checkout@v4
+        with:
+          ref: develop
 
       - uses: actions/setup-python@v5
         with:
@@ -46,13 +53,14 @@ jobs:
             exit 0
           fi
           git commit -m "data: weekly sync from PokeAPI / Pokémon HOME ($(date -u +%Y-%m-%d))"
-          git push
+          git push origin HEAD:develop
           echo "pushed=true" >> "$GITHUB_OUTPUT"
 
-      # GITHUB_TOKEN での push では他のワークフローが起動しないため、公開は明示的に起動する。
+      # GITHUB_TOKEN での push では他のワークフローが起動しないため、確認用サイトへの公開は明示的に起動する。
       # 変更が無かったときは上の「Commit changes」で何もしていないので、公開もしない。
-      - name: Deploy updated data
-        if: steps.commit.outputs.pushed == 'true' && github.ref == 'refs/heads/master'
+      # 本番（deploy.yml）へは develop → master の PR のマージで公開される。
+      - name: Deploy updated data (develop)
+        if: steps.commit.outputs.pushed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run deploy.yml --ref master
+        run: gh workflow run deploy-develop.yml --ref develop

@@ -717,6 +717,139 @@ public class DataSourceTests
         await Assert.ThrowsAsync<TaskCanceledException>(() => source.ReadTextAsync("none.csv"));
     }
 
+    /// <summary>決まった応答を返す HttpMessageHandler（HttpDataSource のテスト用）。</summary>
+    private sealed class FakeHandler : HttpMessageHandler
+    {
+        public Func<HttpRequestMessage, HttpResponseMessage> Respond { get; set; } = _ => new HttpResponseMessage(System.Net.HttpStatusCode.NotFound);
+        public List<string> Requested { get; } = new();
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requested.Add(request.RequestUri!.AbsolutePath);
+            return Task.FromResult(Respond(request));
+        }
+    }
+
+    private const string SpaIndexHtml = "<!DOCTYPE html>\n<html lang=\"ja\"><head><title>Pokémon Battle Assistant</title></head><body><div id=\"app\"></div></body></html>";
+
+    private static HttpResponseMessage Text(string body, string mediaType) =>
+        new(System.Net.HttpStatusCode.OK) { Content = new StringContent(body, System.Text.Encoding.UTF8, mediaType) };
+
+    private static HttpDataSource Http(FakeHandler handler) => new(new HttpClient(handler), "https://example.test/data");
+
+    [Fact]
+    public async Task Http_returns_csv_text()
+    {
+        var handler = new FakeHandler { Respond = _ => Text("Id,Name\n1,フシギダネ\n", "text/csv") };
+        Assert.Equal("Id,Name\n1,フシギダネ\n", await Http(handler).ReadTextAsync("Gen9/pokemon.csv"));
+        Assert.Equal("/data/Gen9/pokemon.csv", handler.Requested.Single());
+    }
+
+    [Fact]
+    public async Task Http_treats_404_as_missing()
+    {
+        var handler = new FakeHandler();
+        Assert.Null(await Http(handler).ReadTextAsync("Gen9/usage_singles.csv"));
+    }
+
+    [Fact]
+    public async Task Http_treats_spa_fallback_html_as_missing()
+    {
+        // not_found_handling: single-page-application のため、無いファイルにも 200 で index.html が返る
+        var handler = new FakeHandler { Respond = _ => Text(SpaIndexHtml, "text/html") };
+        Assert.Null(await Http(handler).ReadTextAsync("Gen9/usage_doubles.csv"));
+    }
+
+    [Theory]
+    [InlineData("application/octet-stream")]
+    [InlineData("text/plain")]
+    public async Task Http_treats_html_body_as_missing_even_with_other_content_type(string mediaType)
+    {
+        var handler = new FakeHandler { Respond = _ => Text("\uFEFF  \r\n" + SpaIndexHtml, mediaType) };
+        Assert.Null(await Http(handler).ReadTextAsync("x.csv"));
+        handler.Respond = _ => Text("<html><body></body></html>", mediaType);
+        Assert.Null(await Http(handler).ReadTextAsync("x.csv"));
+    }
+
+    [Fact]
+    public async Task Http_still_throws_on_server_error()
+    {
+        var handler = new FakeHandler { Respond = _ => new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError) };
+        await Assert.ThrowsAsync<HttpRequestException>(() => Http(handler).ReadTextAsync("x.csv"));
+    }
+
+    [Fact]
+    public async Task Caching_does_not_store_spa_fallback_html_as_data()
+    {
+        var dir = TempDir();
+        var handler = new FakeHandler { Respond = _ => Text(SpaIndexHtml, "text/html") };
+        var source = new CachingDataSource(Http(handler), dir, TimeSpan.FromDays(1));
+
+        Assert.Null(await source.ReadTextAsync("Gen9/usage_doubles.csv"));
+        Assert.False(File.Exists(Path.Combine(dir, "Gen9", "usage_doubles.csv")));
+        // 「無い」として記録されるので、保持期間内は取り直さない
+        Assert.Null(await source.ReadTextAsync("Gen9/usage_doubles.csv"));
+        Assert.Single(handler.Requested);
+    }
+
+    [Fact]
+    public async Task Caching_ignores_html_left_in_cache_by_older_versions()
+    {
+        var dir = TempDir();
+        var cachePath = Path.Combine(dir, "Gen9", "usage_doubles.csv");
+        Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
+        File.WriteAllText(cachePath, SpaIndexHtml);
+
+        var handler = new FakeHandler { Respond = _ => Text(SpaIndexHtml, "text/html") };
+        var source = new CachingDataSource(Http(handler), dir, TimeSpan.FromDays(1));
+        Assert.Null(await source.ReadTextAsync("Gen9/usage_doubles.csv"));
+        Assert.Single(handler.Requested);
+        Assert.False(File.Exists(cachePath));
+    }
+
+    [Fact]
+    public async Task Caching_does_not_fall_back_to_cached_html_when_offline()
+    {
+        var dir = TempDir();
+        var cachePath = Path.Combine(dir, "x.csv");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(cachePath, SpaIndexHtml);
+
+        var inner = new ScriptedSource { Handler = (_, _) => throw new HttpRequestException("offline") };
+        var source = new CachingDataSource(inner, dir, TimeSpan.Zero);
+        await Assert.ThrowsAsync<HttpRequestException>(() => source.ReadTextAsync("x.csv"));
+    }
+
+    [Fact]
+    public async Task Catalog_legacy_probe_ignores_spa_fallback_html()
+    {
+        // datasets.csv が無い（404）サイトで、Gen{g}/pokemon.csv の確認に index.html が返ってもデータセット扱いしない
+        var handler = new FakeHandler
+        {
+            Respond = req => req.RequestUri!.AbsolutePath.EndsWith("datasets.csv")
+                ? new HttpResponseMessage(System.Net.HttpStatusCode.NotFound)
+                : Text(SpaIndexHtml, "text/html"),
+        };
+        var catalog = new DataCatalog(Http(handler));
+        Assert.Empty(await catalog.GetDataSetsAsync());
+    }
+
+    [Fact]
+    public async Task Reference_only_dataset_is_refused_without_loading_its_data()
+    {
+        var real = new FileDataSource(TestData.DataDirectory);
+        var read = new List<string>();
+        var inner = new ScriptedSource { Handler = (path, ct) => { lock (read) read.Add(path); return real.ReadTextAsync(path, ct); } };
+        var poke = new PokeCommand(new DataCatalog(inner), new RosterRepository(new MemoryRosterStore()));
+
+        var result = await poke.ExecuteAsync("!pokerg dmg ケンタロス のしかかり スターミー");
+        Assert.False(result.Success);
+        Assert.Contains("対応していません", result.Message);
+        var help = await poke.ExecuteAsync("!pokerg help");
+        Assert.True(help.Success);
+        Assert.DoesNotContain(read, p => p.StartsWith("Gen1/"));
+    }
+
     [Fact]
     public async Task Catalog_retries_after_failed_load()
     {
