@@ -17,21 +17,21 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore FaraPokemonAssistance.sln
+        run: dotnet restore FaraPokemonBattleAssistant.sln
 
       - name: Build
-        run: dotnet build FaraPokemonAssistance.sln --configuration Release --no-restore
+        run: dotnet build FaraPokemonBattleAssistant.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test tests/FaraPokemonAssistance.Core.Tests --configuration Release --no-build --logger "trx;LogFileName=results.trx"
+        run: dotnet test tests/FaraPokemonBattleAssistant.Core.Tests --configuration Release --no-build --logger "trx;LogFileName=results.trx"
 
       - name: Publish web (sanity check)
-        run: dotnet publish src/FaraPokemonAssistance.Web --configuration Release --no-build --output artifacts/web
+        run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --no-build --output artifacts/web
 
       - name: Pack Core
-        run: dotnet pack src/FaraPokemonAssistance.Core --configuration Release --no-build --output artifacts/nuget
+        run: dotnet pack src/FaraPokemonBattleAssistant.Core --configuration Release --no-build --output artifacts/nuget
 
       - uses: actions/upload-artifact@v4
         with:
-          name: FaraPokemonAssistance.Core-nupkg
+          name: FaraPokemonBattleAssistant.Core-nupkg
           path: artifacts/nuget/*.nupkg

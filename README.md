@@ -10,11 +10,11 @@
 ```
 fara-pokemon-battle-assistant/
 ├── src/
-│   ├── FaraPokemonAssistance.Core/   計算ロジック・CSV 読み込み・名前解決・登録/チーム・チャットコマンド（クラスライブラリ）
-│   ├── FaraPokemonAssistance.Web/    Blazor WebAssembly（Cloudflare Workers に公開）
+│   ├── FaraPokemonBattleAssistant.Core/   計算ロジック・CSV 読み込み・名前解決・登録/チーム・チャットコマンド（クラスライブラリ）
+│   ├── FaraPokemonBattleAssistant.Web/    Blazor WebAssembly（Cloudflare Workers に公開）
 │   │   └── wwwroot/data/             ★ データ CSV。Web もボットもこのファイルを読む
-│   └── FaraPokemonAssistance.Cli/    コマンドをターミナルで試す / ボット組み込み前の動作確認用
-├── tests/FaraPokemonAssistance.Core.Tests/
+│   └── FaraPokemonBattleAssistant.Cli/    コマンドをターミナルで試す / ボット組み込み前の動作確認用
+├── tests/FaraPokemonBattleAssistant.Core.Tests/
 ├── tools/
 │   ├── sync_data.py                  公開データとポケモン HOME からデータを再生成するスクリプト
 │   ├── datasets.json                 データセット定義（世代・バージョングループ・HOME 設定）
@@ -102,23 +102,23 @@ fara-pokemon-battle-assistant/
 ブラウザの「チャットコマンド」ページで同じ文字列を試せます。ターミナルなら:
 
 ```bash
-dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコフィールド"
+dotnet run --project src/FaraPokemonBattleAssistant.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコフィールド"
 ```
 
 ## FaraBotModerator への組み込み
 
 [docs/bot-integration.md](docs/bot-integration.md) を参照してください。要点:
 
-1. `FaraBotModerator.csproj` から `FaraPokemonAssistance.Core` を参照する（隣に clone して `ProjectReference`、または CI の成果物 `.nupkg`）。
+1. `FaraBotModerator.csproj` から `FaraPokemonBattleAssistant.Core` を参照する（隣に clone して `ProjectReference`、または CI の成果物 `.nupkg`）。
 2. 起動時に `DataCatalog` を 1 つ作る。データ元は公開サイトの URL（`https://pokemon.fara-labs.com/data/`）+ ローカルキャッシュ。
 3. `OnMessageReceived` で `!pokech` / `!pokesv` / `!pokess` を見つけたら `PokeCommand.ExecuteAsync` の結果をそのまま `SendMessage`。登録・削除は配信者本人とモデレーターだけに許可する。
 
 ## 開発
 
 ```bash
-dotnet build FaraPokemonAssistance.sln
-dotnet test tests/FaraPokemonAssistance.Core.Tests
-dotnet run --project src/FaraPokemonAssistance.Web      # https://localhost:52017
+dotnet build FaraPokemonBattleAssistant.sln
+dotnet test tests/FaraPokemonBattleAssistant.Core.Tests
+dotnet run --project src/FaraPokemonBattleAssistant.Web      # https://localhost:52017
 npm ci && npm run preview                                # Cloudflare と同じ動きで http://localhost:8787
 npm run check                                            # dotnet publish + wrangler deploy --dry-run（本番・develop）
 ```
@@ -132,7 +132,7 @@ npm run check                                            # dotnet publish + wran
 - サイコショック・サイコブレイク・しんぴのつるぎは相手の「防御」で計算
 - 天候: 晴れ・雨のほのお/みず補正、砂嵐のいわ特防 1.5 倍、雪のこおり防御 1.5 倍
 - フィールド: エレキ・グラス・サイコの 1.3 倍、ミストのドラゴン半減、グラスのじしん系半減、ワイドフォース（1.5 倍＋全体化）、ライジングボルト、サイコブレイド
-- 特性: `src/FaraPokemonAssistance.Core/Battle/DamageCalculator.cs` の `AbilityEffects` と各 `*Modifier` を参照。
+- 特性: `src/FaraPokemonBattleAssistant.Core/Battle/DamageCalculator.cs` の `AbilityEffects` と各 `*Modifier` を参照。
   スキン系、てきおうりょく、ちからもち/ヨガパワー、はりきり、ごりむちゅう、テクニシャン、ちからずく、てつのこぶし、がんじょうあご、メガランチャー、かたいツメ、パンクロック、すなのちから、はがねつかい/はがねのせいしん、トランジスタ、りゅうのあぎと、いわはこび、すいほう、サンパワー、ひひいろのこどう、ハドロンエンジン、こだいかっせい/クォークチャージ、いろめがね、ブレインフォース、スナイパー、かたやぶり系、
   防御側: ふゆう・ちょすい・よびみず・かんそうはだ・もらいび・こんがりボディ・ちくでん・ひらいしん・でんきエンジン・そうしょく・ぼうおん・ぼうだん・ふしぎなまもり・だっぴ…の無効化、あついしぼう、たいねつ、もふもふ、きよめのしお、ファーコート、くさのけがわ、マルチスケイル/ファントムガード（満タン想定）、フィルター/ハードロック/プリズムアーマー、こおりのりんぷん、てんねん
 - 壁（リフレクター / ひかりのかべ / オーロラベール）

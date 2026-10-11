@@ -1,9 +1,9 @@
 {
   "name": "fara-pokemon-battle-assistant",
   "private": true,
-  "description": "Cloudflare Workers への公開用（wrangler のバージョン固定）。サイト本体は src/FaraPokemonAssistance.Web",
+  "description": "Cloudflare Workers への公開用（wrangler のバージョン固定）。サイト本体は src/FaraPokemonBattleAssistant.Web",
   "scripts": {
-    "publish:web": "node -e \"require('fs').rmSync('publish', { recursive: true, force: true })\" && dotnet publish src/FaraPokemonAssistance.Web -c Release -o publish",
+    "publish:web": "node -e \"require('fs').rmSync('publish', { recursive: true, force: true })\" && dotnet publish src/FaraPokemonBattleAssistant.Web -c Release -o publish",
     "preview": "npm run publish:web && wrangler dev",
     "check": "npm run publish:web && wrangler deploy --dry-run --env=\"\" && wrangler deploy --dry-run --env develop"
   },

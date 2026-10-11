@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT / "src" / "FaraPokemonAssistance.Web" / "wwwroot" / "data"
+DATA = ROOT / "src" / "FaraPokemonBattleAssistant.Web" / "wwwroot" / "data"
 
 NATURES_EN = ["Hardy", "Lonely", "Brave", "Adamant", "Naughty", "Bold", "Docile", "Relaxed", "Impish", "Lax",
               "Timid", "Hasty", "Serious", "Jolly", "Naive", "Modest", "Mild", "Quiet", "Bashful", "Rash",
