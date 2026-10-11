@@ -233,4 +233,46 @@ public class CurseTypelessTests
         var gen5 = await TestData.Catalog().GetDataSetAsync("Gen5");
         Assert.Equal("Ghost", gen5.Moves.Single(m => m.Id == 174).Type);
     }
+    [Fact]
+    public async Task Gen3_weather_ball_doubles_damage_not_power_and_changes_type_and_category()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen3");
+        var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, 3);
+        var snorlax = new PokemonBuild(data.Pokemon.First(p => p.SpeciesId == 143));
+        var blissey = new PokemonBuild(data.Pokemon.First(p => p.SpeciesId == 242));
+        var weatherBall = data.Moves.Single(m => m.Id == 311);
+        DamageResult Calc(Weather weather, PokemonBuild? defender = null) =>
+            calc.Calculate(new DamageRequest { Attacker = snorlax, Move = weatherBall, Defender = defender ?? blissey, Weather = weather });
+
+        // 天候なし: ノーマルタイプの物理技、威力 50
+        var plain = Calc(Weather.None);
+        Assert.Equal("Normal", plain.MoveType);
+        Assert.Equal(50, plain.BasePower);
+        Assert.Equal(StatCalculator.Calculate(snorlax, Stat.Attack), plain.AttackStat);
+
+        // 晴れ: ほのおタイプの特殊技。威力は 50 のまま、晴れの 1.5 倍と +2 の後にダメージが 2 倍（タイプ一致なし・等倍）
+        var sun = Calc(Weather.Sun);
+        Assert.Equal("Fire", sun.MoveType);
+        Assert.Equal(50, sun.BasePower);
+        var spa = StatCalculator.Calculate(snorlax, Stat.SpAttack);
+        var spd = StatCalculator.Calculate(blissey, Stat.SpDefense);
+        Assert.Equal(spa, sun.AttackStat);
+        Assert.Equal(spd, sun.DefenseStat);
+        var baseDamage = ((snorlax.Level * 2 / 5 + 2) * spa * 50 / spd / 50 * 3 / 2 + 2) * 2;
+        Assert.Equal(Enumerable.Range(85, 16).Select(r => Math.Max(1, baseDamage * r / 100)), sun.Rolls);
+        Assert.Contains(sun.Modifiers, m => m.Contains("ダメージ2倍"));
+
+        // 砂嵐: いわタイプなので物理技
+        var sand = Calc(Weather.Sand);
+        Assert.Equal("Rock", sand.MoveType);
+        Assert.Equal(StatCalculator.Calculate(snorlax, Stat.Attack), sand.AttackStat);
+        Assert.Equal("Ice", Calc(Weather.Snow).MoveType);
+        Assert.Equal("Water", Calc(Weather.Rain).MoveType);
+
+        // ノーてんき・エアロックで天候の効果がなければ、ノーマルタイプのまま 2 倍にもならない
+        var golduck = new PokemonBuild(data.Pokemon.First(p => p.SpeciesId == 55)) { Ability = data.Abilities.First(a => a.Identifier == "cloud-nine") };
+        var negated = Calc(Weather.Sun, golduck);
+        Assert.Equal("Normal", negated.MoveType);
+        Assert.Equal(Calc(Weather.None, golduck).Rolls, negated.Rolls);
+    }
 }

@@ -191,7 +191,7 @@ public sealed class DamageCalculator
 
     /// <summary>
     /// 第 4〜7 世代の計算に渡す前に、威力・タイプが変わる技を置き換える（ウェザーボール・たたりめ・しおみず（第 4 世代））。
-    /// 第 3 世代のウェザーボールは、威力ではなくダメージを 2 倍にするので置き換えない。
+    /// 第 3 世代のウェザーボールは、威力ではなくダメージを 2 倍にするので置き換えない（LegacyDamageCalculator.Gen34.cs で扱う）。
     /// </summary>
     private DamageRequest LegacyMove(DamageRequest request)
     {

@@ -82,8 +82,8 @@ public static class TypeMatchup
     /// <param name="Move">技。</param>
     /// <param name="Type">当たるときのタイプ（スキン系特性でノーマル技が変わったとき・ウェザーボールなどはそのタイプ）。</param>
     /// <param name="Multiplier">相手への倍率（両方の特性込み）。</param>
-    /// <param name="Power">威力。攻撃側が自分の特性で作る天候・フィールドの補正（晴れのほのお技 1.5 倍、サイコフィールドのワイドフォースなど）込み。</param>
-    /// <param name="Field">威力・倍率に効いた天候・フィールド（例: <c>サイコフィールド</c>）。無ければ null。</param>
+    /// <param name="Power">威力。攻撃側が自分の特性で作る天候・フィールドの補正（晴れのほのお技 1.5 倍、サイコフィールドのワイドフォース、ひひいろのこどう・ハドロンエンジンの攻撃・特攻 1.33 倍など）込み。</param>
+    /// <param name="Field">威力・倍率に効いた天候・フィールド（例: <c>サイコフィールド</c>）か、ひひいろのこどう・ハドロンエンジン（例: <c>晴れ・ひひいろのこどう</c>）。無ければ null。</param>
     public sealed record SuperEffectiveMove(Move Move, string Type, double Multiplier, double Power, string? Field = null)
     {
         public SuperEffectiveMove(Move move, string type, double multiplier) : this(move, type, multiplier, move.Power) { }

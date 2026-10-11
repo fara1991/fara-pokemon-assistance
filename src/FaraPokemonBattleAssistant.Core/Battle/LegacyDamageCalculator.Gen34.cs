@@ -28,6 +28,12 @@ internal sealed partial class LegacyDamageCalculator
         "volt-absorb", "water-absorb", "wonder-guard",
     };
 
+    /// <summary>第 3 世代の物理・特殊（技のタイプで決まる）。</summary>
+    private static MoveCategory Gen3Category(string type) =>
+        type is "Normal" or "Fighting" or "Flying" or "Poison" or "Ground" or "Rock" or "Bug" or "Ghost" or "Steel"
+            ? MoveCategory.Physical
+            : MoveCategory.Special;
+
     private DamageResult CalculateGen34(DamageRequest request)
     {
         var attacker = request.Attacker;
@@ -63,6 +69,16 @@ internal sealed partial class LegacyDamageCalculator
         {
             moveType = "Normal";
             modifiers.Add($"{atkName}(ノーマルタイプ化)");
+        }
+        // 第 3 世代のウェザーボール: 天候があるとタイプが変わり（物理・特殊も変わったタイプで決まる）、威力ではなくダメージが 2 倍。
+        // 2 倍は急所と同じところ（基礎ダメージに +2 した後、タイプ一致・相性・乱数の前）で掛かる
+        var weatherBallDoubled = false;
+        var category = move.Category;
+        if (_gen == 3 && move.Id == MoveEffects.MoveIdWeatherBall && MoveEffects.WeatherBallType(weather) is { } weatherBallType)
+        {
+            moveType = weatherBallType;
+            category = Gen3Category(weatherBallType);
+            weatherBallDoubled = true;
         }
 
         var reflect = request.Reflect || request.Screen;
@@ -112,7 +128,7 @@ internal sealed partial class LegacyDamageCalculator
 
         var isCritical = request.IsCritical && defAbility is not ("battle-armor" or "shell-armor");
         if (request.IsCritical && !isCritical) modifiers.Add($"{defName}(急所に当たらない)");
-        var isPhysical = move.Category == MoveCategory.Physical;
+        var isPhysical = category == MoveCategory.Physical;
         var statName = isPhysical ? "攻撃" : "特攻";
         var pinch = attacker.CurrentHp * 3 <= attacker.MaxHp && (atkAbility == "overgrow" && moveType == "Grass" || atkAbility == "blaze" && moveType == "Fire"
             || atkAbility == "torrent" && moveType == "Water" || atkAbility == "swarm" && moveType == "Bug");
@@ -247,6 +263,11 @@ internal sealed partial class LegacyDamageCalculator
             var crit = _gen == 4 && atkAbility == "sniper" ? 3 : 2;
             baseDamage *= crit;
             modifiers.Add($"急所({crit}倍)");
+        }
+        if (weatherBallDoubled)
+        {
+            baseDamage *= 2;
+            modifiers.Add($"{move.Name}({FieldNames.Japanese(weather, _gen)}で{TypeNames.ToJapanese(moveType)}タイプ・ダメージ2倍)");
         }
 
         var isStab = attacker.Pokemon.HasType(moveType);

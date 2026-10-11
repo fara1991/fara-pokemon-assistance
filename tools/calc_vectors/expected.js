@@ -108,8 +108,12 @@ function main() {
     const md = gen.moves.get(mid);
     if (!md) { bump('move-unknown'); continue; }
     if (SPECIAL_MOVES.has(mid)) { bump('move-special'); continue; }
-    // 第 3 世代のウェザーボールは威力ではなくダメージが 2 倍（この計算機では未対応）
-    if (mid === 'weatherball' && s.gen === 3) { bump('move-special'); continue; }
+    // 第 3 世代のウェザーボール: 天候がない（ノーてんき・エアロックで消えたときも）と、ツールは特殊技として計算する。
+    // ゲームではノーマルタイプのままなので物理技（この計算機はゲームに合わせている）。天候があるとき（タイプが変わり、ダメージが 2 倍）は比べる
+    if (mid === 'weatherball' && s.gen === 3) {
+      const airLock = [s.attacker, s.defender].some((side) => ['airlock', 'cloudnine'].includes(toID(side.abilitySmogon)));
+      if (!s.weather || airLock) { bump('weatherball-gen3-no-weather'); continue; }
+    }
     // 連続技でツールの計算と扱いが違うもの（この計算機の方がゲームに合わせている）:
     // ・第 5・6 世代のツールは、2 回目以降の急所・天候・複数対象の補正を掛けていない
     // ・ツールはタラプのみ・アッキのみ・ひかりごけが毎回発動する（ゲームでは 1 回だけ）

@@ -594,6 +594,60 @@ public class CounterTests
     }
 
     [Fact]
+    public void WithTypes_includes_orichalcum_pulse_and_hadron_engine_stat_boosts_as_power()
+    {
+        var grass = Make(1, "くさ", "Grass");
+        var flying = Make(2, "ひこう", "Flying");
+        var koraidon = Make(3, "コライドン", "Fighting", "Dragon");
+        var miraidon = Make(4, "ミライドン", "Electric", "Dragon");
+        var flareBlitz = M(394, "フレアドライブ", "Fire", 120, MoveCategory.Physical);
+        var flamethrower = M(53, "かえんほうしゃ", "Fire", 90);
+        var thunderbolt = M(85, "10まんボルト", "Electric", 90);
+        var wildCharge = M(528, "ワイルドボルト", "Electric", 90, MoveCategory.Physical);
+        var rockSlide = M(157, "いわなだれ", "Rock", 75, MoveCategory.Physical);
+        IReadOnlyList<Move> MovesOf(Pokemon p) => new[] { flareBlitz, flamethrower, thunderbolt, wildCharge, rockSlide };
+        var orichalcum = Ab("orichalcum-pulse", "ひひいろのこどう");
+        var hadron = Ab("hadron-engine", "ハドロンエンジン");
+        const double boost = 5461.0 / 4096;
+
+        // ひひいろのこどう: 晴れのほのお 1.5 倍に加えて、物理技は攻撃 1.33 倍。特殊技（かえんほうしゃ）は晴れの 1.5 倍だけ
+        var sun = TypeMatchup.WithTypes(FieldChart, grass, null, new[] { koraidon }, new[] { "Fighting" }, MovesOf, _ => orichalcum, movesPerPokemon: 5);
+        var blitz = sun[0].Moves.Single(m => m.Move.Name == "フレアドライブ");
+        Assert.Equal(120 * 1.5 * boost, blitz.Power, 6);
+        Assert.Equal("晴れ・ひひいろのこどう", blitz.Field);
+        var thrower = sun[0].Moves.Single(m => m.Move.Name == "かえんほうしゃ");
+        Assert.Equal(135, thrower.DisplayPower);
+        Assert.Equal("晴れ", thrower.Field);
+        // 天候の補正が無い物理技は「ひひいろのこどう込み」
+        var vsFlying = TypeMatchup.WithTypes(FieldChart, flying, null, new[] { koraidon }, new[] { "Fighting" }, MovesOf, _ => orichalcum, movesPerPokemon: 5);
+        var slide = vsFlying[0].Moves.Single(m => m.Move.Name == "いわなだれ");
+        Assert.Equal(75 * boost, slide.Power, 6);
+        Assert.Equal(100, slide.DisplayPower);
+        Assert.Equal("ひひいろのこどう", slide.Field);
+        var bolt = vsFlying[0].Moves.Single(m => m.Move.Name == "10まんボルト");
+        Assert.Equal(90, bolt.Power);
+        Assert.Null(bolt.Field);
+        // 相手がノーてんきなら晴れの効果が無いので、攻撃 1.33 倍も無い
+        var negated = TypeMatchup.WithTypes(FieldChart, flying, Ab("cloud-nine", "ノーてんき"), new[] { koraidon }, new[] { "Fighting" }, MovesOf, _ => orichalcum, movesPerPokemon: 5);
+        Assert.Equal(75, negated[0].Moves.Single(m => m.Move.Name == "いわなだれ").Power);
+
+        // ハドロンエンジン: エレキフィールドのでんき技 1.3 倍に加えて、特殊技は特攻 1.33 倍。物理技（ワイルドボルト）はフィールドの 1.3 倍だけ
+        var terrain = TypeMatchup.WithTypes(FieldChart, flying, null, new[] { miraidon }, new[] { "Electric" }, MovesOf, _ => hadron, movesPerPokemon: 5);
+        var hadronBolt = terrain[0].Moves.Single(m => m.Move.Name == "10まんボルト");
+        Assert.Equal(90 * 1.3 * boost, hadronBolt.Power, 6);
+        Assert.Equal("エレキフィールド・ハドロンエンジン", hadronBolt.Field);
+        Assert.Equal("10まんボルト", terrain[0].Moves[0].Move.Name);
+        var charge = terrain[0].Moves.Single(m => m.Move.Name == "ワイルドボルト");
+        Assert.Equal(117, charge.DisplayPower);
+        Assert.Equal("エレキフィールド", charge.Field);
+        // フィールドの補正が無い特殊技は「ハドロンエンジン込み」
+        var thrower2 = TypeMatchup.WithTypes(FieldChart, grass, null, new[] { miraidon }, new[] { "Electric" }, MovesOf, _ => hadron, movesPerPokemon: 5)[0]
+            .Moves.Single(m => m.Move.Name == "かえんほうしゃ");
+        Assert.Equal(120, thrower2.DisplayPower);
+        Assert.Equal("ハドロンエンジン", thrower2.Field);
+    }
+
+    [Fact]
     public void WithTypes_handles_primal_weather_and_strong_winds()
     {
         var fire = Make(1, "ほのお", "Fire");
