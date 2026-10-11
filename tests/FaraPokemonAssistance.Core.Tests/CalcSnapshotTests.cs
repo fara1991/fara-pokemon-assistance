@@ -36,7 +36,7 @@ public class CalcSnapshotTests
         return Path.Combine(dir!.FullName, "tests", "FaraPokemonAssistance.Core.Tests", "Data", "calc_snapshot.txt");
     }
 
-    internal static async Task<string> BuildSnapshotAsync()
+    internal static async Task<string> BuildSnapshotAsync(StringBuilder? detail = null)
     {
         var sb = new StringBuilder();
         var catalog = TestData.Catalog();
@@ -47,7 +47,7 @@ public class CalcSnapshotTests
             var pokemon = data.Pokemon.Where(p => !p.IsProvisional).ToList();
             var natures = data.Natures;
             var items = data.Items;
-            var calc = new DamageCalculator(data.TypeChart);
+            var calc = new DamageCalculator(data.TypeChart, data.Info.Generation);
             var evPresets = new[]
             {
                 new StatSet(), new StatSet { Attack = 252, Speed = 252, HP = 4 }, new StatSet { SpAttack = 252, Speed = 252, HP = 4 },
@@ -105,6 +105,11 @@ public class CalcSnapshotTests
                     Screen = rng.Chance(5),
                 };
                 var r = calc.Calculate(request);
+                detail?.Append(key).Append('|').Append(i).Append('|')
+                    .Append(attacker.Pokemon.Name).Append('(').Append(attacker.Ability?.Name).Append(',').Append(attacker.Item?.Name).Append(',').Append(attacker.Status).Append(") ")
+                    .Append(move.Name).Append(" -> ")
+                    .Append(defender.Pokemon.Name).Append('(').Append(defender.Ability?.Name).Append(',').Append(defender.Item?.Name).Append(") ")
+                    .Append(request.Weather).Append(request.IsCritical ? ",crit" : "").Append(" | ").Append(string.Join(" / ", r.Modifiers)).Append('\n');
                 var tailwind = rng.Chance(20);
                 var speed = SpeedCalculator.Effective(attacker, request.Weather, request.Terrain, tailwind).Speed;
                 sb.Append(key).Append('|').Append(i).Append('|')
@@ -119,7 +124,11 @@ public class CalcSnapshotTests
     [Fact]
     public async Task Current_games_results_are_unchanged()
     {
-        var actual = await BuildSnapshotAsync();
+        // 変わったケースの原因を調べるための詳細（CALC_SNAPSHOT_DETAIL にファイル名を入れると書き出す）
+        var detailPath = Environment.GetEnvironmentVariable("CALC_SNAPSHOT_DETAIL");
+        var detail = string.IsNullOrEmpty(detailPath) ? null : new StringBuilder();
+        var actual = await BuildSnapshotAsync(detail);
+        if (detail is not null) await File.WriteAllTextAsync(detailPath!, detail.ToString());
         var path = SnapshotPath();
         if (Environment.GetEnvironmentVariable("CALC_SNAPSHOT_WRITE") == "1")
         {

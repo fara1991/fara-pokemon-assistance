@@ -58,6 +58,9 @@ MOVE_FLAGS_KEPT = {
     "contact": "Contact", "sound": "Sound", "punch": "Punch", "bite": "Bite",
     "ballistics": "Bullet", "pulse": "Pulse", "powder": "Powder", "recharge": "Recharge",
 }
+# 反動技（すてみの対象）。反動ダメージを受ける技（move_meta の drain が負）に加え、PokeAPI の drain が 0 の反動技と、
+# はずすと自分がダメージを受ける技（飛び膝蹴り系）も含める。
+RECOIL_EXTRA_MOVES = {"wave-crash", "jump-kick", "high-jump-kick", "supercell-slam", "axe-kick"}
 STAT_KEYS = {"1": "HP", "2": "Attack", "3": "Defense", "4": "SpAttack", "5": "SpDefense", "6": "Speed"}
 
 # HOME nature ids follow the in-game order; keep in sync with natures.csv.
@@ -161,8 +164,11 @@ class Builder:
         for r in api.table("item_game_indices"):
             gen = int(r["generation_id"])
             self.item_first_generation[r["item_id"]] = min(gen, self.item_first_generation.get(r["item_id"], gen))
-        self.evolves_from = {r["evolves_from_species_id"] for r in api.table("pokemon_species")
-                             if r["evolves_from_species_id"]}
+        # 種族 → その進化先の種族（進化前かどうかは、そのゲームに進化先がいるかで決める）
+        self.evolves_to: dict[str, set[str]] = defaultdict(set)
+        for r in api.table("pokemon_species"):
+            if r["evolves_from_species_id"]:
+                self.evolves_to[r["evolves_from_species_id"]].add(r["id"])
         # 進化先が登場した世代（昔のゲームでは、まだ進化先がいない種族は進化前ではない）
         self.evolution_generations: dict[str, list[int]] = defaultdict(list)
         for r in api.table("pokemon_species"):
@@ -180,6 +186,12 @@ class Builder:
             flag = flag_names.get(r["move_flag_id"], "")
             if flag in MOVE_FLAGS_KEPT:
                 self.move_flags[r["move_id"]].add(MOVE_FLAGS_KEPT[flag])
+        for r in api.table("move_meta"):
+            if int(r["drain"] or 0) < 0:
+                self.move_flags[r["move_id"]].add("Recoil")
+        for mid, r in self.moves.items():
+            if r["identifier"] in RECOIL_EXTRA_MOVES:
+                self.move_flags[mid].add("Recoil")
         self.ability_names = {(r["ability_id"], r["local_language_id"]): r["name"] for r in api.table("ability_names")}
         self.abilities = {r["id"]: r for r in api.table("abilities") if r["is_main_series"] == "1"}
         self.pokemon_abilities: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
@@ -388,6 +400,8 @@ class Builder:
                 if base and base in learnset:
                     learnset[pid] = set(learnset[base])
 
+        # そのゲームに登場する種族（後の世代で進化先が増えた種族を、進化前扱いにしないため）
+        roster_species = {self.pokemon[pid]["species_id"] for pid in pokemon_ids}
         pokemon_rows, species_rows = [], []
         used_abilities: set[str] = set()
         mega_stones: dict[str, tuple[str, str]] = {}
@@ -401,7 +415,7 @@ class Builder:
             if historical:
                 nfe = 1 if any(g <= generation for g in self.evolution_generations.get(p["species_id"], [])) else 0
             else:
-                nfe = 1 if p["species_id"] in self.evolves_from else 0
+                nfe = 1 if self.evolves_to.get(p["species_id"], set()) & roster_species else 0
             ability_list = self.abilities_for(pid, generation) if historical else sorted(self.pokemon_abilities.get(pid, []))
             ability_ids = [aid for _, _, aid in ability_list if aid in self.abilities]
             used_abilities.update(ability_ids)

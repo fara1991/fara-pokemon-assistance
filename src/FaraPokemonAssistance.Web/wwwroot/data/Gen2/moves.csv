@@ -24,7 +24,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 23,ふみつけ,Normal,65,100,20,Physical,Single,0,Contact,30,大きな 足で 相手を 踏みつけて 攻撃する。 相手を ひるませることが ある。
 24,にどげり,Fighting,30,100,30,Physical,Single,0,Contact,0,２本の 足で 相手を けとばして 攻撃する。 ２回連続で ダメージを 与える。
 25,メガトンキック,Normal,120,75,5,Physical,Single,0,Contact,0,ものすごい 力を こめた キックで 相手を けとばして 攻撃する。
-26,とびげり,Fighting,70,95,25,Physical,Single,0,Contact,0,この技は 使えません 思い出すことが できなくなりますが 技を 忘れることを おすすめします
+26,とびげり,Fighting,70,95,25,Physical,Single,0,Contact;Recoil,0,この技は 使えません 思い出すことが できなくなりますが 技を 忘れることを おすすめします
 27,まわしげり,Fighting,60,85,15,Physical,Single,0,Contact,30,この技は 使えません 思い出すことが できなくなりますが 技を 忘れることを おすすめします
 28,すなかけ,Ground,0,100,15,Status,Single,0,,0,相手の 顔に 砂を かけて 命中率を さげる。
 29,ずつき,Normal,70,100,15,Physical,Single,0,Contact,30,頭を 突きだして まっすぐ つっこんで 攻撃する。 相手を ひるませることが ある。
@@ -34,9 +34,9 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 33,たいあたり,Normal,35,95,35,Physical,Single,0,Contact,0,相手に むかって 全身で ぶつかっていき 攻撃する。
 34,のしかかり,Normal,85,100,15,Physical,Single,0,Contact,30,全身で 相手に のしかかり 攻撃する。 まひ状態に することが ある。
 35,まきつく,Normal,15,85,20,Physical,Single,0,Contact,100,長い 体や つるなどを 使って ４ー５ターンの 間 相手に まきついて 攻撃する。
-36,とっしん,Normal,90,85,20,Physical,Single,0,Contact,0,すごい 勢いで 相手に ぶつかって 攻撃する。 自分も 少し ダメージを 受ける。
+36,とっしん,Normal,90,85,20,Physical,Single,0,Contact;Recoil,0,すごい 勢いで 相手に ぶつかって 攻撃する。 自分も 少し ダメージを 受ける。
 37,あばれる,Normal,90,100,20,Physical,Single,0,Contact,0,２ー３ターンの 間 暴れまくって 相手を 攻撃する。 暴れたあとは 混乱する。
-38,すてみタックル,Normal,120,100,15,Physical,Single,0,Contact,0,命を 懸けて 相手に 突進して 攻撃する。 自分も かなり ダメージを 受ける。
+38,すてみタックル,Normal,120,100,15,Physical,Single,0,Contact;Recoil,0,命を 懸けて 相手に 突進して 攻撃する。 自分も かなり ダメージを 受ける。
 39,しっぽをふる,Normal,0,100,30,Status,AllFoes,0,,0,しっぽを 左右に かわいく ふって 油断を 誘う。 相手の 防御を さげる。
 40,どくばり,Poison,15,100,35,Physical,Single,0,,30,毒の ある ハリを 相手に 突き刺して 攻撃する。 毒状態に することが ある。
 41,ダブルニードル,Bug,25,100,20,Physical,Single,0,,20,この技は 使えません 思い出すことが できなくなりますが 技を 忘れることを おすすめします
@@ -64,7 +64,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 63,はかいこうせん,Normal,150,90,5,Physical,Single,0,Recharge,0,強い 光線を 相手に 発射して 攻撃する。 次の ターンは 動けなくなる。
 64,つつく,Flying,35,100,35,Physical,Single,0,Contact,0,鋭く とがった くちばしや つので 相手を 突いて 攻撃する。
 65,ドリルくちばし,Flying,80,100,20,Physical,Single,0,Contact,0,回転しながら とがった くちばしを 相手に 突き刺して 攻撃する。
-66,じごくぐるま,Fighting,80,80,25,Physical,Single,0,Contact,0,地面に 自分ごと 相手を 投げつけて 攻撃する。 自分も 少し ダメージを 受ける。
+66,じごくぐるま,Fighting,80,80,25,Physical,Single,0,Contact;Recoil,0,地面に 自分ごと 相手を 投げつけて 攻撃する。 自分も 少し ダメージを 受ける。
 67,けたぐり,Fighting,50,90,20,Physical,Single,0,Contact,30,足を 強く けり 相手を 転ばせて 攻撃する。 相手が 重いほど 威力が あがる。
 68,カウンター,Fighting,0,100,20,Physical,Single,-5,Contact,0,相手から 受けた 物理攻撃の ダメージを ２倍に して 同じ 相手に 返す。
 69,ちきゅうなげ,Fighting,0,100,20,Physical,Single,0,Contact,0,引力を 使い 投げとばす。 自分の レベルと 同じ ダメージを 相手に 与える。
@@ -134,7 +134,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 133,ドわすれ,Psychic,0,0,20,Status,Single,0,,0,頭を からにして 一瞬 なにかを 忘れることで 自分の 特防を ぐーんと あげる。
 134,スプーンまげ,Psychic,0,80,15,Status,Single,0,,0,スプーンを まげて 注意を ひき 相手の 命中率を さげる。
 135,タマゴうみ,Normal,0,0,5,Status,Single,0,,0,最大ＨＰの 半分 自分の ＨＰを 回復する。
-136,とびひざげり,Fighting,85,90,20,Physical,Single,0,Contact,0,ジャンプからの ひざげりで 相手を 攻撃する。 はずすと 自分が ダメージを 受ける。
+136,とびひざげり,Fighting,85,90,20,Physical,Single,0,Contact;Recoil,0,ジャンプからの ひざげりで 相手を 攻撃する。 はずすと 自分が ダメージを 受ける。
 137,へびにらみ,Normal,0,75,30,Status,Single,0,,0,おなかの 模様で おびえさせて 相手を まひの 状態に する。
 138,ゆめくい,Psychic,100,100,15,Special,Single,0,,0,寝ている 相手の 夢を 食べて 攻撃する。 ダメージの 半分の ＨＰを 回復する。
 139,どくガス,Poison,0,55,40,Status,AllFoes,0,,0,毒ガスを 相手の 顔に 吹きかけて 毒の 状態に する。

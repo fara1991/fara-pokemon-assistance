@@ -313,23 +313,6 @@ internal sealed partial class LegacyDamageCalculator
         item is { Category: ItemCategory.Other, TypeBoost: "Physical" or "Special" } && item.TypeBoost == (physical ? "Physical" : "Special");
     private static bool IsTypeBoost(Item? item, string moveType) => item is { Category: ItemCategory.TypeBoost } && item.TypeBoost == moveType;
 
-    /// <summary>はたきおとすの威力が上がるか（相手が持ち物を持っていて、それが自分のメガストーンではない）。</summary>
-    private static bool KnockOffBoosted(Item? item, PokemonBuild defender) =>
-        item is not null && !(item.IsMegaStone && item.MegaSpeciesId == defender.Pokemon.SpeciesId);
-
-    /// <summary>
-    /// ちからずくで威力が上がる技か。基本は「追加効果がある技」（技データの追加効果の確率）だが、
-    /// 自分の能力が下がる技（インファイトなど）・しめつけ系などは追加効果ではないので上がらない。逆に確率の無い追加効果の技もある。
-    /// </summary>
-    internal static bool SheerForceBoosts(Move move) =>
-        move.EffectChance > 0 ? !SheerForceExcluded.Contains(move.Id) : SheerForceIncluded.Contains(move.Id);
-
-    private static readonly HashSet<int> SheerForceExcluded = new()
-    {
-        20, 35, 83, 128, 130, 229, 250, 276, 315, 328, 354, 359, 370, 434, 437, 463, 479, 524, 611, 614, 620, 621, 665, 691, 705,
-    };
-    private static readonly HashSet<int> SheerForceIncluded = new() { 662, 664, 677 };
-
     private List<int> BasePowerModsGen56(DamageRequest request, PokemonBuild attacker, PokemonBuild defender, Move move, string moveType,
         IReadOnlySet<string> flags, bool hasAte, string atkAbility, string defAbility, Item? attackerItem, Item? defenderItem, int basePower,
         Terrain terrain, Weather weather, bool attackerGrounded, bool defenderGrounded, List<string> modifiers)
@@ -341,19 +324,19 @@ internal sealed partial class LegacyDamageCalculator
 
         if (atkAbility == "technician" && basePower <= 60) Add(6144, $"{atkName}(1.5倍)");
         else if (atkAbility == "sand-force" && weather == Weather.Sand && moveType is "Rock" or "Ground" or "Steel") Add(5325, $"{atkName}(1.3倍)");
-        else if (atkAbility == "iron-fist" && flags.Contains("Punch")) Add(4915, $"{atkName}(1.2倍)");
+        else if (atkAbility == "iron-fist" && flags.Contains("Punch") || atkAbility == "reckless" && MoveEffects.IsRecoil(move)) Add(4915, $"{atkName}(1.2倍)");
 
         if (defAbility == "heatproof" && moveType == "Fire") Add(2048, $"{defName}(0.5倍)");
         else if (defAbility == "dry-skin" && moveType == "Fire") Add(5120, $"{defName}(1.25倍)");
 
-        if (atkAbility == "sheer-force" && SheerForceBoosts(move)) Add(5325, $"{atkName}(1.3倍)");
+        if (atkAbility == "sheer-force" && MoveEffects.SheerForceBoosts(move, _gen)) Add(5325, $"{atkName}(1.3倍)");
 
         if (IsTypeBoost(attackerItem, moveType)) Add(4915, $"{attackerItem!.Name}(1.2倍)");
         else if (IsMuscleBand(attackerItem, move.Category == MoveCategory.Physical)) Add(4505, $"{attackerItem!.Name}(1.1倍)");
 
         if (move.Id == MoveIdFacade && attacker.Status is StatusCondition.Burn or StatusCondition.Paralysis or StatusCondition.Poison or StatusCondition.BadlyPoisoned)
             Add(8192, "からげんき(状態異常で2倍)");
-        else if (_gen > 5 && move.Id == MoveIdKnockOff && KnockOffBoosted(defenderItem, defender)) Add(6144, "はたきおとす(持ち物があるので1.5倍)");
+        else if (_gen > 5 && move.Id == MoveIdKnockOff && MoveEffects.KnockOffBoosted(defenderItem, defender)) Add(6144, "はたきおとす(持ち物があるので1.5倍)");
         else if (move.Id == MoveIdSolarBeam && weather is Weather.Rain or Weather.Sand or Weather.Snow) Add(2048, $"{move.Name}({FieldNames.Japanese(weather, _gen)}で0.5倍)");
 
         if (hasAte) Add(5325, $"{atkName}(1.3倍)");
@@ -380,7 +363,7 @@ internal sealed partial class LegacyDamageCalculator
 
         if (moveId == MoveIdFacade && attacker.Status is StatusCondition.Burn or StatusCondition.Paralysis or StatusCondition.Poison or StatusCondition.BadlyPoisoned)
             Add(8192, "からげんき(状態異常で2倍)");
-        else if (moveId == MoveIdKnockOff && KnockOffBoosted(defenderItem, defender)) Add(6144, "はたきおとす(持ち物があるので1.5倍)");
+        else if (moveId == MoveIdKnockOff && MoveEffects.KnockOffBoosted(defenderItem, defender)) Add(6144, "はたきおとす(持ち物があるので1.5倍)");
         else if (moveId is MoveIdSolarBeam or MoveIdSolarBlade && weather is Weather.Rain or Weather.Sand or Weather.Snow)
             Add(2048, $"{move.Name}({FieldNames.Japanese(weather, _gen)}で0.5倍)");
 
@@ -392,12 +375,13 @@ internal sealed partial class LegacyDamageCalculator
         if (atkAbility == "technician" && basePower <= 60 || atkAbility == "mega-launcher" && flags.Contains("Pulse") || atkAbility == "strong-jaw" && flags.Contains("Bite"))
             Add(6144, $"{atkName}(1.5倍)");
 
-        if (atkAbility == "sheer-force" && !isZ && SheerForceBoosts(move) || atkAbility == "sand-force" && weather == Weather.Sand && moveType is "Rock" or "Ground" or "Steel"
+        if (atkAbility == "sheer-force" && !isZ && MoveEffects.SheerForceBoosts(move, _gen) || atkAbility == "sand-force" && weather == Weather.Sand && moveType is "Rock" or "Ground" or "Steel"
             || atkAbility == "tough-claws" && flags.Contains("Contact"))
             Add(5325, $"{atkName}(1.3倍)");
 
         if (hasAte) Add(4915, $"{atkName}(1.2倍)");
-        if (atkAbility == "iron-fist" && flags.Contains("Punch")) Add(4915, $"{atkName}(1.2倍)");
+        // Z 技は技が置き換わるので、すてみの対象にならない
+        if (atkAbility == "iron-fist" && flags.Contains("Punch") || atkAbility == "reckless" && !isZ && MoveEffects.IsRecoil(move)) Add(4915, $"{atkName}(1.2倍)");
 
         if (defAbility == "heatproof" && moveType == "Fire") Add(2048, $"{defName}(0.5倍)");
         else if (defAbility == "dry-skin" && moveType == "Fire") Add(5120, $"{defName}(1.25倍)");
