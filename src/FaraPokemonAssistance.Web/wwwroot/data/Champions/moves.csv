@@ -1,5 +1,6 @@
 Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Description
 1,はたく,Normal,40,100,35,Physical,Single,0,Contact,0,長い しっぽや 手などを 使って 相手を はたいて 攻撃する。
+5,メガトンパンチ,Normal,80,85,20,Physical,Single,0,Contact;Punch,0,力を こめた パンチで 相手を 攻撃する。
 6,ネコにこばん,Normal,40,100,20,Physical,Single,0,,0,相手の 体に 小判を 投げつけて 攻撃する。 戦闘の あとで お金が もらえる。
 7,ほのおのパンチ,Fire,75,100,15,Physical,Single,0,Contact;Punch,10,炎を こめた パンチで 相手を 攻撃する。 やけど状態に することが ある。
 8,れいとうパンチ,Ice,75,100,15,Physical,Single,0,Contact;Punch,10,冷気を こめた パンチで 相手を 攻撃する。 こおり状態に することが ある。
@@ -7,6 +8,8 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 10,ひっかく,Normal,40,100,35,Physical,Single,0,Contact,0,硬く とがった 鋭い ツメで 相手を ひっかいて 攻撃する。
 12,ハサミギロチン,Normal,0,30,5,Physical,Single,0,Contact,0,大きな ハサミで 相手を 切り裂いて 攻撃する。 当たれば 一撃で ひんしに する。
 14,つるぎのまい,Normal,0,0,20,Status,Single,0,,0,戦いの舞を 激しく おどって 気合を 高める。 自分の 攻撃を ぐーんと あげる。
+15,いあいぎり,Normal,50,95,30,Physical,Single,0,Contact,0,カマや ツメなどで 相手を 切りつけて 攻撃する。
+16,かぜおこし,Flying,40,100,35,Special,Single,0,,0,翼で おこした 激しい 風を 相手に ぶつけて 攻撃する。
 18,ふきとばし,Normal,0,0,20,Status,Single,-6,,0,相手を 吹きとばして 控えの ポケモンを ひきずりだす。 野生の 場合は 戦闘が 終わる。
 19,そらをとぶ,Flying,90,95,15,Physical,Single,0,Contact,0,１ターン目で 空へ 飛び ２ターン目に 相手を 攻撃する。
 20,しめつける,Normal,15,85,20,Physical,Single,0,Contact,100,長い 体や つるなどを 使い ４ー５ターンの 間 相手を 締めつけて 攻撃する。
@@ -48,6 +51,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 63,はかいこうせん,Normal,150,90,5,Special,Single,0,Recharge,0,強い 光線を 相手に 発射して 攻撃する。 次の ターンは 動けなくなる。
 64,つつく,Flying,35,100,35,Physical,Single,0,Contact,0,鋭く とがった くちばしや つので 相手を 突いて 攻撃する。
 65,ドリルくちばし,Flying,80,100,20,Physical,Single,0,Contact,0,回転しながら とがった くちばしを 相手に 突き刺して 攻撃する。
+66,じごくぐるま,Fighting,80,80,20,Physical,Single,0,Contact;Recoil,0,地面に 自分ごと 相手を 投げつけて 攻撃する。 自分も 少し ダメージを 受ける。
 67,けたぐり,Fighting,0,100,20,Physical,Single,0,Contact,0,足を 強く けり 相手を 転ばせて 攻撃する。 相手が 重いほど 威力が あがる。
 68,カウンター,Fighting,0,100,20,Physical,Single,-5,Contact,0,相手から 受けた 物理攻撃の ダメージを ２倍に して 同じ 相手に 返す。
 69,ちきゅうなげ,Fighting,0,100,20,Physical,Single,0,Contact,0,引力を 使い 投げとばす。 自分の レベルと 同じ ダメージを 相手に 与える。
@@ -72,6 +76,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 90,じわれ,Ground,0,30,5,Physical,Single,0,,0,地割れの 裂け目に 相手を 落として 攻撃する。 当たれば 一撃で ひんしに する。
 91,あなをほる,Ground,80,100,10,Physical,Single,0,Contact,0,１ターン目に 潜り ２ターン目で 相手を 攻撃する。
 92,どくどく,Poison,0,90,10,Status,Single,0,,0,相手を 猛毒の 状態に する。 ターンが すすむほど 毒の ダメージが 増えていく。
+93,ねんりき,Psychic,50,100,25,Special,Single,0,,10,弱い 念力を 相手に 送って 攻撃する。 相手を 混乱させることが ある。
 94,サイコキネシス,Psychic,90,100,10,Special,Single,0,,10,強い 念力を 相手に 送って 攻撃する。 相手の 特防を さげることが ある。
 95,さいみんじゅつ,Psychic,0,60,20,Status,Single,0,,0,眠気を 誘う 暗示を かけて 相手を 眠り状態に する。
 97,こうそくいどう,Psychic,0,0,30,Status,Single,0,,0,力を ぬいて 体を 軽くして 高速で 動く。 自分の 素早さを ぐーんと あげる。
@@ -127,6 +132,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 187,はらだいこ,Normal,0,0,10,Status,Single,0,,0,自分の ＨＰを 最大ＨＰの 半分 減らして 自分の 攻撃を 最大に あげる。
 188,ヘドロばくだん,Poison,90,100,10,Special,Single,0,Bullet,30,汚い ヘドロを 相手に 投げつけて 攻撃する。 毒状態に することが ある。
 189,どろかけ,Ground,20,100,10,Special,Single,0,,100,相手の 顔などに 泥を 投げつけて 攻撃する。 命中率を さげる。
+190,オクタンほう,Water,65,85,10,Special,Single,0,Bullet,50,相手の 顔などに 墨を 吹きかけて 攻撃する。 命中率を さげることが ある。
 191,まきびし,Ground,0,0,20,Status,Single,0,,0,相手の 足下に まきびしを しかける。交代で でてきた 相手の ポケモンに ダメージを 与える。
 192,でんじほう,Electric,120,50,5,Special,Single,0,Bullet,100,大砲の ような 電気を 発射して 攻撃する。 相手を まひの 状態に する。
 194,みちづれ,Ghost,0,0,5,Status,Single,0,,0,技のあと 相手の 攻撃で ひんしに なると 攻撃 相手も ひんしにする。 連続して 出すと 失敗する。
@@ -144,6 +150,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 207,いばる,Normal,0,85,15,Status,Single,0,,0,相手を 怒らせて 混乱させる。 怒りで 相手の 攻撃は ぐーんと あがってしまう。
 208,ミルクのみ,Normal,0,0,5,Status,Single,0,,0,最大ＨＰの 半分 自分の ＨＰを 回復する。
 209,スパーク,Electric,65,100,20,Physical,Single,0,Contact,30,電気を まとい 相手に 突進して 攻撃する。 まひ状態に することが ある。
+210,れんぞくぎり,Bug,40,95,20,Physical,Single,0,Contact,0,カマや ツメなどで 相手を 切りつけて 攻撃する。 連続で 当てると 威力が あがる。
 211,はがねのつばさ,Steel,70,90,25,Physical,Single,0,Contact,10,硬い 翼を 相手に たたきつけて 攻撃する。 自分の 防御が あがることが ある。
 212,くろいまなざし,Normal,0,0,5,Status,Single,0,,0,吸いこまれるような 黒い まなざしで じっと みつめて 相手を 戦闘から 逃げられなくする。
 213,メロメロ,Normal,0,100,15,Status,Single,0,,0,♂なら♀を ♀なら♂を 誘惑して メロメロに する。 相手は 技が だしにくくなる。
@@ -173,6 +180,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 246,げんしのちから,Rock,60,100,5,Special,Single,0,,10,原始の 力で 攻撃する。 自分の すべての 能力が あがることが ある。
 247,シャドーボール,Ghost,80,100,15,Special,Single,0,Bullet,20,黒い影の 塊を 投げつけて 攻撃する。 相手の 特防を さげることが ある。
 248,みらいよち,Psychic,120,100,10,Special,Single,0,,0,技を 使った ２ターン後に 相手に 念力の 塊を 送って 攻撃する。
+249,いわくだき,Fighting,40,100,15,Physical,Single,0,Contact,50,パンチで 攻撃する。相手の 防御を さげる ことが ある。
 250,うずしお,Water,35,85,15,Special,Single,0,,100,激しく 渦をまく 水の中に ４ー５ターンの 間 相手を 閉じこめて 攻撃する。
 251,ふくろだたき,Dark,0,100,10,Physical,Single,0,,0,味方 全員で 攻撃する。 仲間の ポケモンが 多いほど 技の 攻撃回数が 増える。
 252,ねこだまし,Normal,40,100,10,Physical,Single,3,Contact,100,先制攻撃で 相手を ひるませる。 戦闘に でたら すぐに ださないと 成功しない。
@@ -181,6 +189,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 255,はきだす,Normal,0,100,10,Special,Single,0,,0,蓄えた 力を 相手に ぶつけて 攻撃する。 蓄えているほど 威力が あがる。
 256,のみこむ,Normal,0,0,10,Status,Single,0,,0,蓄えた 力を のみこんで 自分の ＨＰを 回復する。 蓄えているほど 回復する。
 257,ねっぷう,Fire,95,90,10,Special,AllFoes,0,,10,熱い 息を 相手に 吹きつけて 攻撃する。 やけど状態に することが ある。
+258,あられ,Ice,0,0,10,Status,Single,0,,0,５ターンの 間 あられを 降らして こおりタイプで ない ポケモン 全員に ダメージを 与える。
 259,いちゃもん,Dark,0,100,15,Status,Single,0,,0,相手に いちゃもんを つけて 同じ 技を ２回連続で だせなくする。
 260,おだてる,Dark,0,100,15,Status,Single,0,,0,相手を おだてて 混乱させる。 同時に 相手の 特攻も あげてしまう。
 261,おにび,Fire,0,85,15,Status,Single,0,,0,不気味で 怪しい 炎を 放って 相手を やけどの 状態に する。
@@ -197,6 +206,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 275,ねをはる,Grass,0,0,20,Status,Single,0,,0,大地に 根を 張り 毎ターン 自分の ＨＰを 回復する。 根を 張っているので 入れ替えられない。
 276,ばかぢから,Fighting,120,100,5,Physical,Single,0,Contact,100,すごい 力を 発揮して 相手を 攻撃する。自分の 攻撃と 防御が さがる。
 278,リサイクル,Normal,0,0,10,Status,Single,0,,0,戦闘中に 使って なくなった 自分の 持ち物を 再生させて 使えるように する。
+279,リベンジ,Fighting,60,100,10,Physical,Single,-4,Contact,0,相手から 技を 受けていると その相手に 対して 与える ダメージが ２倍に なる。
 280,かわらわり,Fighting,75,100,15,Physical,Single,0,Contact,0,手刀を 勢いよく 振りおろして 相手を 攻撃する。 ひかりのかべや リフレクター なども 破壊できる。
 281,あくび,Normal,0,0,10,Status,Single,0,,0,大きな あくびで 眠気を 誘う。 次の ターンに 相手を 眠り状態に する。
 282,はたきおとす,Dark,65,100,20,Physical,Single,0,Contact,0,相手の 持ち物を はたき 落として 戦闘が 終わるまで 使えなくする。 物を持つ 相手には ダメージが増す。
@@ -372,6 +382,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 511,さきおくり,Dark,0,100,15,Status,Single,0,,0,相手を おさえつけて 行動の 順番を 最後に する。
 512,アクロバット,Flying,55,100,15,Physical,Single,0,Contact,0,軽やかに 相手を 攻撃する。 自分が 道具を 持っていないとき 大きな ダメージを 与える。
 513,ミラータイプ,Normal,0,0,15,Status,Single,0,,0,相手の タイプを 反射して 自分も 同じ タイプに なる。
+514,かたきうち,Normal,70,100,5,Physical,Single,0,Contact,0,倒れた 味方の かたきを 討つ。 前の ターンに 味方が 倒されていると 威力が あがる。
 515,いのちがけ,Fighting,0,100,5,Special,Single,0,,0,命懸けで 相手を 攻撃する。 自分は ひんしに なるが 相手に ＨＰ分の ダメージを 与える。
 517,れんごく,Fire,100,50,5,Special,Single,0,,100,激しい 炎で 相手を 包みこみ 攻撃する。 やけど状態に する。
 518,みずのちかい,Water,80,100,10,Special,Single,0,,0,水の柱で 攻撃する。 ほのおと 組みあわせると 威力が あがって 空に にじが かかる。
@@ -382,6 +393,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 523,じならし,Ground,60,100,20,Physical,AllOthers,0,,100,地面を 踏みならして 自分の 周りに いるものを 攻撃する。 相手の 素早さを さげる。
 524,こおりのいぶき,Ice,60,90,10,Special,Single,0,,100,冷たい 息を 相手に 吹きつけて 攻撃する。 必ず 急所に 当たる。
 525,ドラゴンテール,Dragon,60,90,10,Physical,Single,-6,Contact,0,相手を はじきとばして 控えの ポケモンを ひきずりだす。 野生の 場合は 戦闘が 終わる。
+526,ふるいたてる,Normal,0,0,30,Status,Single,0,,0,自分を 奮いたてて 攻撃と 特攻を あげる。
 527,エレキネット,Electric,55,95,15,Special,AllFoes,0,,100,電気の ネットで 相手を 捕まえて 攻撃する。 相手の 素早さを さげる。
 528,ワイルドボルト,Electric,90,100,15,Physical,Single,0,Contact;Recoil,0,電気を まとって 相手に ぶつかって 攻撃する。 自分も 少し ダメージを 受ける。
 529,ドリルライナー,Ground,80,95,10,Physical,Single,0,Contact,0,ドリルのように 体を 回転しながら 相手に 体当たりする。 急所に 当たりやすい。
@@ -471,6 +483,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 750,まほうのこな,Psychic,0,100,20,Status,Single,0,Powder,100,まほうのこなを 浴びせて 相手を エスパータイプに 変化させる。
 751,ドラゴンアロー,Dragon,50,100,10,Physical,Single,0,,100,ドラメシヤで ２回 攻撃。 相手が ２匹 いるときは それぞれに １回ずつ 攻撃する。
 752,おちゃかい,Normal,0,0,10,Status,AllOthers,0,,100,おちゃかいを ひらいて 場にいる ポケモンが それぞれ 持っている きのみを 食べる。
+753,たこがため,Fighting,0,100,15,Status,Single,0,,100,相手を 逃げられなくする。 かためられた 相手は 毎ターン 防御と 特防が 下がる。
 756,コートチェンジ,Normal,0,100,10,Status,Single,0,,100,不思議な 力で お互いの 場の 効果を 入れ替える。
 775,ソウルビート,Dragon,0,100,5,Status,Single,0,Sound,100,自分の ＨＰを 少し 削って すべての 能力を 上げる。
 776,ボディプレス,Fighting,80,100,10,Physical,Single,0,Contact,0,体を ぶつけて 攻撃。 防御が 高いほど 与える ダメージが 増える。
@@ -486,6 +499,7 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 788,Ｇのちから,Grass,80,100,10,Physical,Single,0,,100,高いところから りんごを 落として ダメージを 与える。 相手の 防御を 下げる。
 789,ソウルクラッシュ,Fairy,75,100,15,Physical,Single,0,Contact,100,食らうと くじけるほどの 勢いで 攻撃。 相手の 特攻を 下げる。
 791,いのちのしずく,Water,0,0,10,Status,Single,0,,100,不思議な 水を ふりまいて 自分と 場にいる 味方の ＨＰを 回復する。
+794,スターアサルト,Fighting,150,100,5,Physical,Single,0,Recharge,100,太い クキを ふりまわして 攻撃。 ただし 自分も よろめいてしまうため 次の ターンは 動けなくなる。
 796,てっていこうせん,Steel,140,95,5,Special,Single,0,,100,全身から 集めた はがねを ビームとして 激しく 撃ちだす。 自分も ダメージを 受けてしまう。
 797,ワイドフォース,Psychic,80,100,10,Special,Single,0,,100,サイコパワーで 相手を 攻撃する。 サイコフィールドの時 威力が あがり すべての 相手に ダメージを 与える。
 798,アイアンローラー,Steel,130,100,5,Physical,Single,0,Contact,100,フィールドを 破壊しながら 攻撃。 なんらかの フィールド状態に 変わっていないと 技は 失敗する。

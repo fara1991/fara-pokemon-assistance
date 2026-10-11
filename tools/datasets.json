@@ -160,7 +160,11 @@
         26,
         27
       ],
-      "note": "収録ポケモンは champions 図鑑 (pokedex 36)。champions の技データが無いポケモンは SV の技で補う。使用率は HOME に無いので SV のものを並び順に使う。",
+      "learnset_fallback_older_version_groups": [
+        [20, 21, 22],
+        [17, 18]
+      ],
+      "note": "収録ポケモンは champions 図鑑 (pokedex 36)。champions の技データが無いポケモンは SV の技で補い、SV にも居ないポケモン（ガラルのバリヤード等）は剣盾 → USUM の順に古いゲームの技で補う。使用率は HOME に無いので SV のものを並び順に使う。",
       "ev_system": "Points",
       "command_prefix": "pokech",
       "gimmick": "None"

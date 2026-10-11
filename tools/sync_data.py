@@ -354,16 +354,37 @@ class Builder:
             # 図鑑を持つデータセット（チャンピオンズ）は図鑑に載っている種族をすべて収録する。
             # 技データがまだ無いポケモンは learnset_fallback_version_groups（SV）の技で補う。
             roster_species = self.dex_species.get(str(ds["pokedex_id"]), set())
-            fallback: dict[str, set[str]] = defaultdict(set)
-            for vg in (str(v) for v in ds.get("learnset_fallback_version_groups", [])):
-                for pid, moves in self.learnsets_by_vg.get(vg, {}).items():
-                    fallback[pid] |= moves
+            # SV に居ないポケモン（バリヤード・ガラルのすがた等）に「全技を覚える」扱いが付かないよう、
+            # 1 段目（SV）→ 2 段目以降（古いゲーム）の順に、そのポケモンのデータがある最初の段の技を使う
+            # （同じ段の複数バージョングループは和集合。段をまたいで混ぜない）。
+            tiers = [ds.get("learnset_fallback_version_groups", []), *ds.get("learnset_fallback_older_version_groups", [])]
+            tier_data: list[dict[str, set[str]]] = []
+            for tier in tiers:
+                tier_moves: dict[str, set[str]] = defaultdict(set)
+                for vg in (str(v) for v in tier):
+                    for pid, moves in self.learnsets_by_vg.get(vg, {}).items():
+                        tier_moves[pid] |= moves
+                tier_data.append(tier_moves)
+            primary = dict(learnset)                       # チャンピオンズ自身のデータ
+            default_pid = {p["species_id"]: pid for pid, p in self.pokemon.items() if p["is_default"] == "1"}
+
+            sv_tier = tier_data[0] if tier_data else {}
             for pid, p in self.pokemon.items():
                 if p["species_id"] not in roster_species or pid in learnset:
                     continue
                 if p["is_default"] != "1" and not self.is_battle_form(pid):
                     continue
-                learnset[pid] = set(fallback.get(pid, ()))
+                moves = set(sv_tier.get(pid, ()))
+                if not moves:
+                    # 別フォルム（メガシンカ等）は、基本フォルムに SV までのデータがあればそちらを引き継ぐ（後段で補う）。
+                    # 基本フォルムにも無いときだけ、古いゲームの段（2 段目以降）で、データがある最初の段を使う
+                    base = default_pid.get(p["species_id"])
+                    if base is None or base == pid or not (base in primary or sv_tier.get(base)):
+                        for older in tier_data[1:]:
+                            if older.get(pid):
+                                moves = set(older[pid])
+                                break
+                learnset[pid] = moves
             # 図鑑に無い種族は（技データがあっても）収録しない
             for pid in list(learnset):
                 if self.pokemon[pid]["species_id"] not in roster_species:
