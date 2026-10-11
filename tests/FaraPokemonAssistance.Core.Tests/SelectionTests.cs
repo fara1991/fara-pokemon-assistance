@@ -464,6 +464,46 @@ public class CounterTests
         Assert.Empty(absorbed[0].Moves);
         Assert.Equal(new[] { "じしん" }, absorbed[1].Moves.Select(m => m.Move.Name));
     }
+
+    // 並び順のテスト用に、必要なタイプの組だけ（等倍は省略）
+    private static readonly TypeChart OrderChart = TypeChart.Parse(
+        "AttackType,DefenseType,Multiplier\n" +
+        "Water,Fire,2\nElectric,Flying,2\nRock,Fire,2\nRock,Flying,2\nGround,Fire,2\nGround,Steel,2\nGround,Flying,0\n");
+
+    [Fact]
+    public void WithTypes_orders_moves_by_power_times_multiplier_then_by_move_order()
+    {
+        // バンギラス（いわ・あく）→ リザードン（ほのお・ひこう）: ストーンエッジ 100×4 = 400 が、110×2 = 220 のみず・でんきより上
+        var charizard = Make(1, "リザードン", "Fire", "Flying");
+        var tyranitar = Make(2, "バンギラス", "Rock", "Dark");
+        var hydroPump = M(1, "ハイドロポンプ", "Water", 110);
+        var thunder = M(2, "かみなり", "Electric", 110);
+        var stoneEdge = M(3, "ストーンエッジ", "Rock", 100, MoveCategory.Physical);
+        var rockSlide = M(4, "いわなだれ", "Rock", 75, MoveCategory.Physical);
+        var crunch = M(5, "かみくだく", "Dark", 80, MoveCategory.Physical); // 等倍: 出ない
+        // movesOf の並び（= 使用率の高い順）: ハイドロポンプ、かみなり、いわなだれ、ストーンエッジ
+        IReadOnlyList<Move> MovesOf(Pokemon p) => new[] { hydroPump, thunder, rockSlide, stoneEdge, crunch };
+
+        var r = TypeMatchup.WithTypes(OrderChart, charizard, null, new[] { tyranitar }, new[] { "Rock" }, MovesOf, movesPerPokemon: 4);
+        Assert.Equal(new[] { "ストーンエッジ", "いわなだれ", "ハイドロポンプ", "かみなり" }, r[0].Moves.Select(m => m.Move.Name));
+        Assert.Equal(new[] { 400.0, 300.0, 220.0, 220.0 }.Select(x => x), r[0].Moves.Select(m => TypeMatchup.Strength(m)));
+    }
+
+    [Fact]
+    public void WithTypes_orders_by_ability_adjusted_multiplier()
+    {
+        // 相手がふゆう（じめん無効）なら、じしん 100×2 は出ず、威力 90 のみず（×2）より、特性で倍率が変わる側が反映される
+        var target = Make(1, "ほのお", "Fire", "Steel");
+        var attacker = Make(2, "じめんみず", "Ground", "Water");
+        var earthquake = M(1, "じしん", "Ground", 100, MoveCategory.Physical); // ほのお・はがね = 4 倍 → 400
+        var surf = M(2, "なみのり", "Water", 90);                                // ほのお 2 倍・はがね 1 倍 → 180
+        IReadOnlyList<Move> MovesOf(Pokemon p) => new[] { surf, earthquake };
+        var plain = TypeMatchup.WithTypes(OrderChart, target, null, new[] { attacker }, new[] { "Ground" }, MovesOf);
+        Assert.Equal(new[] { "じしん", "なみのり" }, plain[0].Moves.Select(m => m.Move.Name));
+        var levitate = new Ability { Id = 26, Identifier = "levitate", Name = "ふゆう" };
+        var floating = TypeMatchup.WithTypes(OrderChart, target, levitate, new[] { attacker }, new[] { "Ground" }, MovesOf);
+        Assert.Equal(new[] { "なみのり" }, floating[0].Moves.Select(m => m.Move.Name));
+    }
 }
 
 public class AbilityMatchupTests
