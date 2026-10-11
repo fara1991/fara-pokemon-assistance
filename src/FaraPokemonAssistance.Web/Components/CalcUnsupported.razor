@@ -1,0 +1,17 @@
+@* 計算に対応していないゲーム（昔の世代）を選んでいるときの案内。 *@
+<div class="card calc-unsupported">
+    <div class="card-body">
+        <h5 class="card-title mb-2">@(DataSet?.Name ?? "このゲーム") は@(Feature)に対応していません</h5>
+        <p class="mb-2">このゲームは、ポケモン一覧とタイプ相性表で、その世代の時点のタイプ・種族値・特性・技・タイプ相性を見られます。@(Feature)を使うときは、メニューの「ゲーム」で別のゲームを選んでください。</p>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-primary btn-sm" href="pokedex">ポケモン一覧を開く</a>
+            <a class="btn btn-outline-primary btn-sm" href="types">タイプ相性表を開く</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public DataSetInfo? DataSet { get; set; }
+    /// <summary>使えない機能の名前（例: ダメージ計算）。</summary>
+    [Parameter] public string Feature { get; set; } = "計算";
+}

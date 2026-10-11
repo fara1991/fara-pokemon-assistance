@@ -36,7 +36,7 @@
             <thead>
                 <tr>
                     <th class="type-corner">攻＼防</th>
-                    @foreach (var d in TypeNames.All)
+                    @foreach (var d in Types)
                     {
                         <th class="type-head @ColumnClass(d) @HoverClass(hoverCol == d)"><TypeIcon Type="@d" /></th>
                     }
@@ -47,7 +47,7 @@
                 </tr>
             </thead>
             <tbody>
-            @foreach (var a in TypeNames.All)
+            @foreach (var a in Types)
             {
                 var total = selected is null ? null : AbilityMatchup.Against(chart, a, selected.Types.ToList(), selectedAbility);
                 var picked = selected is not null && s.AttackTypes.Contains(a);
@@ -66,7 +66,7 @@
                                     @onclick="() => ToggleAttackType(a)"><TypeIcon Type="@a" /></button>
                         </th>
                     }
-                    @foreach (var d in TypeNames.All)
+                    @foreach (var d in Types)
                     {
                         var m = chart.Against(a, d);
                         var badge = total is { ChangedByAbility: true } && selected!.HasType(d);
@@ -114,6 +114,8 @@
                 var abilities = data.AbilitiesOf(selected);
                 <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
                     <PokemonLabel Pokemon="selected" />
+                    @if (abilities.Count > 0)
+                    {
                     <div class="flex-grow-1 type-ability">
                         <label class="form-label mb-0 small">特性</label>
                         @if (abilities.Count <= 1)
@@ -130,6 +132,7 @@
                             </select>
                         }
                     </div>
+                    }
                 </div>
                 <div class="type-compact mb-2">@RenderCompact(selected.Types.ToList(), selectedAbility, true)</div>
                 @if (s.AttackTypes.Count == 0)
@@ -240,7 +243,7 @@
                             <p class="type-full-hint small mb-1">@FullHint</p>
                         }
                         <div class="compact-grid mb-2">
-                            @foreach (var t in TypeNames.All)
+                            @foreach (var t in Types)
                             {
                                 var on = s.DefenseTypes.Contains(t);
                                 var defBlocked = !on && s.DefenseTypes.Count >= 2;
@@ -400,7 +403,7 @@
     /// </summary>
     private RenderFragment RenderCompact(IReadOnlyList<string> defenseTypes, Ability? ability, bool pickAttack) => __builder =>
     {
-        var results = TypeNames.All.Select(a => (Type: a, Result: AbilityMatchup.Against(chart!, a, defenseTypes, ability))).ToList();
+        var results = Types.Select(a => (Type: a, Result: AbilityMatchup.Against(chart!, a, defenseTypes, ability))).ToList();
         <div class="compact-matchup">
             @foreach (var (label, match) in CompactGroups)
             {
@@ -460,6 +463,9 @@
         }
         Refresh();
     }
+
+    /// <summary>このゲームにあるタイプ（第 1 世代はあく・はがね・フェアリーが無いなど）。</summary>
+    private IReadOnlyList<string> Types => chart?.Types ?? (IReadOnlyList<string>)TypeNames.All.ToList();
 
     /// <summary>選んだポケモンのタイプの列は強調、それ以外は薄くする。</summary>
     private string ColumnClass(string defenseType) =>

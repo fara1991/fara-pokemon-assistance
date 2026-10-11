@@ -16,7 +16,11 @@
     <div class="alert @(messageIsError ? "alert-danger" : "alert-success")">@message</div>
 }
 
-@if (data is not null && roster is not null && dataSet is not null)
+@if (dataSet is { CalcSupported: false })
+{
+    <CalcUnsupported DataSet="dataSet" Feature="登録・チーム" />
+}
+else if (data is not null && roster is not null && dataSet is not null)
 {
     <div class="split-row">
         <div class="split-half">

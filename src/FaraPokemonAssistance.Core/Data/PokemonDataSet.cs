@@ -216,7 +216,12 @@ public sealed class TypeChart
     private TypeChart(Dictionary<(string, string), double> table)
     {
         _table = table;
+        var present = table.Keys.SelectMany(k => new[] { k.Item1, k.Item2 }).ToHashSet();
+        Types = TypeNames.All.Where(present.Contains).ToList();
     }
+
+    /// <summary>このゲームにあるタイプ（相性表に出てくるもの）。第 1 世代はあく・はがね・フェアリーが無いなど、世代で変わる。</summary>
+    public IReadOnlyList<string> Types { get; }
 
     public static TypeChart Parse(string csvText)
     {

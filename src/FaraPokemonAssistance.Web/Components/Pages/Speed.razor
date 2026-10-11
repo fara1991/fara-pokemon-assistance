@@ -12,7 +12,11 @@
     <p class="text-muted mb-0">使用チームに同じポケモンがいれば、その構成が入ります。</p>
 </div>
 
-@if (data is not null && dataSet is not null)
+@if (dataSet is { CalcSupported: false })
+{
+    <CalcUnsupported DataSet="dataSet" Feature="素早さ比較" />
+}
+else if (data is not null && dataSet is not null)
 {
     var both = s.Builds[0] is not null && s.Builds[1] is not null;
     <div class="calc-grid @(both ? "has-result-bar" : "")">

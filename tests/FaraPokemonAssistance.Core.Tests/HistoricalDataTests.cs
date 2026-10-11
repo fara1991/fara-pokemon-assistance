@@ -1,0 +1,107 @@
+using FaraPokemonAssistance.Core.Data;
+using FaraPokemonAssistance.Core.Models;
+using FaraPokemonAssistance.Core.Text;
+using Xunit;
+
+namespace FaraPokemonAssistance.Core.Tests;
+
+/// <summary>昔の世代のデータ（その世代の時点のタイプ・種族値・特性・技・相性）。</summary>
+public class HistoricalDataTests
+{
+    private static Task<PokemonDataSet> Load(string key) => TestData.Catalog().GetDataSetAsync(key);
+
+    [Fact]
+    public async Task Game_list_starts_from_generation_1_and_old_games_are_reference_only()
+    {
+        var sets = await TestData.Catalog().GetDataSetsAsync();
+        Assert.Equal("Gen1", sets[0].Key);
+        Assert.Equal(Enumerable.Range(1, 9), sets.Where(s => s.Key.StartsWith("Gen")).Select(s => s.Generation));
+        // 計算は今のゲームだけ（昔の世代は順に対応していく）
+        Assert.False(sets.Single(s => s.Key == "Gen1").CalcSupported);
+        Assert.False(sets.Single(s => s.Key == "Gen2").CalcSupported);
+        Assert.True(sets.Single(s => s.Key == "Gen9").CalcSupported);
+        Assert.True(sets.Single(s => s.Key == "Champions").CalcSupported);
+    }
+
+    [Fact]
+    public async Task Generation_1_types_stats_and_chart()
+    {
+        var data = await Load("Gen1");
+        Assert.Equal(151, data.Pokemon.Count);
+        Assert.Empty(data.Abilities);
+        // あく・はがね・フェアリーは無い
+        Assert.Equal(15, data.TypeChart.Types.Count);
+        Assert.DoesNotContain("Fairy", data.TypeChart.Types);
+        Assert.DoesNotContain("Steel", data.TypeChart.Types);
+        // 第 1 世代の相性: ゴースト→エスパー 0、むし⇔どく 2 倍、こおり→ほのお 等倍
+        Assert.Equal(0.0, data.TypeChart.Against("Ghost", "Psychic"));
+        Assert.Equal(2.0, data.TypeChart.Against("Bug", "Poison"));
+        Assert.Equal(2.0, data.TypeChart.Against("Poison", "Bug"));
+        Assert.Equal(1.0, data.TypeChart.Against("Ice", "Fire"));
+        // ピッピはノーマル、コイルはでんき単タイプ、フーディンの「とくしゅ」135
+        var clefairy = data.Pokemon.Single(p => p.Id == 35);
+        Assert.Equal("Normal", clefairy.Type1);
+        Assert.Equal("", data.Pokemon.Single(p => p.Id == 81).Type2);
+        var alakazam = data.Pokemon.Single(p => p.Id == 65);
+        Assert.Equal(135, alakazam.BaseStats.SpAttack);
+        Assert.Equal(135, alakazam.BaseStats.SpDefense);
+        // かみつくはノーマル技
+        Assert.Equal("Normal", data.Moves.Single(m => m.Id == 44).Type);
+    }
+
+    [Fact]
+    public async Task Generations_2_to_5_have_old_steel_and_no_fairy()
+    {
+        foreach (var key in new[] { "Gen2", "Gen3", "Gen4", "Gen5" })
+        {
+            var data = await Load(key);
+            Assert.Equal(17, data.TypeChart.Types.Count);
+            Assert.Equal(0.5, data.TypeChart.Against("Ghost", "Steel"));
+            Assert.Equal(0.5, data.TypeChart.Against("Dark", "Steel"));
+            Assert.Equal("Normal", data.Pokemon.Single(p => p.Id == 35).Type1); // ピッピ
+        }
+        var gen6 = await Load("Gen6");
+        Assert.Equal(18, gen6.TypeChart.Types.Count);
+        Assert.Equal(1.0, gen6.TypeChart.Against("Ghost", "Steel"));
+        Assert.Equal("Fairy", gen6.Pokemon.Single(p => p.Id == 35).Type1);
+    }
+
+    [Fact]
+    public async Task Physical_special_split_and_abilities_by_generation()
+    {
+        // 第 3 世代は技のタイプで物理・特殊が決まる（あく技は特殊）。第 4 世代から技ごと
+        Assert.Equal(MoveCategory.Special, (await Load("Gen3")).Moves.Single(m => m.Id == 44).Category);
+        Assert.Equal(MoveCategory.Physical, (await Load("Gen4")).Moves.Single(m => m.Id == 44).Category);
+        // 隠れ特性は第 5 世代から（フシギダネのようりょくそ）
+        Assert.DoesNotContain(34, (await Load("Gen4")).Pokemon.Single(p => p.Id == 1).AbilityIds);
+        Assert.Contains(34, (await Load("Gen5")).Pokemon.Single(p => p.Id == 1).AbilityIds);
+        // 第 6〜7 世代にはメガシンカ（メガストーン付き）
+        var gen6 = await Load("Gen6");
+        var megaCharizardX = gen6.Pokemon.Single(p => p.Id == 10034);
+        Assert.True(megaCharizardX.IsMega);
+        Assert.NotNull(gen6.FindItem(megaCharizardX.MegaStoneId!.Value));
+        Assert.DoesNotContain((await Load("Gen5")).Pokemon, p => p.IsMega);
+        // 第 7 世代にはアローラのすがた
+        Assert.Contains((await Load("Gen7")).Pokemon, p => p.Id == 10091);
+    }
+
+    [Fact]
+    public async Task Reference_only_games_refuse_calculation_commands()
+    {
+        var poke = new PokeCommand(TestData.Catalog(), new FaraPokemonAssistance.Core.Roster.RosterRepository(new FaraPokemonAssistance.Core.Roster.MemoryRosterStore()));
+        var result = await poke.ExecuteAsync("!pokerg dmg ケンタロス のしかかり スターミー");
+        Assert.False(result.Success);
+        Assert.Contains("対応していません", result.Message);
+        var dmg = await new DamageCommand(TestData.Catalog()).ExecuteAsync("ケンタロス のしかかり スターミー", new DamageCommandOptions { DataSetKey = "Gen1" });
+        Assert.False(dmg.Success);
+        Assert.Contains("対応していません", dmg.Message);
+    }
+
+    [Fact]
+    public async Task Champions_mega_lucario_z_has_an_ability()
+    {
+        var data = await Load("Champions");
+        var megaLucarioZ = data.Pokemon.Single(p => p.Name == "メガルカリオZ");
+        Assert.NotEmpty(data.AbilitiesOf(megaLucarioZ));
+    }
+}

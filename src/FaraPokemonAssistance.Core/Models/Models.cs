@@ -434,6 +434,10 @@ public sealed class DataSetInfo
     public BattleGimmick Gimmick { get; init; } = BattleGimmick.None;
     /// <summary>このデータセットに使用率データが無いとき、代わりに使うデータセットのキー（例: Champions → Gen9）。</summary>
     public string UsageFallback { get; init; } = "";
+    /// <summary>
+    /// ダメージ計算・素早さ比較・登録に対応しているか。false のゲーム（昔の世代）は、ポケモン一覧・タイプ相性表だけで使う。
+    /// </summary>
+    public bool CalcSupported { get; init; } = true;
 
     public bool HasTerastal => Gimmick == BattleGimmick.Terastal;
     public bool HasDynamax => Gimmick == BattleGimmick.Dynamax;

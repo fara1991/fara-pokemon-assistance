@@ -246,7 +246,8 @@ public class DataAndCommandTests
             var data = await catalog.GetDataSetAsync(info.Key);
             Assert.NotEmpty(data.Pokemon);
             Assert.NotEmpty(data.Moves);
-            Assert.NotEmpty(data.Items);
+            // 持ち物は第 2 世代から
+            if (info.Generation >= 2) Assert.NotEmpty(data.Items);
             Assert.Equal(25, data.Natures.Count);
             Assert.Equal(2.0, data.TypeChart.Against("Water", "Fire"));
         }
