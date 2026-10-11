@@ -11,7 +11,7 @@
     <Authors>Fara</Authors>
     <Description>ポケモンのダメージ計算・データ読み込み・チャットコマンド解析（Web とボットの共通ライブラリ）</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/fara1991/fara-pokemon-assistance</RepositoryUrl>
+    <RepositoryUrl>https://github.com/fara1991/fara-pokemon-battle-assistant</RepositoryUrl>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>

@@ -1,5 +1,5 @@
 {
-  "name": "fara-pokemon-assistance",
+  "name": "fara-pokemon-battle-assistant",
   "private": true,
   "description": "Cloudflare Workers への公開用（wrangler のバージョン固定）。サイト本体は src/FaraPokemonAssistance.Web",
   "scripts": {

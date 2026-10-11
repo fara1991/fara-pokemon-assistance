@@ -1,6 +1,6 @@
-# FaraPokemonAssistance
+# Pokémon Battle Assistant
 
-ポケモン対戦アシスタント。ダメージ計算・素早さ比較・育成済みポケモンとチームの管理・タイプ相性を、**ブラウザ**（Cloudflare Workers）と **Twitch チャットのコマンド**（FaraBotModerator）の両方から使えるようにするプロジェクトです。
+ポケモン対戦アシスタント（Pokémon Battle Assistant）。ダメージ計算・素早さ比較・育成済みポケモンとチームの管理・タイプ相性を、**ブラウザ**（Cloudflare Workers）と **Twitch チャットのコマンド**（FaraBotModerator）の両方から使えるようにするプロジェクトです。
 
 - Web: https://pokemon.fara-labs.com/
 - チャット: `!dmg イエッサン♂ ワイドフォース メガリザードンX` → `イエッサン(C252 ひかえめ こだわりメガネ) ワイドフォース → メガリザードンX(H252 いじっぱり HP185): 61.6〜72.9% (114〜135) 確定2発 [効果抜群(2倍)]` のような 1 行が返ります。
@@ -8,7 +8,7 @@
 ## 構成
 
 ```
-fara-pokemon-assistance/
+fara-pokemon-battle-assistant/
 ├── src/
 │   ├── FaraPokemonAssistance.Core/   計算ロジック・CSV 読み込み・名前解決・登録/チーム・チャットコマンド（クラスライブラリ）
 │   ├── FaraPokemonAssistance.Web/    Blazor WebAssembly（Cloudflare Workers に公開）

@@ -8,14 +8,14 @@ FaraBotModerator（WPF / TwitchLib）側に必要な変更は 3 箇所です。
 
 ```
 C:\repos\FaraBotModerator\
-C:\repos\fara-pokemon-assistance\
+C:\repos\fara-pokemon-battle-assistant\
 ```
 
 `FaraBotModerator.csproj`:
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\fara-pokemon-assistance\src\FaraPokemonAssistance.Core\FaraPokemonAssistance.Core.csproj" />
+  <ProjectReference Include="..\fara-pokemon-battle-assistant\src\FaraPokemonAssistance.Core\FaraPokemonAssistance.Core.csproj" />
 </ItemGroup>
 ```
 
