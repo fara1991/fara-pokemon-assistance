@@ -788,6 +788,16 @@ body {
     white-space: nowrap;
 }
 
+/* 自分の特性で作る天候・フィールドの補正込み（例: サイコフィールド込み） */
+.type-attacker-move .field-note {
+    font-size: 0.68rem;
+    color: #b45309;
+}
+
+[data-bs-theme="dark"] .type-attacker-move .field-note {
+    color: #fbbf24;
+}
+
 .type-chart-layout {
     display: flex;
     flex-wrap: wrap;
