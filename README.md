@@ -41,7 +41,7 @@ fara-pokemon-assistance/
 
 - ポケモン・技・持ち物・覚える技・タイプ相性は [公開されている CSV ダンプ](https://github.com/PokeAPI/pokeapi/tree/master/data/v2/csv) から生成します。REST API は叩きません（週 1 回のバルク取得のみ）。
 - ID は元データと同じです。フォルム違い（メガリザードンX = 10034、イエッサン(♀) = 10186 など）も元データの ID をそのまま使います。性別でフォルムが分かれる種族は基本フォルムにも `(♂)` を付けます（`イエッサン(♂)`。チャットでは `イエッサン` だけでも ♂ になります）。
-- チャンピオンズの収録ポケモンは **チャンピオンズ図鑑（pokedex 36、231 種）** とそのメガシンカ・性別差・種族値やタイプの違うフォルムです。チャンピオンズ用の技データがまだ無いポケモンは SV の技で補います（`tools/datasets.json` の `learnset_fallback_version_groups`）。図鑑に無いポケモンは表示しません。
+- チャンピオンズの収録ポケモンは **チャンピオンズ図鑑（pokedex 36、231 種）** とそのメガシンカ・性別差・種族値やタイプの違うフォルムです。チャンピオンズ用の技データがまだ無いポケモンは SV の技で補い、SV にも居ないポケモン（ガラルのバリヤード等）は剣盾 → USUM の順に、そのポケモンのデータがある最初の世代の技で補います（`tools/datasets.json` の `learnset_fallback_version_groups` / `learnset_fallback_older_version_groups`）。技データが空のポケモンは作りません（空だと「全技を覚える」扱いになるため）。`python tools/verify_learnsets.py` で PokeAPI の CSV と突き合わせて検証できます。図鑑に無いポケモンは表示しません。
 - 第9世代の `usage_*.csv` は HOME のランクバトル最新シーズンから生成します。チャンピオンズの使用率は取得元が確定していないため、現状は未設定です（`tools/datasets.json` の `home` に設定を足せば同じスクリプトで取得できます）。
 - 第1〜7世代（`tools/datasets.json` の `historical: true`）は、元データの `pokemon_types_past` / `pokemon_stats_past` / `pokemon_abilities_past` / `type_efficacy_past` / `move_changelog` で、その世代の時点の値にします。第1世代の「とくしゅ」は特攻・特防の両方に入れ、第3世代までの技は技のタイプで物理・特殊を決めます。特性は第3世代から、隠れ特性は第5世代からです。メガシンカ・リージョンフォームなどは、そのゲームまでに登場していたものだけを入れます。
 - `datasets.json` の `calc: "Reference"` のゲームは参照のみです（計算機などでは案内を出します）。
