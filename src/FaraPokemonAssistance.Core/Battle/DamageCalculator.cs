@@ -27,12 +27,12 @@ public sealed class DamageCalculator
     private readonly LegacyDamageCalculator? _legacy;
 
     /// <summary>
-    /// <paramref name="generation"/> はゲームの世代。第 5〜7 世代は <see cref="LegacyDamageCalculator"/>（その世代の補正の順番・丸め）で計算する。
+    /// <paramref name="generation"/> はゲームの世代。第 3〜7 世代は <see cref="LegacyDamageCalculator"/>（その世代の補正の順番・丸め）で計算する。
     /// </summary>
     public DamageCalculator(TypeChart typeChart, int generation = 9)
     {
         _typeChart = typeChart;
-        if (generation is >= 5 and <= 7) _legacy = new LegacyDamageCalculator(typeChart, generation);
+        if (generation is >= 3 and <= 7) _legacy = new LegacyDamageCalculator(typeChart, generation);
         else if (generation < 5) throw new NotSupportedException($"第{generation}世代のダメージ計算には対応していません");
     }
 
@@ -682,6 +682,12 @@ public sealed class KnockOutOptions
             case { Category: ItemCategory.BlackSludge } item:
                 eot -= Math.Max(1, maxHp / 8);
                 modifiers.Add($"{item.Name}(毎ターン1/8ダメージ)を確定数に反映");
+                break;
+            case { Category: ItemCategory.SitrusBerry } item when generation <= 3:
+                // 第 3 世代: HP 1/2 以下で 30 回復
+                threshold = maxHp / 2;
+                heal = 30;
+                modifiers.Add($"{item.Name}(HP1/2以下で30回復)を確定数に反映");
                 break;
             case { Category: ItemCategory.SitrusBerry } item:
                 threshold = maxHp / 2;

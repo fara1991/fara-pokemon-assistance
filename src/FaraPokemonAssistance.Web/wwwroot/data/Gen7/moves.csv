@@ -609,7 +609,6 @@ Id,Name,Type,Power,Accuracy,PP,Category,Target,Priority,Flags,EffectChance,Descr
 614,サウザンアロー,Ground,90,100,10,Physical,AllFoes,0,,100,浮いている ポケモンにも 当たる。 浮いていた 相手は 撃ち落とされて 地面に 落ちる。
 615,サウザンウェーブ,Ground,90,100,10,Physical,AllFoes,0,,0,地をはう 波によって 攻撃。 波に 巻き込まれた 相手は 戦闘から 逃げられなくなる。
 616,グランドフォース,Ground,90,100,10,Physical,AllFoes,0,,0,大地の パワーを 集め 力を 相手に 集中させて ダメージを 与える。
-617,はめつのひかり,Fairy,140,90,5,Special,Single,0,,0,永遠の花 の パワーを かりて 強力な 光線を 撃ちだす。 自分も かなりの ダメージを 受ける。
 618,こんげんのはどう,Water,110,85,10,Special,AllFoes,0,Pulse,0,青白く 輝く 無数の 光線で 相手を 攻撃する。
 619,だんがいのつるぎ,Ground,120,85,10,Physical,AllFoes,0,,0,大地の 力を 刃に 変えて 相手を 攻撃する。
 620,ガリョウテンセイ,Flying,120,100,5,Physical,Single,0,Contact,100,大空から 急速落下 して 相手を 攻撃する。 自分の 防御と 特防が さがる。

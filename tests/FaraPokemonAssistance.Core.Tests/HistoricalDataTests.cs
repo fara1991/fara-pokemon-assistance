@@ -138,6 +138,23 @@ public class LegacyMechanicsTests
     }
 
     [Fact]
+    public async Task Generations_3_and_4_calculate_with_their_own_rules()
+    {
+        var command = new DamageCommand(TestData.Catalog());
+        // 第 3 世代: あく技は特殊（かみくだくはヘラクロスの低い特攻で計算）
+        var gen3 = await command.ExecuteAsync("バンギラス かみくだく フーディン", new DamageCommandOptions { DataSetKey = "Gen3" });
+        var gen4 = await command.ExecuteAsync("バンギラス かみくだく フーディン", new DamageCommandOptions { DataSetKey = "Gen4" });
+        Assert.True(gen3.Success, gen3.Message);
+        Assert.True(gen4.Success, gen4.Message);
+        Assert.Equal(MoveCategory.Special, gen3.Request!.Move.Category);
+        Assert.Equal(MoveCategory.Physical, gen4.Request!.Move.Category);
+        // 第 3 世代のオボンのみは 30 回復
+        var sitrus = await command.ExecuteAsync("ガルーラ のしかかり カビゴン 防:オボンのみ", new DamageCommandOptions { DataSetKey = "Gen3" });
+        Assert.True(sitrus.Success, sitrus.Message);
+        Assert.Contains(sitrus.Damage!.Modifiers, m => m.Contains("30回復"));
+    }
+
+    [Fact]
     public void Burn_damage_and_pinch_berries_follow_the_generation()
     {
         Assert.Equal(20, StatusNames.ResidualDamage(StatusCondition.Burn, 160, 1, generation: 6));
@@ -161,6 +178,8 @@ public class LegacyMechanicsTests
         var sets = await TestData.Catalog().GetDataSetsAsync();
         Assert.True(sets.Single(s => s.Key == "Gen6").CalcSupported);
         Assert.True(sets.Single(s => s.Key == "Gen5").CalcSupported);
+        Assert.True(sets.Single(s => s.Key == "Gen3").CalcSupported);
+        Assert.True(sets.Single(s => s.Key == "Gen4").CalcSupported);
         Assert.False(sets.Single(s => s.Key == "Gen5").HasTerrain);
         Assert.True(sets.Single(s => s.Key == "Gen7").HasZMove);
         var command = new DamageCommand(TestData.Catalog());
