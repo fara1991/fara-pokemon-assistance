@@ -355,7 +355,7 @@ public sealed class PokeCommand
         var variants = new List<string>();
         var abilities = data.AbilitiesOf(request.Defender.Pokemon);
         if (abilities.Count <= 1) return variants;
-        var calc = new DamageCalculator(data.TypeChart);
+        var calc = new DamageCalculator(data.TypeChart, data.Info.Generation);
         var distinct = false;
         var lines = new List<string>();
         foreach (var ability in abilities)
@@ -405,7 +405,7 @@ public sealed class PokeCommand
 
         var request = baseline.Request;
         request.Defender.Item = null; // 相手の持ち物は不明
-        var estimator = new EvEstimator(data.TypeChart);
+        var estimator = new EvEstimator(data.TypeChart, ds.Generation);
         var attackerText = $"{request.Attacker.Pokemon.Name}({request.Attacker.DescribeShort()})";
 
         // 相手の特性が指定されていなければ、持ちうる特性ごとに推定し、結果が違うときは特性別に出す
@@ -494,15 +494,15 @@ public sealed class PokeCommand
             else warnings.Add($"「{token}」は無視");
         }
 
-        var (mySpeed, myNotes) = SpeedCalculator.Effective(mine, weather, terrain);
+        var (mySpeed, myNotes) = SpeedCalculator.Effective(mine, weather, terrain, generation: ds.Generation);
         var oppBuild = provider(oppMatch.Value!, false);
         var scarf = data.Items.FirstOrDefault(i => i.Id == 264);
-        var reference = SpeedCalculator.OpponentReference(oppMatch.Value!, ds.EvSystem, scarf, opponentParalyzed);
+        var reference = SpeedCalculator.OpponentReference(oppMatch.Value!, ds.EvSystem, scarf, opponentParalyzed, ds.Generation);
         string text;
         if (oppBuild is not null)
         {
             if (opponentParalyzed) { oppBuild = oppBuild.Clone(); oppBuild.Status = StatusCondition.Paralysis; }
-            var (os, oNotes) = SpeedCalculator.Effective(oppBuild, weather, terrain);
+            var (os, oNotes) = SpeedCalculator.Effective(oppBuild, weather, terrain, generation: ds.Generation);
             text = SpeedCalculator.Format(mine, mySpeed, myNotes, oppMatch.Value!, oppBuild, os, oNotes, reference);
         }
         else

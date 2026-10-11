@@ -163,6 +163,11 @@ class Builder:
             self.item_first_generation[r["item_id"]] = min(gen, self.item_first_generation.get(r["item_id"], gen))
         self.evolves_from = {r["evolves_from_species_id"] for r in api.table("pokemon_species")
                              if r["evolves_from_species_id"]}
+        # 進化先が登場した世代（昔のゲームでは、まだ進化先がいない種族は進化前ではない）
+        self.evolution_generations: dict[str, list[int]] = defaultdict(list)
+        for r in api.table("pokemon_species"):
+            if r["evolves_from_species_id"]:
+                self.evolution_generations[r["evolves_from_species_id"]].append(int(r["generation_id"]))
         # HOME item ids are the in-game item indices; PokeAPI calls them game_index.
         self.game_index_to_item: dict[int, dict[int, str]] = defaultdict(dict)
         for r in api.table("item_game_indices"):
@@ -389,7 +394,10 @@ class Builder:
                 continue
             p = self.pokemon[pid]
             types = self.types_for(pid, generation) if historical else self.ptypes.get(pid, {})
-            nfe = 1 if p["species_id"] in self.evolves_from else 0
+            if historical:
+                nfe = 1 if any(g <= generation for g in self.evolution_generations.get(p["species_id"], [])) else 0
+            else:
+                nfe = 1 if p["species_id"] in self.evolves_from else 0
             ability_list = self.abilities_for(pid, generation) if historical else sorted(self.pokemon_abilities.get(pid, []))
             ability_ids = [aid for _, _, aid in ability_list if aid in self.abilities]
             used_abilities.update(ability_ids)

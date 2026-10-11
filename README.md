@@ -33,7 +33,8 @@ fara-pokemon-assistance/
 
 | データセット | 内容 | 元データ |
 |---|---|---|
-| `Gen1`〜`Gen7` | 赤・緑〜ウルトラサン・ウルトラムーン。その世代の時点のタイプ・種族値・特性・技・タイプ相性。**参照のみ**（ポケモン一覧・タイプ相性表。計算機・素早さ比較・登録・チャットの計算は非対応） | 公開データ（`*_past.csv`・`move_changelog.csv`） |
+| `Gen1`〜`Gen5` | 赤・緑〜ブラック2・ホワイト2。その世代の時点のタイプ・種族値・特性・技・タイプ相性。**参照のみ**（ポケモン一覧・タイプ相性表。計算機・素早さ比較・登録・チャットの計算は非対応） | 公開データ（`*_past.csv`・`move_changelog.csv`） |
+| `Gen6` / `Gen7` | X・Y・ORAS / サン・ムーン・USUM。上と同じくその世代の時点のデータで、計算機・素早さ比較にも対応（メガシンカ、第7世代は Z 技） | 同上 |
 | `Gen8` | ソード・シールド（鎧の孤島・冠の雪原含む）。ダイマックス対応 | 公開データ |
 | `Gen9` | スカーレット・バイオレット（DLC 含む）。テラスタル対応 | 公開データ + ポケモン HOME ランクバトル使用率 |
 | `Champions` | ポケモンチャンピオンズ（メガシンカ・メガストーン含む） | 公開データ（`version_group = champions`） |
@@ -44,6 +45,7 @@ fara-pokemon-assistance/
 - 第9世代の `usage_*.csv` は HOME のランクバトル最新シーズンから生成します。チャンピオンズの使用率は取得元が確定していないため、現状は未設定です（`tools/datasets.json` の `home` に設定を足せば同じスクリプトで取得できます）。
 - 第1〜7世代（`tools/datasets.json` の `historical: true`）は、元データの `pokemon_types_past` / `pokemon_stats_past` / `pokemon_abilities_past` / `type_efficacy_past` / `move_changelog` で、その世代の時点の値にします。第1世代の「とくしゅ」は特攻・特防の両方に入れ、第3世代までの技は技のタイプで物理・特殊を決めます。特性は第3世代から、隠れ特性は第5世代からです。メガシンカ・リージョンフォームなどは、そのゲームまでに登場していたものだけを入れます。
 - `datasets.json` の `calc: "Reference"` のゲームは参照のみです（計算機などでは案内を出します）。
+- 第5〜7世代のダメージ計算（`LegacyDamageCalculator`）は、その世代の補正の順番・丸め（急所 2 倍 / 1.5 倍、スキン系 1.3 倍、フィールド 1.5 倍、まひ 1/4、やけど 1/8 など）で行います。公開されているダメージ計算ツール（@smogon/calc）の結果と、`tools/calc_vectors` で作った条件（`tests/.../Data/calc_vectors.json`）で一致を確かめています。第8世代以降の計算は変えていません（`Data/calc_snapshot.txt` で確認）。
 - 手動で更新する場合: `python tools/sync_data.py`（HOME を飛ばすなら `--skip-home`）。
 
 ## チャットコマンド

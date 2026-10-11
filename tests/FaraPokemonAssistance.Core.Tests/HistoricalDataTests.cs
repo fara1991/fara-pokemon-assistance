@@ -1,3 +1,4 @@
+using FaraPokemonAssistance.Core.Battle;
 using FaraPokemonAssistance.Core.Data;
 using FaraPokemonAssistance.Core.Models;
 using FaraPokemonAssistance.Core.Text;
@@ -103,5 +104,64 @@ public class HistoricalDataTests
         var data = await Load("Champions");
         var megaLucarioZ = data.Pokemon.Single(p => p.Name == "メガルカリオZ");
         Assert.NotEmpty(data.AbilitiesOf(megaLucarioZ));
+    }
+}
+
+/// <summary>昔の世代の計算で、ダメージ計算ツールとの比較以外に確かめること（素早さ・確定数・Z 技・チャット）。</summary>
+public class LegacyMechanicsTests
+{
+    private static Task<PokemonDataSet> Load(string key) => TestData.Catalog().GetDataSetAsync(key);
+
+    [Fact]
+    public void Paralysis_quarters_speed_until_generation_6()
+    {
+        var build = new PokemonBuild(new Pokemon { Id = 1, Name = "テスト", Type1 = "Normal", BaseStats = new StatSet(100, 100, 100, 100, 100, 100), SpeciesId = 1 })
+        {
+            Status = StatusCondition.Paralysis,
+        };
+        var plain = StatCalculator.Calculate(build, Stat.Speed);
+        Assert.Equal(plain / 4, FaraPokemonAssistance.Core.Battle.SpeedCalculator.Effective(build, generation: 6).Speed);
+        Assert.Equal(plain / 2, FaraPokemonAssistance.Core.Battle.SpeedCalculator.Effective(build, generation: 7).Speed);
+        Assert.Equal(plain / 2, FaraPokemonAssistance.Core.Battle.SpeedCalculator.Effective(build).Speed);
+    }
+
+    [Fact]
+    public void Burn_damage_and_pinch_berries_follow_the_generation()
+    {
+        Assert.Equal(20, StatusNames.ResidualDamage(StatusCondition.Burn, 160, 1, generation: 6));
+        Assert.Equal(10, StatusNames.ResidualDamage(StatusCondition.Burn, 160, 1, generation: 7));
+        Assert.Equal(10, StatusNames.ResidualDamage(StatusCondition.Burn, 160, 1));
+    }
+
+    [Fact]
+    public void Z_move_power_table_and_exceptions()
+    {
+        Assert.Equal(175, FaraPokemonAssistance.Core.Battle.ZMove.Power(new Move { Id = 57, Power = 90 }));   // なみのり
+        Assert.Equal(200, FaraPokemonAssistance.Core.Battle.ZMove.Power(new Move { Id = 63, Power = 150 }));  // はかいこうせん
+        Assert.Equal(100, FaraPokemonAssistance.Core.Battle.ZMove.Power(new Move { Id = 33, Power = 40 }));   // たいあたり
+        Assert.Equal(170, FaraPokemonAssistance.Core.Battle.ZMove.Power(new Move { Id = 560, Power = 100 })); // フライングプレス
+        Assert.Equal(220, FaraPokemonAssistance.Core.Battle.ZMove.Power(new Move { Id = 557, Power = 180 })); // Vジェネレート
+    }
+
+    [Fact]
+    public async Task Generation_6_and_7_are_calculated_and_chat_supports_z_moves()
+    {
+        var sets = await TestData.Catalog().GetDataSetsAsync();
+        Assert.True(sets.Single(s => s.Key == "Gen6").CalcSupported);
+        Assert.True(sets.Single(s => s.Key == "Gen7").HasZMove);
+        var command = new DamageCommand(TestData.Catalog());
+        var normal = await command.ExecuteAsync("ガブリアス じしん ギルガルド", new DamageCommandOptions { DataSetKey = "Gen7" });
+        var z = await command.ExecuteAsync("ガブリアス じしん ギルガルド Z", new DamageCommandOptions { DataSetKey = "Gen7" });
+        Assert.True(normal.Success, normal.Message);
+        Assert.True(z.Success, z.Message);
+        Assert.Contains("Z技", z.Message);
+        Assert.True(z.Damage!.MaxDamage > normal.Damage!.MaxDamage);
+        // 第 6 世代はあられ（こおりタイプの防御は上がらない）
+        var gen6 = await command.ExecuteAsync("ガブリアス じしん マニューラ あられ", new DamageCommandOptions { DataSetKey = "Gen6" });
+        Assert.True(gen6.Success, gen6.Message);
+        Assert.Contains("あられ", gen6.Message);
+        // Z 技は第 7 世代だけ
+        var gen6z = await command.ExecuteAsync("ガブリアス じしん マニューラ Z", new DamageCommandOptions { DataSetKey = "Gen6" });
+        Assert.Contains("Z技は第7世代だけ", gen6z.Message);
     }
 }

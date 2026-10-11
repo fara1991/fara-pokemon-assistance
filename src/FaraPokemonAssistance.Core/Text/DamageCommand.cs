@@ -51,7 +51,7 @@ public sealed class DamageCommandResult
 /// <item><c>急所</c>、<c>ダブル</c> / <c>シングル</c>、<c>Lv100</c>、<c>無振り</c>（防御側の努力値を 0 に）</item>
 /// <item>特性名（ちからもち 等）… そのポケモンが持てる側に付く。両方持てるなら防御的な特性は防御側</item>
 /// <item><c>テラス</c>（技タイプにテラスタル）、<c>テラスほのお</c> / <c>ほのおテラス</c>、<c>防:テラスみず</c></item>
-/// <item><c>ダイマ</c>（攻撃側をダイマックス）、<c>防:ダイマ</c>（防御側: HP 2 倍）</item>
+/// <item><c>ダイマ</c>（攻撃側をダイマックス）、<c>防:ダイマ</c>（防御側: HP 2 倍）、<c>Z</c>（Z 技。第 7 世代）</item>
 /// <item><c>壁</c>（オーロラベール。物理・特殊とも半減）、<c>リフレクター</c>（物理のみ）、<c>ひかりのかべ</c>（特殊のみ）、<c>HP50%</c>（防御側の残り HP）、<c>攻:HP30%</c>（攻撃側の残り HP。もうか等）</item>
 /// <item>天候: <c>晴れ</c> <c>雨</c> <c>砂</c> <c>雪</c>、フィールド: <c>エレキ</c> <c>グラス</c> <c>サイコ</c> <c>ミスト</c></item>
 /// <item>状態異常: <c>やけど</c> <c>まひ</c>（既定は攻撃側）、<c>どく</c> <c>もうどく</c>（既定は防御側。確定数に定数ダメージを織り込む）</item>
@@ -149,6 +149,7 @@ public sealed class DamageCommand
         defender.EvSystem = evSystem;
         var format = options.Format;
         var isCritical = options.IsCritical;
+        var isZMove = false;
         var attackerEvSet = attackerPreset is not null;
         var defenderEvSet = defenderPreset is not null;
         var attackerNatureSet = attackerPreset is not null;
@@ -191,6 +192,11 @@ public sealed class DamageCommand
             if (normalized is "急所" or "きゅうしょ" or "crit")
             {
                 isCritical = true;
+                continue;
+            }
+            if (normalized is "z" or "z技" or "zわざ" or "zmove")
+            {
+                isZMove = true;
                 continue;
             }
             if (normalized is "りふれくたー" or "reflect")
@@ -375,6 +381,11 @@ public sealed class DamageCommand
                 warnings.Add($"{b.Pokemon.Name}は{data.Info.Name}未収録のため第9世代データで計算");
         }
 
+        if (isZMove && !data.Info.HasZMove)
+        {
+            warnings.Add("Z技は第7世代だけ");
+            isZMove = false;
+        }
         var request = new DamageRequest
         {
             Attacker = attacker,
@@ -382,13 +393,14 @@ public sealed class DamageCommand
             Defender = defender,
             Format = format,
             IsCritical = isCritical,
+            IsZMove = isZMove,
             Weather = weather,
             Terrain = terrain,
             Screen = screen,
             Reflect = reflect,
             LightScreen = lightScreen,
         };
-        var result = new DamageCalculator(data.TypeChart).Calculate(request);
+        var result = new DamageCalculator(data.TypeChart, data.Info.Generation).Calculate(request);
 
         var message = Format(request, result, data.Info, warnings);
         if (message.Length > options.MaxLength)
@@ -403,8 +415,9 @@ public sealed class DamageCommand
         var d = request.Defender;
         var tags = new List<string>();
         if (result.TypeEffectiveness != 1.0) tags.Add(result.EffectivenessText);
+        if (request.IsZMove) tags.Add("Z技");
         if (request.IsCritical) tags.Add("急所");
-        if (request.Weather != Weather.None) tags.Add(FieldNames.Japanese(request.Weather));
+        if (request.Weather != Weather.None) tags.Add(FieldNames.Japanese(request.Weather, dataSet.Generation));
         if (request.Terrain != Terrain.None) tags.Add(FieldNames.Japanese(request.Terrain));
         if (request.Screen) tags.Add("壁");
         else

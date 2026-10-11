@@ -138,6 +138,10 @@ public sealed class PokemonDataSet
         }
         Items = items;
         _itemById = items.ToDictionary(i => i.Id);
+        foreach (var mega in Pokemon.Where(p => p.MegaStoneId is not null))
+        {
+            if (_itemById.TryGetValue(mega.MegaStoneId!.Value, out var stone)) stone.MegaSpeciesId = mega.SpeciesId;
+        }
 
         var learnTable = CsvTable.Parse(learnText);
         var learnsets = new Dictionary<int, int[]>();

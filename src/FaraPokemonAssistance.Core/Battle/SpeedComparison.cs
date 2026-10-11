@@ -21,8 +21,8 @@ public static class SpeedCalculator
 
     private const int ItemIdBoosterEnergy = 1696;
 
-    /// <summary>ランク・持ち物・特性・まひ・おいかぜを含めた素早さ。</summary>
-    public static (int Speed, List<string> Notes) Effective(PokemonBuild build, Weather weather = Weather.None, Terrain terrain = Terrain.None, bool tailwind = false)
+    /// <summary>ランク・持ち物・特性・まひ・おいかぜを含めた素早さ。<paramref name="generation"/> はゲームの世代（第 6 世代まではまひで素早さ 1/4）。</summary>
+    public static (int Speed, List<string> Notes) Effective(PokemonBuild build, Weather weather = Weather.None, Terrain terrain = Terrain.None, bool tailwind = false, int generation = 9)
     {
         var notes = new List<string>();
         var speed = StatCalculator.Calculate(build, Stat.Speed);
@@ -32,7 +32,7 @@ public static class SpeedCalculator
             speed = StatCalculator.ApplyBoost(speed, boost);
             notes.Add($"S{(boost > 0 ? "+" : "")}{boost}");
         }
-        var factors = ConditionFactors(build, weather, terrain, tailwind).ToList();
+        var factors = ConditionFactors(build, weather, terrain, tailwind, generation).ToList();
         if (ItemFactor(build) is { } item) factors.Add(item);
         notes.AddRange(factors.Select(f => f.Label));
         return (Apply(speed, factors), notes);
@@ -41,7 +41,7 @@ public static class SpeedCalculator
     /// <summary>
     /// 今の天候・フィールド・状態で掛かる補正（特性・ブーストエナジー・まひ・おいかぜ）。持ち物（スカーフ等）とランクは含めない。
     /// </summary>
-    public static IReadOnlyList<SpeedFactor> ConditionFactors(PokemonBuild build, Weather weather = Weather.None, Terrain terrain = Terrain.None, bool tailwind = false)
+    public static IReadOnlyList<SpeedFactor> ConditionFactors(PokemonBuild build, Weather weather = Weather.None, Terrain terrain = Terrain.None, bool tailwind = false, int generation = 9)
     {
         var list = new List<SpeedFactor>();
         var ability = build.Ability?.Identifier ?? "";
@@ -63,7 +63,9 @@ public static class SpeedCalculator
         if (build.Status != StatusCondition.None && ability == "quick-feet")
             list.Add(new SpeedFactor(build.Status == StatusCondition.Paralysis ? $"まひ+{name}(1.5倍)" : $"{name}(1.5倍)", 1.5));
         else if (build.Status == StatusCondition.Paralysis)
-            list.Add(new SpeedFactor("まひ(0.5倍)", 0.5, IsParalysis: true));
+            list.Add(generation <= 6
+                ? new SpeedFactor("まひ(0.25倍)", 0.25, IsParalysis: true)
+                : new SpeedFactor("まひ(0.5倍)", 0.5, IsParalysis: true));
 
         if (tailwind) list.Add(new SpeedFactor("おいかぜ(2倍)", 2.0));
         return list;
@@ -105,14 +107,15 @@ public static class SpeedCalculator
     public static int Apply(int speed, IEnumerable<SpeedFactor> factors)
     {
         var modifier = 4096;
-        var paralyzed = false;
+        double? paralysis = null;
         foreach (var f in factors)
         {
-            if (f.IsParalysis) { paralyzed = true; continue; }
+            if (f.IsParalysis) { paralysis = f.Multiplier; continue; }
             modifier = (modifier * (int)Math.Round(f.Multiplier * 4096) + 2048) >> 12;
         }
         if (modifier != 4096) speed = DamageCalculator.PokeRound(speed * modifier / 4096.0);
-        return paralyzed ? speed / 2 : speed;
+        // まひは最後に切り捨て（第 7 世代から 1/2、第 6 世代までは 1/4）
+        return paralysis is { } p ? (int)Math.Floor(speed * p) : speed;
     }
 
     private static SpeedFactor? ItemFactor(PokemonBuild build) => build.Item switch
@@ -132,12 +135,12 @@ public static class SpeedCalculator
         build.Item?.Id == ItemIdBoosterEnergy || (ability == "protosynthesis" ? weather == Weather.Sun : terrain == Terrain.Electric);
 
     /// <summary>相手の努力値・性格が不明なときの代表値（無振り / 準速 / 最速 / スカーフ最速）。</summary>
-    public static IReadOnlyList<SpeedLine> OpponentReference(Pokemon pokemon, EvSystem system, Item? scarf, bool paralyzed = false)
+    public static IReadOnlyList<SpeedLine> OpponentReference(Pokemon pokemon, EvSystem system, Item? scarf, bool paralyzed = false, int generation = 9)
     {
         var full = EvRules.Full(system);
         int Raw(int ev, double mod) => StatCalculator.Calculate(new PokemonBuild(pokemon, system), Stat.Speed, ev, mod);
         // まひはスカーフなどを掛けた後で半分にする
-        int Paralyze(int v) => paralyzed ? v / 2 : v;
+        int Paralyze(int v) => !paralyzed ? v : generation <= 6 ? v / 4 : v / 2;
         int Calc(int ev, double mod) => Paralyze(Raw(ev, mod));
 
         var lines = new List<SpeedLine>
@@ -168,7 +171,7 @@ public static class SpeedCalculator
     /// スカーフ最速の行は、持ち物をこだわりスカーフにして計算する（もともとスカーフを持っていても 2 回は掛けない）。
     /// </summary>
     public static IReadOnlyList<ReferenceRow> ReferenceRows(PokemonBuild build, IReadOnlyList<Nature> natures, Item? scarf,
-        Weather weather = Weather.None, Terrain terrain = Terrain.None, bool tailwind = false)
+        Weather weather = Weather.None, Terrain terrain = Terrain.None, bool tailwind = false, int generation = 9)
     {
         var full = EvRules.Full(build.EvSystem);
         var classic = build.EvSystem == EvSystem.Classic;
@@ -184,7 +187,7 @@ public static class SpeedCalculator
                 b.Item = scarf;
                 plain = DamageCalculator.PokeRound(plain * 1.5);
             }
-            return new ReferenceRow(label, note, plain, Effective(b, weather, terrain, tailwind).Speed);
+            return new ReferenceRow(label, note, plain, Effective(b, weather, terrain, tailwind, generation).Speed);
         }
 
         var rows = new List<ReferenceRow>

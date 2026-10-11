@@ -170,6 +170,8 @@ public sealed class DamageRequest
     public bool Reflect { get; init; }
     /// <summary>防御側の場にひかりのかべがある（特殊技を半減）。</summary>
     public bool LightScreen { get; init; }
+    /// <summary>Z 技として使う（第 7 世代）。</summary>
+    public bool IsZMove { get; init; }
 
     /// <summary>その分類の技に壁が効くか。</summary>
     public bool HasScreenFor(bool physical) => Screen || (physical ? Reflect : LightScreen);
@@ -187,6 +189,7 @@ public sealed class DamageRequest
         Screen = Screen,
         Reflect = Reflect,
         LightScreen = LightScreen,
+        IsZMove = IsZMove,
     };
 }
 
