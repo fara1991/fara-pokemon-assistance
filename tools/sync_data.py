@@ -171,6 +171,22 @@ def pick_name(rows: dict[tuple[str, str], str], key: str) -> str | None:
     return rows.get((key, LANG_JA)) or rows.get((key, LANG_JA_HRKT))
 
 
+def has_japanese(text: str) -> bool:
+    return any("\u3040" <= c <= "\u30ff" or "\u4e00" <= c <= "\u9fff" for c in text)
+
+
+def load_ability_names_ja() -> dict[str, str]:
+    """PokeAPI に日本語名がまだ無い特性の補完表（identifier → 日本語名）。毎週の再生成で英語に戻さないための手入力データ。"""
+    path = TOOLS / "ability_names_ja.csv"
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8", newline="") as f:
+        return {r["Identifier"]: r["Name"] for r in csv.DictReader(f)}
+
+
+ABILITY_NAMES_JA = load_ability_names_ja()
+
+
 # --------------------------------------------------------------------------- PokeAPI → our CSVs
 
 class Builder:
@@ -546,8 +562,12 @@ class Builder:
         for aid in sorted(used, key=int):
             a = self.abilities.get(aid)
             # 日本語名がまだ無い特性（新しいメガシンカの特性など）は英語名で出す（空欄にしない）
-            name = pick_name(self.ability_names, aid) or self.ability_names.get((aid, LANG_EN))
+            name = pick_name(self.ability_names, aid) or ABILITY_NAMES_JA.get(a["identifier"] if a else "") \
+                or self.ability_names.get((aid, LANG_EN))
             if a and name:
+                if not has_japanese(name):
+                    log(f"  WARNING: 特性 {a['identifier']} の日本語名が無く英語のままです: {name}"
+                        "（tools/ability_names_ja.csv に追加してください）")
                 rows.append([aid, a["identifier"], name])
         write_csv(out_dir / "abilities.csv", ["Id", "Identifier", "Name"], rows)
 
