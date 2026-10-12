@@ -8,6 +8,14 @@
     --app-panel-bg: #efe9fb;
     --app-note-bg: #fff8c5;
     --app-note-border: #e3c200;
+    --app-hp: #22a06b;
+    --app-hp-mid: #e0a100;
+    --app-hp-low: #e5484d;
+    --app-dmg: rgba(229, 72, 77, 0.9);
+    --app-dmg-range: rgba(229, 72, 77, 0.38);
+    --app-track: #e7e1f5;
+    --app-win: #15803d;
+    --app-roll-ko-bg: #fde7ea;
 
     --bs-primary: #7c3aed;
     --bs-primary-rgb: 124, 58, 237;
@@ -29,6 +37,14 @@
     --app-panel-bg: #1a1030;
     --app-note-bg: #2b2208;
     --app-note-border: #c9ad00;
+    --app-hp: #34d399;
+    --app-hp-mid: #fbbf24;
+    --app-hp-low: #fb7185;
+    --app-dmg: rgba(251, 113, 133, 0.9);
+    --app-dmg-range: rgba(251, 113, 133, 0.35);
+    --app-track: #261a40;
+    --app-win: #4ade80;
+    --app-roll-ko-bg: #3d1a2a;
 
     --bs-body-bg: #0c0616;
     --bs-body-bg-rgb: 12, 6, 22;
@@ -1994,5 +2010,307 @@ button.compact-cell {
     .nature-buttons .btn {
         font-size: 0.7rem;
         letter-spacing: -0.04em;
+    }
+}
+
+/* ---- 操作に応じた動き（wwwroot/js/motion.js。ここは見た目だけ。動きは JS が付ける） ---- */
+[data-swap] {
+    display: inline-block;
+}
+
+/* ダメージ計算: 防御側の HP バー */
+.hp-calc {
+    margin: 0.6rem 0 0.4rem;
+}
+
+.hp-calc-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    font-size: 0.85em;
+    color: var(--app-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.hp-calc-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.hp-calc-bar {
+    position: relative;
+    height: 1rem;
+    border-radius: 999px;
+    background: var(--app-track);
+    overflow: hidden;
+}
+
+.hp-calc-bar > div {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+}
+
+.hp-calc-fill {
+    background: var(--app-hp);
+    border-radius: 999px;
+    transition: background-color 0.5s 0.3s;
+}
+
+.hp-calc-fill[data-level="mid"] {
+    background: var(--app-hp-mid);
+}
+
+.hp-calc-fill[data-level="low"] {
+    background: var(--app-hp-low);
+}
+
+.hp-calc-range {
+    background: repeating-linear-gradient(-45deg, var(--app-dmg-range) 0 6px, transparent 6px 11px);
+    border-left: 2px solid var(--app-dmg);
+}
+
+.hp-calc-gone {
+    background: var(--app-dmg);
+    opacity: 0.18;
+}
+
+.hp-calc-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.9rem;
+    margin-top: 0.35rem;
+    font-size: 0.78em;
+    color: var(--app-muted);
+}
+
+.hp-calc-legend i {
+    display: inline-block;
+    width: 1.1rem;
+    height: 0.6rem;
+    border-radius: 3px;
+    vertical-align: -1px;
+    margin-right: 0.25rem;
+}
+
+.hp-key-keep {
+    background: var(--app-hp);
+}
+
+.hp-key-gone {
+    background: var(--app-dmg);
+    opacity: 0.25;
+}
+
+.hp-key-range {
+    background: repeating-linear-gradient(-45deg, var(--app-dmg-range) 0 4px, transparent 4px 7px);
+    border-left: 2px solid var(--app-dmg);
+}
+
+/* ダメージ計算: 乱数 16 通りのマス */
+.rolls-block {
+    margin: 0.7rem 0 0.4rem;
+}
+
+.rolls-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.5rem;
+    margin: 0 0 0.3rem;
+    font-weight: 700;
+}
+
+.rolls-title small {
+    font-weight: 400;
+    color: var(--app-muted);
+}
+
+.rolls {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.rolls span {
+    text-align: center;
+    font-size: 0.9em;
+    font-variant-numeric: tabular-nums;
+    border-radius: 6px;
+    padding: 1px 0;
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-card-border);
+}
+
+.rolls span.ko {
+    background: var(--app-roll-ko-bg);
+    border-color: var(--app-dmg);
+    font-weight: 700;
+}
+
+.rolls-cap {
+    margin: 0.35rem 0 0;
+    font-size: 0.85em;
+    color: var(--app-muted);
+}
+
+/* 素早さ比較: 素早さの棒 */
+.speed-race {
+    position: relative;
+    display: grid;
+    gap: 0.6rem;
+    margin: 0.5rem 0 0.75rem;
+}
+
+.race-lane {
+    display: grid;
+    grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr) 2.6rem;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.race-who {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.race-who span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.race-track {
+    position: relative;
+    height: 0.75rem;
+    border-radius: 999px;
+    background: var(--app-track);
+}
+
+.race-bar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 999px;
+    background: var(--bs-primary);
+    opacity: 0.75;
+    transition: background-color 0.4s, opacity 0.4s;
+}
+
+.race-bar.first {
+    background: var(--app-win);
+    opacity: 1;
+}
+
+.race-num {
+    font-weight: 700;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* タイプ相性表: 強調する列の切り替えを軽くなじませる */
+.type-chart td,
+.type-chart th {
+    transition: opacity 0.25s ease;
+}
+
+.compact-matchup {
+    position: relative;
+}
+
+/* サイドバーの選択中の印（NavMenu の nav の中で、項目の間を滑る） */
+.side-nav {
+    position: relative;
+    isolation: isolate;
+}
+
+.nav-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), width 0.45s cubic-bezier(0.16, 1, 0.3, 1), height 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-indicator.on {
+    opacity: 1;
+}
+
+.nav-indicator.no-anim {
+    transition: none;
+}
+
+/* 印が使えるときは、リンク自身の背景（選択中）は出さない */
+html.motion-nav .nav-item a.active {
+    background-color: transparent;
+}
+
+/* ページの切り替え: 画面の前後をなじませる（サイドバーは別の層にして、動かさない） */
+html.vt-nav .sidebar {
+    view-transition-name: nav-side;
+}
+
+::view-transition-group(nav-side) {
+    animation: none;
+}
+
+::view-transition-old(nav-side) {
+    display: none;
+}
+
+::view-transition-new(nav-side) {
+    animation: none;
+}
+
+::view-transition-old(root) {
+    animation: vt-out 0.18s ease both;
+}
+
+::view-transition-new(root) {
+    animation: vt-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes vt-out {
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes vt-in {
+    from {
+        opacity: 0;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .race-lane {
+        grid-template-columns: minmax(6rem, 8rem) minmax(0, 1fr) 2.4rem;
+        gap: 0.4rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hp-calc-fill,
+    .race-bar,
+    .type-chart td,
+    .type-chart th,
+    .nav-indicator {
+        transition: none;
+    }
+
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+        animation: none !important;
     }
 }

@@ -32,7 +32,9 @@
             @(App.Theme == "dark" ? "☀ ライトモード" : "🌙 ダークモード")
         </button>
     </div>
-    <nav class="flex-column" @onclick="CollapseNavMenu">
+    <nav class="flex-column side-nav" @onclick="CollapseNavMenu">
+        @* 選択中の印。項目の間を滑って動く（位置は wwwroot/js/motion.js が決める） *@
+        <span class="nav-indicator" aria-hidden="true"></span>
         @foreach (var (href, label, needsCalc) in Items)
         {
             <div class="nav-item px-3">

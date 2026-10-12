@@ -405,7 +405,7 @@
     private RenderFragment RenderCompact(IReadOnlyList<string> defenseTypes, Ability? ability, bool pickAttack) => __builder =>
     {
         var results = Types.Select(a => (Type: a, Result: AbilityMatchup.Against(chart!, a, defenseTypes, ability))).ToList();
-        <div class="compact-matchup">
+        <div class="compact-matchup" data-flip-group>
             <div class="compact-legend small text-muted mb-1">
                 @foreach (var (symbol, text) in TypeMarks.Legend)
                 {
@@ -426,14 +426,14 @@
                             {
                                 var on = s.AttackTypes.Contains(type);
                                 var cellBlocked = !on && AttackFull;
-                                <button type="button" class="compact-cell @CellClass(r.Multiplier) @(on ? "active" : "") @(cellBlocked ? "blocked" : "")" title="@(cellBlocked ? $"{title}。{FullHint}" : title)" aria-pressed="@(on ? "true" : "false")" disabled="@cellBlocked" @onclick="() => ToggleAttackType(type)">
+                                <button type="button" data-flip-key="@type" class="compact-cell @CellClass(r.Multiplier) @(on ? "active" : "") @(cellBlocked ? "blocked" : "")" title="@(cellBlocked ? $"{title}。{FullHint}" : title)" aria-pressed="@(on ? "true" : "false")" disabled="@cellBlocked" @onclick="() => ToggleAttackType(type)">
                                     <TypeIcon Type="@type" /><span class="compact-mult">@CompactTimes(r.Multiplier)</span>
                                     @if (r.ChangedByAbility) { <span class="ability-badge">特</span> }
                                 </button>
                             }
                             else
                             {
-                                <div class="compact-cell @CellClass(r.Multiplier)" title="@title">
+                                <div class="compact-cell @CellClass(r.Multiplier)" data-flip-key="@type" title="@title">
                                     <TypeIcon Type="@type" /><span class="compact-mult">@CompactTimes(r.Multiplier)</span>
                                 </div>
                             }
