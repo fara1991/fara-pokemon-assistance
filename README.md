@@ -53,7 +53,7 @@ fara-pokemon-battle-assistant/
 接頭辞でデータセットを選びます: **`!pokech`** = ポケモンチャンピオンズ、**`!pokesv`** = スカーレット・バイオレット、**`!pokess`** = ソード・シールド（`!poke` はチャンピオンズ扱い）。
 `!poke cmd ls` で使えるコマンドの一覧が返ります。登録・削除・使用チームの変更は配信者本人とモデレーターだけに許可する想定です（`PokeCommandOptions.AllowMutations`）。
 登録データはボットなら PC 上の JSON、ブラウザなら localStorage に保存され、データセットごとに独立しています。
-サイトの「登録・チーム」ページの **クラウド同期** で同期キーを作ると、登録データをクラウドに保存し、同じキーを入れた別のブラウザ・端末やボットと共有できます（同期中はクラウドだけが正で、ブラウザには同期キーだけを保存します。ボット側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
+サイトの「登録・チーム」ページの **データ連携** でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末やボットが同じデータを読み書きできます（連携中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。ボット側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
 
 ### 育成済みポケモンの登録
 
@@ -122,7 +122,7 @@ dotnet test tests/FaraPokemonBattleAssistant.Core.Tests
 dotnet run --project src/FaraPokemonBattleAssistant.Web      # https://localhost:52017
 npm ci && npm run preview                                # Cloudflare と同じ動きで http://localhost:8787
 npm run check                                            # dotnet publish + wrangler deploy --dry-run（本番・develop）
-npm run test:worker                                      # クラウド同期 API（worker/index.js）を wrangler dev で確認
+npm run test:worker                                      # データ連携 API（worker/index.js）を wrangler dev で確認
 ```
 
 ### 計算で考慮しているもの
@@ -161,10 +161,10 @@ npm run test:worker                                      # クラウド同期 AP
 | Secrets | `CLOUDFLARE_API_TOKEN` | Cloudflare の API トークン（テンプレート Edit Cloudflare Workers、ゾーン `fara-labs.com`） |
 | Variables | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare のアカウント ID |
 
-### 登録データのクラウド同期 API
+### 登録データの連携 API
 
 登録ポケモン・チーム（`RosterState` の JSON）を、サイトとボットで同じ場所に保存するための API です（`worker/index.js`）。
-同期キーごとに SQLite ストレージの Durable Object（`RosterSlot`）を 1 つ持ちます。本番と確認用は Worker が別なので、データも別々です。
+アクセスキーごとに SQLite ストレージの Durable Object（`RosterSlot`）を 1 つ持ちます。本番と確認用は Worker が別なので、データも別々です。
 
 | メソッド | 内容 |
 |---|---|
@@ -172,7 +172,7 @@ npm run test:worker                                      # クラウド同期 AP
 | `PUT /api/roster` | 本文 `{"baseRevision": n, "roster": {...}}`。`baseRevision` が現在と同じなら保存して `200 {"revision": n+1}`、違えば `409 {"revision": 現在, "roster": 現在}`。256 KB を超えると `413` |
 | `DELETE /api/roster` | 置き場を消す（キーの作り直し用）。`204`。以後そのキーは `410` |
 
-- 認証は `Authorization: Bearer <同期キー>`。同期キーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもので、形式が違えば `401`
+- 認証は `Authorization: Bearer <アクセスキー>`。アクセスキーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもので、形式が違えば `401`
 - サーバーはキーを保存せず、`SHA-256(キー)` を Durable Object の名前に使います。キーはログ・URL・エラーメッセージに出しません
 - すべての応答に `Cache-Control: no-store`。CORS ヘッダーは付けません（サイトは同じオリジン、ボットはブラウザではないため）
 - 確認用サイト（Cloudflare Access の内側）では、`/api/roster` を Access の **Bypass** にしないとボットから使えません（キーで認証するので Access は不要）

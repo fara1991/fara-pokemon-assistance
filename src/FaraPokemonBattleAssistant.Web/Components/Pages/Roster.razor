@@ -9,7 +9,7 @@
 <PageTitle>登録ポケモン・チーム | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>登録ポケモン・チーム <Help Title="登録・チーム">育成済みのポケモン（努力値・性格・特性）を登録し、チームにまとめて「使用中」にすると、ダメージ計算機・素早さ比較・チャットコマンドでその構成が自動で使われます。データはゲームごとに分かれています。ふだんはこのブラウザに保存されますが、下の「クラウド同期」を使うと、別のブラウザ・端末やボットと同じデータを使えます。</Help></h3>
+    <h3>登録ポケモン・チーム <Help Title="登録・チーム">育成済みのポケモン（努力値・性格・特性）を登録し、チームにまとめて「使用中」にすると、ダメージ計算機・素早さ比較・チャットコマンドでその構成が自動で使われます。データはゲームごとに分かれています。ふだんはこのブラウザに保存されますが、下の「データ連携」を使うと、別のブラウザ・端末やボットと同じデータを読み書きできます。</Help></h3>
     <p class="text-muted mb-0">チャットの <code>!@(App.CommandPrefix) add / add team / use team / unuse team</code> と同じ内容をここで編集できます。チームが 0 体になると自動で削除されます。</p>
     <p class="text-muted small mb-0 mt-1">H: HP / A: こうげき / B: ぼうぎょ / C: とくこう / D: とくぼう / S: すばやさ（<a href="glossary">用語・略語</a>）</p>
 </div>
@@ -21,45 +21,45 @@
 
 <div class="card mb-3 sync-card">
     <div class="card-header">
-        <h5>クラウド同期 @(Sync.IsSyncing ? "（同期中）" : "")
-            <Help Title="クラウド同期">
-                同期すると登録データをクラウドに保存し、同じ同期キーを入れた別のブラウザ・端末やボットと共有します。同期中はクラウドのデータだけを使い、このブラウザには保存しません。<br />
-                <strong>ボットで使うには:</strong> 「コピー」で同期キーをコピーし、ボット（FaraBotModerator）の Game タブの同期キーの欄に貼り付けます。チャットの <code>add</code> / <code>use team</code> などとこのページが同じデータを読み書きするようになります。<br />
-                キーを作り直したら、ボットや他の端末にも新しいキーを入れ直してください（古いキーは使えなくなります）。
+        <h5>データ連携 @(Sync.IsSyncing ? "（連携中）" : "")
+            <Help Title="データ連携">
+                データ連携を始めると、登録データはクラウドの 1 か所に保存され、同じアクセスキーを入れた別のブラウザ・端末やボットがそのデータを直接読み書きします（コピーを取り合うのではなく、全員が同じデータを使います）。連携中はクラウドのデータだけを使い、このブラウザには保存しません。<br />
+                <strong>ボットで使うには:</strong> 「コピー」でアクセスキーをコピーし、ボット（FaraBotModerator / Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けます。チャットの <code>add</code> / <code>use team</code> などとこのページが同じデータを読み書きするようになります。<br />
+                アクセスキーを作り直したら、ボットや他の端末にも新しいアクセスキーを入れ直してください（古いキーは使えなくなります）。
             </Help>
         </h5>
     </div>
     <div class="card-body">
         @if (!Sync.IsSyncing)
         {
-            <p class="small text-muted mb-2">今はこのブラウザだけに保存しています。同期すると、別のブラウザ・端末やボットと同じ登録データを使えます。</p>
+            <p class="small text-muted mb-2">今はこのブラウザだけに保存しています。データ連携を始めると、別のブラウザ・端末やボットと同じ登録データを読み書きできます。</p>
             <div class="d-flex flex-wrap gap-2 align-items-start">
-                <button class="btn btn-primary btn-sm" disabled="@syncBusy" @onclick="StartSyncAsync">同期を始める（新しい同期キーを作る）</button>
+                <button class="btn btn-primary btn-sm" disabled="@syncBusy" @onclick="StartSyncAsync">データ連携を始める（新しいアクセスキーを作る）</button>
                 <div class="input-group input-group-sm sync-join">
-                    <input type="password" class="form-control" placeholder="同期キー（43 文字）" autocomplete="off" spellcheck="false" aria-label="同期キー"
+                    <input type="password" class="form-control" placeholder="アクセスキー（43 文字）" autocomplete="off" spellcheck="false" aria-label="アクセスキー"
                            value="@joinKey" @oninput="@(e => joinKey = e.Value?.ToString() ?? "")" />
-                    <button class="btn btn-outline-primary" disabled="@(syncBusy || string.IsNullOrWhiteSpace(joinKey))" @onclick="JoinSyncAsync">同期キーを入力して参加</button>
+                    <button class="btn btn-outline-primary" disabled="@(syncBusy || string.IsNullOrWhiteSpace(joinKey))" @onclick="JoinSyncAsync">アクセスキーを入力して連携</button>
                 </div>
             </div>
-            <p class="small text-muted mb-0 mt-2">参加すると、このブラウザの登録データはクラウドのデータに置き換わります。新しいキーを作ったときは、このブラウザの登録データがそのままクラウドに保存されます。</p>
+            <p class="small text-muted mb-0 mt-2">アクセスキーを入力して連携すると、このブラウザの登録データはクラウドのデータに置き換わります。新しいアクセスキーを作ったときは、このブラウザの登録データがそのままクラウドに保存されます。</p>
         }
         else
         {
             <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-                <span>同期キー:</span>
+                <span>アクセスキー:</span>
                 <code class="sync-key">@(showKey ? Sync.Key : new string('•', 16))</code>
                 <button class="btn btn-outline-secondary btn-sm" @onclick="() => showKey = !showKey">@(showKey ? "隠す" : "表示")</button>
                 <button class="btn btn-outline-secondary btn-sm" @onclick="CopyKeyAsync">コピー</button>
             </div>
-            <p class="small text-danger mb-2">同期キーはパスワードと同じです。知っている人は誰でも登録データを読み書きできるので、配信画面に映したり、人に教えたりしないでください。</p>
+            <p class="small text-danger mb-2">アクセスキーはパスワードと同じです。知っている人は誰でも登録データを読み書きできるので、配信画面に映したり、人に教えたりしないでください。</p>
             <p class="small mb-2">
                 @if (!string.IsNullOrEmpty(Sync.LastError))
                 {
-                    <span class="text-danger">同期できませんでした: @Sync.LastError</span>
+                    <span class="text-danger">読み書きできませんでした: @Sync.LastError</span>
                 }
                 else if (Sync.LastSyncedAt is { } at)
                 {
-                    <span class="text-muted">最終同期 @at.ToLocalTime().ToString("HH:mm:ss")</span>
+                    <span class="text-muted">最終読み込み @at.ToLocalTime().ToString("HH:mm:ss")</span>
                 }
                 @if (!string.IsNullOrEmpty(Sync.LastNotice))
                 {
@@ -68,8 +68,8 @@
             </p>
             <div class="d-flex flex-wrap gap-2">
                 <button class="btn btn-outline-primary btn-sm" disabled="@syncBusy" @onclick="ReloadAsync">読み込み直す</button>
-                <button class="btn btn-outline-secondary btn-sm" disabled="@syncBusy" @onclick="RotateKeyAsync">キーを作り直す</button>
-                <button class="btn btn-outline-danger btn-sm" disabled="@syncBusy" @onclick="StopSyncAsync">同期をやめる</button>
+                <button class="btn btn-outline-secondary btn-sm" disabled="@syncBusy" @onclick="RotateKeyAsync">アクセスキーを作り直す</button>
+                <button class="btn btn-outline-danger btn-sm" disabled="@syncBusy" @onclick="StopSyncAsync">データ連携をやめる</button>
             </div>
         }
     </div>
@@ -459,7 +459,7 @@ else if (data is not null && roster is not null && dataSet is not null)
         });
     }
 
-    // ---- クラウド同期
+    // ---- データ連携
 
     private async Task<bool> ConfirmAsync(string text)
     {
@@ -496,8 +496,8 @@ else if (data is not null && roster is not null && dataSet is not null)
         var hadData = await Sync.LocalHasDataAsync();
         await Sync.StartNewAsync();
         showKey = false;
-        Show("同期を始めました。" + (hadData ? "このブラウザの登録データをクラウドに保存しました。" : "") +
-             "別の端末やボットで使うときは、同期キーを「コピー」して貼り付けてください", false);
+        Show("データ連携を始めました。" + (hadData ? "このブラウザの登録データをクラウドに保存しました。" : "") +
+             "別の端末やボットで使うときは、アクセスキーを「コピー」して貼り付けてください", false);
     });
 
     private async Task JoinSyncAsync()
@@ -505,7 +505,7 @@ else if (data is not null && roster is not null && dataSet is not null)
         var key = joinKey.Trim();
         if (!RemoteRosterStore.IsValidKey(key))
         {
-            Show("同期キーの形式が正しくありません（43 文字の英数字・-・_）", true);
+            Show("アクセスキーの形式が正しくありません（43 文字の英数字・-・_）", true);
             return;
         }
         if (await Sync.LocalHasDataAsync()
@@ -517,34 +517,34 @@ else if (data is not null && roster is not null && dataSet is not null)
             joinKey = "";
             showKey = false;
             Show(hasData
-                ? "同期キーで参加しました。クラウドの登録データを表示しています"
-                : "同期キーで参加しました（このキーのクラウドデータはまだ空です。キーを打ち間違えていないか確認してください）", false);
+                ? "アクセスキーで連携しました。クラウドの登録データを表示しています"
+                : "アクセスキーで連携しました（このアクセスキーのクラウドデータはまだ空です。打ち間違えていないか確認してください）", false);
         });
     }
 
     private async Task RotateKeyAsync()
     {
-        if (!await ConfirmAsync("新しい同期キーを作り、データを移します。今の同期キーは使えなくなるので、ボットや他の端末には新しいキーを入れ直してください。よろしいですか？"))
+        if (!await ConfirmAsync("新しいアクセスキーを作り、データを移します。今のアクセスキーは使えなくなるので、ボットや他の端末には新しいアクセスキーを入れ直してください。よろしいですか？"))
             return;
         await RunSyncAsync(async () =>
         {
             var deletedOld = await Sync.RotateAsync();
             showKey = false;
             Show(deletedOld
-                ? "同期キーを作り直しました。ボットや他の端末には新しいキーを入れ直してください"
-                : "同期キーを作り直しました（古いキーのデータを消せませんでした。古いキーは控えずに破棄してください）", !deletedOld);
+                ? "アクセスキーを作り直しました。ボットや他の端末には新しいアクセスキーを入れ直してください"
+                : "アクセスキーを作り直しました（古いアクセスキーのデータを消せませんでした。古いアクセスキーは控えずに破棄してください）", !deletedOld);
         });
     }
 
     private async Task StopSyncAsync()
     {
-        if (!await ConfirmAsync("このブラウザでの同期をやめます。クラウドのデータは残るので、同期キーを入力すればまた参加できます（キーを控えておいてください）。このブラウザの登録データは空になります。よろしいですか？"))
+        if (!await ConfirmAsync("このブラウザでのデータ連携をやめます。クラウドのデータは残るので、アクセスキーを入力すればまた連携できます（アクセスキーを控えておいてください）。このブラウザの登録データは空になります。よろしいですか？"))
             return;
         await RunSyncAsync(async () =>
         {
             await Sync.StopAsync();
             showKey = false;
-            Show("同期をやめました。同期キーを入力すれば、また同じデータで参加できます", false);
+            Show("データ連携をやめました。アクセスキーを入力すれば、また同じデータで連携できます", false);
         });
     }
 
@@ -556,12 +556,12 @@ else if (data is not null && roster is not null && dataSet is not null)
         try
         {
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", Sync.Key);
-            Show("同期キーをコピーしました", false);
+            Show("アクセスキーをコピーしました", false);
         }
         catch (JSException)
         {
             showKey = true;
-            Show("コピーできませんでした。表示したキーを選択してコピーしてください", true);
+            Show("コピーできませんでした。表示したアクセスキーを選択してコピーしてください", true);
         }
     }
 }

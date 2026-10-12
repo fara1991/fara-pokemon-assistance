@@ -7,11 +7,11 @@ using System.Text.Json;
 namespace FaraPokemonBattleAssistant.Core.Roster;
 
 /// <summary>
-/// 登録データをクラウド（公開サイトの <c>/api/roster</c>）に保存する。サイトとボットで同じ同期キーを使うと、同じデータを読み書きする。
+/// 登録データをクラウド（公開サイトの <c>/api/roster</c>）に保存する。サイトとボットで同じアクセスキーを使うと、同じデータを読み書きする。
 /// </summary>
 /// <remarks>
 /// <para>
-/// 同期キーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもの（<see cref="GenerateKey"/>）。パスワードと同じ扱いで、
+/// アクセスキーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもの（<see cref="GenerateKey"/>）。パスワードと同じ扱いで、
 /// ログや例外のメッセージには出さない。サーバーには <c>Authorization: Bearer</c> ヘッダーで送る（URL には入れない）。
 /// </para>
 /// <para>
@@ -25,7 +25,7 @@ public sealed class RemoteRosterStore : IRosterStore
     public const string ProductionBaseUrl = "https://pokemon.fara-labs.com/";
     /// <summary>確認用サイト（データは本番と別。Cloudflare Access で /api/roster を Bypass にしておく必要がある）。</summary>
     public const string DevelopBaseUrl = "https://pokemon-dev.fara-labs.com/";
-    /// <summary>同期キーの文字数。</summary>
+    /// <summary>アクセスキーの文字数。</summary>
     public const int KeyLength = 43;
 
     private static readonly JsonWriterOptions WriterOptions = new()
@@ -40,12 +40,12 @@ public sealed class RemoteRosterStore : IRosterStore
 
     /// <param name="http">使い回す HttpClient（BaseAddress は使わない）。</param>
     /// <param name="apiBaseUrl">サイトの URL（例: <see cref="ProductionBaseUrl"/>）。末尾の / は無くてもよい。</param>
-    /// <param name="syncKey">同期キー（<see cref="IsValidKey"/> を満たすもの）。</param>
+    /// <param name="syncKey">アクセスキー（<see cref="IsValidKey"/> を満たすもの）。</param>
     public RemoteRosterStore(HttpClient http, string apiBaseUrl, string syncKey)
     {
         _http = http ?? throw new ArgumentNullException(nameof(http));
         if (!IsValidKey(syncKey))
-            throw new ArgumentException("同期キーの形式が正しくありません（43 文字の英数字・-・_）", nameof(syncKey));
+            throw new ArgumentException("アクセスキーの形式が正しくありません（43 文字の英数字・-・_）", nameof(syncKey));
         if (!Uri.TryCreate(apiBaseUrl.EndsWith('/') ? apiBaseUrl : apiBaseUrl + "/", UriKind.Absolute, out var baseUri)
             || (baseUri.Scheme != Uri.UriSchemeHttps && baseUri.Scheme != Uri.UriSchemeHttp))
             throw new ArgumentException("サイトの URL が正しくありません", nameof(apiBaseUrl));
@@ -62,7 +62,7 @@ public sealed class RemoteRosterStore : IRosterStore
     /// <summary>最後にクラウドとの読み書きが成功した時刻。</summary>
     public DateTimeOffset? LastSyncedAt { get; private set; }
 
-    /// <summary>新しい同期キーを作る（暗号論的乱数 256 bit → base64url・パディングなし）。</summary>
+    /// <summary>新しいアクセスキーを作る（暗号論的乱数 256 bit → base64url・パディングなし）。</summary>
     public static string GenerateKey()
     {
         Span<byte> bytes = stackalloc byte[32];
@@ -70,7 +70,7 @@ public sealed class RemoteRosterStore : IRosterStore
         return Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
 
-    /// <summary>同期キーの形式（43 文字の A-Z a-z 0-9 - _）か。</summary>
+    /// <summary>アクセスキーの形式（43 文字の A-Z a-z 0-9 - _）か。</summary>
     public static bool IsValidKey(string? key)
     {
         if (key is null || key.Length != KeyLength) return false;
@@ -205,8 +205,8 @@ public sealed class RemoteRosterStore : IRosterStore
         var status = (int)response.StatusCode;
         return status switch
         {
-            401 => new(RosterUnavailableReason.Unauthorized, status, "同期キーが正しくありません"),
-            410 => new(RosterUnavailableReason.KeyRetired, status, "この同期キーは作り直されたため使えません。新しい同期キーを設定してください"),
+            401 => new(RosterUnavailableReason.Unauthorized, status, "アクセスキーが正しくありません"),
+            410 => new(RosterUnavailableReason.KeyRetired, status, "このアクセスキーは作り直されたため使えません。新しいアクセスキーを設定してください"),
             413 => new(RosterUnavailableReason.TooLarge, status, "登録データが大きすぎてクラウドに保存できません"),
             400 => new(RosterUnavailableReason.Rejected, status, "クラウドに保存できませんでした（データの形式が正しくありません）"),
             >= 500 => new(RosterUnavailableReason.Server, status, $"クラウドでエラーが発生しました（HTTP {status}）。時間をおいて試してください"),
@@ -221,9 +221,9 @@ public enum RosterUnavailableReason
 {
     /// <summary>接続できない（回線断・タイムアウトなど）。</summary>
     Network,
-    /// <summary>同期キーが正しくない（401）。</summary>
+    /// <summary>アクセスキーが正しくない（401）。</summary>
     Unauthorized,
-    /// <summary>同期キーが作り直されて使えなくなった（410）。</summary>
+    /// <summary>アクセスキーが作り直されて使えなくなった（410）。</summary>
     KeyRetired,
     /// <summary>データが大きすぎる（413）。</summary>
     TooLarge,
@@ -235,7 +235,7 @@ public enum RosterUnavailableReason
     InvalidResponse,
 }
 
-/// <summary>クラウドの登録データを読み書きできなかった。メッセージはそのまま利用者に見せられる（同期キーは含まない）。</summary>
+/// <summary>クラウドの登録データを読み書きできなかった。メッセージはそのまま利用者に見せられる（アクセスキーは含まない）。</summary>
 public sealed class RosterUnavailableException : Exception
 {
     public RosterUnavailableException(RosterUnavailableReason reason, int? statusCode, string message, Exception? inner = null)

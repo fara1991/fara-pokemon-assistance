@@ -71,13 +71,14 @@ public sealed class PokemonAssistService
 }
 ```
 
-### 登録データをサイトと共有する（クラウド同期）
+### 登録データをサイトと共有する（データ連携）
 
-サイトの「登録ポケモン・チーム」ページで **同期を始める** を押すと同期キー（43 文字）が作られ、登録データがクラウド（`https://pokemon.fara-labs.com/api/roster`）に保存されます。
-ボットに同じキーを設定し、`FileRosterStore` の代わりに `RemoteRosterStore` を使うと、サイトとボットが同じデータを読み書きします。
+サイトの「登録ポケモン・チーム」ページで **データ連携を始める** を押すとアクセスキー（43 文字）が作られ、登録データがクラウド（`https://pokemon.fara-labs.com/api/roster`）に保存されます。
+ボット（Auto Bot Settings の Game タブ → ポケモンシリーズ の「アクセスキー」）に同じアクセスキーを設定し、`FileRosterStore` の代わりに `RemoteRosterStore` を使うと、サイトとボットが同じデータを読み書きします（データはクラウドの 1 か所だけにあり、コピーを同期するのではありません）。
+画面上の呼び方は「データ連携」「アクセスキー」ですが、コード上の名前（`syncKey` 引数、サイトの localStorage キー `fara-pokemon-battle-assistant.syncKey` など）は互換性のためそのままです。
 
 ```csharp
-// syncKey: ボットの Game タブで貼り付けた同期キー（パスワードと同じ扱い。ログに出さない）
+// syncKey: ボットの Game タブ（ポケモンシリーズ）の「アクセスキー」欄に貼り付けた値（パスワードと同じ扱い。ログに出さない）
 IRosterStore store = RemoteRosterStore.IsValidKey(syncKey)
     ? new RemoteRosterStore(httpClient, RemoteRosterStore.ProductionBaseUrl, syncKey)
     : new FileRosterStore(Path.Combine(appDir, "pokemon-roster.json"));
@@ -87,7 +88,7 @@ var roster = new RosterRepository(store);
 - `RemoteRosterStore(HttpClient http, string apiBaseUrl, string syncKey)`。`apiBaseUrl` は本番 `RemoteRosterStore.ProductionBaseUrl`（`https://pokemon.fara-labs.com/`）、確認用 `RemoteRosterStore.DevelopBaseUrl`（`https://pokemon-dev.fara-labs.com/`。データは本番と別）。キーの形式が違うと `ArgumentException`
 - `RosterRepository` は読み書きのたびにクラウドから読み直し、他の場所（サイト）の更新と競合したら読み直して最大 3 回やり直します（`RosterRepository.MaxConflictRetries`）
 - クラウドに届かないときは `RosterUnavailableException`（`Reason`: `Network` / `Unauthorized`＝キーが正しくない / `KeyRetired`＝サイトでキーが作り直された / `TooLarge` / `Rejected` / `Server` / `InvalidResponse`）。`Message` はそのまま表示できる日本語で、キーは含みません。やり直しても競合が続くと `RosterConflictException`
-- `PokeCommand.ExecuteAsync` / `TryExecuteAsync` はこれらの例外を受け止めて「失敗しました: 同期キーが正しくありません」のような結果を返します（チャットにそのまま返せます）
+- `PokeCommand.ExecuteAsync` / `TryExecuteAsync` はこれらの例外を受け止めて「失敗しました: アクセスキーが正しくありません」のような結果を返します（チャットにそのまま返せます）
 - サイトでキーを作り直すと、古いキーは `KeyRetired` になります。新しいキーを設定し直してください
 
 ## 3. チャットメッセージをさばく

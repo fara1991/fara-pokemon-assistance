@@ -1,4 +1,4 @@
-// クラウド同期 API（worker/index.js）の動作確認。
+// データ連携 API（worker/index.js）の動作確認。
 //   npm run test:worker
 // wrangler dev をローカル（一時ディレクトリに保存）で起動して、401・空の GET・PUT・409・413・DELETE などを確かめる。
 // publish/wwwroot が無いと wrangler dev が起動しないので、無ければ空の index.html だけ置く。
