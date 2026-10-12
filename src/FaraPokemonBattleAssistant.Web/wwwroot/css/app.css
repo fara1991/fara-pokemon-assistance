@@ -76,6 +76,8 @@ body {
 
 .btn-outline-primary {
     --bs-btn-color: var(--bs-primary);
+    --bs-btn-disabled-color: var(--bs-primary);
+    --bs-btn-disabled-border-color: var(--bs-primary);
     --bs-btn-border-color: var(--bs-primary);
     --bs-btn-hover-bg: #7c3aed;
     --bs-btn-hover-border-color: #7c3aed;
@@ -165,6 +167,11 @@ body {
 /* 左右の列は同じ高さに。各列の最初のカード（攻撃側・防御側）が余りを埋める */
 .split-half > .card:first-child {
     flex: 1 1 auto;
+}
+
+/* 登録ページ: 右の列は中身の高さのまま（左の列の高さまで伸ばさない） */
+.split-row-top .split-half > .card:first-child {
+    flex: 0 0 auto;
 }
 
 /* ---- 計算機・素早さ比較の段組み（広い画面では 3 列: 左 | 右 | 場の状態と結果） ---- */
@@ -404,7 +411,7 @@ body {
 
 .nature-buttons {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(min-content, 1fr));
     gap: 0.2rem;
     flex: 1;
     min-width: 0;
@@ -1159,8 +1166,106 @@ body {
 }
 
 .cmd-example {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: var(--app-muted);
+}
+
+.cmd-table .cmd-example code {
+    font-size: 0.85rem;
+}
+
+/* スマホ: コマンド一覧・オプションの表は 1 行ずつのカードにして縦に並べる（横スクロールなし） */
+@media (max-width: 767.98px) {
+    .cmd-table,
+    .cmd-table tbody,
+    .cmd-table tr,
+    .cmd-table td,
+    .cmd-options,
+    .cmd-options tbody,
+    .cmd-options tr,
+    .cmd-options td {
+        display: block;
+        width: auto;
+        min-width: 0;
+    }
+
+    .cmd-table thead,
+    .cmd-options thead {
+        display: none;
+    }
+
+    .cmd-table tr,
+    .cmd-options tr {
+        padding: 0.5rem 0.1rem;
+        border-bottom: 1px solid var(--app-card-border);
+    }
+
+    .cmd-table td,
+    .cmd-options td {
+        padding: 0.1rem 0;
+        border: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .cmd-table td:nth-child(1),
+    .cmd-table td:nth-child(2),
+    .cmd-table td:nth-child(3) {
+        min-width: 0;
+        width: auto;
+    }
+
+    .cmd-table td:nth-child(1) code {
+        font-size: 0.9rem;
+    }
+
+    .cmd-table td:nth-child(2) {
+        font-size: 0.9rem;
+    }
+
+    .cmd-table .cmd-example::before {
+        content: "例";
+        display: inline-block;
+        margin-right: 0.4rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .cmd-table .cmd-example {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0 0.5rem;
+    }
+
+    .cmd-table .cmd-example code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: normal;
+    }
+
+    .cmd-table .cmd-example > div {
+        flex: 1 1 100%;
+        min-width: 0;
+        padding-left: 0;
+    }
+
+    .cmd-table .cmd-example::before {
+        flex: 0 0 100%;
+        margin: 0;
+    }
+
+    .cmd-options td:nth-child(1) {
+        font-weight: 600;
+    }
+
+    .cmd-options td:empty {
+        display: none;
+    }
+
+    .cmd-options td:nth-child(3) {
+        font-size: 0.85rem;
+        color: var(--app-muted);
+    }
 }
 
 .text-muted {
@@ -1657,7 +1762,7 @@ button.compact-cell {
 
 .dex-row {
     display: grid;
-    grid-template-columns: 3.4rem minmax(10rem, 1.3fr) 4.6rem minmax(8rem, 2fr) repeat(6, 3rem) 3.6rem;
+    grid-template-columns: 3.4rem minmax(12.5rem, 1.3fr) 4.6rem minmax(8rem, 2fr) repeat(6, 3rem) 3.6rem;
     align-items: center;
     gap: 0 0.4rem;
     min-height: 52px;
@@ -1850,4 +1955,44 @@ button.compact-cell {
 
 /* 登録ページのデータ連携 */
 .sync-card .sync-join { max-width: 32rem; flex: 1 1 20rem; }
+@media (max-width: 575.98px) {
+    /* スマホではアクセスキーの入力欄を 1 行、ボタンをその下に */
+    .sync-card .sync-join { max-width: none; flex: 1 1 100%; flex-direction: column; flex-wrap: nowrap; gap: 0.4rem; }
+    .sync-card .sync-join > .form-control,
+    .sync-card .sync-join > .btn { width: 100%; margin-left: 0; border-radius: var(--bs-border-radius-sm); }
+}
 .sync-card .sync-key { word-break: break-all; user-select: all; }
+
+/* ポケモン一覧: フォーム名（括弧の部分）はまとめて折り返す */
+.dex-form {
+    display: inline-block;
+}
+
+@media (min-width: 768px) {
+    .dex-form {
+        white-space: nowrap;
+    }
+}
+
+/* スマホ: 特性・技の選択欄は 1 行ずつ使い、「指定なし（入力して検索）」が切れないようにする */
+@media (max-width: 575.98px) {
+    .dex-filter-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* スマホ: 性格のボタンの文字（素早さ）が欠けないよう、少し小さくして余白を詰める */
+@media (max-width: 575.98px) {
+    .nature-row-label {
+        flex-basis: 2rem;
+    }
+
+    .nature-buttons {
+        gap: 0.15rem;
+    }
+
+    .nature-buttons .btn {
+        font-size: 0.7rem;
+        letter-spacing: -0.04em;
+    }
+}
