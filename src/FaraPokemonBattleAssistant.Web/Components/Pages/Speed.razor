@@ -9,7 +9,7 @@
 
 <div class="page-header">
     <h3>素早さ比較 <Help Title="素早さ比較">2 体のポケモンの素早さの実数値を比べて、どちらが先に動くかを確認します。努力値・性格・持ち物・特性・ランク・まひ・天候・フィールドを反映します。</Help></h3>
-    <p class="text-muted mb-0">使用チームに同じポケモンがいれば、その構成が入ります。</p>
+    <p class="text-muted mb-0">使用チームに同じポケモンがいれば、その構成が入ります。「登録から選ぶ」で、登録したポケモンを呼び出すこともできます。</p>
 </div>
 
 @if (!string.IsNullOrEmpty(rosterError))
@@ -168,6 +168,7 @@ else if (data is not null && dataSet is not null)
     private State s = new();
     private DataSetInfo? dataSet;
     private PokemonDataSet? data;
+    private IReadOnlyList<RosterChoiceGroup> rosterGroups = Array.Empty<RosterChoiceGroup>();
     private IReadOnlyList<(RegisteredPokemon Entry, Item? Item)> teamMembers = Array.Empty<(RegisteredPokemon, Item?)>();
     private string rosterError = "";
 
@@ -202,6 +203,8 @@ else if (data is not null && dataSet is not null)
         dataSet = App.DataSet;
         data = await Catalog.GetDataSetAsync(App.DataSetKey);
         (teamMembers, rosterError) = await RosterReading.ActiveTeamMembersAsync(Repo, App.DataSetKey, data);
+        (rosterGroups, var groupsError) = await RosterReading.ChoiceGroupsAsync(Repo, App.DataSetKey, data);
+        if (string.IsNullOrEmpty(rosterError)) rosterError = groupsError;
         if (s.DataSetKey != App.DataSetKey)
         {
             s.DataSetKey = App.DataSetKey;
@@ -234,12 +237,11 @@ else if (data is not null && dataSet is not null)
         s.Builds[side] = build;
     }
 
-    private void OnTeamMemberSelected(int side, ChangeEventArgs e)
+    /// <summary>登録済みの構成（チームのメンバーならチームで持たせた持ち物つき）を、その側に写す。登録データ自体は変わらない。</summary>
+    private void OnRosterPicked(int side, RosterChoice choice)
     {
-        var id = ParseId(e.Value);
-        var member = teamMembers.FirstOrDefault(m => m.Entry.Id == id);
-        if (member.Entry is not null && data is not null)
-            s.Builds[side] = RosterRepository.ToBuild(member.Entry, data, member.Item);
+        if (data is not null)
+            s.Builds[side] = RosterRepository.ToBuild(choice.Entry, data, choice.Item);
     }
 
     private RenderFragment RenderSide(int side) => __builder =>
@@ -249,19 +251,7 @@ else if (data is not null && dataSet is not null)
         <div class="card">
             <div class="card-header"><h5>ポケモン@(side + 1)</h5></div>
             <div class="card-body">
-                @if (teamMembers.Count > 0)
-                {
-                    <div class="form-group mb-2">
-                        <label>使用チームから <Help Title="使用チームから">「登録・チーム」で使用中にしたチームのポケモンを、努力値・性格・持ち物・特性ごと呼び出します。</Help></label>
-                        <select class="form-select" @onchange="@(e => OnTeamMemberSelected(side, e))">
-                            <option value="">（選択）</option>
-                            @foreach (var (entry, item) in teamMembers)
-                            {
-                                <option value="@entry.Id">#@entry.Id @entry.PokemonName @(item is null ? "" : "@" + item.Name)</option>
-                            }
-                        </select>
-                    </div>
-                }
+                <RosterPicker Groups="rosterGroups" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" OnPick="@(c => OnRosterPicked(side, c))" />
                 <div class="form-group mb-2">
                     <label>ポケモン</label>
                     <SearchableSelect TItem="Pokemon" Items="data!.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"

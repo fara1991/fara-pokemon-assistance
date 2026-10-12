@@ -9,7 +9,7 @@
 
 <div class="page-header">
     <h3>ダメージ計算機 <Help Title="ダメージ計算機">攻撃側と防御側のポケモンと技を選ぶと、乱数 16 通りのダメージと確定数を自動で出します（入力を変えるたびに計算し直します）。ポケモンを選ぶと使用率に基づく性格・持ち物・特性が既定値として入ります。ゲームとバトル形式は左のメニューで切り替えます。</Help></h3>
-    <p class="text-muted mb-0">使用チームがあれば「使用チームから」で自分の構成を呼び出せます。入力した内容は別のページへ移動しても残ります。</p>
+    <p class="text-muted mb-0">登録したポケモンは「登録から選ぶ」で、攻撃側・防御側のどちらにも呼び出せます。入力した内容は別のページへ移動しても残ります。</p>
 </div>
 
 @if (!string.IsNullOrEmpty(loadError))
@@ -33,19 +33,7 @@ else if (data is not null && dataSet is not null)
             <div class="card">
                 <div class="card-header"><h5>攻撃側</h5></div>
                 <div class="card-body">
-                    @if (teamMembers.Count > 0)
-                    {
-                        <div class="form-group mb-2">
-                            <label>使用チームから <Help Title="使用チームから">「登録・チーム」で使用中にしたチームのポケモンを、努力値・性格・持ち物・特性ごと呼び出します。</Help></label>
-                            <select class="form-select" @onchange="@(e => PickFromTeam(e.Value, true))">
-                                <option value="">（選択）</option>
-                                @foreach (var (entry, item) in teamMembers)
-                                {
-                                    <option value="@entry.Id">#@entry.Id @entry.PokemonName @(item is null ? "" : "@" + item.Name)</option>
-                                }
-                            </select>
-                        </div>
-                    }
+                    <RosterPicker Groups="rosterGroups" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" OnPick="@(c => PickFromRoster(c, true))" />
                     <div class="form-group mb-2">
                         <label>ポケモン <Help Title="ポケモン">名前の一部（ひらがな・ローマ字でも可。例: ie → イエッサン）で絞り込めます。使用率の高い順に並んでいます。</Help></label>
                         <SearchableSelect TItem="Pokemon"
@@ -99,19 +87,7 @@ else if (data is not null && dataSet is not null)
             <div class="card">
                 <div class="card-header"><h5>防御側</h5></div>
                 <div class="card-body">
-                    @if (teamMembers.Count > 0)
-                    {
-                        <div class="form-group mb-2">
-                            <label>使用チームから</label>
-                            <select class="form-select" @onchange="@(e => PickFromTeam(e.Value, false))">
-                                <option value="">（選択）</option>
-                                @foreach (var (entry, item) in teamMembers)
-                                {
-                                    <option value="@entry.Id">#@entry.Id @entry.PokemonName @(item is null ? "" : "@" + item.Name)</option>
-                                }
-                            </select>
-                        </div>
-                    }
+                    <RosterPicker Groups="rosterGroups" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" OnPick="@(c => PickFromRoster(c, false))" />
                     <div class="form-group mb-2">
                         <label>ポケモン</label>
                         <SearchableSelect TItem="Pokemon"
@@ -271,7 +247,7 @@ else if (data is not null && dataSet is not null)
     private IReadOnlyList<Move> attackerMoves = Array.Empty<Move>();
     private IReadOnlyList<Item> attackerItems = Array.Empty<Item>();
     private IReadOnlyList<Item> defenderItems = Array.Empty<Item>();
-    private IReadOnlyList<(RegisteredPokemon Entry, Item? Item)> teamMembers = Array.Empty<(RegisteredPokemon, Item?)>();
+    private IReadOnlyList<RosterChoiceGroup> rosterGroups = Array.Empty<RosterChoiceGroup>();
 
     protected override async Task OnAppReadyAsync()
     {
@@ -302,7 +278,7 @@ else if (data is not null && dataSet is not null)
             dataSet = App.DataSet;
             data = await Catalog.GetDataSetAsync(App.DataSetKey);
             usage = await data.GetUsageAsync(App.Format);
-            (teamMembers, rosterError) = await RosterReading.ActiveTeamMembersAsync(Repo, App.DataSetKey, data);
+            (rosterGroups, rosterError) = await RosterReading.ChoiceGroupsAsync(Repo, App.DataSetKey, data);
             pokemonList = usage.IsEmpty
                 ? data.Pokemon
                 : data.Pokemon.OrderBy(p => usage.RankOf(p.Id)).ToList();
@@ -406,12 +382,11 @@ else if (data is not null && dataSet is not null)
         ApplyDefaultEvs(s.Defender, s.Move, false);
     }
 
-    private void PickFromTeam(object? value, bool isAttacker)
+    /// <summary>登録済みの構成（チームのメンバーならチームで持たせた持ち物つき）を、その側の入力欄に写す。登録データ自体は変わらない。</summary>
+    private void PickFromRoster(RosterChoice choice, bool isAttacker)
     {
-        var id = ParseId(value);
-        var member = teamMembers.FirstOrDefault(m => m.Entry.Id == id);
-        if (member.Entry is null || data is null) return;
-        var build = RosterRepository.ToBuild(member.Entry, data, member.Item);
+        if (data is null) return;
+        var build = RosterRepository.ToBuild(choice.Entry, data, choice.Item);
         if (build is null) return;
         ApplyFixedChoices(build);
         ApplyFieldFromAbility(build);

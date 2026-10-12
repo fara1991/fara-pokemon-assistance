@@ -78,6 +78,14 @@ public sealed class RegisteredPokemon
     }
 }
 
+/// <summary>「登録から選ぶ」の 1 件（登録ポケモンと、チームで持たせた持ち物）。</summary>
+public sealed record RosterChoice(string Key, RegisteredPokemon Entry, Item? Item)
+{
+    public string Label => $"#{Entry.Id} {Entry.PokemonName}{(Item is null ? "" : " @" + Item.Name)}";
+}
+
+public sealed record RosterChoiceGroup(string Label, IReadOnlyList<RosterChoice> Choices);
+
 public sealed class TeamSlot
 {
     public int EntryId { get; set; }
@@ -363,6 +371,38 @@ public sealed class RosterRepository
             Item = item,
             TeraType = entry.TeraType,
         };
+    }
+
+    /// <summary>
+    /// 計算機・素早さ比較の「登録から選ぶ」用に、登録済みの構成をチームごとにまとめて返す。
+    /// チームのメンバー（チームで持たせた持ち物つき）と、どのチームにも入っていない登録ポケモンの順。
+    /// 返す構成は登録データの写しで、呼び出し側で値を変えても登録データは変わらない（<see cref="ToBuild"/>）。
+    /// </summary>
+    public async Task<IReadOnlyList<RosterChoiceGroup>> ChoiceGroupsAsync(string dataSetKey, PokemonDataSet data, CancellationToken ct = default)
+    {
+        var roster = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey);
+        var byId = roster.Pokemon.ToDictionary(p => p.Id);
+        var groups = new List<RosterChoiceGroup>();
+        var inTeam = new HashSet<int>();
+        foreach (var team in roster.Teams.OrderBy(t => t.Number))
+        {
+            var choices = new List<RosterChoice>();
+            foreach (var slot in team.Slots)
+            {
+                if (!byId.TryGetValue(slot.EntryId, out var entry)) continue;
+                inTeam.Add(entry.Id);
+                var item = slot.ItemId is { } iid ? data.FindItem(iid) : null;
+                choices.Add(new RosterChoice($"t{team.Number}-{entry.Id}", entry, item));
+            }
+            if (choices.Count > 0)
+                groups.Add(new RosterChoiceGroup($"チーム{team.Number}{(roster.ActiveTeam == team.Number ? "（使用中）" : "")}", choices));
+        }
+        var others = roster.Pokemon
+            .Where(p => !inTeam.Contains(p.Id))
+            .Select(p => new RosterChoice($"r{p.Id}", p, p.ItemId is { } iid ? data.FindItem(iid) : null))
+            .ToList();
+        if (others.Count > 0) groups.Add(new RosterChoiceGroup("チームに入っていない登録", others));
+        return groups;
     }
 
     /// <summary>使用中チームのメンバー（登録ポケモンと持ち物）。</summary>
