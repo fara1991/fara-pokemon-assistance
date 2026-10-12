@@ -30,4 +30,10 @@ public sealed class BrowserRosterStore : IRosterStore
     {
         await _js.InvokeVoidAsync("localStorage.setItem", ct, Key, json);
     }
+
+    /// <summary>このブラウザの登録データを消す（クラウド同期を始めたとき）。</summary>
+    public async Task ClearAsync(CancellationToken ct = default)
+    {
+        await _js.InvokeVoidAsync("localStorage.removeItem", ct, Key);
+    }
 }

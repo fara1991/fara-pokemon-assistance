@@ -1847,3 +1847,7 @@ button.compact-cell {
 .dex-sort.sorted .dex-sort-mark {
     opacity: 1;
 }
+
+/* 登録ページのクラウド同期 */
+.sync-card .sync-join { max-width: 32rem; flex: 1 1 20rem; }
+.sync-card .sync-key { word-break: break-all; user-select: all; }
