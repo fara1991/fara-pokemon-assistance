@@ -2,14 +2,15 @@
 @inherits AppPageBase
 @inject DataCatalog Catalog
 @inject PokeCommand Poke
+@inject IJSRuntime JS
 
 <PageTitle>チャットコマンド | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
     <h3>チャットコマンドを試す <Help Title="チャットコマンド">Twitch のチャットに打つのと同じ文字列を入力すると、ボットが返す 1 行がそのまま表示されます。接頭辞（!@(App.CommandPrefix)）は左のメニューで選んだゲームに合わせて変わります。</Help></h3>
-    <p class="mb-1">Twitch の配信チャットでボット（FaraBotModerator）に打つ <code>!@(App.CommandPrefix)</code> のコマンドを、ブラウザで組み立てて試せるページです。配信中に打つ前に結果を確かめたり、使えるコマンドを調べたりするときに使います。</p>
+    <p class="mb-1">Twitch の配信チャットでボット（<a href="https://fara-labs.com/works#bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a>）に打つ <code>!@(App.CommandPrefix)</code> のコマンドを、ブラウザで組み立てて試せるページです。配信中に打つ前に結果を確かめたり、使えるコマンドを調べたりするときに使います。</p>
     <p class="text-muted mb-0">下の選択欄を変えるとコマンドに反映され、コマンドを書き換えると選択欄にも反映されます。</p>
-    <p class="text-muted small mb-0 mt-1">H: HP / A: こうげき / B: ぼうぎょ / C: とくこう / D: とくぼう / S: すばやさ（<a href="glossary">用語・略語</a>）</p>
+    <p class="text-muted small mb-0 mt-1">H: HP / A: 攻撃 / B: 防御 / C: 特攻 / D: 特防 / S: 素早さ（<a href="glossary">用語・略語</a>）</p>
 </div>
 
 @if (App.DataSet is { CalcSupported: false } refOnly)
@@ -19,44 +20,44 @@
 else if (data is not null)
 {
     <div class="card mb-3">
-        <div class="card-header"><h5>ダメージ計算のコマンドを組み立てる</h5></div>
+        <div class="card-header"><h5>コマンドを作る</h5></div>
         <div class="card-body py-2">
-            <div class="row g-2">
-                <div class="col-md-4 col-xl-3">
+            <div class="cmd-build">
+                <div class="cmd-f-kind">
                     <label class="form-label">種類 <Help Title="dmg と calc">dmg はダメージと確定数、calc は受けたダメージから相手の努力値を推定します。</Help></label>
                     <select class="form-select" value="@s.Kind" @onchange="@(e => { s.Kind = e.Value?.ToString() ?? "dmg"; BuildText(); })">
                         <option value="dmg">dmg（ダメージ）</option>
                         <option value="calc">calc（努力値推定）</option>
                     </select>
                 </div>
-                <div class="col-md-8 col-xl-4">
+                <div class="cmd-f-poke">
                     <label class="form-label">攻撃側ポケモン</label>
                     <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
                         SelectedValue="@(s.Attacker?.Id.ToString() ?? "")" SelectedValueChanged="@OnAttackerChanged" Placeholder="ポケモン名を入力（例: ガブリアス）">
                         <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /></ItemTemplate>
                     </SearchableSelect>
                 </div>
-                <div class="col-md-5">
+                <div class="cmd-f-move">
                     <label class="form-label">技 <Help Title="技">攻撃側のポケモンが覚える技だけを使用率の高い順に表示します。「じしん+1」のように技名の後ろにランクを付けることもできます。</Help></label>
                     <SearchableSelect TItem="Move" Items="attackerMoves" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
                         SelectedValue="@(s.Move?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { s.Move = data.FindMove(ParseId(v)); BuildText(); })" Placeholder="技名を入力（例: じしん）">
                         <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto">@(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
                     </SearchableSelect>
                 </div>
-                <div class="col-md-5">
+                <div class="cmd-f-poke">
                     <label class="form-label">防御側ポケモン</label>
                     <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
                         SelectedValue="@(s.Defender?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { s.Defender = data.FindPokemon(ParseId(v)); BuildText(); })" Placeholder="ポケモン名を入力（例: リザードン）">
                         <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /></ItemTemplate>
                     </SearchableSelect>
                 </div>
-                <div class="col-md-2">
+                <div class="cmd-f-weather">
                     <label class="form-label">天候（任意）</label>
                     <select class="form-select" value="@s.Weather" @onchange="@(e => { s.Weather = ParseEnum(e.Value, Weather.None); BuildText(); })">
                         @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w)</option> }
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="cmd-f-terrain">
                     <label class="form-label">フィールド（任意）</label>
                     <select class="form-select" value="@s.Terrain" @onchange="@(e => { s.Terrain = ParseEnum(e.Value, Terrain.None); BuildText(); })">
                         @foreach (var t in Enum.GetValues<Terrain>()) { <option value="@t">@FieldNames.Japanese(t)</option> }
@@ -64,7 +65,7 @@ else if (data is not null)
                 </div>
                 @if (s.Kind == "calc")
                 {
-                    <div class="col-md-3">
+                    <div class="cmd-f-damage">
                         <label class="form-label">受けたダメージ <Help Title="受けたダメージ">実数（93）か割合（45%）で入力します。割合のときは HP の振りも推定します。</Help></label>
                         <input class="form-control" placeholder="93 または 45%" value="@s.Damage" @onchange="@(e => { s.Damage = e.Value?.ToString() ?? ""; BuildText(); })" />
                     </div>
@@ -109,7 +110,7 @@ else if (data is not null)
                         <td class="cmd-col-example cmd-example">
                             @foreach (var ex in row.Examples)
                             {
-                                <div><a href="" @onclick="() => UseExample(ex)" @onclick:preventDefault><code>@ex</code></a></div>
+                                <div><button type="button" class="cmd-example-btn" title="@(IsMutating(ex) ? "コマンド欄に入れます（データが変わるので、「実行」を押すと実行します）" : "コマンド欄に入れて実行します")" @onclick="() => UseExample(ex)"><code>@ex</code></button></div>
                             }
                         </td>
                     </tr>
@@ -353,10 +354,18 @@ else if (data is not null)
         s.Extras = extras;
     }
 
-    private void UseExample(string example)
+    /// <summary>登録・削除・チームの変更など、データを書き換えるコマンドか。</summary>
+    private static bool IsMutating(string example) =>
+        System.Text.RegularExpressions.Regex.IsMatch(example, @"^!\S+\s+(add|rm|use|unuse)\b");
+
+    /// <summary>例をコマンド欄に入れる。データを変えないコマンドは、そのまま実行して結果も出す。</summary>
+    private async Task UseExample(string example)
     {
         s.Input = example;
         ParseText();
+        if (!IsMutating(example)) await Run();
+        try { await JS.InvokeVoidAsync("faraFocus", "cmd-input"); }
+        catch (JSException) { }
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)
