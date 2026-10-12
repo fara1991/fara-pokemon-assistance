@@ -91,14 +91,18 @@
 
     // ---------- 伸び縮みする要素（left / width の style） ----------
     // 動いている途中なら、今見えている位置（px）から続きを動かす
+    // （色の CSS transition は数えない。動かしているのは WAAPI のものだけ）
+    function running(el) {
+        return el.getAnimations().filter(function (a) { return !(window.CSSTransition && a instanceof CSSTransition); });
+    }
     function currentOf(el, props, fallback) {
-        if (el.getAnimations().length === 0) return fallback;
+        if (running(el).length === 0) return fallback;
         var cs = getComputedStyle(el), o = {};
         props.forEach(function (p) { o[p] = cs[p]; });
         return o;
     }
     function run(el, from, to, opts) {
-        el.getAnimations().forEach(function (a) { a.cancel(); });
+        running(el).forEach(function (a) { a.cancel(); });
         var a = {}, b = {};
         Object.keys(to).forEach(function (k) { if (from[k] !== to[k]) { a[k] = from[k]; b[k] = to[k]; } });
         if (Object.keys(b).length === 0) return;
@@ -280,16 +284,22 @@
         var u;
         try { u = new URL(a.href, location.href); } catch (err) { return; }
         if (u.origin !== location.origin || u.pathname === location.pathname) return;
-        // Blazor がこのクリックでページを切り替える。切り替わって描画が落ち着くまで待って、前後の画面をなじませる
+        // Blazor に任せると、前の画面を撮る前にページが切り替わってしまう。
+        // そこでこのクリックでの切り替えは止めて（Blazor のリンク処理は defaultPrevented を見て何もしない）、
+        // 前の画面を撮ったあとに Blazor.navigateTo で切り替える。メニューを閉じるなどの @onclick は、止めないのでそのまま動く。
+        if (!window.Blazor || typeof window.Blazor.navigateTo !== "function") return;
+        e.preventDefault();
         html.classList.add("vt-nav");
         var t = document.startViewTransition(function () {
             return new Promise(function (resolve) {
                 var t0 = performance.now(), lastMut = t0;
                 var obs = new MutationObserver(function () { lastMut = performance.now(); });
                 obs.observe(document.getElementById("app") || document.body, { childList: true, subtree: true });
+                window.Blazor.navigateTo(u.href);
+                // 切り替わって描画が落ち着くまで待つ（長くても 0.8 秒）
                 var timer = setInterval(function () {
                     var now = performance.now();
-                    if ((location.pathname === u.pathname && now - lastMut > 90 && now - t0 > 60) || now - t0 > 800) {
+                    if ((location.pathname === u.pathname && now - lastMut > 60) || now - t0 > 800) {
                         clearInterval(timer); obs.disconnect(); resolve();
                     }
                 }, 25);
