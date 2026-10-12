@@ -5,7 +5,7 @@
 <PageTitle>ポケモン一覧 | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>ポケモン一覧 <Help Title="ポケモン一覧">左のメニューで選んでいるゲームに収録されているポケモンを、全国図鑑順に並べます（フォルム違い・メガシンカは元の姿のすぐ後ろ）。名前・タイプ（2 つまでで両方を持つもの）・特性・覚える技（2 つまでで両方を覚えるもの）で絞り込めます。見出し（スマホでは「並び順」）を押すたびに 昇順 → 降順 → 並べ替えなし（全国図鑑順）と切り替わります。ポケモンを押すと、ダメージ計算機・素早さ比較・タイプ相性表で開けます。特性はデータに通常・隠れ特性の区別が無いため、まとめて表示しています。</Help></h3>
+    <h3>ポケモン一覧 <Help Title="ポケモン一覧">左のメニューで選んでいるゲームに収録されているポケモンを、全国図鑑順に並べます（フォルム違い・メガシンカは元の姿のすぐ後ろ）。名前・タイプ（2 つまでで両方を持つもの）・特性・覚える技（2 つまでで両方を覚えるもの）で絞り込めます。見出しを押すたびに 昇順 → 降順 → 並べ替えなし（全国図鑑順）と切り替わります（スマホでは「並び順」の選択欄で、高い順・低い順も選べます）。ポケモンを押すと、ダメージ計算機・素早さ比較・タイプ相性表で開けます。特性はデータに通常・隠れ特性の区別が無いため、まとめて表示しています。</Help></h3>
     <p class="text-muted mb-0">@(data?.Info.Name ?? "")に収録されているポケモン（全国図鑑順）。条件で絞り込み、見出しを押すと並べ替えられます。@(data?.Info.Generation == 1 ? "第1世代は特攻・特防の区別が無く、C・D はどちらも「とくしゅ」の値です。" : "")@(data?.Info.Generation <= 2 ? "第2世代までは特性がありません。" : "")</p>
     <p class="text-muted small mb-0 mt-1">H: HP / A: こうげき / B: ぼうぎょ / C: とくこう / D: とくぼう / S: すばやさ（<a href="glossary">用語・略語</a>）</p>
 </div>
@@ -70,22 +70,24 @@
                         <label class="form-check-label" for="dex-prov">未収録も表示</label>
                     </div>
                 }
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" @onclick="ClearFilters">条件をクリア</button>
                 <div class="dex-sort-mobile">
-                    @* 見出しと同じく: 項目を選ぶと昇順、ボタンで 昇順 → 降順 → 並べ替えなし（図鑑順） *@
-                    <select class="form-select form-select-sm" aria-label="並び順" value="@f.Sort" @onchange="@(e => { f.Sort = Enum.TryParse<PokedexSort>(e.Value?.ToString(), out var v) ? v : PokedexSort.Dex; f.Descending = false; Refresh(); })">
-                        @foreach (var (sort, label) in SortColumns)
+                    @* スマホ: 向きまで含めた選択肢にする（PC は見出しを押して切り替える） *@
+                    <select class="form-select form-select-sm" aria-label="並び順" value="@SortValue(f.Sort, f.Descending)" @onchange="@(e => SetSort(e.Value?.ToString()))">
+                        <option value="@SortValue(PokedexSort.Dex, false)">並べ替えなし（図鑑順）</option>
+                        <option value="@SortValue(PokedexSort.Dex, true)">図鑑順（逆順）</option>
+                        @foreach (var (sort, label) in SortColumns.Where(c => c.Sort != PokedexSort.Dex))
                         {
-                            <option value="@sort">@(sort == PokedexSort.Dex ? "並べ替えなし（図鑑順）" : label)</option>
+                            <option value="@SortValue(sort, true)">@label（高い順）</option>
+                            <option value="@SortValue(sort, false)">@label（低い順）</option>
                         }
                     </select>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" title="押すたびに 昇順 → 降順 → 並べ替えなし（図鑑順）と切り替わります" aria-label="並べ替えの向きを切り替え" @onclick="() => SortBy(f.Sort)">@SortStateText()</button>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" @onclick="ClearFilters">条件をクリア</button>
             </div>
         </div>
     </div>
 
-    <div class="dex-list">
+    <div class="dex-list pane-scroll">
         <div class="dex-row dex-head" role="row">
             @foreach (var (sort, label) in SortColumns)
             {
@@ -251,8 +253,16 @@
         !IsSorted(sort) ? $"{label}の昇順で並べ替え"
         : s.Filter.Descending ? $"{label}の降順で並べ替え中（押すと並べ替えなし）" : $"{label}の昇順で並べ替え中（押すと降順）";
 
-    private string SortStateText() =>
-        s.Filter.Descending ? "▼ 降順" : "▲ 昇順";
+    private static string SortValue(PokedexSort sort, bool descending) => $"{sort}:{(descending ? "desc" : "asc")}";
+
+    /// <summary>スマホの並び順の選択欄（項目 + 向き）から並べ替えを決める。</summary>
+    private void SetSort(string? value)
+    {
+        var parts = (value ?? "").Split(':');
+        s.Filter.Sort = parts.Length == 2 && Enum.TryParse<PokedexSort>(parts[0], out var sort) ? sort : PokedexSort.Dex;
+        s.Filter.Descending = parts.Length == 2 && parts[1] == "desc";
+        Refresh();
+    }
 
     /// <summary>名前と括弧のフォーム名を分け、括弧の前で折り返す（括弧の中は途中で折り返さない）。</summary>
     private static RenderFragment PokemonNameText(Pokemon p) => __builder =>

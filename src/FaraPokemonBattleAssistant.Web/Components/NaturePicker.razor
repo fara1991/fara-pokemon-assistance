@@ -21,9 +21,11 @@
                 @foreach (var stat in NatureSelection.Stats)
                 {
                     var st = stat;
+                    @* ボタンの表記はポイント欄と同じ H/A/B/C/D/S（性格は HP に関係しないので H は無い）。名前は title・読み上げで補う *@
                     <button type="button" class="btn btn-sm @(current == st ? "btn-primary" : "btn-outline-secondary")"
                             aria-pressed="@(current == st)"
-                            @onclick="() => Change(increased ? NatureSelection.WithIncreased(Natures, Value, st, Physical) : NatureSelection.WithDecreased(Natures, Value, st, Physical))">@StatNames.Japanese(st)</button>
+                            title="@(label)する能力: @StatNames.Japanese(st)" aria-label="@StatNames.Japanese(st)"
+                            @onclick="() => Change(increased ? NatureSelection.WithIncreased(Natures, Value, st, Physical) : NatureSelection.WithDecreased(Natures, Value, st, Physical))">@StatNames.Letter(st)</button>
                 }
             </div>
         </div>

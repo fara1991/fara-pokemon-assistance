@@ -81,7 +81,7 @@
 }
 else if (data is not null && roster is not null && dataSet is not null)
 {
-    <div class="split-row split-row-top">
+    <div class="split-row split-row-top pane-fill">
         <div class="split-half">
             <div class="card mb-3">
                 <div class="card-header"><h5>ポケモンを登録</h5></div>
@@ -395,6 +395,9 @@ else if (data is not null && roster is not null && dataSet is not null)
         {
             var entry = await Repo.AddPokemonAsync(App.DataSetKey, s.NewPokemon, s.NewEvs.Clone(), s.NewNature, s.NewAbility);
             Show($"#{entry.Id} {entry.PokemonName} を登録しました", false);
+            // 続けて別のポケモンを登録しやすいよう、選択中のポケモンと特性は空に戻す（振り分けは 0 に戻す。性格は残す）
+            s.NewPokemon = null;
+            s.NewAbility = null;
             s.NewEvs = new StatSet();
         });
     }

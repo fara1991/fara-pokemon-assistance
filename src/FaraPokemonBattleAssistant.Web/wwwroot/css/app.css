@@ -560,7 +560,7 @@ body {
     .type-chart {
         /* 縦: 画面の高さから見出し・凡例の分を引いて 19 行（見出し行 + 18 タイプ）で割る
            横: 画面の幅からサイドバー・右のパネル・余白を引いて 21 列（見出し + 18 タイプ + 合計）で割る */
-        --tc-cell: clamp(1.5rem, min(calc((100vh - 12.5rem) / 19.6), calc((100vw - 230px - 20rem - 6rem) / 21)), 2.6rem);
+        --tc-cell: clamp(1.5rem, min(calc((100vh - 13.5rem) / 19.6), calc((100vw - 230px - 20rem - 6rem) / 21)), 2.6rem);
     }
 }
 
@@ -835,7 +835,7 @@ body {
     .type-chart-main {
         width: min-content;
         /* 表がまだ無い（読み込み中の）ときも、表と同じくらいの幅を取って凡例が縦に潰れないようにする（.type-chart の --tc-cell × ポケモンを選んでいないときの 19 列。選ぶと列が増え、表に合わせて広がる） */
-        min-width: calc(clamp(1.5rem, min(calc((100vh - 12.5rem) / 19.6), calc((100vw - 230px - 20rem - 6rem) / 21)), 2.6rem) * 19);
+        min-width: calc(clamp(1.5rem, min(calc((100vh - 13.5rem) / 19.6), calc((100vw - 230px - 20rem - 6rem) / 21)), 2.6rem) * 19);
     }
 
     .matchup-panel .card {
@@ -1150,18 +1150,43 @@ body {
     overflow-wrap: anywhere;
 }
 
-.cmd-table td:nth-child(1) {
+.cmd-table .cmd-col-syntax {
     min-width: 14rem;
-    width: 34%;
+    width: 32%;
 }
 
-.cmd-table td:nth-child(2) {
-    min-width: 12rem;
-    width: 33%;
+.cmd-table .cmd-col-kind {
+    width: 1%;
+    white-space: nowrap;
 }
 
-.cmd-table td:nth-child(3) {
+.cmd-table .cmd-col-desc {
     min-width: 12rem;
+    width: 30%;
+}
+
+.cmd-table .cmd-col-example {
+    min-width: 12rem;
+}
+
+/* コマンドの種類（ダメージ計算・登録・チームなど）の小さなラベル */
+.cmd-kind {
+    display: inline-block;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-card-border);
+    color: var(--bs-body-color);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* 説明文と一覧の間の区切り */
+.cmd-legend {
+    padding-bottom: 0.7rem;
+    margin-bottom: 0.7rem !important;
+    border-bottom: 1px solid var(--app-card-border);
 }
 
 .cmd-ph,
@@ -1223,19 +1248,32 @@ body {
         overflow-wrap: anywhere;
     }
 
-    .cmd-table td:nth-child(1),
-    .cmd-table td:nth-child(2),
-    .cmd-table td:nth-child(3) {
+    .cmd-table td.cmd-col-syntax,
+    .cmd-table td.cmd-col-kind,
+    .cmd-table td.cmd-col-desc,
+    .cmd-table td.cmd-col-example {
         min-width: 0;
         width: auto;
     }
 
-    .cmd-table td:nth-child(1) code {
+    .cmd-table td.cmd-col-syntax code {
         font-size: 0.9rem;
     }
 
-    .cmd-table td:nth-child(2) {
+    .cmd-table td.cmd-col-desc {
         font-size: 0.9rem;
+    }
+
+    /* カードでは、種類を小さなラベルにして一番上に出す */
+    .cmd-table tr {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .cmd-table td.cmd-col-kind {
+        order: -1;
+        align-self: flex-start;
+        margin-bottom: 0.2rem;
     }
 
     .cmd-table .cmd-example::before {
@@ -1763,17 +1801,21 @@ button.compact-cell {
 
 .dex-sort-mobile {
     display: none;
+    flex: 1 1 100%;
     gap: 0.3rem;
-}
-
-.dex-sort-mobile .btn {
-    white-space: nowrap;
 }
 
 .dex-list {
     border: 1px solid var(--app-card-border);
     border-radius: 0.375rem;
     background: var(--bs-body-bg);
+}
+
+@media (min-width: 768px) {
+    /* PC: 絞り込みは固定にして、一覧の中だけがスクロールする（見出し行は一覧の上に固定） */
+    .dex-list {
+        min-height: 12rem;
+    }
 }
 
 .dex-row {
@@ -2320,11 +2362,142 @@ html.vt-nav .sidebar {
         flex: 1 1 0;
         min-height: 0;
         overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .cmd-scroll,
+    .dex-list.pane-scroll {
+        overflow-x: auto;
     }
 
     /* 枠の中のスクロールの余白は、枠の外と同じ幅にそろえる */
     .pane-scroll {
         scrollbar-gutter: stable;
+    }
+}
+
+/* 計算機・素早さ比較（PC）: 攻撃側 | 防御側 | 場の状態と結果 の各列が画面内に収まり、はみ出す列の中だけがスクロールする。
+   768〜1399px は 2 列（右の列に 防御側 → 場の状態 → 結果 を重ねる。結果の要点は画面下のバーにも出る）、1400px 以上は 3 列 */
+.calc-right {
+    display: contents;
+}
+
+@media (min-width: 768px) {
+    .calc-grid.pane-fill {
+        display: grid;
+        grid-template-rows: minmax(0, 1fr);
+        min-height: 18rem;
+    }
+
+    .calc-grid.pane-fill > .calc-col,
+    .calc-grid.pane-fill > .calc-right {
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-gutter: stable;
+    }
+
+    .calc-grid.pane-fill .calc-col > *,
+    .calc-grid.pane-fill .calc-right > * {
+        flex-shrink: 0;
+    }
+
+    .calc-grid.pane-fill .calc-col > .card:first-child {
+        flex: 0 0 auto;
+    }
+
+    .calc-grid.pane-fill .calc-side {
+        display: flex;
+        flex-direction: column;
+        grid-column: auto;
+    }
+
+    /* has-result-bar の下余白は、バーに隠れる分。バーは画面の下に固定なので、列の中の余白で確保する */
+    .calc-grid.pane-fill.has-result-bar {
+        padding-bottom: 0;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1399.98px) {
+    .calc-grid.pane-fill > .calc-right {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .calc-grid.pane-fill.has-result-bar > .calc-col,
+    .calc-grid.pane-fill.has-result-bar > .calc-right {
+        padding-bottom: 3.5rem;
+    }
+}
+
+@media (min-width: 1400px) {
+    .calc-grid.pane-fill > .calc-right {
+        display: contents;
+    }
+
+    .calc-grid.pane-fill > .calc-right > .calc-col {
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-gutter: stable;
+    }
+}
+
+/* 登録・チーム（PC）: 左（登録フォームと登録一覧）と右（チーム）がそれぞれ画面内に収まり、中だけがスクロールする */
+@media (min-width: 768px) {
+    .split-row.pane-fill {
+        flex-direction: row;
+        min-height: 20rem;
+    }
+
+    .split-row.pane-fill > .split-half {
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-gutter: stable;
+    }
+
+    .split-row.pane-fill > .split-half > * {
+        flex-shrink: 0;
+    }
+
+    /* 登録一覧の見出し行はスクロールしても上に固定 */
+    .split-row.pane-fill .table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background-color: var(--app-panel-bg);
+        box-shadow: 0 1px 0 var(--app-card-border);
+    }
+}
+
+/* チャットコマンド（PC）: 一覧の枠は画面内に収め、表とオプション表だけがスクロールする。表の見出し行は上に固定 */
+@media (min-width: 768px) {
+    .cmd-list-card {
+        min-height: 19rem;
+        margin-bottom: 0;
+    }
+
+    .cmd-list-card > .card-body {
+        padding-bottom: 0;
+    }
+
+    /* 見出し行を固定するため、表の横スクロール枠は外す（幅は表が収まる分だけ） */
+    .cmd-scroll .table-responsive {
+        overflow: visible;
+    }
+
+    .cmd-scroll thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background-color: var(--app-panel-bg);
+        box-shadow: 0 1px 0 var(--app-card-border);
+    }
+
+    .cmd-scroll > :last-child {
+        padding-bottom: 1rem;
     }
 }
 

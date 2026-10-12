@@ -24,8 +24,9 @@
 else if (data is not null && dataSet is not null)
 {
     var both = s.Builds[0] is not null && s.Builds[1] is not null;
-    <div class="calc-grid @(both ? "has-result-bar" : "")">
+    <div class="calc-grid pane-fill @(both ? "has-result-bar" : "")">
         <div class="calc-col">@RenderSide(0)</div>
+        <div class="calc-right">
         <div class="calc-col">@RenderSide(1)</div>
 
         <div class="calc-col calc-side">
@@ -138,6 +139,7 @@ else if (data is not null && dataSet is not null)
             {
                 <p class="text-muted small mb-0">2 体とも選ぶと、どちらが先に動くかを表示します。</p>
             }
+        </div>
         </div>
     </div>
 }
