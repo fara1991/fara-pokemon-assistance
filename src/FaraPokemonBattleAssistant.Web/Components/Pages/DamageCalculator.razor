@@ -186,7 +186,7 @@ else if (data is not null && dataSet is not null)
                 <div class="result-bar @(resultBarOpen ? "open" : "")">
                     @if (resultBarOpen)
                     {
-                        <div class="result-bar-detail">@RenderResultBody(s.Result, s.LastRequest)</div>
+                        <div class="result-bar-detail" data-motion-static>@RenderResultBody(s.Result, s.LastRequest)</div>
                     }
                     <button type="button" class="result-bar-summary" aria-expanded="@(resultBarOpen ? "true" : "false")" @onclick="() => resultBarOpen = !resultBarOpen">
                         <TypeIcon Type="@s.Result.MoveType" Small="true" />
@@ -719,22 +719,24 @@ else if (data is not null && dataSet is not null)
         <p class="result-matchup mb-1">
             <strong>@lastRequest.Attacker.Pokemon.Name</strong>
             <span class="mx-1"><TypeIcon Type="@result.MoveType" Small="true" /> @lastRequest.Move.Name →</span>
-            <strong>@lastRequest.Defender.Pokemon.Name</strong>
+            <strong data-swap="@lastRequest.Defender.Pokemon.Name">@lastRequest.Defender.Pokemon.Name</strong>
         </p>
+        @* 数字は data-count の span に分ける（見た目の文字は RangeText と同じ。入力を変えると前の結果から数え上げる） *@
         <p class="result-main mb-2">
-            <strong>@result.RangeText</strong>
-            <span class="ms-2 badge @(result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@result.KnockOut</span>
+            <strong><span data-count="@Inv(result.MinPercent)" data-count-dec="1">@($"{result.MinPercent:0.0}")</span>〜<span data-count="@Inv(result.MaxPercent)" data-count-dec="1">@($"{result.MaxPercent:0.0}")</span>% (<span data-count="@result.MinDamage">@result.MinDamage</span>〜<span data-count="@result.MaxDamage">@result.MaxDamage</span>)</strong>
+            <span class="ms-2 badge @(result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")" data-pop="@result.KnockOut">@result.KnockOut</span>
             @if (result.TypeEffectiveness != 1.0)
             {
-                <span class="ms-2 badge bg-secondary">@result.EffectivenessText</span>
+                <span class="ms-2 badge bg-secondary" data-pop="@result.EffectivenessText">@result.EffectivenessText</span>
             }
         </p>
+        @RenderHpBar(result, lastRequest)
         <p class="mb-1"><strong>防御側 HP:</strong> @result.DefenderHP　<strong>攻撃実数値:</strong> @result.AttackStat　<strong>防御実数値:</strong> @result.DefenseStat　<strong>威力:</strong> @result.BasePower（@TypeNames.ToJapanese(result.MoveType)）</p>
         @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
         {
             <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data!.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>
         }
-        <p class="mb-1"><strong>乱数:</strong> <span class="font-monospace">@string.Join(" ", result.Rolls)</span></p>
+        @RenderRolls(result, lastRequest)
         @if (result.Modifiers.Count > 0)
         {
             <p class="mb-1"><strong>補正:</strong> @string.Join("、", result.Modifiers)</p>
@@ -742,6 +744,74 @@ else if (data is not null && dataSet is not null)
         <hr />
         <p class="mb-1 text-muted small">チャットでの表示</p>
         <div class="alert alert-light border chat-output mb-0">@DamageCommand.Format(lastRequest, result, data!.Info)</div>
+    };
+
+    private static string Inv(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Pct(double v) => Inv(Math.Max(0, v)) + "%";
+
+    /// <summary>HP バーの起点にする HP（防御側の今の HP。最大 HP を超えない）。</summary>
+    private static int StartHp(DamageResult result, DamageRequest lastRequest) =>
+        Math.Max(1, Math.Min(lastRequest.Defender.CurrentHp, result.DefenderHP));
+
+    /// <summary>
+    /// 防御側の HP バー。必ず残る HP（最大ダメージ後）・乱数で減る幅・必ず減る HP（最小ダメージ分）の 3 つを、
+    /// 今の HP を起点に最大 HP に対する割合で描く。動き（前の結果からの伸び縮み・ポケモンを変えたときは満タンから）は wwwroot/js/motion.js が付ける。
+    /// </summary>
+    private RenderFragment RenderHpBar(DamageResult result, DamageRequest lastRequest) => __builder =>
+    {
+        var maxHp = result.DefenderHP;
+        var start = StartHp(result, lastRequest);
+        var immune = result.TypeEffectiveness == 0.0;
+        var minD = immune ? 0 : Math.Min(result.MinDamage, start);
+        var maxD = immune ? 0 : Math.Min(result.MaxDamage, start);
+        double P(int hp) => hp * 100.0 / maxHp;
+        var keep = P(start - maxD);
+        var level = keep > 50 ? "high" : keep > 20 ? "mid" : "low";
+        var name = lastRequest.Defender.Pokemon.Name;
+        <div class="hp-calc" data-hp-calc data-hp-key="@name" data-hp-immune="@(immune ? "1" : "0")" data-hp-start="@Pct(P(start))">
+            <div class="hp-calc-line">
+                <span class="hp-calc-name" data-swap="@name"><PokemonIcon Pokemon="lastRequest.Defender.Pokemon" Small="true" /> @name の HP@(start < maxHp ? $"（現在 {start}）" : "")</span>
+                <span class="hp-calc-left">@(immune ? $"{start} / {maxHp}（減らない）" : $"残り {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)} / {maxHp}")</span>
+            </div>
+            <div class="hp-calc-bar" role="img" aria-label="@(immune ? $"{name} の HP は減りません" : $"{name} の HP は残り {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)}（最大 {maxHp}）")">
+                <div class="hp-calc-gone" data-hp-part="gone" style="left:@Pct(P(start - minD));width:@Pct(P(minD))"></div>
+                <div class="hp-calc-fill" data-hp-part="fill" data-level="@level" style="left:0%;width:@Pct(keep)"></div>
+                <div class="hp-calc-range" data-hp-part="range" style="left:@Pct(keep);width:@Pct(P(maxD - minD));@(immune ? "display:none" : "")"></div>
+            </div>
+            <div class="hp-calc-legend">
+                <span><i class="hp-key-keep"></i>必ず残る HP</span>
+                <span><i class="hp-key-gone"></i>必ず減る HP</span>
+                <span><i class="hp-key-range"></i>乱数で減る幅</span>
+            </div>
+        </div>
+    };
+
+    /// <summary>
+    /// 乱数 16 通りのダメージを 8 列×2 行のマスで並べ、防御側の今の HP 以上（1 発で倒せる値）を赤枠にする。
+    /// 計算結果（Rolls・確定数）は変えず、並べ方と説明だけを付ける。
+    /// </summary>
+    private RenderFragment RenderRolls(DamageResult result, DamageRequest lastRequest) => __builder =>
+    {
+        var hp = StartHp(result, lastRequest);
+        var name = lastRequest.Defender.Pokemon.Name;
+        var immune = result.TypeEffectiveness == 0.0;
+        var ko = immune ? 0 : result.Rolls.Count(r => r >= hp);
+        var hpText = hp < result.DefenderHP ? $" 現在 HP {hp}" : $" HP {hp}";
+        var caption = immune ? "効果がないので、どの乱数でもダメージは 0 です。"
+            : ko == result.Rolls.Length ? $"赤い数字は、{name} の{hpText} 以上（1 発で倒せる）。16 通りすべてで倒せるので確定 1 発です。"
+            : ko > 0 ? $"赤い数字は、{name} の{hpText} 以上（1 発で倒せる）。16 通り中 {ko} 通りなので、1 発で倒せる確率は {ko * 100.0 / result.Rolls.Length:0.0}% です。"
+            : $"{name} の{hpText}。どの乱数でも 1 発では倒せません。";
+        <div class="rolls-block">
+            <p class="rolls-title">乱数 16 通りのダメージ <small>技のダメージは毎回この 16 通りのどれかになります</small></p>
+            <div class="rolls" data-rolls="@($"{string.Join(",", result.Rolls)};{hp}")">
+                @for (var i = 0; i < result.Rolls.Length; i++)
+                {
+                    <span style="--i:@i" class="@(!immune && result.Rolls[i] >= hp ? "ko" : "")">@result.Rolls[i]</span>
+                }
+            </div>
+            <p class="rolls-cap">@caption</p>
+        </div>
     };
 
     private static string StatColor(PokemonBuild build, Stat stat) =>
