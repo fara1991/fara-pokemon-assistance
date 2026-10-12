@@ -1,16 +1,27 @@
 {
-  // Cloudflare Workers（静的アセットのみ・Worker スクリプトなし）で公開する設定。
-  // 公開するのは dotnet publish の出力（publish/wwwroot）。
+  // Cloudflare Workers で公開する設定。
+  // サイト本体は dotnet publish の出力（publish/wwwroot）を静的アセットとして配信し、
+  // /api/*（登録データのクラウド同期）だけ Worker スクリプト（worker/index.js）を通す。
   //   本番:   npx wrangler deploy               → https://pokemon.fara-labs.com/          （deploy.yml・master への push）
   //   確認用: npx wrangler deploy --env develop → https://pokemon-dev.fara-labs.com/  （deploy-develop.yml・develop への push）
+  // 本番と確認用は Worker が別なので、同期データ（Durable Object）も別々。
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "fara-pokemon",
+  "main": "worker/index.js",
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "./publish/wwwroot",
+    "binding": "ASSETS",
     // /speed などを直接開いたときも index.html を返す（Blazor 側でページを切り替える）
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    // API だけ Worker スクリプトに渡す（それ以外は今までどおり静的アセット）
+    "run_worker_first": ["/api/*"]
   },
+  // 同期キーごとの置き場。SQLite ストレージの Durable Object（無料プランで使える）
+  "durable_objects": {
+    "bindings": [{ "name": "ROSTER", "class_name": "RosterSlot" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RosterSlot"] }],
   "workers_dev": false,
   "preview_urls": false,
   "routes": [
@@ -22,8 +33,15 @@
       "name": "fara-pokemon-dev",
       "assets": {
         "directory": "./publish/wwwroot",
-        "not_found_handling": "single-page-application"
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api/*"]
       },
+      // durable_objects はトップレベルから引き継がれないので、環境ごとに書く
+      "durable_objects": {
+        "bindings": [{ "name": "ROSTER", "class_name": "RosterSlot" }]
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RosterSlot"] }],
       "workers_dev": false,
       "preview_urls": false,
       "routes": [

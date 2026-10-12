@@ -35,3 +35,25 @@ jobs:
         with:
           name: FaraPokemonBattleAssistant.Core-nupkg
           path: artifacts/nuget/*.nupkg
+
+  worker:
+    # クラウド同期 API（worker/index.js）を wrangler dev で起動して確認する
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Dry run (production / develop)
+        run: |
+          mkdir -p publish/wwwroot && echo '<!doctype html><title>ci</title>' > publish/wwwroot/index.html
+          npx wrangler deploy --dry-run --env=""
+          npx wrangler deploy --dry-run --env develop
+
+      - name: API test
+        run: npm run test:worker
