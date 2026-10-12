@@ -16,6 +16,10 @@
 {
     <div class="alert alert-danger">@loadError</div>
 }
+@if (!string.IsNullOrEmpty(rosterError))
+{
+    <div class="alert alert-warning">@rosterError</div>
+}
 
 @if (dataSet is { CalcSupported: false })
 {
@@ -258,6 +262,7 @@ else if (data is not null && dataSet is not null)
     private PokemonDataSet? data;
     private UsageData? usage;
     private string loadError = "";
+    private string rosterError = "";
     private string errorMessage = "";
 
     private IReadOnlyList<Pokemon> pokemonList = Array.Empty<Pokemon>();
@@ -295,7 +300,7 @@ else if (data is not null && dataSet is not null)
             dataSet = App.DataSet;
             data = await Catalog.GetDataSetAsync(App.DataSetKey);
             usage = await data.GetUsageAsync(App.Format);
-            teamMembers = await Repo.ActiveTeamMembersAsync(App.DataSetKey, data);
+            (teamMembers, rosterError) = await RosterReading.ActiveTeamMembersAsync(Repo, App.DataSetKey, data);
             pokemonList = usage.IsEmpty
                 ? data.Pokemon
                 : data.Pokemon.OrderBy(p => usage.RankOf(p.Id)).ToList();

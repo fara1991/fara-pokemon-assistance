@@ -12,6 +12,11 @@
     <p class="text-muted mb-0">使用チームに同じポケモンがいれば、その構成が入ります。</p>
 </div>
 
+@if (!string.IsNullOrEmpty(rosterError))
+{
+    <div class="alert alert-warning">@rosterError</div>
+}
+
 @if (dataSet is { CalcSupported: false })
 {
     <CalcUnsupported DataSet="dataSet" Feature="素早さ比較" />
@@ -141,6 +146,7 @@ else if (data is not null && dataSet is not null)
     private DataSetInfo? dataSet;
     private PokemonDataSet? data;
     private IReadOnlyList<(RegisteredPokemon Entry, Item? Item)> teamMembers = Array.Empty<(RegisteredPokemon, Item?)>();
+    private string rosterError = "";
 
     private Item? Scarf => data?.Items.FirstOrDefault(i => i.Id == 264);
 
@@ -172,7 +178,7 @@ else if (data is not null && dataSet is not null)
     {
         dataSet = App.DataSet;
         data = await Catalog.GetDataSetAsync(App.DataSetKey);
-        teamMembers = await Repo.ActiveTeamMembersAsync(App.DataSetKey, data);
+        (teamMembers, rosterError) = await RosterReading.ActiveTeamMembersAsync(Repo, App.DataSetKey, data);
         if (s.DataSetKey != App.DataSetKey)
         {
             s.DataSetKey = App.DataSetKey;
