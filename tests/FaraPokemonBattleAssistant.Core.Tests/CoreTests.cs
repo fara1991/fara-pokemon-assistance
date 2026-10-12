@@ -550,8 +550,11 @@ public class PokeCommandTests
         Assert.True((await cmd.ExecuteAsync("!pokesv add team 1 1 こだわりスカーフ")).Success);
         Assert.True((await cmd.ExecuteAsync("!pokesv use team 1")).Success);
 
-        var diff = await cmd.ExecuteAsync("!pokesv diff ガブリアス ハバタクカミ");
+        var diff = await cmd.ExecuteAsync("!pokesv speed ガブリアス ハバタクカミ");
         Assert.True(diff.Success, diff.Message);
+        // 旧名の diff も同じ結果を返す
+        var oldName = await cmd.ExecuteAsync("!pokesv diff ガブリアス ハバタクカミ");
+        Assert.Equal(diff.Message, oldName.Message);
         Assert.Contains("こだわりスカーフ", diff.Message);
         Assert.Contains("最速", diff.Message);
         Assert.Contains("抜ける", diff.Message);
@@ -626,10 +629,10 @@ public class PokeCommandTests
         Assert.Equal(StatusCondition.Poison, poisoned.Request!.Defender.Status);
         Assert.True(poisoned.Damage!.KnockOut.Hits <= plain.Damage.KnockOut.Hits);
 
-        var diff = await cmd.ExecuteAsync("!pokesv diff ガブリアス ハバタクカミ まひ");
+        var diff = await cmd.ExecuteAsync("!pokesv speed ガブリアス ハバタクカミ まひ");
         Assert.True(diff.Success, diff.Message);
         Assert.Contains("(まひ)", diff.Message);
-        var selfPara = await cmd.ExecuteAsync("!pokesv diff ガブリアス ハバタクカミ 自:まひ");
+        var selfPara = await cmd.ExecuteAsync("!pokesv speed ガブリアス ハバタクカミ 自:まひ");
         Assert.Contains("まひ(0.5倍)", selfPara.Message);
     }
 
