@@ -121,6 +121,7 @@ dotnet test tests/FaraPokemonBattleAssistant.Core.Tests
 dotnet run --project src/FaraPokemonBattleAssistant.Web      # https://localhost:52017
 npm ci && npm run preview                                # Cloudflare と同じ動きで http://localhost:8787
 npm run check                                            # dotnet publish + wrangler deploy --dry-run（本番・develop）
+npm run test:worker                                      # クラウド同期 API（worker/index.js）を wrangler dev で確認
 ```
 
 ### 計算で考慮しているもの
@@ -146,7 +147,7 @@ npm run check                                            # dotnet publish + wran
 
 ## 公開（Cloudflare Workers）
 
-`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（静的アセットのみの Worker `fara-pokemon`。設定は `wrangler.jsonc`）。
+`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon`。設定は `wrangler.jsonc`）。サイト本体は静的アセットで、`/api/*` だけ Worker スクリプト（`worker/index.js`）を通ります。
 手動で公開し直すときは **Actions → Deploy to Cloudflare Workers → Run workflow**。
 
 `develop` への push（PR のマージ含む）では `deploy-develop.yml` が確認用の https://pokemon-dev.fara-labs.com/ に公開します（Worker `fara-pokemon-dev`。検索エンジンには載らないよう `X-Robots-Tag: noindex` を付けています）。本番には影響しません。
@@ -158,6 +159,22 @@ npm run check                                            # dotnet publish + wran
 |---|---|---|
 | Secrets | `CLOUDFLARE_API_TOKEN` | Cloudflare の API トークン（テンプレート Edit Cloudflare Workers、ゾーン `fara-labs.com`） |
 | Variables | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare のアカウント ID |
+
+### 登録データのクラウド同期 API
+
+登録ポケモン・チーム（`RosterState` の JSON）を、サイトとボットで同じ場所に保存するための API です（`worker/index.js`）。
+同期キーごとに SQLite ストレージの Durable Object（`RosterSlot`）を 1 つ持ちます。本番と確認用は Worker が別なので、データも別々です。
+
+| メソッド | 内容 |
+|---|---|
+| `GET /api/roster` | `200 {"revision": n, "roster": {...} または null}` |
+| `PUT /api/roster` | 本文 `{"baseRevision": n, "roster": {...}}`。`baseRevision` が現在と同じなら保存して `200 {"revision": n+1}`、違えば `409 {"revision": 現在, "roster": 現在}`。256 KB を超えると `413` |
+| `DELETE /api/roster` | 置き場を消す（キーの作り直し用）。`204`。以後そのキーは `410` |
+
+- 認証は `Authorization: Bearer <同期キー>`。同期キーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもので、形式が違えば `401`
+- サーバーはキーを保存せず、`SHA-256(キー)` を Durable Object の名前に使います。キーはログ・URL・エラーメッセージに出しません
+- すべての応答に `Cache-Control: no-store`。CORS ヘッダーは付けません（サイトは同じオリジン、ボットはブラウザではないため）
+- 確認用サイト（Cloudflare Access の内側）では、`/api/roster` を Access の **Bypass** にしないとボットから使えません（キーで認証するので Access は不要）
 
 Cloudflare の DNS に `pokemon` / `pokemon-dev` のレコード（GitHub Pages 時代の CNAME など）が残っていると、カスタムドメインの作成で失敗します。削除してから再実行してください。
 
