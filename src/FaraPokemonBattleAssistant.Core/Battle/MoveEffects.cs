@@ -18,6 +18,8 @@ public static class MoveEffects
     public const int MoveIdHex = 506;
     public const int MoveIdInfernalParade = 844;
     public const int MoveIdBarbBarrage = 839;
+    public const int MoveIdSmellingSalts = 265;
+    public const int MoveIdWakeUpSlap = 358;
     public const int MoveIdMeteorBeam = 800;
     public const int MoveIdElectroShot = 905;
     public const int MoveIdRagingBull = 873;
@@ -107,11 +109,13 @@ public static class MoveEffects
         _ => moveType,
     };
 
-    /// <summary>相手の状態異常で威力が 2 倍になる技（たたりめ・たたりびは状態異常のとき、どくばりセンボンはどく・もうどくのとき）。</summary>
+    /// <summary>相手の状態異常で威力が 2 倍になる技（たたりめ・たたりびは状態異常のとき、どくばりセンボンはどく・もうどくのとき、きつけはまひ、めざましビンタはねむり）。</summary>
     public static bool DoublesAgainstStatus(Move move, StatusCondition defenderStatus) => move.Id switch
     {
         MoveIdHex or MoveIdInfernalParade => defenderStatus != StatusCondition.None,
         MoveIdBarbBarrage => defenderStatus is StatusCondition.Poison or StatusCondition.BadlyPoisoned,
+        MoveIdSmellingSalts => defenderStatus == StatusCondition.Paralysis,
+        MoveIdWakeUpSlap => defenderStatus == StatusCondition.Sleep,
         _ => false,
     };
 

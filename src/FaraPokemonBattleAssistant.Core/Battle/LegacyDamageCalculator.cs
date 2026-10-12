@@ -420,6 +420,9 @@ internal sealed partial class LegacyDamageCalculator
 
         if (atkAbility == "guts" && attacker.Status != StatusCondition.None && isPhysical || Pinch(attacker, atkAbility, moveType))
             Add(6144, $"{atkName}({statName}1.5倍)");
+        else if (atkAbility == "toxic-boost" && isPhysical && attacker.Status is StatusCondition.Poison or StatusCondition.BadlyPoisoned
+                 || atkAbility == "flare-boost" && !isPhysical && attacker.Status == StatusCondition.Burn)
+            Add(6144, $"{atkName}({StatusNames.Japanese(attacker.Status)}で{statName}1.5倍)");
         else if (atkAbility == "solar-power" && weather == Weather.Sun && !isPhysical) Add(6144, $"{atkName}({statName}1.5倍)");
         else if (atkAbility == "defeatist" && attacker.CurrentHp * 2 <= attacker.MaxHp) Add(2048, $"{atkName}({statName}0.5倍)");
         else if (atkAbility is "huge-power" or "pure-power" && isPhysical) Add(8192, $"{atkName}({statName}2倍)");
@@ -444,6 +447,9 @@ internal sealed partial class LegacyDamageCalculator
         else if (atkAbility == "solar-power" && weather == Weather.Sun && !isPhysical) Add(6144, $"{atkName}({statName}1.5倍)");
         else if (atkAbility == "guts" && attacker.Status != StatusCondition.None && isPhysical || Pinch(attacker, atkAbility, moveType))
             Add(6144, $"{atkName}({statName}1.5倍)");
+        else if (atkAbility == "toxic-boost" && isPhysical && attacker.Status is StatusCondition.Poison or StatusCondition.BadlyPoisoned
+                 || atkAbility == "flare-boost" && !isPhysical && attacker.Status == StatusCondition.Burn)
+            Add(6144, $"{atkName}({StatusNames.Japanese(attacker.Status)}で{statName}1.5倍)");
         else if (atkAbility == "steelworker" && moveType == "Steel") Add(6144, $"{atkName}({statName}1.5倍)");
         else if (atkAbility == "water-bubble" && moveType == "Water" || atkAbility is "huge-power" or "pure-power" && isPhysical)
             Add(8192, $"{atkName}({statName}2倍)");
