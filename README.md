@@ -18,7 +18,8 @@ fara-pokemon-battle-assistant/
 ├── tools/
 │   ├── sync_data.py                  公開データとポケモン HOME からデータを再生成するスクリプト
 │   ├── datasets.json                 データセット定義（世代・バージョングループ・HOME 設定）
-│   └── item_effects.csv              持ち物の効果（手入力）
+│   ├── item_effects.csv              持ち物の効果（手入力）
+│   └── ability_names_ja.csv          PokeAPI に日本語名がまだ無い特性の補完表（手入力。sync_data.py が適用、英語のまま残ると警告）
 └── .github/workflows/
     ├── build.yml                     ビルド・テスト・NuGet パッケージ化
     ├── deploy.yml                    master へ push されたら Cloudflare Workers（本番）に公開
