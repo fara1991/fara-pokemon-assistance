@@ -92,6 +92,14 @@
 }
 
 @media (min-width: 768px) {
+    /* サイドバー(230px)の中で左右の余白がそろうよう、少し小さくして 1 行に収める */
+    .navbar-brand {
+        font-size: 0.98rem;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        margin-right: 0;
+    }
+
     .navbar-toggler {
         display: none;
     }

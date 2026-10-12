@@ -21,14 +21,14 @@ else if (data is not null)
         <div class="card-header"><h5>ダメージ計算のコマンドを組み立てる</h5></div>
         <div class="card-body">
             <div class="row g-2">
-                <div class="col-md-2">
+                <div class="col-md-4 col-xl-3">
                     <label class="form-label">種類 <Help Title="dmg と calc">dmg はダメージと確定数、calc は受けたダメージから相手の努力値を推定します。</Help></label>
                     <select class="form-select" value="@s.Kind" @onchange="@(e => { s.Kind = e.Value?.ToString() ?? "dmg"; BuildText(); })">
                         <option value="dmg">dmg（ダメージ）</option>
                         <option value="calc">calc（努力値推定）</option>
                     </select>
                 </div>
-                <div class="col-md-5">
+                <div class="col-md-8 col-xl-4">
                     <label class="form-label">攻撃側ポケモン</label>
                     <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
                         SelectedValue="@(s.Attacker?.Id.ToString() ?? "")" SelectedValueChanged="@OnAttackerChanged" Placeholder="ポケモン名を入力...">

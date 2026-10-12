@@ -22,7 +22,7 @@
                 </div>
                 @if (abilityChoices.Count > 0)
                 {
-                <div class="form-group">
+                <div class="form-group dex-select-field">
                     <label>特性</label>
                     <SearchableSelect TItem="Ability" Items="abilityChoices" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
                         SelectedValue="@(f.AbilityId == 0 ? "" : f.AbilityId.ToString())" SelectedValueChanged="@(v => { f.AbilityId = ParseId(v); Refresh(); })"
@@ -32,7 +32,7 @@
                 @for (var i = 0; i < 2; i++)
                 {
                     var slot = i;
-                    <div class="form-group">
+                    <div class="form-group dex-select-field">
                         <label>覚える技@(slot + 1)</label>
                         <SearchableSelect TItem="Move" Items="moveChoices" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
                             SelectedValue="@(MoveAt(slot) == 0 ? "" : MoveAt(slot).ToString())" SelectedValueChanged="@(v => SetMove(slot, ParseId(v)))"
@@ -78,7 +78,7 @@
                             <option value="@sort">@(sort == PokedexSort.Dex ? "並べ替えなし（図鑑順）" : label)</option>
                         }
                     </select>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" title="昇順 → 降順 → 並べ替えなし" @onclick="() => SortBy(f.Sort)">@SortStateText()</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="押すたびに 昇順 → 降順 → 並べ替えなし（図鑑順）と切り替わります" aria-label="並べ替えの向きを切り替え" @onclick="() => SortBy(f.Sort)">@SortStateText()</button>
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" @onclick="ClearFilters">条件をクリア</button>
             </div>
@@ -110,7 +110,7 @@
             <div class="dex-item @(s.SelectedId == p.Id ? "selected" : "")" @key="p.Id">
                 <div class="dex-row" role="row" @onclick="() => s.SelectedId = s.SelectedId == p.Id ? 0 : p.Id">
                     <div class="dex-no">@Pokedex.DexNumber(p).ToString("0000")</div>
-                    <div class="dex-name"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name@(p.IsProvisional ? "※未収録" : "")</span></div>
+                    <div class="dex-name"><PokemonIcon Pokemon="p" Small="true" /><span>@PokemonNameText(p)@(p.IsProvisional ? "※未収録" : "")</span></div>
                     <div class="dex-types-cell"><PokemonTypes Pokemon="p" Small="true" /></div>
                     <div class="dex-abilities">@(abilityChoices.Count == 0 ? "（特性なし）" : AbilityText(p))</div>
                     <div class="dex-stat" data-label="H">@p.BaseStats.HP</div>
@@ -252,8 +252,21 @@
         : s.Filter.Descending ? $"{label}の降順で並べ替え中（押すと並べ替えなし）" : $"{label}の昇順で並べ替え中（押すと降順）";
 
     private string SortStateText() =>
-        s.Filter.Sort == PokedexSort.Dex ? (s.Filter.Descending ? "▼ 降順" : "並べ替えなし")
-        : s.Filter.Descending ? "▼ 降順" : "▲ 昇順";
+        s.Filter.Descending ? "▼ 降順" : "▲ 昇順";
+
+    /// <summary>名前と括弧のフォーム名を分け、括弧の前で折り返す（括弧の中は途中で折り返さない）。</summary>
+    private static RenderFragment PokemonNameText(Pokemon p) => __builder =>
+    {
+        var i = p.Name.IndexOfAny(new[] { '(', '（' });
+        if (i <= 0)
+        {
+            @p.Name
+        }
+        else
+        {
+            @p.Name[..i]<wbr /><span class="dex-form">@p.Name[i..]</span>
+        }
+    };
 
     private static string ShortLabel(PokedexSort sort) => sort switch
     {
