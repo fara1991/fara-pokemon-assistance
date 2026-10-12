@@ -19,7 +19,7 @@ public sealed class PokeCommandOptions
 /// <list type="bullet">
 /// <item><c>add 名前 H A B C D S 性格 [特性]</c> 登録、<c>ls [名前]</c> 一覧、<c>more ID</c> 詳細、<c>rm ID</c> 削除</item>
 /// <item><c>add team 番号 ID [持ち物]</c>、<c>rm team 番号 [名前]</c>、<c>use team 番号</c>、<c>ls team</c>、<c>more team 番号</c></item>
-/// <item><c>dmg 攻撃側 技±ランク 防御側 [オプション]</c> 通常と急所、<c>calc 攻撃側 技±ランク 防御側 受けたダメージ[%]</c> 努力値推定、<c>speed 自分 相手</c> 素早さ比較（旧名 diff も同じ）</item>
+/// <item><c>dmg 攻撃側 技±ランク 防御側 [オプション]</c> 通常と急所、<c>calc 攻撃側 技±ランク 防御側 受けたダメージ[%]</c> 努力値推定、<c>faster 自分 相手</c> 素早さ比較</item>
 /// </list>
 /// 使用チームに入っているポケモンは、その努力値・性格・特性・持ち物で計算される。
 /// </summary>
@@ -40,7 +40,7 @@ public sealed class PokeCommand
     }
 
     public static string Usage(string prefix) =>
-        $"!{prefix} add 名前 H A B C D S 性格 | ls [名前] | more ID | rm ID | add team 番号 ID [持ち物] | rm team 番号 [名前] | use team 番号 | unuse team | ls team | more team 番号 | dmg 攻撃 技±ランク 防御 | calc 攻撃 技 防御 ダメージ | speed 自分 相手";
+        $"!{prefix} add 名前 H A B C D S 性格 | ls [名前] | more ID | rm ID | add team 番号 ID [持ち物] | rm team 番号 [名前] | use team 番号 | unuse team | ls team | more team 番号 | dmg 攻撃 技±ランク 防御 | calc 攻撃 技 防御 ダメージ | faster 自分 相手";
 
     /// <summary>メッセージがこのコマンド群のものかを判定し、接頭辞と残りを返す。</summary>
     public async Task<(DataSetInfo DataSet, string Arguments)?> MatchAsync(string message, CancellationToken ct = default)
@@ -70,7 +70,7 @@ public sealed class PokeCommand
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
         return "登録: add 名前 H A B C D S 性格 [特性] / ls [名前] / more ID / rm ID ｜ " +
                "チーム: add team 番号 ID [持ち物] / rm team 番号 [名前] / use team 番号 / unuse team / ls team / more team 番号 ｜ " +
-               "計算: dmg 攻撃 技±ランク 防御 [努力値 性格 持ち物 特性 急所 やけど どく まひ 天候 …] / calc 攻撃 技 防御 ダメージ[%] / speed 自分 相手 [まひ] ｜ " +
+               "計算: dmg 攻撃 技±ランク 防御 [努力値 性格 持ち物 特性 急所 やけど どく まひ 天候 …] / calc 攻撃 技 防御 ダメージ[%] / faster 自分 相手 [まひ] ｜ " +
                $"接頭辞: {prefixes}（!poke はチャンピオンズ）";
     }
 
@@ -141,7 +141,7 @@ public sealed class PokeCommand
             case "use" when isTeam || args.Count > 0: return await UseTeamAsync(ds, args, options, ct).ConfigureAwait(false);
             case "dmg" or "damage": return await DamageAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "calc" or "ev": return await CalcAsync(ds, data, args, options, ct).ConfigureAwait(false);
-            case "speed" or "diff" or "spd": return await DiffAsync(ds, data, args, options, ct).ConfigureAwait(false);
+            case "faster": return await DiffAsync(ds, data, args, options, ct).ConfigureAwait(false);
             default: return Fail($"不明なサブコマンド「{tokens[0]}」。{Usage(ds.CommandPrefix)}");
         }
     }
@@ -278,7 +278,7 @@ public sealed class PokeCommand
     {
         if (!options.AllowMutations) return Fail("使用チームの変更は配信者・モデレーターのみ行えます");
         return await _roster.ClearActiveTeamAsync(ds.Key, ct).ConfigureAwait(false)
-            ? Ok("使用チームを解除しました。以降の dmg / calc / speed は使用率に基づく既定値で計算します")
+            ? Ok("使用チームを解除しました。以降の dmg / calc / faster は使用率に基づく既定値で計算します")
             : Ok("使用中のチームはありません");
     }
 
@@ -288,7 +288,7 @@ public sealed class PokeCommand
         if (args.Count == 0 || !int.TryParse(args[0], out var teamNo))
             return Fail($"書式: !{ds.CommandPrefix} use team チーム番号");
         return await _roster.UseTeamAsync(ds.Key, teamNo, ct).ConfigureAwait(false)
-            ? Ok($"チーム{teamNo} を使用します。以降の dmg / calc / speed はこのチームの構成で計算します")
+            ? Ok($"チーム{teamNo} を使用します。以降の dmg / calc / faster はこのチームの構成で計算します")
             : Fail($"チーム{teamNo} はありません");
     }
 
@@ -454,7 +454,7 @@ public sealed class PokeCommand
 
     private async Task<DamageCommandResult> DiffAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (args.Count < 2) return Fail($"書式: !{ds.CommandPrefix} speed 自分のポケモン 相手のポケモン [+1 晴れ まひ 自:まひ など]");
+        if (args.Count < 2) return Fail($"書式: !{ds.CommandPrefix} faster 自分のポケモン 相手のポケモン [+1 晴れ まひ 自:まひ など]");
         var resolver = DamageCommand.CreatePokemonResolver(data);
         var mineMatch = resolver.Resolve(args[0]);
         if (!mineMatch.IsResolved) return Fail(NotFound("ポケモン", args[0], mineMatch.Candidates.Select(p => p.Name)));

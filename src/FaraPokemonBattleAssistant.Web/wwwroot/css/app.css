@@ -414,21 +414,31 @@ body {
 
 /* ---- 性格（上昇・下降のボタン） ---- */
 .nature-picker {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: 0.35rem;
     container-type: inline-size;
 }
 
-.nature-picker > .searchable-select {
-    grid-column: 1 / -1;
+.nature-rows {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.35rem;
 }
 
 /* 幅が足りるところ（PC の広い枠）では「上昇」と「下降」を 1 行に並べる。足りないところ・スマホは 2 行のまま */
-@container (min-width: 33rem) {
-    .nature-picker {
+@container (min-width: 27rem) {
+    .nature-rows {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        column-gap: 1.25rem;
+        column-gap: 0.9rem;
+    }
+
+    .nature-rows .nature-row-label {
+        flex-basis: 1.9rem;
+    }
+
+    .nature-rows .nature-buttons {
+        gap: 0.12rem;
     }
 }
 
@@ -495,7 +505,7 @@ body {
     min-width: 0;
 }
 
-.cmd-build .cmd-f-kind { flex: 0 0 12.5rem; }
+.cmd-build .cmd-f-kind { flex: 0 0 11.5rem; }
 .cmd-build .cmd-f-num { flex: 0 0 8.5rem; }
 .cmd-build .cmd-f-nature { flex: 0 0 9.5rem; }
 .cmd-build .cmd-f-ability { flex: 0 0 10rem; }
@@ -512,11 +522,11 @@ body {
 .cmd-evs .form-control {
     width: 3.4rem;
 }
-.cmd-build .cmd-f-poke { flex: 1 1 10rem; }
-.cmd-build .cmd-f-move { flex: 1 1 10rem; }
-.cmd-build .cmd-f-weather { flex: 0 0 6.5rem; }
-.cmd-build .cmd-f-terrain { flex: 0 0 9rem; }
-.cmd-build .cmd-f-damage { flex: 0 0 8rem; }
+.cmd-build .cmd-f-poke { flex: 1 1 8.5rem; }
+.cmd-build .cmd-f-move { flex: 1 1 8.5rem; }
+.cmd-build .cmd-f-weather { flex: 0 0 6.2rem; }
+.cmd-build .cmd-f-terrain { flex: 0 0 8.4rem; }
+.cmd-build .cmd-f-damage { flex: 0 0 7.5rem; }
 
 .cmd-build .form-label {
     white-space: nowrap;

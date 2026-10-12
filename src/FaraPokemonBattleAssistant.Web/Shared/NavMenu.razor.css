@@ -33,11 +33,11 @@
 
 .nav-item {
     font-size: 0.9rem;
-    padding-bottom: 0.5rem;
+    padding-bottom: 0.3rem;
 }
 
 .nav-item:first-of-type {
-    padding-top: 1rem;
+    padding-top: 0.75rem;
 }
 
 .nav-item:last-of-type {
@@ -66,10 +66,10 @@
 .nav-item ::deep a {
     color: #d7d7d7;
     border-radius: 4px;
-    height: 3rem;
+    height: 2.6rem;
     display: flex;
     align-items: center;
-    line-height: 3rem;
+    line-height: 2.6rem;
     padding-left: 1rem;
     text-decoration: none;
 }
@@ -89,10 +89,10 @@
     color: #d7d7d7;
     opacity: 0.4;
     border-radius: 4px;
-    height: 3rem;
+    height: 2.6rem;
     display: flex;
     align-items: center;
-    line-height: 3rem;
+    line-height: 2.6rem;
     padding-left: 1rem;
     cursor: not-allowed;
     user-select: none;

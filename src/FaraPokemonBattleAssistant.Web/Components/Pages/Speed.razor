@@ -348,7 +348,7 @@ else if (data is not null && dataSet is not null)
     {
         if (speedA == speedB) return "同速（どちらが先かはランダム）";
         var first = MovesFirst(speedA, speedB) ? a : b;
-        return s.TrickRoom ? $"先手: {first.Pokemon.Name}（トリックルーム）" : $"先手: {first.Pokemon.Name}";
+        return s.TrickRoom ? $"先手: {first.Pokemon.Name}（トリックルーム中なので、遅い{first.Pokemon.Name}が先に動く）" : $"先手: {first.Pokemon.Name}";
     }
 
     /// <summary>
