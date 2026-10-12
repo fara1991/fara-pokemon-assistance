@@ -10,7 +10,7 @@ using Xunit;
 namespace FaraPokemonBattleAssistant.Core.Tests;
 
 /// <summary>
-/// クラウド同期 API（worker/index.js）と同じ動きをするメモリ上の偽サーバー。
+/// データ連携 API（worker/index.js）と同じ動きをするメモリ上の偽サーバー。
 /// </summary>
 internal sealed class FakeRosterServer : HttpMessageHandler
 {
@@ -190,7 +190,7 @@ public class RosterSyncTests
         var (_, store) = NewRemote(server);
         var ex = await Assert.ThrowsAsync<RosterUnavailableException>(() => store.LoadAsync());
         Assert.Equal(RosterUnavailableReason.Unauthorized, ex.Reason);
-        Assert.Contains("同期キーが正しくありません", ex.Message);
+        Assert.Contains("アクセスキーが正しくありません", ex.Message);
     }
 
     [Fact]
@@ -327,7 +327,7 @@ public class RosterSyncTests
         var cmd = new FaraPokemonBattleAssistant.Core.Text.PokeCommand(TestData.Catalog(), new RosterRepository(store));
         var result = await cmd.ExecuteAsync("!pokech ls");
         Assert.False(result.Success);
-        Assert.Contains("同期キーが正しくありません", result.Message);
+        Assert.Contains("アクセスキーが正しくありません", result.Message);
         Assert.DoesNotContain(Key, result.Message);
     }
 

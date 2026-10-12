@@ -1,4 +1,4 @@
-// 登録データ（ポケモン・チーム）のクラウド同期 API。
+// 登録データ（ポケモン・チーム）のデータ連携 API。
 //
 // サイト本体（静的アセット）は今までどおり Cloudflare が配信し、/api/* だけがこのスクリプトを通る
 // （wrangler.jsonc の assets.run_worker_first）。
@@ -8,7 +8,7 @@
 //                       → 200 {"revision": n+1} / 409 {"revision": 現在, "roster": 現在}
 //   DELETE /api/roster  → 204（キーの作り直しで古い置き場を消す。以後そのキーは 410）
 //
-// 認証は "Authorization: Bearer <同期キー>"。同期キーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもの。
+// 認証は "Authorization: Bearer <アクセスキー>"。アクセスキーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもの。
 // サーバーはキーそのものを保存しない。SHA-256(キー) の 16 進を Durable Object の名前にして、キーごとに 1 つの置き場を持つ。
 // キーはログ・エラーメッセージ・URL に出さない（このファイルでは console.* を使わない）。
 
@@ -127,7 +127,7 @@ async function handleApi(request, env, url) {
 
   const key = readKey(request);
   if (key === null)
-    return error(401, "unauthorized", "同期キーが正しくありません", { "WWW-Authenticate": 'Bearer realm="roster"' });
+    return error(401, "unauthorized", "アクセスキーが正しくありません", { "WWW-Authenticate": 'Bearer realm="roster"' });
 
   // Durable Object にはキーを渡さない（名前は SHA-256 のみ）
   const stub = env.ROSTER.get(env.ROSTER.idFromName(await sha256Hex(key)));
@@ -148,7 +148,7 @@ async function handleApi(request, env, url) {
 }
 
 /**
- * 同期キー 1 つ分の置き場（SQLite ストレージの Durable Object）。
+ * アクセスキー 1 つ分の置き場（SQLite ストレージの Durable Object）。
  * 名前ごとにインスタンスは 1 つだけで、リクエストは 1 つずつ処理されるので、revision の比較と保存の間に別の書き込みは入らない。
  *
  * ストレージ: "revision"（数値）・"roster"（JSON 文字列）・"deleted"（キーの作り直しで消した印）
@@ -164,7 +164,7 @@ export class RosterSlot extends DurableObject {
   }
 
   #gone() {
-    return error(410, "key_retired", "この同期キーは作り直されたため使えません。新しいキーを使ってください");
+    return error(410, "key_retired", "このアクセスキーは作り直されたため使えません。新しいアクセスキーを使ってください");
   }
 
   #current(status, revision, rosterJson) {

@@ -1,10 +1,10 @@
 {
   // Cloudflare Workers で公開する設定。
   // サイト本体は dotnet publish の出力（publish/wwwroot）を静的アセットとして配信し、
-  // /api/*（登録データのクラウド同期）だけ Worker スクリプト（worker/index.js）を通す。
+  // /api/*（登録データのデータ連携）だけ Worker スクリプト（worker/index.js）を通す。
   //   本番:   npx wrangler deploy               → https://pokemon.fara-labs.com/          （deploy.yml・master への push）
   //   確認用: npx wrangler deploy --env develop → https://pokemon-dev.fara-labs.com/  （deploy-develop.yml・develop への push）
-  // 本番と確認用は Worker が別なので、同期データ（Durable Object）も別々。
+  // 本番と確認用は Worker が別なので、登録データ（Durable Object）も別々。
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "fara-pokemon",
   "main": "worker/index.js",
@@ -17,7 +17,7 @@
     // API だけ Worker スクリプトに渡す（それ以外は今までどおり静的アセット）
     "run_worker_first": ["/api/*"]
   },
-  // 同期キーごとの置き場。SQLite ストレージの Durable Object（無料プランで使える）
+  // アクセスキーごとの置き場。SQLite ストレージの Durable Object（無料プランで使える）
   "durable_objects": {
     "bindings": [{ "name": "ROSTER", "class_name": "RosterSlot" }]
   },
