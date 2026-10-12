@@ -678,6 +678,9 @@ public sealed class DamageCalculator
             Add(6144, $"{atkName}({statName}1.5倍)");
         else if (attackerAbility == "guts" && attacker.Status != StatusCondition.None && isPhysical)
             Add(6144, $"{atkName}(状態異常で{statName}1.5倍)");
+        else if (attackerAbility == "toxic-boost" && isPhysical && attacker.Status is StatusCondition.Poison or StatusCondition.BadlyPoisoned
+                 || attackerAbility == "flare-boost" && !isPhysical && attacker.Status == StatusCondition.Burn)
+            Add(6144, $"{atkName}({StatusNames.Japanese(attacker.Status)}で{statName}1.5倍)");
         else if (pinch)
             Add(6144, $"{atkName}(HP1/3以下 1.5倍)");
         else if (attackerAbility == "steelworker" && moveType == "Steel" || attackerAbility == "dragons-maw" && moveType == "Dragon"
@@ -1006,10 +1009,24 @@ public sealed class KnockOutOptions
                 modifiers.Add($"{item.Name}(HP1/4以下で1/3回復)を確定数に反映");
                 break;
         }
+        // ポイズンヒール: どく・もうどくで毎ターン 1/8 回復（定数ダメージの代わり）。マジックガード: 状態異常の定数ダメージを受けない
+        var residualStatus = defender.Status;
+        var defenderAbility = defender.Ability?.Identifier;
+        if (defenderAbility == "poison-heal" && defender.Status is StatusCondition.Poison or StatusCondition.BadlyPoisoned)
+        {
+            eot += Math.Max(1, maxHp / 8);
+            residualStatus = StatusCondition.None;
+            modifiers.Add($"{defender.Ability!.Name}(毎ターン1/8回復)を確定数に反映");
+        }
+        else if (defenderAbility == "magic-guard" && defender.Status != StatusCondition.None)
+        {
+            residualStatus = StatusCondition.None;
+            modifiers.Add($"{defender.Ability!.Name}(状態異常の定数ダメージなし)を確定数に反映");
+        }
         return new KnockOutOptions
         {
             StartHp = start,
-            Status = defender.Status,
+            Status = residualStatus,
             LaterRolls = laterRolls,
             EndOfTurnHeal = eot,
             BerryThreshold = threshold,

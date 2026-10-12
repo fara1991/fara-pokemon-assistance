@@ -9,6 +9,7 @@
         SelectedValueChanged="@(v => Change(Natures.FirstOrDefault(n => n.Name == v)))"
         Dropdown="true"
         Placeholder="性格名で探す..." />
+    <div class="nature-rows">
     @foreach (var (label, increased) in new[] { ("上昇", true), ("下降", false) })
     {
         var current = increased ? Value?.IncreasedStat : Value?.DecreasedStat;
@@ -30,6 +31,7 @@
             </div>
         </div>
     }
+    </div>
 </div>
 
 @code {

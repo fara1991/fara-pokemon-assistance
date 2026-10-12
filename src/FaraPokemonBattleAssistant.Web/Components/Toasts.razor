@@ -1,0 +1,29 @@
+@implements IDisposable
+@inject ToastService Toast
+
+@* 画面の右上に重ねて出す通知。成功は緑、警告は黄色、失敗は赤。スマホでは画面上部に全幅で出す *@
+<div class="toast-stack">
+    @foreach (var t in Toast.Items)
+    {
+        <div class="app-toast app-toast-@(t.Kind.ToString().ToLowerInvariant())" role="@(t.Kind == ToastKind.Error ? "alert" : "status")" @key="t.Id">
+            <i class="bi @IconOf(t.Kind) app-toast-icon" aria-hidden="true"></i>
+            <span class="app-toast-text">@t.Text</span>
+            <button type="button" class="app-toast-close" aria-label="通知を閉じる" @onclick="() => Toast.Dismiss(t.Id)"><span aria-hidden="true">×</span></button>
+        </div>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized() => Toast.Changed += OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private static string IconOf(ToastKind kind) => kind switch
+    {
+        ToastKind.Error => "bi-x-circle-fill",
+        ToastKind.Warning => "bi-exclamation-triangle-fill",
+        _ => "bi-check-circle-fill",
+    };
+
+    public void Dispose() => Toast.Changed -= OnChanged;
+}

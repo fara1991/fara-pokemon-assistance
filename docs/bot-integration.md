@@ -119,7 +119,7 @@ private async void TwitchClientOnMessageReceived(object? sender, OnMessageReceiv
 
 ```bash
 dotnet run --project src/FaraPokemonBattleAssistant.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコフィールド"
-dotnet run --project src/FaraPokemonBattleAssistant.Cli -- --data https://pokemon.fara-labs.com/data/ "!pokesv diff ガブリアス ハバタクカミ"
+dotnet run --project src/FaraPokemonBattleAssistant.Cli -- --data https://pokemon.fara-labs.com/data/ "!pokesv faster ガブリアス ハバタクカミ"
 ```
 
 ブラウザ: https://pokemon.fara-labs.com/command

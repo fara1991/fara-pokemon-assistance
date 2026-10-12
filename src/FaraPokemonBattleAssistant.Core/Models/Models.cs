@@ -39,6 +39,8 @@ public enum StatusCondition
     Poison,
     BadlyPoisoned,
     Paralysis,
+    Sleep,
+    Freeze,
 }
 
 public static class StatusNames
@@ -49,6 +51,8 @@ public static class StatusNames
         StatusCondition.Poison => "どく",
         StatusCondition.BadlyPoisoned => "もうどく",
         StatusCondition.Paralysis => "まひ",
+        StatusCondition.Sleep => "ねむり",
+        StatusCondition.Freeze => "こおり",
         _ => "なし",
     };
 
@@ -58,6 +62,8 @@ public static class StatusNames
         "どく" or "poison" or "psn" => StatusCondition.Poison,
         "もうどく" or "toxic" or "tox" => StatusCondition.BadlyPoisoned,
         "まひ" or "まひ状態" or "paralysis" or "para" or "par" => StatusCondition.Paralysis,
+        "ねむり" or "ねむり状態" or "ねむ" or "眠り" or "sleep" or "slp" => StatusCondition.Sleep,
+        "こおり" or "こおり状態" or "凍り" or "freeze" or "frz" => StatusCondition.Freeze,
         _ => null,
     };
 

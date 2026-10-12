@@ -3,7 +3,7 @@
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <span class="navbar-brand">Pokémon Battle Assistant</span>
+        <a class="navbar-brand" href="/" title="ホームへ" @onclick="CollapseNavMenu">Pokémon Battle Assistant</a>
         <button title="メニュー" class="navbar-toggler" @onclick="ToggleNavMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -35,20 +35,27 @@
     <nav class="flex-column side-nav" @onclick="CollapseNavMenu">
         @* 選択中の印。項目の間を滑って動く（位置は wwwroot/js/motion.js が決める） *@
         <span class="nav-indicator" aria-hidden="true"></span>
-        @foreach (var (href, label, needsCalc) in Items)
+        @foreach (var group in Groups)
         {
-            <div class="nav-item px-3">
-                @if (needsCalc && CalcDisabled)
-                {
-                    @* 未対応の世代: href を持たず、フォーカスもしない。押してもメニューを閉じない（何も起きない） *@
-                    <span class="nav-link nav-disabled" role="link" aria-disabled="true" tabindex="-1" title="@DisabledHint"
-                          @onclick:preventDefault @onclick:stopPropagation>@label</span>
-                }
-                else
-                {
-                    <NavLink class="nav-link" href="@href" Match="@(href.Length == 0 ? NavLinkMatch.All : NavLinkMatch.Prefix)">@label</NavLink>
-                }
-            </div>
+            @if (group.Title is not null)
+            {
+                <div class="nav-section px-3">@group.Title</div>
+            }
+            @foreach (var (href, label, icon, needsCalc) in group.Items)
+            {
+                <div class="nav-item px-3">
+                    @if (needsCalc && CalcDisabled)
+                    {
+                        @* 未対応の世代: href を持たず、フォーカスもしない。押してもメニューを閉じない（何も起きない） *@
+                        <span class="nav-link nav-disabled" role="link" aria-disabled="true" tabindex="-1" title="@DisabledHint"
+                              @onclick:preventDefault @onclick:stopPropagation><i class="bi @icon" aria-hidden="true"></i>@label</span>
+                    }
+                    else
+                    {
+                        <NavLink class="nav-link" href="@href" Match="@(href.Length == 0 ? NavLinkMatch.All : NavLinkMatch.Prefix)"><i class="bi @icon" aria-hidden="true"></i>@label</NavLink>
+                    }
+                </div>
+            }
         }
     </nav>
 </div>
@@ -56,17 +63,29 @@
 @code {
     private bool collapseNavMenu = true;
 
-    /// <summary>メニューの項目（needsCalc: 計算・登録に対応していないゲームでは選べない）。</summary>
-    private static readonly (string Href, string Label, bool NeedsCalc)[] Items =
+    private sealed record NavGroup(string? Title, (string Href, string Label, string Icon, bool NeedsCalc)[] Items);
+
+    /// <summary>メニューの項目（needsCalc: 計算・登録に対応していないゲームでは選べない）。見出しで分ける。</summary>
+    private static readonly NavGroup[] Groups =
     {
-        ("", "ホーム", false),
-        ("damage-calculator", "ダメージ計算機", true),
-        ("speed", "素早さ比較", true),
-        ("roster", "登録・チーム", true),
-        ("types", "タイプ相性表", false),
-        ("pokedex", "ポケモン一覧", false),
-        ("command", "チャットコマンド", true),
-        ("glossary", "用語・略語", false),
+        new(null, new[]
+        {
+            ("", "ホーム", "bi-house-door", false),
+            ("damage-calculator", "ダメージ計算機", "bi-calculator", true),
+            ("speed", "素早さ比較", "bi-speedometer2", true),
+            ("roster", "登録・チーム", "bi-people", true),
+            ("types", "タイプ相性表", "bi-grid-3x3-gap", false),
+            ("pokedex", "ポケモン一覧", "bi-list-ul", false),
+            ("glossary", "用語・略語", "bi-journal-text", false),
+        }),
+        new("配信者向け", new[]
+        {
+            ("command", "チャットコマンド", "bi-chat-dots", true),
+        }),
+        new("このサイトについて", new[]
+        {
+            ("about", "作者・問い合わせ", "bi-person", false),
+        }),
     };
 
     // 計算・登録に対応していないゲーム（昔の世代）では、使えない項目を選べなくする。

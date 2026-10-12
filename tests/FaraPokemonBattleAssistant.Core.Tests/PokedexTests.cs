@@ -36,7 +36,7 @@ public class PokedexTests
         var list = dex.Query(filter);
         Assert.NotEmpty(list);
         Assert.All(list, p => Assert.True(p.HasType("Electric") && data.CanLearn(p.Id, voltSwitch.Id)));
-        // すばやさの高い順（同じ値は図鑑順）
+        // 素早さの高い順（同じ値は図鑑順）
         Assert.True(list.Zip(list.Skip(1)).All(x => x.First.BaseStats.Speed >= x.Second.BaseStats.Speed));
 
         // 2 タイプは両方を持つポケモン

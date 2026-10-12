@@ -49,6 +49,12 @@ else if (data is not null && dataSet is not null)
                             </select>
                         </div>
                         }
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="speed-trick-room" checked="@s.TrickRoom" @onchange="@(e => s.TrickRoom = e.Value is true)" />
+                                <label class="form-check-label" for="speed-trick-room">トリックルーム <Help Title="トリックルーム">オンにすると、素早さが遅い方が先に動きます（同速のときの扱いは変わりません）。素早さの数値そのものは変わりません。</Help></label>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -79,21 +85,21 @@ else if (data is not null && dataSet is not null)
                             <div class="speed-versus">
                                 <div class="text-center">
                                     <div><PokemonLabel Build="a" Small="true" /></div>
-                                    <div class="speed-value @(speedA > speedB ? "text-success" : "")">S@(speedA)</div>
+                                    <div class="speed-value @(MovesFirst(speedA, speedB) ? "text-success" : "")">S@(speedA)</div>
                                     @if (notes[0]!.Count > 0) { <div class="small text-muted">@string.Join("、", notes[0]!)</div> }
                                 </div>
                                 <div class="speed-vs">vs</div>
                                 <div class="text-center">
                                     <div><PokemonLabel Build="b" Small="true" /></div>
-                                    <div class="speed-value @(speedB > speedA ? "text-success" : "")">S@(speedB)</div>
+                                    <div class="speed-value @(MovesFirst(speedB, speedA) ? "text-success" : "")">S@(speedB)</div>
                                     @if (notes[1]!.Count > 0) { <div class="small text-muted">@string.Join("、", notes[1]!)</div> }
                                 </div>
                             </div>
                             <p class="fs-6 text-center mt-2 mb-2 @(speedA == speedB ? "text-warning" : "text-success")" data-pop="@Verdict(a, b, speedA, speedB)"><strong>@Verdict(a, b, speedA, speedB)</strong></p>
                             @* 素早さの棒。先に動く方を緑にし、入力を変えると前の長さから伸び縮み、先手が入れ替わると行ごと入れ替わる（wwwroot/js/motion.js） *@
                             var axis = Math.Max(300, (int)Math.Ceiling(Math.Max(speedA, speedB) * 1.1 / 50.0) * 50);
-                            var lanes = new[] { (Side: 0, Build: a, Speed: speedA), (Side: 1, Build: b, Speed: speedB) }.OrderByDescending(x => x.Speed).ToList();
-                            <div class="speed-race" data-flip-group role="img" aria-label="素早さの比較（長い棒ほど速い）">
+                            var lanes = new[] { (Side: 0, Build: a, Speed: speedA), (Side: 1, Build: b, Speed: speedB) }.OrderBy(x => s.TrickRoom ? x.Speed : -x.Speed).ToList();
+                            <div class="speed-race" data-flip-group role="img" aria-label="@(s.TrickRoom ? "素早さの比較（長い棒ほど速い。トリックルーム中は短い方が先に動く）" : "素早さの比較（長い棒ほど速い）")">
                                 @foreach (var lane in lanes)
                                 {
                                     <div class="race-lane" @key="lane.Side" data-flip-key="@lane.Side">
@@ -110,7 +116,7 @@ else if (data is not null && dataSet is not null)
                         }
                         @* 振り方例: 2 体のどちらかをタブで切り替えて、狭い幅に収める *@
                         <div class="speed-ref-tabs" role="tablist">
-                            <span class="small fw-bold me-1">振り方例 <Help Title="素早さの振り方例">相手の振り方が分からないときの目安です。無振り・準速（性格補正なし・最大振り）・最速（性格補正あり・最大振り）・スカーフ最速・最遅（性格補正下降・個体値 0）の素早さを出します。いまの天候・フィールド・ランク・まひ・おいかぜで素早さが変わるときは「今の条件」の列に、選んでいる特性が条件次第で素早さを上げるとき（ようりょくそ・かるわざなど）はその条件の列にも出します。右端は、もう 1 体の今の素早さと比べた先手・後手です。</Help></span>
+                            <span class="small fw-bold me-1">振り方例 <Help Title="素早さの振り方例">相手の振り方が分からないときの目安です。無振り・準速（性格補正なし・最大振り）・最速（性格補正あり・最大振り）・スカーフ最速・最遅（性格補正下降・個体値 0）の素早さを出します。いまの天候・フィールド・ランク・まひ・おいかぜで素早さが変わるときは「今の条件」の列に、選んでいる特性が条件次第で素早さを上げるとき（ようりょくそ・かるわざなど）はその条件の列にも出します。右端は、もう 1 体の今の素早さと比べた先手・後手です（トリックルームがオンのときは遅い方が先）。</Help></span>
                             @for (var i = 0; i < 2; i++)
                             {
                                 var side = i;
@@ -153,6 +159,8 @@ else if (data is not null && dataSet is not null)
         public Terrain Terrain { get; set; }
         /// <summary>それぞれの側のおいかぜ。</summary>
         public bool[] Tailwind { get; set; } = new bool[2];
+        /// <summary>トリックルーム中か（オンのときは素早さが遅い方が先に動く）。</summary>
+        public bool TrickRoom { get; set; }
         /// <summary>結果に振り方例を出しているポケモン（0 か 1）。</summary>
         public int ReferenceSide { get; set; }
     }
@@ -333,8 +341,15 @@ else if (data is not null && dataSet is not null)
         </div>
     };
 
-    private static string Verdict(PokemonBuild a, PokemonBuild b, int speedA, int speedB) =>
-        speedA > speedB ? $"先手: {a.Pokemon.Name}" : speedA < speedB ? $"先手: {b.Pokemon.Name}" : "同速（どちらが先かはランダム）";
+    /// <summary>素早さ x の側が y の側より先に動くか（トリックルーム中は遅い方が先）。同速は false。</summary>
+    private bool MovesFirst(int x, int y) => s.TrickRoom ? x < y : x > y;
+
+    private string Verdict(PokemonBuild a, PokemonBuild b, int speedA, int speedB)
+    {
+        if (speedA == speedB) return "同速（どちらが先かはランダム）";
+        var first = MovesFirst(speedA, speedB) ? a : b;
+        return s.TrickRoom ? $"先手: {first.Pokemon.Name}（トリックルーム中なので、遅い{first.Pokemon.Name}が先に動く）" : $"先手: {first.Pokemon.Name}";
+    }
 
     /// <summary>
     /// 振り方別の素早さの表。今の条件・特性の発動条件で変わるときは列を足す。
@@ -383,7 +398,7 @@ else if (data is not null && dataSet is not null)
                             }
                             @if (opponentSpeed is { } os)
                             {
-                                <td class="text-center @(row.Current > os ? "counter-good" : row.Current < os ? "text-muted" : "text-warning")">@(row.Current > os ? "先" : row.Current < os ? "後" : "同")</td>
+                                <td class="text-center @(MovesFirst(row.Current, os) ? "counter-good" : MovesFirst(os, row.Current) ? "text-muted" : "text-warning")">@(MovesFirst(row.Current, os) ? "先" : MovesFirst(os, row.Current) ? "後" : "同")</td>
                             }
                         </tr>
                     }
