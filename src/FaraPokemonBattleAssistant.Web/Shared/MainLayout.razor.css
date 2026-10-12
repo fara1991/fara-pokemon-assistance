@@ -33,8 +33,30 @@ main {
 }
 
 @media (min-width: 768px) {
+    /* PC: ページ全体はスクロールさせず、画面の高さに収める。
+       中身は各ページの .pane-fill / .pane-scroll（app.css）が受け持ち、一覧や長い表の中だけがスクロールする */
     .page {
         flex-direction: row;
+        height: 100vh;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    main {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        min-height: 0;
+    }
+
+    /* 収まらない画面（高さが低いとき）は、ここがスクロールして何も切れないようにする */
+    .content {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        padding-bottom: 1rem;
     }
 
     .sidebar {
@@ -43,5 +65,6 @@ main {
         position: sticky;
         top: 0;
         flex-shrink: 0;
+        overflow-y: auto;
     }
 }

@@ -9,6 +9,8 @@
     <p class="text-muted mb-0">ダメージ計算・素早さ比較・育成済みポケモンとチームの管理・タイプ相性をまとめたサイトです。配信中は Twitch のチャットコマンドからも同じ機能を使えます。</p>
 </div>
 
+@* PC: 見出しは固定にして、カードの並びの中だけがスクロールする *@
+<div class="pane-scroll">
 <div class="row g-3">
     <div class="col-md-6">
         <div class="card h-100">
@@ -64,7 +66,7 @@
                 <table class="table table-sm mb-0 small">
                     <tbody>
                         <tr><th class="text-nowrap">最終更新</th><td>@(lastUpdated ?? "取得中…")</td></tr>
-                        <tr><th class="text-nowrap">次回更新</th><td>@nextUpdate<span class="text-nowrap">（毎週月曜）</span></td></tr>
+                        <tr><th class="text-nowrap">次回更新</th><td>@nextUpdate</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -77,6 +79,7 @@
     このサイトは個人が作った非公式のファンサイトで、任天堂・株式会社クリーチャーズ・株式会社ゲームフリーク・株式会社ポケモンとは関係ありません。
     ポケモン・Pokémon は任天堂・クリーチャーズ・ゲームフリークの登録商標です。
 </p>
+</div>
 
 @code {
     // update-data.yml の cron（17 3 * * 1 UTC = 毎週月曜 12:17 JST）

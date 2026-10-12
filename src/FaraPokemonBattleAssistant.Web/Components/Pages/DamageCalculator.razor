@@ -28,7 +28,7 @@
 else if (data is not null && dataSet is not null)
 {
     UpdateResult();
-    <div class="calc-grid @(s.Result is not null ? "has-result-bar" : "")">
+    <div class="calc-grid pane-fill @(s.Result is not null ? "has-result-bar" : "")">
         <div class="calc-col">
             <div class="card">
                 <div class="card-header"><h5>攻撃側</h5></div>
@@ -94,6 +94,7 @@ else if (data is not null && dataSet is not null)
             </div>
         </div>
 
+        <div class="calc-right">
         <div class="calc-col">
             <div class="card">
                 <div class="card-header"><h5>防御側</h5></div>
@@ -232,6 +233,7 @@ else if (data is not null && dataSet is not null)
                     </div>
                 </details>
             }
+        </div>
         </div>
     </div>
 }

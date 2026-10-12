@@ -95,7 +95,11 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!scrollPending || !showDropdown) return;
+        if (!showDropdown) return;
+        // PC ではスクロール枠で切れないよう、画面基準で置く（wwwroot/index.html）
+        try { await JS.InvokeVoidAsync("faraPlaceDropdown", listId); }
+        catch (JSException) { }
+        if (!scrollPending) return;
         scrollPending = false;
         if (highlight >= 0)
         {

@@ -38,6 +38,56 @@
     <script>
         // 検索付きセレクトで、選択中の候補が見えるところまでスクロールする
         window.faraScrollIntoView = function (id) { var el = document.getElementById(id); if (el) el.scrollIntoView({ block: "nearest" }); };
+        // PC では、一覧・カードの中だけがスクロールする（app.css の .pane-scroll など）。
+        // スクロール枠の中にある候補リスト・ヘルプの吹き出しが枠で切れないよう、画面基準（position: fixed）で置く。
+        // 狭い画面（スマホ。ページ全体がスクロールする）では何もしない
+        (function () {
+            var wide = window.matchMedia("(min-width: 768px)");
+            var tracked = [];
+            function refresh() { tracked = tracked.filter(function (t) { return t.el.isConnected && (t.place(), true); }); }
+            ["scroll", "resize"].forEach(function (type) { window.addEventListener(type, function () { if (tracked.length) refresh(); }, true); });
+            function track(el, place) {
+                if (!tracked.some(function (t) { return t.el === el; })) tracked.push({ el: el, place: place });
+                place();
+            }
+            // 検索付きセレクトの候補リスト: 入力欄の真下（下に余裕がなければ真上）に、入る高さで出す
+            window.faraPlaceDropdown = function (id) {
+                var el = document.getElementById(id);
+                if (!el || !wide.matches) return;
+                var anchor = el.parentElement;
+                track(el, function () {
+                    var r = anchor.getBoundingClientRect(), vh = window.innerHeight;
+                    var below = vh - r.bottom - 6, above = r.top - 6;
+                    var up = below < 180 && above > below;
+                    el.classList.add("is-floating");
+                    el.classList.toggle("is-up", up);
+                    el.style.left = r.left + "px";
+                    el.style.width = r.width + "px";
+                    el.style.maxHeight = Math.max(120, Math.min(320, up ? above : below)) + "px";
+                    el.style.top = up ? "auto" : r.bottom + "px";
+                    el.style.bottom = up ? (vh - r.top) + "px" : "auto";
+                });
+            };
+            // ヘルプの吹き出し: ? ボタンの右（入らなければ左）に、画面からはみ出さないように出す
+            window.faraPlaceNote = function (id) {
+                var el = document.getElementById(id);
+                if (!el || !wide.matches || el.closest(".sidebar")) return;
+                var btn = el.parentElement.querySelector(".help-btn");
+                track(el, function () {
+                    var r = btn.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight;
+                    var w = Math.min(288, vw - 16);
+                    el.classList.add("is-floating");
+                    el.style.width = w + "px";
+                    var left = r.right + 8, nudged = false;
+                    if (left + w > vw - 8) { left = r.left - 8 - w; nudged = true; }
+                    if (left < 8) { left = Math.max(8, vw - w - 8); nudged = true; }
+                    var top = Math.max(8, Math.min(r.top - 6, vh - el.offsetHeight - 8));
+                    el.classList.toggle("is-nudged", nudged || top !== r.top - 6);
+                    el.style.left = left + "px";
+                    el.style.top = top + "px";
+                });
+            };
+        })();
         // 検索付きセレクトの ↑↓・Enter で、ページのスクロールなどを起こさない。
         // Blazor の @onkeydown:preventDefault は前回の描画時の値で決まり、次のキーに効いてしまうので、ここで止める
         document.addEventListener("keydown", function (e) {
