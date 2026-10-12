@@ -275,6 +275,19 @@ public sealed class CloudSync : IRosterStore
 /// <summary>使用中チームを読む（計算機・素早さ比較用）。クラウドに届かなくてもページは動くように、エラーは文で返す。</summary>
 public static class RosterReading
 {
+    /// <summary>「登録から選ぶ」用に、登録済みの構成をチームごとに読む。</summary>
+    public static async Task<(IReadOnlyList<RosterChoiceGroup> Groups, string Error)> ChoiceGroupsAsync(RosterRepository repo, string dataSetKey, PokemonDataSet data)
+    {
+        try
+        {
+            return (await repo.ChoiceGroupsAsync(dataSetKey, data), "");
+        }
+        catch (Exception ex) when (ex is RosterUnavailableException or HttpRequestException)
+        {
+            return (Array.Empty<RosterChoiceGroup>(), $"登録を読み込めませんでした（{CloudSync.Describe(ex)}）。登録なしで計算します");
+        }
+    }
+
     public static async Task<(IReadOnlyList<(RegisteredPokemon Entry, Item? Item)> Members, string Error)> ActiveTeamMembersAsync(
         RosterRepository repo, string dataSetKey, PokemonDataSet data)
     {
