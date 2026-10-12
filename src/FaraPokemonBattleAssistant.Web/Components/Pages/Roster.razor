@@ -19,6 +19,7 @@
     <div class="alert @(messageIsError ? "alert-danger" : "alert-success")">@message</div>
 }
 
+<div class="roster-layout pane-fill">
 <div class="card mb-3 sync-card">
     <div class="card-header">
         <h5>データ連携 @(Sync.IsSyncing ? "（連携中）" : "")
@@ -261,6 +262,7 @@ else if (data is not null && roster is not null && dataSet is not null)
         </div>
     </div>
 }
+</div>
 
 @code {
     public sealed class State

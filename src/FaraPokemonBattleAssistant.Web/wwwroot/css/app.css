@@ -185,6 +185,11 @@ body {
     flex: 1 1 auto;
 }
 
+/* スマホ・狭い画面: 登録ページの外枠は中身をそのまま並べる（PC の段組みは下の @media で作る） */
+.roster-layout {
+    display: contents;
+}
+
 /* 登録ページ: 右の列は中身の高さのまま（左の列の高さまで伸ばさない） */
 .split-row-top .split-half > .card:first-child {
     flex: 0 0 auto;
@@ -1919,6 +1924,14 @@ button.compact-cell {
 
     .dex-sort-mobile {
         display: flex;
+        order: 2;
+    }
+
+    /* 「条件をクリア」は絞り込み欄の最後に全幅で置く */
+    .dex-clear {
+        order: 3;
+        flex: 1 1 100%;
+        margin-left: 0 !important;
     }
 
     .dex-row {
@@ -2446,24 +2459,48 @@ html.vt-nav .sidebar {
 
 /* 登録・チーム（PC）: 左（登録フォームと登録一覧）と右（チーム）がそれぞれ画面内に収まり、中だけがスクロールする */
 @media (min-width: 768px) {
-    .split-row.pane-fill {
-        flex-direction: row;
-        min-height: 20rem;
+    /* 左: 登録フォームと登録一覧（縦いっぱい）。右: データ連携（そのまま）の下にチーム。右下と左がそれぞれスクロールする */
+    .roster-layout.pane-fill {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 0 1rem;
+        min-height: 24rem;
     }
 
-    .split-row.pane-fill > .split-half {
+    .roster-layout > .sync-card {
+        grid-column: 2;
+        grid-row: 1;
+        margin-bottom: 0.75rem !important;
+    }
+
+    .roster-layout > .split-row {
+        display: contents;
+    }
+
+    .roster-layout > .split-row > .split-half:first-child {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+    }
+
+    .roster-layout > .split-row > .split-half:last-child {
+        grid-column: 2;
+        grid-row: 2;
+    }
+
+    .roster-layout > .split-row > .split-half {
         min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
         scrollbar-gutter: stable;
     }
 
-    .split-row.pane-fill > .split-half > * {
+    .roster-layout > .split-row > .split-half > * {
         flex-shrink: 0;
     }
 
     /* 登録一覧の見出し行はスクロールしても上に固定 */
-    .split-row.pane-fill .table thead th {
+    .roster-layout .table thead th {
         position: sticky;
         top: 0;
         z-index: 2;
@@ -2474,8 +2511,13 @@ html.vt-nav .sidebar {
 
 /* チャットコマンド（PC）: 一覧の枠は画面内に収め、表とオプション表だけがスクロールする。表の見出し行は上に固定 */
 @media (min-width: 768px) {
+    .cmd-scroll .cmd-example code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
     .cmd-list-card {
-        min-height: 19rem;
+        min-height: 20rem;
         margin-bottom: 0;
     }
 
