@@ -5,6 +5,7 @@
 @inject RosterRepository Repo
 @inject CloudSync Sync
 @inject IJSRuntime JS
+@inject ToastService Toast
 
 <PageTitle>登録ポケモン・チーム | Pokémon Battle Assistant</PageTitle>
 
@@ -13,11 +14,6 @@
     <p class="text-muted mb-0">チャットの <code>!@(App.CommandPrefix) add / add team / use team / unuse team</code> と同じ内容をここで編集できます。チームが 0 体になると自動で削除されます。</p>
     <p class="text-muted small mb-0 mt-1">H: HP / A: 攻撃 / B: 防御 / C: 特攻 / D: 特防 / S: 素早さ（<a href="glossary">用語・略語</a>）</p>
 </div>
-
-@if (!string.IsNullOrEmpty(message))
-{
-    <div class="alert @(messageIsError ? "alert-danger" : "alert-success")">@message</div>
-}
 
 <div class="roster-layout pane-fill">
 <div class="card mb-3 sync-card">
@@ -281,8 +277,6 @@ else if (data is not null && roster is not null && dataSet is not null)
     private DataSetInfo? dataSet;
     private PokemonDataSet? data;
     private DataSetRoster? roster;
-    private string message = "";
-    private bool messageIsError;
     private bool syncBusy;
     private bool showKey;
     private string joinKey = "";
@@ -364,11 +358,8 @@ else if (data is not null && roster is not null && dataSet is not null)
     private static int Clamp(object? value, int max) => Math.Clamp(int.TryParse(value?.ToString(), out var v) ? v : 0, 0, max);
     private static string FormatStats(StatSet st) => $"H{st.HP}-A{st.Attack}-B{st.Defense}-C{st.SpAttack}-D{st.SpDefense}-S{st.Speed}";
 
-    private void Show(string text, bool isError)
-    {
-        message = text;
-        messageIsError = isError;
-    }
+    // 処理の結果は画面右上のトーストで知らせる（Services/ToastService.cs）
+    private void Show(string text, bool isError) => Toast.Show(text, isError);
 
     private void OnNewPokemonChanged(string value)
     {
@@ -460,7 +451,7 @@ else if (data is not null && roster is not null && dataSet is not null)
             if (await Repo.UseTeamAsync(App.DataSetKey, teamNo))
                 Show($"チーム{teamNo} を使用します", false);
             else
-                Show($"チーム{teamNo} はありません（他の場所で削除された可能性があります）", true);
+                Toast.Warning($"チーム{teamNo} はありません（他の場所で削除された可能性があります）");
         });
     }
 
