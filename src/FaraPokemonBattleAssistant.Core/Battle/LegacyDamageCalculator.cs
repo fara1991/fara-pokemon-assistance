@@ -156,7 +156,7 @@ internal sealed partial class LegacyDamageCalculator
         // --- 攻撃側の実数値（イカサマは相手の攻撃とランク）
         var attackStatKind = move.AttackStatUsed;
         var attackSource = !isZ && move.Id == MoveEffects.MoveIdFoulPlay ? defender : attacker;
-        if (attackSource != attacker) modifiers.Add($"{move.Name}(相手のこうげきで計算)");
+        if (attackSource != attacker) modifiers.Add($"{move.Name}(相手のAで計算)");
         var attack = StatCalculator.Calculate(attackSource, attackStatKind);
         var attackBoost = attackSource.Boosts[attackStatKind];
         if (attackBoost != 0 && !(isCritical && attackBoost < 0))
@@ -171,7 +171,7 @@ internal sealed partial class LegacyDamageCalculator
         if (atkAbility == "hustle" && isPhysical)
         {
             attack = DamageCalculator.PokeRound(attack * 3 / 2.0);
-            modifiers.Add($"{atkName}(こうげき1.5倍)");
+            modifiers.Add($"{atkName}(A1.5倍)");
         }
         var atMods = _gen >= 7
             ? AttackModsGen7(attacker, move, moveType, isPhysical, isZ, atkAbility, defAbility, attackerItem, weather, modifiers)
@@ -182,7 +182,7 @@ internal sealed partial class LegacyDamageCalculator
         // サイコショックなどは相手の防御で計算（Z 技にすると特防）
         var hitsPhysical = isPhysical || move.UsesPhysicalDefense && !isZ;
         var defenseStatKind = hitsPhysical ? Stat.Defense : Stat.SpDefense;
-        if (move.UsesPhysicalDefense && !isZ) modifiers.Add($"{move.Name}(相手のぼうぎょで計算)");
+        if (move.UsesPhysicalDefense && !isZ) modifiers.Add($"{move.Name}(相手のBで計算)");
         var defense = StatCalculator.Calculate(defender, defenseStatKind);
         var defenseBoost = defender.Boosts[defenseStatKind];
         if (defenseBoost != 0 && !isZ && MoveEffects.IgnoresDefenseBoosts(move))
@@ -202,7 +202,7 @@ internal sealed partial class LegacyDamageCalculator
         if (weather == Weather.Sand && defender.Pokemon.HasType("Rock") && !hitsPhysical)
         {
             defense = DamageCalculator.PokeRound(defense * 3 / 2.0);
-            modifiers.Add("砂嵐(いわタイプのとくぼう1.5倍)");
+            modifiers.Add("砂嵐(いわタイプのD1.5倍)");
         }
         var dfMods = _gen >= 7
             ? DefenseModsGen7(defender, hitsPhysical, defAbility, defenderItem, terrain, modifiers)
@@ -414,7 +414,7 @@ internal sealed partial class LegacyDamageCalculator
         var mods = new List<int>();
         void Add(int value, string text) { mods.Add(value); modifiers.Add(text); }
         var atkName = attacker.Ability?.Name ?? "";
-        var statName = isPhysical ? "こうげき" : "とくこう";
+        var statName = isPhysical ? "A" : "C";
 
         if (defAbility == "thick-fat" && moveType is "Fire" or "Ice") Add(2048, $"あついしぼう({statName}0.5倍)");
 
@@ -441,7 +441,7 @@ internal sealed partial class LegacyDamageCalculator
         var mods = new List<int>();
         void Add(int value, string text) { mods.Add(value); modifiers.Add(text); }
         var atkName = attacker.Ability?.Name ?? "";
-        var statName = isPhysical ? "こうげき" : "とくこう";
+        var statName = isPhysical ? "A" : "C";
 
         if (atkAbility == "defeatist" && attacker.CurrentHp * 2 <= attacker.MaxHp) Add(2048, $"{atkName}({statName}0.5倍)");
         else if (atkAbility == "solar-power" && weather == Weather.Sun && !isPhysical) Add(6144, $"{atkName}({statName}1.5倍)");
@@ -474,7 +474,7 @@ internal sealed partial class LegacyDamageCalculator
         var mods = new List<int>();
         void Add(int value, string text) { mods.Add(value); modifiers.Add(text); }
         var defName = defender.Ability?.Name ?? "";
-        var statName = hitsPhysical ? "ぼうぎょ" : "とくぼう";
+        var statName = hitsPhysical ? "B" : "D";
 
         if (defAbility == "marvel-scale" && defender.Status != StatusCondition.None && hitsPhysical) Add(6144, $"{defName}({statName}1.5倍)");
         if (defAbility == "grass-pelt" && terrain == Terrain.Grassy && hitsPhysical) Add(6144, $"{defName}({statName}1.5倍)");
@@ -489,7 +489,7 @@ internal sealed partial class LegacyDamageCalculator
         var mods = new List<int>();
         void Add(int value, string text) { mods.Add(value); modifiers.Add(text); }
         var defName = defender.Ability?.Name ?? "";
-        var statName = hitsPhysical ? "ぼうぎょ" : "とくぼう";
+        var statName = hitsPhysical ? "B" : "D";
 
         if (defAbility == "marvel-scale" && defender.Status != StatusCondition.None && hitsPhysical) Add(6144, $"{defName}({statName}1.5倍)");
         else if (defAbility == "grass-pelt" && terrain == Terrain.Grassy && hitsPhysical) Add(6144, $"{defName}({statName}1.5倍)");

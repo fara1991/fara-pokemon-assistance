@@ -558,7 +558,7 @@ public class PokeCommandTests
 
         var calc = await cmd.ExecuteAsync($"!pokesv calc ガブリアス じしん ハバタクカミ {observed}");
         Assert.True(calc.Success, calc.Message);
-        Assert.Contains("ぼうぎょ実数値", calc.Message);
+        Assert.Contains("B実数値", calc.Message);
         Assert.Contains("補正なし:B0", calc.Message);
     }
 
@@ -1302,7 +1302,7 @@ public class ModernAbilityTests
         var chienPao = Build(data, "パオジアン", "sword-of-ruin");
         var target = Build(data, "ハピナス");
         var r = calc.Calculate(new DamageRequest { Attacker = chienPao, Move = move, Defender = target });
-        Assert.Contains(r.Modifiers, m => m.Contains("わざわいのつるぎ(相手のぼうぎょ0.75倍)"));
+        Assert.Contains(r.Modifiers, m => m.Contains("わざわいのつるぎ(相手のB0.75倍)"));
 
         // わざわいのおふだ: 物理技の攻撃 0.75 倍
         var wochien = Build(data, "チオンジェン", "tablets-of-ruin");
@@ -1465,7 +1465,7 @@ public class MoveEffectTests
         Assert.Equal(0, blocked.MaxDamage);
 
         var meteor = calc.Calculate(new DamageRequest { Attacker = P(data, "ジャラランガ"), Move = M(data, "メテオビーム"), Defender = target });
-        Assert.Contains(meteor.Modifiers, m => m.Contains("とくこう+1"));
+        Assert.Contains(meteor.Modifiers, m => m.Contains("C+1"));
     }
 
     [Fact]

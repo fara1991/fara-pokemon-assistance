@@ -38,7 +38,7 @@
     [Parameter] public IReadOnlyList<Nature> Natures { get; set; } = Array.Empty<Nature>();
     [Parameter] public Nature? Value { get; set; }
     [Parameter] public EventCallback<Nature?> ValueChanged { get; set; }
-    /// <summary>片方だけ選んだとき、物理技向け（特攻を下げる）に補うか。false なら特殊技向け（攻撃を下げる）。</summary>
+    /// <summary>片方だけ選んだとき、物理技向け（C を下げる）に補うか。false なら特殊技向け（A を下げる）。</summary>
     [Parameter] public bool Physical { get; set; } = true;
 
     private async Task Change(Nature? nature)

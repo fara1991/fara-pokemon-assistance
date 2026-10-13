@@ -64,7 +64,7 @@ else if (data is not null && dataSet is not null)
                         </SearchableSelect>
                         @if (s.Move is not null)
                         {
-                            <div class="small text-muted mt-1"><TypeIcon Type="@s.Move.Type" Small="true" /> @CategoryText(s.Move) 威力 @(s.Move.Power > 0 ? s.Move.Power.ToString() : "-")@(s.Move.UsesPhysicalDefense ? "（相手のぼうぎょで計算）" : "")@(s.Move.IsFixedDamage ? "（固定ダメージ技のため計算できません）" : "")</div>
+                            <div class="small text-muted mt-1"><TypeIcon Type="@s.Move.Type" Small="true" /> @CategoryText(s.Move) 威力 @(s.Move.Power > 0 ? s.Move.Power.ToString() : "-")@(s.Move.UsesPhysicalDefense ? "（相手の B で計算）" : "")@(s.Move.IsFixedDamage ? "（固定ダメージ技のため計算できません）" : "")</div>
                         }
                         @if (dataSet.HasZMove && s.Move is { IsDamaging: true })
                         {
@@ -115,7 +115,7 @@ else if (data is not null && dataSet is not null)
                 <div class="card-body">
                     <div class="row g-2">
                         <div class="col-sm-6">
-                            <label class="form-label mb-1" for="weather">天候 <Help Title="天候">晴れはほのお 1.5 倍・みず 0.5 倍、雨はその逆。砂嵐はいわタイプのとくぼう 1.5 倍、雪はこおりタイプのぼうぎょ 1.5 倍（第7世代までは「あられ」で、ぼうぎょは上がりません）。天候で発動する特性（サンパワー等）にも使います。</Help></label>
+                            <label class="form-label mb-1" for="weather">天候 <Help Title="天候">晴れはほのお 1.5 倍・みず 0.5 倍、雨はその逆。砂嵐はいわタイプの D が 1.5 倍、雪はこおりタイプの B が 1.5 倍（第7世代までは「あられ」で、B は上がりません）。天候で発動する特性（サンパワー等）にも使います。</Help></label>
                             <select id="weather" class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
                                 @foreach (var w in Enum.GetValues<Weather>())
                                 {
@@ -562,7 +562,7 @@ else if (data is not null && dataSet is not null)
         @* PC では 2 列に並べて、ページをスクロールせずに見えるようにする *@
         <div class="build-grid">
             <div class="form-group mb-3">
-                <label>持ち物 <Help Title="持ち物">@(isAttacker ? "攻撃側はダメージに関係する持ち物（こだわり系・いのちのたま・タイプ強化など）を先に並べます。ほかの持ち物も選べます。" : "防御側はぼうぎょに関係する持ち物（とつげきチョッキ・しんかのきせきなど）を先に並べます。ほかの持ち物も選べます。")メガシンカ後のポケモンはメガストーンで固定です。</Help></label>
+                <label>持ち物 <Help Title="持ち物">@(isAttacker ? "攻撃側はダメージに関係する持ち物（こだわり系・いのちのたま・タイプ強化など）を先に並べます。ほかの持ち物も選べます。" : "防御側は B・D に関係する持ち物（とつげきチョッキ・しんかのきせきなど）を先に並べます。ほかの持ち物も選べます。")メガシンカ後のポケモンはメガストーンで固定です。</Help></label>
                 @if (build.Pokemon.IsMega)
                 {
                     <FixedField Value="@build.Item?.Name" Reason="@FixedField.MegaReason" />

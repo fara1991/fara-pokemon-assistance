@@ -102,7 +102,7 @@ public static class EvRules
         {
             var v = evs[stat];
             if (v < 0 || v > max)
-                return $"{StatNames.Japanese(stat)}の{Label(system)}は 0〜{max} で指定してください（{v}）";
+                return $"{StatNames.Letter(stat)}の{Label(system)}は 0〜{max} で指定してください（{v}）";
         }
         if (evs.Total > MaxTotal(system))
             return $"{Label(system)}の合計は {MaxTotal(system)} 以下にしてください（{evs.Total}）";
@@ -421,7 +421,7 @@ public sealed class Nature
     {
         if (IncreasedStat is null || DecreasedStat is null)
             return $"{Name}（補正無し）";
-        return $"{Name}（{StatNames.Japanese(IncreasedStat.Value)}↑{StatNames.Japanese(DecreasedStat.Value)}↓）";
+        return $"{Name}（{StatNames.Letter(IncreasedStat.Value)}↑{StatNames.Letter(DecreasedStat.Value)}↓）";
     }
 
     public override string ToString() => Name;

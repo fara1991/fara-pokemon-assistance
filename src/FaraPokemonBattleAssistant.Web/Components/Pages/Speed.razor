@@ -8,7 +8,7 @@
 <PageTitle>素早さ比較 | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>素早さ比較 <Help Title="素早さ比較">2 体のポケモンのすばやさの実数値を比べて、どちらが先に動くかを確認します。努力値・性格・持ち物・特性・ランク・まひ・天候・フィールドを反映します。</Help></h3>
+    <h3>素早さ比較 <Help Title="素早さ比較">2 体のポケモンの S の実数値を比べて、どちらが先に動くかを確認します。努力値・性格・持ち物・特性・ランク・まひ・天候・フィールドを反映します。</Help></h3>
     <p class="text-muted mb-0">使用チームに同じポケモンがいれば、その構成が入ります。「登録から選ぶ」で、登録したポケモンを呼び出すこともできます。</p>
 </div>
 
@@ -35,7 +35,7 @@ else if (data is not null && dataSet is not null)
                 <div class="card-body">
                     <div class="row g-2">
                         <div class="col-sm-6">
-                            <label class="form-label">天候 <Help Title="天候">すいすい（雨）・ようりょくそ（晴れ）・すなかき（砂嵐）・ゆきかき（雪）の特性を持つポケモンは、その天候ですばやさが 2 倍になります。こだいかっせい（晴れ）ですばやさが一番高いポケモンは 1.5 倍です。</Help></label>
+                            <label class="form-label">天候 <Help Title="天候">すいすい（雨）・ようりょくそ（晴れ）・すなかき（砂嵐）・ゆきかき（雪）の特性を持つポケモンは、その天候で S が 2 倍になります。こだいかっせい（晴れ）で S が一番高いポケモンは 1.5 倍です。</Help></label>
                             <select class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
                                 @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w, dataSet.Generation)</option> }
                             </select>
@@ -43,7 +43,7 @@ else if (data is not null && dataSet is not null)
                         @if (dataSet.HasTerrain)
                         {
                         <div class="col-sm-6">
-                            <label class="form-label">フィールド <Help Title="フィールド">サーフテール（エレキフィールドで 2 倍）、クォークチャージ（エレキフィールドですばやさが一番高いとき 1.5 倍）に使います。</Help></label>
+                            <label class="form-label">フィールド <Help Title="フィールド">サーフテール（エレキフィールドで 2 倍）、クォークチャージ（エレキフィールドで S が一番高いとき 1.5 倍）に使います。</Help></label>
                             <select class="form-select" value="@s.Terrain" @onchange="@(e => s.Terrain = ParseEnum(e.Value, Terrain.None))">
                                 @foreach (var t in Enum.GetValues<Terrain>().Where(t => dataSet.HasTerrain && (t != Terrain.Psychic || dataSet.HasPsychicTerrain) || t == Terrain.None)) { <option value="@t">@FieldNames.Japanese(t)</option> }
                             </select>
@@ -52,7 +52,7 @@ else if (data is not null && dataSet is not null)
                         <div class="col-12">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" role="switch" id="speed-trick-room" checked="@s.TrickRoom" @onchange="@(e => s.TrickRoom = e.Value is true)" />
-                                <label class="form-check-label" for="speed-trick-room">トリックルーム <Help Title="トリックルーム">オンにすると、すばやさが遅い方が先に動きます（同速のときの扱いは変わりません）。すばやさの数値そのものは変わりません。</Help></label>
+                                <label class="form-check-label" for="speed-trick-room">トリックルーム <Help Title="トリックルーム">オンにすると、S が遅い方が先に動きます（同速のときの扱いは変わりません）。S の数値そのものは変わりません。</Help></label>
                             </div>
                         </div>
                     </div>
@@ -99,7 +99,7 @@ else if (data is not null && dataSet is not null)
                             @* 素早さの棒。先に動く方を緑にし、入力を変えると前の長さから伸び縮み、先手が入れ替わると行ごと入れ替わる（wwwroot/js/motion.js） *@
                             var axis = Math.Max(300, (int)Math.Ceiling(Math.Max(speedA, speedB) * 1.1 / 50.0) * 50);
                             var lanes = new[] { (Side: 0, Build: a, Speed: speedA), (Side: 1, Build: b, Speed: speedB) }.OrderBy(x => s.TrickRoom ? x.Speed : -x.Speed).ToList();
-                            <div class="speed-race" data-flip-group role="img" aria-label="@(s.TrickRoom ? "すばやさの比較（長い棒ほど速い。トリックルーム中は短い方が先に動く）" : "すばやさの比較（長い棒ほど速い）")">
+                            <div class="speed-race" data-flip-group role="img" aria-label="@(s.TrickRoom ? "S の比較（長い棒ほど速い。トリックルーム中は短い方が先に動く）" : "S の比較（長い棒ほど速い）")">
                                 @foreach (var lane in lanes)
                                 {
                                     <div class="race-lane" @key="lane.Side" data-flip-key="@lane.Side">
@@ -116,7 +116,7 @@ else if (data is not null && dataSet is not null)
                         }
                         @* 振り方例: 2 体のどちらかをタブで切り替えて、狭い幅に収める *@
                         <div class="speed-ref-tabs" role="tablist">
-                            <span class="small fw-bold me-1">振り方例 <Help Title="すばやさの振り方例">相手の振り方が分からないときの目安です。無振り・準速（性格補正なし・最大振り）・最速（性格補正あり・最大振り）・スカーフ最速・最遅（性格補正下降・個体値 0）のすばやさを出します。いまの天候・フィールド・ランク・まひ・おいかぜですばやさが変わるときは「今の条件」の列に、選んでいる特性が条件次第ですばやさを上げるとき（ようりょくそ・かるわざなど）はその条件の列にも出します。右端は、もう 1 体の今のすばやさと比べた先手・後手です（トリックルームがオンのときは遅い方が先）。</Help></span>
+                            <span class="small fw-bold me-1">振り方例 <Help Title="S の振り方例">相手の振り方が分からないときの目安です。無振り・準速（性格補正なし・最大振り）・最速（性格補正あり・最大振り）・スカーフ最速・最遅（性格補正下降・個体値 0）の S を出します。いまの天候・フィールド・ランク・まひ・おいかぜで S が変わるときは「今の条件」の列に、選んでいる特性が条件次第で S を上げるとき（ようりょくそ・かるわざなど）はその条件の列にも出します。右端は、もう 1 体の今の S と比べた先手・後手です（トリックルームがオンのときは遅い方が先）。</Help></span>
                             @for (var i = 0; i < 2; i++)
                             {
                                 var side = i;
@@ -174,7 +174,7 @@ else if (data is not null && dataSet is not null)
 
     private Item? Scarf => data?.Items.FirstOrDefault(i => i.Id == 264);
 
-    /// <summary>そのゲームで選べるすべての持ち物。すばやさが変わる持ち物（こだわりスカーフ・くろいてっきゅう・パワー系）を先に並べる。</summary>
+    /// <summary>そのゲームで選べるすべての持ち物。S が変わる持ち物（こだわりスカーフ・くろいてっきゅう・パワー系）を先に並べる。</summary>
     private IReadOnlyList<Item> SpeedItems(PokemonBuild build)
     {
         var all = data!.Items.Where(i => !i.IsMegaStone).ToList();
@@ -264,7 +264,7 @@ else if (data is not null && dataSet is not null)
                     var abilities = data.AbilitiesOf(build.Pokemon);
                     <div class="poke-summary mb-2"><PokemonLabel Build="build" /> <span class="small text-muted text-nowrap">すばやさ種族値 @build.Pokemon.BaseStats.Speed</span></div>
                     <div class="form-group mb-2">
-                        <label>S @EvRules.Label(dataSet.EvSystem) <Help Title="@($"すばやさの{EvRules.Label(dataSet.EvSystem)}")">すばやさに振る@(EvRules.Label(dataSet.EvSystem))です（0〜@(max)）。ボタンで 0 と最大を入れられます。</Help></label>
+                        <label>S @EvRules.Label(dataSet.EvSystem) <Help Title="@($"すばやさの{EvRules.Label(dataSet.EvSystem)}")">S に振る@(EvRules.Label(dataSet.EvSystem))です（0〜@(max)）。ボタンで 0 と最大を入れられます。</Help></label>
                         <div class="ev-grid">
                             <div class="ev-cell">
                                 <input type="number" class="form-control form-control-sm" min="0" max="@max" step="@EvRules.Step(dataSet.EvSystem)"
@@ -277,12 +277,12 @@ else if (data is not null && dataSet is not null)
                         </div>
                     </div>
                     <div class="form-group mb-2">
-                        <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります。すばやさ上昇（おくびょう・ようき等）は 1.1 倍、下降（ゆうかん・れいせい等）は 0.9 倍です。</Help></label>
+                        <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります。S 上昇（おくびょう・ようき等）は 1.1 倍、下降（ゆうかん・れいせい等）は 0.9 倍です。</Help></label>
                         <NaturePicker Natures="data.Natures" Value="build.Nature" ValueChanged="@(n => build.Nature = n)" />
                     </div>
                     <div class="build-grid mb-2">
                     <div class="form-group">
-                        <label>持ち物 <Help Title="持ち物">すばやさが変わる持ち物を先に並べます。ほかの持ち物も選べます。こだわりスカーフは 1.5 倍、くろいてっきゅう・きょうせいギプス・パワー系（パワーリストなど）は 0.5 倍、スピードパウダーはメタモンが持つと 2 倍で計算します。メガシンカ後はメガストーンで固定です。</Help></label>
+                        <label>持ち物 <Help Title="持ち物">S が変わる持ち物を先に並べます。ほかの持ち物も選べます。こだわりスカーフは 1.5 倍、くろいてっきゅう・きょうせいギプス・パワー系（パワーリストなど）は 0.5 倍、スピードパウダーはメタモンが持つと 2 倍で計算します。メガシンカ後はメガストーンで固定です。</Help></label>
                         @if (build.Pokemon.IsMega)
                         {
                             <FixedField Value="@build.Item?.Name" Reason="@FixedField.MegaReason" />
@@ -310,7 +310,7 @@ else if (data is not null && dataSet is not null)
                     </div>
                     <div class="row g-2">
                         <div class="col-6">
-                            <label class="form-label">すばやさランク <Help Title="すばやさランク">こうそくいどう等で上がったすばやさのランクです。+1 で 1.5 倍、+2 で 2 倍、-1 で 2/3 倍になります。</Help></label>
+                            <label class="form-label">すばやさランク <Help Title="すばやさランク">こうそくいどう等で上がった S のランクです。+1 で 1.5 倍、+2 で 2 倍、-1 で 2/3 倍になります。</Help></label>
                             <select class="form-select" value="@build.Boosts.Speed" @onchange="@(e => build.Boosts[Stat.Speed] = Math.Clamp(ParseId(e.Value), -6, 6))">
                                 @for (var st = 6; st >= -6; st--) { <option value="@st">@(st > 0 ? "+" + st : st.ToString())</option> }
                             </select>
@@ -368,7 +368,7 @@ else if (data is not null && dataSet is not null)
                         }
                         @if (opponentSpeed is not null)
                         {
-                            <th class="text-center" title="@($"{opponentName} の今のすばやさ S{opponentSpeed} と比べて")">vs S@(opponentSpeed)</th>
+                            <th class="text-center" title="@($"{opponentName} の今の S{opponentSpeed} と比べて")">vs S@(opponentSpeed)</th>
                         }
                     </tr>
                 </thead>

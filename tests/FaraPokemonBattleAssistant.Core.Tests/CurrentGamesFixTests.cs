@@ -187,7 +187,7 @@ public class CurrentGamesFixTests
             var iceDefender = Build(data, data.Pokemon.First(p => p.HasType("Ice") && !p.IsProvisional).Id);
             var clear = Calc(data, attacker, iceDefender, 89);
             var snow = Calc(data, attacker, iceDefender, 89, weather: Weather.Snow);
-            Assert.Equal(boosted, Has(snow, "こおりタイプのぼうぎょ1.5倍"));
+            Assert.Equal(boosted, Has(snow, "こおりタイプのB1.5倍"));
             Assert.Equal(boosted, snow.Rolls.Max() < clear.Rolls.Max());
             if (!boosted) Assert.Equal(clear.Rolls, snow.Rolls);
         }
