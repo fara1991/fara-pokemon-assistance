@@ -18,7 +18,7 @@ FaraPokemonBattleAssistant.Core.SiteLinks.CurrentHost = new Uri(baseAddress).Hos
 // （Scoped だと Development 環境のスコープ検証で起動時に例外になる）
 builder.Services.AddSingleton(_ => new HttpClient { BaseAddress = new Uri(baseAddress) });
 builder.Services.AddSingleton(sp => new DataCatalog(new HttpDataSource(sp.GetRequiredService<HttpClient>(), baseAddress + "data/")));
-// 登録データの保存先。アクセスキーがあればクラウド（同じオリジンの /api/my-pokemons・/api/my-teams）、無ければ localStorage
+// 登録データの保存先。アクセスキーがあればクラウド（同じオリジンの /api/my-pokemon・/api/my-team）、無ければ localStorage
 builder.Services.AddSingleton(sp => new CloudSync(sp.GetRequiredService<IJSRuntime>(), sp.GetRequiredService<HttpClient>(), baseAddress, sp));
 builder.Services.AddSingleton<IRosterStore>(sp => sp.GetRequiredService<CloudSync>());
 builder.Services.AddSingleton(sp => new RosterRepository(sp.GetRequiredService<IRosterStore>()));

@@ -73,7 +73,7 @@ public sealed class PokemonAssistService
 
 ### 登録データをサイトと共有する（データ連携）
 
-サイトの「データ連携」ページ（`/data-sync`）で **データ連携を始める** を押すとアクセスキー（43 文字）が作られ、登録データがクラウド（`https://pokemon.fara-labs.com/api/my-pokemons`・`/api/my-teams`）に保存されます。
+サイトの「データ連携」ページ（`/data-sync`）で **データ連携を始める** を押すとアクセスキー（43 文字）が作られ、登録データがクラウド（`https://pokemon.fara-labs.com/api/my-pokemon`・`/api/my-team`）に保存されます。
 ボット（Auto Bot Settings の Game タブ → ポケモンシリーズ の「アクセスキー」）に同じアクセスキーを設定し、`FileRosterStore` の代わりに `RemoteRosterStore` を使うと、サイトとボットが同じデータを読み書きします（データはクラウドの 1 か所だけにあり、コピーを同期するのではありません）。
 画面上の呼び方は「データ連携」「アクセスキー」ですが、コード上の名前（`syncKey` 引数、サイトの localStorage キー `fara-pokemon-battle-assistant.syncKey` など）は互換性のためそのままです。
 
@@ -87,12 +87,12 @@ var roster = new RosterRepository(store);
 
 - `RemoteRosterStore(HttpClient http, string apiBaseUrl, string syncKey)`。`apiBaseUrl` は本番 `RemoteRosterStore.ProductionBaseUrl`（`https://pokemon.fara-labs.com/`）、確認用 `RemoteRosterStore.DevelopBaseUrl`（`https://pokemon-dev.fara-labs.com/`。データは本番と別）。キーの形式が違うと `ArgumentException`
 - `RosterRepository` は読み書きのたびにクラウドから読み直し（ポケモンとチームの 2 回の GET。間に更新が入って版が食い違ったら読み直す）、他の場所（サイト）の更新と競合したら読み直して最大 3 回やり直します（`RosterRepository.MaxConflictRetries`）
-- 保存は変えた部分だけです。登録・削除（`add -p` / `rm -p`）は `PUT /api/my-pokemons`、チーム・使用チームの変更（`add -t` / `rm -t` / `use -t` / `unuse -t`）は `PUT /api/my-teams` を呼びます（`IRosterStore.SavePartAsync`）。ポケモンを消したときにチームから外す・0 体のチームを消す・使用中を解除する処理はサーバーが同じ処理の中で行います
+- 保存は変えた部分だけです。登録・削除（`add -p` / `rm -p`）は `PUT /api/my-pokemon`、チーム・使用チームの変更（`add -t` / `rm -t` / `use -t` / `unuse -t`）は `PUT /api/my-team` を呼びます（`IRosterStore.SavePartAsync`）。ポケモンを消したときにチームから外す・0 体のチームを消す・使用中を解除する処理はサーバーが同じ処理の中で行います
 - `IRosterStore` を包むクラスを作るときは、`SavePartAsync` も中の保存先にそのまま渡してください（`SaveAsync` は登録データ全体の保存で、クラウドではデータの移し替え用です）
 - クラウドに届かないときは `RosterUnavailableException`（`Reason`: `Network` / `Unauthorized`＝キーが正しくない / `KeyRetired`＝サイトでキーが作り直された / `TooLarge` / `Rejected` / `Server` / `InvalidResponse`）。`Message` はそのまま表示できる日本語で、キーは含みません。やり直しても競合が続くと `RosterConflictException`
 - `PokeCommand.ExecuteAsync` / `TryExecuteAsync` はこれらの例外を受け止めて「失敗しました: アクセスキーが正しくありません」のような結果を返します（チャットにそのまま返せます）
 - サイトでキーを作り直すと（`DELETE /api/access-key`）、古いキーは `KeyRetired` になります。新しいキーを設定し直してください
-- 確認用サイト（`RemoteRosterStore.DevelopBaseUrl`）は Cloudflare Access の内側なので、`/api/my-pokemons`・`/api/my-teams`・`/api/access-key` を Access の **Bypass** にしておく必要があります
+- 確認用サイト（`RemoteRosterStore.DevelopBaseUrl`）は Cloudflare Access の内側なので、`/api/my-pokemon`・`/api/my-team`・`/api/access-key` を Access の **Bypass** にしておく必要があります
 
 ## 3. チャットメッセージをさばく
 

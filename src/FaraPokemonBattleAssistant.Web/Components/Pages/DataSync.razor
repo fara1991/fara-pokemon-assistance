@@ -10,7 +10,7 @@
 
 <div class="page-header">
     <h3>データ連携 <Help Title="データ連携">登録したポケモンとチームを、別のブラウザ・端末やボットと共有するための設定です。使わないときは、登録データはこのブラウザだけに保存されます。</Help></h3>
-    <p class="text-muted mb-0">アクセスキーを作ると、<a href="my-pokemons">ポケモン登録</a>と<a href="my-teams">チーム登録</a>のデータがクラウドに保存され、同じアクセスキーを入れた別のブラウザ・端末やボットから読み書きできます。</p>
+    <p class="text-muted mb-0">アクセスキーを作ると、<a href="my-pokemon">ポケモン登録</a>と<a href="my-team">チーム登録</a>のデータがクラウドに保存され、同じアクセスキーを入れた別のブラウザ・端末やボットから読み書きできます。</p>
 </div>
 
 @* PC: 見出しは固定にして、カードの中だけがスクロールする *@
@@ -79,10 +79,10 @@
             <table class="table table-sm small mb-2">
                 <thead><tr><th>API</th><th>内容</th></tr></thead>
                 <tbody>
-                    <tr><td><code>GET /api/my-pokemons</code></td><td>登録したポケモン（ゲームごと）を読み取ります</td></tr>
-                    <tr><td><code>PUT /api/my-pokemons</code></td><td>ポケモンを保存します。消したポケモンはチームからも外れ、0 体になったチームは消えます</td></tr>
-                    <tr><td><code>GET /api/my-teams</code></td><td>チームと使用中のチームを読み取ります</td></tr>
-                    <tr><td><code>PUT /api/my-teams</code></td><td>チームと使用中のチームを保存します（登録に無いポケモン・7 体以上は受け付けません）</td></tr>
+                    <tr><td><code>GET /api/my-pokemon</code></td><td>登録したポケモン（ゲームごと）を読み取ります</td></tr>
+                    <tr><td><code>PUT /api/my-pokemon</code></td><td>ポケモンを保存します。消したポケモンはチームからも外れ、0 体になったチームは消えます</td></tr>
+                    <tr><td><code>GET /api/my-team</code></td><td>チームと使用中のチームを読み取ります</td></tr>
+                    <tr><td><code>PUT /api/my-team</code></td><td>チームと使用中のチームを保存します（登録に無いポケモン・7 体以上は受け付けません）</td></tr>
                     <tr><td><code>DELETE /api/access-key</code></td><td>このアクセスキーを使えなくし、データを消します（アクセスキーの作り直し用）</td></tr>
                 </tbody>
             </table>
@@ -100,7 +100,12 @@
     private bool showKey;
     private string joinKey = "";
 
-    protected override void OnInitialized() => Sync.Changed += OnSyncChanged;
+    protected override async Task OnInitializedAsync()
+    {
+        Sync.Changed += OnSyncChanged;
+        // ページを直接開いたときも、保存してあるアクセスキーがあれば「連携中」と表示する
+        await Sync.InitializeAsync();
+    }
 
     private void OnSyncChanged() => _ = InvokeAsync(StateHasChanged);
 

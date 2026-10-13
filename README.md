@@ -54,7 +54,7 @@ fara-pokemon-battle-assistant/
 接頭辞でデータセットを選びます: **`!pokech`** = ポケモンチャンピオンズ、**`!pokesv`** = スカーレット・バイオレット、**`!pokess`** = ソード・シールド（`!poke` はチャンピオンズ扱い）。
 `!poke help` で使えるコマンドの一覧が返ります。登録・削除・使用チームの変更は配信者本人とモデレーターだけに許可する想定です（`PokeCommandOptions.AllowMutations`）。
 登録データはボットなら PC 上の JSON、ブラウザなら localStorage に保存され、データセットごとに独立しています。
-サイトの「データ連携」ページ（`/data-sync`。ポケモン登録は `/my-pokemons`、チーム登録は `/my-teams`。以前の `/sync`・`/pokemon`・`/roster`・`/team`・`/my-pokemon` などは新しい URL に転送）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末やボットが同じデータを読み書きできます（連携中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。ボット側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
+サイトの「データ連携」ページ（`/data-sync`。ポケモン登録は `/my-pokemon`、チーム登録は `/my-team`。以前の `/sync`・`/pokemon`・`/roster`・`/team`・`/my-teams` などは新しい URL に転送）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末やボットが同じデータを読み書きできます（連携中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。ボット側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
 
 ### 育成済みポケモンの登録（`-p` / `--pokemon`）
 
@@ -187,21 +187,21 @@ npm run test:worker                                      # データ連携 API�
 
 | メソッド | 内容 |
 |---|---|
-| `GET /api/my-pokemons` | `200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "pokemons": [...]}, ...}}`（データが無ければ `"dataSets": {}`） |
-| `PUT /api/my-pokemons` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"pokemons": [...], "nextId": n}}}`（`nextId` は省略可）。書いたゲームのポケモンだけを置き換え、**同じ処理の中で**、消えたポケモンをそのゲームのすべてのチームから外し、0 体になったチームを消し、使用中のチームが消えたら使用中を解除します。成功で `200 {"revision": n+1}` |
-| `GET /api/my-teams` | `200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}, ...}}` |
-| `PUT /api/my-teams` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}}}`。書いたゲームのチームと使用中チームだけを置き換えます。登録に無いポケモン・7 体以上・0 体のチーム・同じチーム番号や同じポケモンの重複・無いチームを使用中にする、は `400`（`message` に理由）で、何も保存しません。成功で `200 {"revision": n+1}` |
+| `GET /api/my-pokemon` | `200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "pokemon": [...]}, ...}}`（データが無ければ `"dataSets": {}`） |
+| `PUT /api/my-pokemon` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"pokemon": [...], "nextId": n}}}`（`nextId` は省略可）。書いたゲームのポケモンだけを置き換え、**同じ処理の中で**、消えたポケモンをそのゲームのすべてのチームから外し、0 体になったチームを消し、使用中のチームが消えたら使用中を解除します。成功で `200 {"revision": n+1}` |
+| `GET /api/my-team` | `200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}, ...}}` |
+| `PUT /api/my-team` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}}}`。書いたゲームのチームと使用中チームだけを置き換えます。登録に無いポケモン・7 体以上・0 体のチーム・同じチーム番号や同じポケモンの重複・無いチームを使用中にする、は `400`（`message` に理由）で、何も保存しません。成功で `200 {"revision": n+1}` |
 | `DELETE /api/access-key` | このアクセスキーを使えなくし、その置き場を消す（キーの作り直し用）。`204`。以後そのキーはすべての API で `410` |
 
 - `revision` は登録データ全体で 1 つです（どちらの PUT でも増えます）。`baseRevision` が現在と違えば `409 {"revision": 現在, "dataSets": そのリソースの現在の内容}` なので、読み直してからやり直してください。両方を読むときは 2 回の GET の `revision` が同じことを確かめ、違えば読み直します
 - 書かなかったゲームは変わりません。登録 ID は使い回さず、`nextId` は「保存していた値・送った `nextId`・一番大きい `Id` + 1」の最大になります
 - 本文と保存後の登録データ全体の上限は 256 KB で、超えると `413`
 - 認証は `Authorization: Bearer <アクセスキー>`。アクセスキーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもので、形式が違えば `401`。キーはクライアントが作るもので、作成・登録の API はありません（新しいキーの置き場は空で、`revision` は 0）
-- キーの作り直し・データ連携の開始では、新しいキーの空の置き場に `PUT /api/my-pokemons`（`baseRevision` 0）→ `PUT /api/my-teams`（`baseRevision` 1）の順で移してから新しいキーに切り替え、古いキーには `DELETE /api/access-key` を呼びます。新しいキーは移し終わるまで誰も使わないので、途中の状態は見えません（途中で失敗したら新しいキーは使わずに捨てます）
+- キーの作り直し・データ連携の開始では、新しいキーの空の置き場に `PUT /api/my-pokemon`（`baseRevision` 0）→ `PUT /api/my-team`（`baseRevision` 1）の順で移してから新しいキーに切り替え、古いキーには `DELETE /api/access-key` を呼びます。新しいキーは移し終わるまで誰も使わないので、途中の状態は見えません（途中で失敗したら新しいキーは使わずに捨てます）
 - サーバーはキーを保存せず、`SHA-256(キー)` を Durable Object の名前に使います。キーはログ・URL・エラーメッセージに出しません
 - すべての応答に `Cache-Control: no-store`。CORS ヘッダーは付けません（サイトは同じオリジン、ボットはブラウザではないため）
 - 以前の `/api/roster` はありません（`404`）
-- 確認用サイト（Cloudflare Access の内側）では、`/api/my-pokemons`・`/api/my-teams`・`/api/access-key` を Access の **Bypass** にしないとボットから使えません（キーで認証するので Access は不要）
+- 確認用サイト（Cloudflare Access の内側）では、`/api/my-pokemon`・`/api/my-team`・`/api/access-key` を Access の **Bypass** にしないとボットから使えません（キーで認証するので Access は不要）
 
 Cloudflare の DNS に `pokemon` / `pokemon-dev` のレコード（GitHub Pages 時代の CNAME など）が残っていると、カスタムドメインの作成で失敗します。削除してから再実行してください。
 

@@ -8,7 +8,7 @@ using System.Text.Json;
 namespace FaraPokemonBattleAssistant.Core.Roster;
 
 /// <summary>
-/// 登録データをクラウド（公開サイトの <c>/api/my-pokemons</c>・<c>/api/my-teams</c>）に保存する。サイトとボットで同じアクセスキーを使うと、同じデータを読み書きする。
+/// 登録データをクラウド（公開サイトの <c>/api/my-pokemon</c>・<c>/api/my-team</c>）に保存する。サイトとボットで同じアクセスキーを使うと、同じデータを読み書きする。
 /// </summary>
 /// <remarks>
 /// <para>
@@ -30,7 +30,7 @@ public sealed class RemoteRosterStore : IRosterStore
     /// <summary>本番サイト。</summary>
     public const string ProductionBaseUrl = "https://pokemon.fara-labs.com/";
     /// <summary>
-    /// 確認用サイト（データは本番と別。Cloudflare Access で /api/my-pokemons・/api/my-teams・/api/access-key を Bypass にしておく必要がある）。
+    /// 確認用サイト（データは本番と別。Cloudflare Access で /api/my-pokemon・/api/my-team・/api/access-key を Bypass にしておく必要がある）。
     /// </summary>
     public const string DevelopBaseUrl = "https://pokemon-dev.fara-labs.com/";
     /// <summary>アクセスキーの文字数。</summary>
@@ -50,7 +50,7 @@ public sealed class RemoteRosterStore : IRosterStore
     };
 
     private readonly HttpClient _http;
-    private readonly Uri _pokemonsEndpoint;
+    private readonly Uri _pokemonEndpoint;
     private readonly Uri _teamsEndpoint;
     private readonly Uri _accessKeyEndpoint;
     private readonly string _key;
@@ -66,8 +66,8 @@ public sealed class RemoteRosterStore : IRosterStore
         if (!Uri.TryCreate(apiBaseUrl.EndsWith('/') ? apiBaseUrl : apiBaseUrl + "/", UriKind.Absolute, out var baseUri)
             || (baseUri.Scheme != Uri.UriSchemeHttps && baseUri.Scheme != Uri.UriSchemeHttp))
             throw new ArgumentException("サイトの URL が正しくありません", nameof(apiBaseUrl));
-        _pokemonsEndpoint = new Uri(baseUri, "api/my-pokemons");
-        _teamsEndpoint = new Uri(baseUri, "api/my-teams");
+        _pokemonEndpoint = new Uri(baseUri, "api/my-pokemon");
+        _teamsEndpoint = new Uri(baseUri, "api/my-team");
         _accessKeyEndpoint = new Uri(baseUri, "api/access-key");
         _key = syncKey;
     }
@@ -101,16 +101,16 @@ public sealed class RemoteRosterStore : IRosterStore
     }
 
     /// <summary>
-    /// ポケモン（/api/my-pokemons）とチーム（/api/my-teams）を読み、登録データ全体（<see cref="RosterState"/> の JSON）に組み立てる。
+    /// ポケモン（/api/my-pokemon）とチーム（/api/my-team）を読み、登録データ全体（<see cref="RosterState"/> の JSON）に組み立てる。
     /// どのゲームにもデータが無ければ null。
     /// </summary>
     public async Task<string?> LoadAsync(CancellationToken ct = default)
     {
         for (var attempt = 0; ; attempt++)
         {
-            using var pokemons = await GetAsync(_pokemonsEndpoint, ct).ConfigureAwait(false);
+            using var pokemon = await GetAsync(_pokemonEndpoint, ct).ConfigureAwait(false);
             using var teams = await GetAsync(_teamsEndpoint, ct).ConfigureAwait(false);
-            var (pokemonRevision, pokemonSets) = ReadDataSets(pokemons);
+            var (pokemonRevision, pokemonSets) = ReadDataSets(pokemon);
             var (teamRevision, teamSets) = ReadDataSets(teams);
             if (pokemonRevision != teamRevision)
             {
@@ -127,7 +127,7 @@ public sealed class RemoteRosterStore : IRosterStore
     }
 
     /// <summary>
-    /// 登録データ全体を、ポケモン（/api/my-pokemons）→ チーム（/api/my-teams）の順で保存する。
+    /// 登録データ全体を、ポケモン（/api/my-pokemon）→ チーム（/api/my-team）の順で保存する。
     /// アクセスキーを作ったとき・作り直したときに、新しいキーの空の置き場へデータを移すためのもの
     /// （2 回の PUT なので、2 回目が失敗したらチームだけが移っていない状態になる。呼び出し側は新しいキーに切り替えずに捨てる）。
     /// JSON に無いゲームは変えない。
@@ -146,13 +146,13 @@ public sealed class RemoteRosterStore : IRosterStore
         var keys = state.DataSets.Keys.ToList();
         if (keys.Count == 0) return;
         // 先にポケモン、次にチーム（チームは登録ポケモンに無い ID を受け付けないため）
-        await PutAsync(_pokemonsEndpoint, state, keys, RosterPart.Pokemon, ct).ConfigureAwait(false);
+        await PutAsync(_pokemonEndpoint, state, keys, RosterPart.Pokemon, ct).ConfigureAwait(false);
         await PutAsync(_teamsEndpoint, state, keys, RosterPart.Teams, ct).ConfigureAwait(false);
     }
 
-    /// <summary>1 つのゲームの、ポケモン（/api/my-pokemons）かチーム（/api/my-teams）だけを保存する。</summary>
+    /// <summary>1 つのゲームの、ポケモン（/api/my-pokemon）かチーム（/api/my-team）だけを保存する。</summary>
     public Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default) =>
-        PutAsync(part == RosterPart.Pokemon ? _pokemonsEndpoint : _teamsEndpoint, state, new[] { dataSetKey }, part, ct);
+        PutAsync(part == RosterPart.Pokemon ? _pokemonEndpoint : _teamsEndpoint, state, new[] { dataSetKey }, part, ct);
 
     /// <summary>
     /// このアクセスキーを使えなくし、その置き場を消す（<c>DELETE /api/access-key</c>。キーを作り直したあと、古いキーに対して呼ぶ）。
@@ -193,7 +193,7 @@ public sealed class RemoteRosterStore : IRosterStore
     }
 
     /// <summary>
-    /// PUT の本文。ポケモンは <c>{"baseRevision": n, "dataSets": {"Champions": {"nextId": n, "pokemons": [...]}}}</c>、
+    /// PUT の本文。ポケモンは <c>{"baseRevision": n, "dataSets": {"Champions": {"nextId": n, "pokemon": [...]}}}</c>、
     /// チームは <c>{"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}}}</c>。
     /// </summary>
     private static ByteArrayContent BuildPutContent(long baseRevision, RosterState state, IReadOnlyList<string> dataSetKeys, RosterPart part)
@@ -211,7 +211,7 @@ public sealed class RemoteRosterStore : IRosterStore
                 if (part == RosterPart.Pokemon)
                 {
                     writer.WriteNumber("nextId", roster.NextId);
-                    writer.WritePropertyName("pokemons");
+                    writer.WritePropertyName("pokemon");
                     JsonSerializer.Serialize(writer, roster.Pokemon, ItemOptions);
                 }
                 else
@@ -266,7 +266,7 @@ public sealed class RemoteRosterStore : IRosterStore
                 if (pokemonSets.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.Object)
                 {
                     if (p.TryGetProperty("nextId", out var nextId) && nextId.ValueKind == JsonValueKind.Number) writer.WriteNumber("NextId", nextId.GetInt32());
-                    WriteArray(writer, "Pokemon", p, "pokemons");
+                    WriteArray(writer, "Pokemon", p, "pokemon");
                 }
                 if (teamSets.TryGetProperty(key, out var t) && t.ValueKind == JsonValueKind.Object)
                 {

@@ -5,13 +5,13 @@
 //
 // 登録データはゲーム（データセット: Champions・Gen9 など）ごとに分かれているので、本文の dataSets はゲームのキーごとのオブジェクト。
 //
-//   GET    /api/my-pokemons → 200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "pokemons": [...]}, ...}}
-//   PUT    /api/my-pokemons ← {"baseRevision": n, "dataSets": {"Champions": {"pokemons": [...], "nextId"?: n}}}
+//   GET    /api/my-pokemon → 200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "pokemon": [...]}, ...}}
+//   PUT    /api/my-pokemon ← {"baseRevision": n, "dataSets": {"Champions": {"pokemon": [...], "nextId"?: n}}}
 //                           → 200 {"revision": n+1} / 409 {"revision": 現在, "dataSets": 現在}
 //          書いたゲームのポケモンだけを置き換える（書かなかったゲームはそのまま）。同じ処理の中で、消えたポケモンをそのゲームの
 //          すべてのチームから外し、0 体になったチームを消し、使用中のチームが消えたら使用中を解除する。
-//   GET    /api/my-teams    → 200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}, ...}}
-//   PUT    /api/my-teams    ← {"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}}}
+//   GET    /api/my-team    → 200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}, ...}}
+//   PUT    /api/my-team    ← {"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}}}
 //                           → 200 {"revision": n+1} / 409 {"revision": 現在, "dataSets": 現在}
 //          書いたゲームのチームと使用中チームだけを置き換える。登録に無いポケモン・7 体以上・使用中のチームが無いなどは 400。
 //   DELETE /api/access-key  → 204（アクセスキーの作り直しで、古いキーを使えなくしてその置き場を消す。以後そのキーは 410）
@@ -25,8 +25,8 @@ import { DurableObject } from "cloudflare:workers";
 
 /** パス → 使えるメソッド。 */
 const ROUTES = {
-  "/api/my-pokemons": ["GET", "PUT"],
-  "/api/my-teams": ["GET", "PUT"],
+  "/api/my-pokemon": ["GET", "PUT"],
+  "/api/my-team": ["GET", "PUT"],
   "/api/access-key": ["DELETE"],
 };
 const KEY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -163,23 +163,23 @@ function parsePutBody(bytes) {
   return { baseRevision, dataSets };
 }
 
-/** my-pokemons の 1 ゲーム分を検証して {pokemons, nextId} を返す。 */
+/** my-pokemon の 1 ゲーム分を検証して {pokemon, nextId} を返す。 */
 function validatePokemons(key, value) {
-  const { pokemons, nextId } = value;
-  if (!Array.isArray(pokemons)) invalid("invalid_pokemons", `${key}.pokemons は配列にしてください`);
+  const { pokemon, nextId } = value;
+  if (!Array.isArray(pokemon)) invalid("invalid_pokemon", `${key}.pokemon は配列にしてください`);
   if (nextId !== undefined && nextId !== null && !isId(nextId))
     invalid("invalid_next_id", `${key}.nextId は 1 以上の整数にしてください`);
   const ids = new Set();
-  for (const p of pokemons) {
-    if (!isPlainObject(p)) invalid("invalid_pokemon", `${key}.pokemons の要素はオブジェクトにしてください`);
-    if (!isId(p.Id)) invalid("invalid_pokemon", `${key}.pokemons の Id は 1 以上の整数にしてください`);
-    if (ids.has(p.Id)) invalid("duplicate_pokemon", `${key}.pokemons に同じ Id（${p.Id}）が 2 つあります`);
+  for (const p of pokemon) {
+    if (!isPlainObject(p)) invalid("invalid_pokemon", `${key}.pokemon の要素はオブジェクトにしてください`);
+    if (!isId(p.Id)) invalid("invalid_pokemon", `${key}.pokemon の Id は 1 以上の整数にしてください`);
+    if (ids.has(p.Id)) invalid("duplicate_pokemon", `${key}.pokemon に同じ Id（${p.Id}）が 2 つあります`);
     ids.add(p.Id);
   }
-  return { pokemons, nextId: nextId ?? null };
+  return { pokemon, nextId: nextId ?? null };
 }
 
-/** my-teams の 1 ゲーム分を、そのゲームの登録ポケモン（ID の集合）と突き合わせて検証する。 */
+/** my-team の 1 ゲーム分を、そのゲームの登録ポケモン（ID の集合）と突き合わせて検証する。 */
 function validateTeams(key, value, pokemonIds) {
   const { teams, activeTeam } = value;
   if (!Array.isArray(teams)) invalid("invalid_teams", `${key}.teams は配列にしてください`);
@@ -242,7 +242,7 @@ async function handleApi(request, env, url) {
   const stub = env.ROSTER.get(env.ROSTER.idFromName(await sha256Hex(key)));
 
   if (url.pathname === "/api/access-key") return stub.retire();
-  const resource = url.pathname === "/api/my-pokemons" ? "pokemons" : "teams";
+  const resource = url.pathname === "/api/my-pokemon" ? "pokemon" : "teams";
   if (method === "GET") return stub.getResource(resource);
 
   let bytes;
@@ -253,7 +253,7 @@ async function handleApi(request, env, url) {
     throw e;
   }
   const { baseRevision, dataSets } = parsePutBody(bytes);
-  if (resource === "pokemons") {
+  if (resource === "pokemon") {
     const values = {};
     for (const [k, v] of Object.entries(dataSets)) values[k] = validatePokemons(k, v);
     return stub.putPokemons(baseRevision, values);
@@ -309,8 +309,8 @@ export class RosterSlot extends DurableObject {
     const dataSets = {};
     for (const [k, v] of Object.entries(roster.DataSets)) {
       const d = normalizeDataSet(v);
-      dataSets[k] = resource === "pokemons"
-        ? { nextId: d.NextId, pokemons: d.Pokemon }
+      dataSets[k] = resource === "pokemon"
+        ? { nextId: d.NextId, pokemon: d.Pokemon }
         : { teams: d.Teams, activeTeam: d.ActiveTeam };
     }
     return { revision, dataSets };
@@ -334,16 +334,16 @@ export class RosterSlot extends DurableObject {
   async putPokemons(baseRevision, values) {
     const s = await this.#read();
     if (s.deleted) return this.#gone();
-    if (baseRevision !== s.revision) return json(409, this.#view("pokemons", s.revision, s.roster));
-    for (const [requested, { pokemons, nextId }] of Object.entries(values)) {
+    if (baseRevision !== s.revision) return json(409, this.#view("pokemon", s.revision, s.roster));
+    for (const [requested, { pokemon, nextId }] of Object.entries(values)) {
       const key = findDataSetKey(s.roster, requested);
       const d = normalizeDataSet(s.roster.DataSets[key]);
       s.roster.DataSets[key] = d;
-      d.Pokemon = pokemons;
+      d.Pokemon = pokemon;
       // 登録 ID は使い回さない（消した ID の次から振る）
-      const maxId = pokemons.reduce((m, p) => Math.max(m, p.Id), 0);
+      const maxId = pokemon.reduce((m, p) => Math.max(m, p.Id), 0);
       d.NextId = Math.max(d.NextId, nextId ?? 1, maxId + 1);
-      const ids = new Set(pokemons.map((p) => p.Id));
+      const ids = new Set(pokemon.map((p) => p.Id));
       const teams = [];
       for (const t of d.Teams) {
         if (!isPlainObject(t) || !Array.isArray(t.Slots)) continue;

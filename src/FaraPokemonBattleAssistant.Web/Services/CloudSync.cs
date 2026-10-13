@@ -88,7 +88,7 @@ public sealed class CloudSync : IRosterStore
         await SaveRemoteAsync(() => remote.SaveAsync(json, ct));
     }
 
-    /// <summary>1 つのゲームのポケモンかチームだけを保存する（クラウドでは /api/my-pokemons か /api/my-teams だけを呼ぶ）。</summary>
+    /// <summary>1 つのゲームのポケモンかチームだけを保存する（クラウドでは /api/my-pokemon か /api/my-team だけを呼ぶ）。</summary>
     public async Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default)
     {
         var remote = await CurrentRemoteAsync();
@@ -125,6 +125,12 @@ public sealed class CloudSync : IRosterStore
     }
 
     // ---- データ連携の開始・参加・作り直し・停止
+
+    /// <summary>
+    /// 保存してあるアクセスキーを読み、連携中かどうかを確かめる（データ連携ページを直接開いたときに、まだ何も読み込んでいなくても
+    /// 「連携中」と表示するため）。
+    /// </summary>
+    public Task InitializeAsync() => EnsureInitializedAsync();
 
     /// <summary>このブラウザに（データ連携していないときの）登録データがあるか。</summary>
     public async Task<bool> LocalHasDataAsync()

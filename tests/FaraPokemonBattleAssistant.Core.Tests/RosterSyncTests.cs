@@ -10,7 +10,7 @@ using Xunit;
 namespace FaraPokemonBattleAssistant.Core.Tests;
 
 /// <summary>
-/// データ連携 API（worker/index.js の /api/my-pokemons・/api/my-teams・/api/access-key）と同じ動きをするメモリ上の偽サーバー。
+/// データ連携 API（worker/index.js の /api/my-pokemon・/api/my-team・/api/access-key）と同じ動きをするメモリ上の偽サーバー。
 /// </summary>
 internal sealed class FakeRosterServer : HttpMessageHandler
 {
@@ -37,7 +37,7 @@ internal sealed class FakeRosterServer : HttpMessageHandler
         var path = request.RequestUri!.AbsolutePath;
         var methods = path switch
         {
-            "/api/my-pokemons" or "/api/my-teams" => new[] { "GET", "PUT" },
+            "/api/my-pokemon" or "/api/my-team" => new[] { "GET", "PUT" },
             "/api/access-key" => new[] { "DELETE" },
             _ => null,
         };
@@ -55,24 +55,24 @@ internal sealed class FakeRosterServer : HttpMessageHandler
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
         if (Deleted) return Json(HttpStatusCode.Gone, """{"error":"key_retired"}""");
-        var pokemons = path == "/api/my-pokemons";
+        var pokemon = path == "/api/my-pokemon";
         if (request.Method == HttpMethod.Get)
         {
             BeforeGet?.Invoke(this, path);
-            return View(HttpStatusCode.OK, pokemons);
+            return View(HttpStatusCode.OK, pokemon);
         }
 
         BeforePut?.Invoke(this);
         var node = JsonNode.Parse(body!)!.AsObject();
         var baseRevision = node["baseRevision"]!.GetValue<long>();
-        if (baseRevision != Revision) return View(HttpStatusCode.Conflict, pokemons);
+        if (baseRevision != Revision) return View(HttpStatusCode.Conflict, pokemon);
         var state = RosterRepository.Deserialize(RosterJson);
         foreach (var (key, value) in node["dataSets"]!.AsObject())
         {
             var roster = state.For(key);
-            if (pokemons)
+            if (pokemon)
             {
-                roster.Pokemon = value!["pokemons"].Deserialize<List<RegisteredPokemon>>()!;
+                roster.Pokemon = value!["pokemon"].Deserialize<List<RegisteredPokemon>>()!;
                 var nextId = value["nextId"]?.GetValue<int>() ?? 1;
                 roster.NextId = Math.Max(roster.NextId, Math.Max(nextId, roster.Pokemon.Select(p => p.Id).DefaultIfEmpty(0).Max() + 1));
                 var ids = roster.Pokemon.Select(p => p.Id).ToHashSet();
@@ -96,13 +96,13 @@ internal sealed class FakeRosterServer : HttpMessageHandler
         return Json(HttpStatusCode.OK, $$"""{"revision":{{Revision}}}""");
     }
 
-    private HttpResponseMessage View(HttpStatusCode status, bool pokemons)
+    private HttpResponseMessage View(HttpStatusCode status, bool pokemon)
     {
         var dataSets = new JsonObject();
         foreach (var (key, roster) in RosterRepository.Deserialize(RosterJson).DataSets)
         {
-            dataSets[key] = pokemons
-                ? new JsonObject { ["nextId"] = roster.NextId, ["pokemons"] = JsonSerializer.SerializeToNode(roster.Pokemon) }
+            dataSets[key] = pokemon
+                ? new JsonObject { ["nextId"] = roster.NextId, ["pokemon"] = JsonSerializer.SerializeToNode(roster.Pokemon) }
                 : new JsonObject { ["teams"] = JsonSerializer.SerializeToNode(roster.Teams), ["activeTeam"] = roster.ActiveTeam };
         }
         return Json(status, new JsonObject { ["revision"] = Revision, ["dataSets"] = dataSets }.ToJsonString());
@@ -172,7 +172,7 @@ public class RosterSyncTests
         Assert.Null(await store.LoadAsync());
         Assert.Equal(0, store.Revision);
 
-        Assert.Equal(new[] { "https://pokemon.example/api/my-pokemons", "https://pokemon.example/api/my-teams" },
+        Assert.Equal(new[] { "https://pokemon.example/api/my-pokemon", "https://pokemon.example/api/my-team" },
             server.Requests.Select(r => r.RequestUri!.ToString()));
         Assert.All(server.Requests, request =>
         {
@@ -184,7 +184,7 @@ public class RosterSyncTests
     }
 
     [Fact]
-    public async Task Save_whole_state_puts_pokemons_then_teams_and_load_combines_them()
+    public async Task Save_whole_state_puts_pokemon_then_teams_and_load_combines_them()
     {
         var (server, store) = NewRemote();
         var state = new RosterState();
@@ -200,17 +200,17 @@ public class RosterSyncTests
         await store.SaveAsync(RosterRepository.Serialize(state));
         Assert.Equal(2, store.Revision);
         var puts = server.Requests.Select((req, i) => (req, body: server.Bodies[i])).Where(x => x.req.Method == HttpMethod.Put).ToList();
-        Assert.Equal(new[] { "/api/my-pokemons", "/api/my-teams" }, puts.Select(x => x.req.RequestUri!.AbsolutePath));
+        Assert.Equal(new[] { "/api/my-pokemon", "/api/my-team" }, puts.Select(x => x.req.RequestUri!.AbsolutePath));
         var first = JsonNode.Parse(puts[0].body!)!;
         Assert.Equal(0, first["baseRevision"]!.GetValue<long>());
         Assert.Equal(5, first["dataSets"]![Ds]!["nextId"]!.GetValue<int>());
-        Assert.Equal("ガブリアス", first["dataSets"]![Ds]!["pokemons"]![0]!["PokemonName"]!.GetValue<string>());
+        Assert.Equal("ガブリアス", first["dataSets"]![Ds]!["pokemon"]![0]!["PokemonName"]!.GetValue<string>());
         Assert.Null(first["dataSets"]![Ds]!["teams"]);
         Assert.Contains("ガブリアス", puts[0].body); // 日本語を \uXXXX にしない
         var second = JsonNode.Parse(puts[1].body!)!;
         Assert.Equal(1, second["baseRevision"]!.GetValue<long>());
         Assert.Equal(2, second["dataSets"]![Ds]!["activeTeam"]!.GetValue<int>());
-        Assert.Null(second["dataSets"]![Ds]!["pokemons"]);
+        Assert.Null(second["dataSets"]![Ds]!["pokemon"]);
 
         var loaded = RosterRepository.Deserialize(await store.LoadAsync());
         Assert.Equal(2, store.Revision);
@@ -229,7 +229,7 @@ public class RosterSyncTests
         var server = new FakeRosterServer { ExpectedKey = Key };
         var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example", Key);
         await store.LoadAsync();
-        Assert.Equal("https://pokemon.example/api/my-pokemons", server.Requests.First().RequestUri!.ToString());
+        Assert.Equal("https://pokemon.example/api/my-pokemon", server.Requests.First().RequestUri!.ToString());
     }
 
     [Fact]
@@ -239,8 +239,8 @@ public class RosterSyncTests
         var interrupted = false;
         server.BeforeGet = (s, path) =>
         {
-            // 1 回目の my-pokemons と my-teams の間に、他の端末が書く
-            if (path != "/api/my-teams" || interrupted) return;
+            // 1 回目の my-pokemon と my-team の間に、他の端末が書く
+            if (path != "/api/my-team" || interrupted) return;
             interrupted = true;
             s.WriteFromElsewhere(state => state.For(Ds).Pokemon.Add(new RegisteredPokemon { Id = 1, PokemonName = "他の端末" }));
         };
@@ -250,7 +250,7 @@ public class RosterSyncTests
         Assert.Equal("他の端末", loaded.For(Ds).Pokemon.Single().PokemonName);
 
         // 毎回食い違うなら諦める
-        server.BeforeGet = (s, path) => { if (path == "/api/my-teams") s.WriteFromElsewhere(_ => { }); };
+        server.BeforeGet = (s, path) => { if (path == "/api/my-team") s.WriteFromElsewhere(_ => { }); };
         var ex = await Assert.ThrowsAsync<RosterUnavailableException>(() => store.LoadAsync());
         Assert.Equal(RosterUnavailableReason.Server, ex.Reason);
     }
@@ -359,7 +359,7 @@ public class RosterSyncTests
     }
 
     [Fact]
-    public async Task Repository_saves_pokemon_changes_to_my_pokemons_and_team_changes_to_my_teams()
+    public async Task Repository_saves_pokemon_changes_to_my_pokemon_and_team_changes_to_my_teams()
     {
         var (server, store) = NewRemote();
         var (pokemon, nature) = await SamplePokemonAsync();
@@ -375,12 +375,12 @@ public class RosterSyncTests
         await repo.UseTeamAsync(Ds, 2);
         await repo.ClearActiveTeamAsync(Ds);
         await repo.UseTeamAsync(Ds, 2);
-        Assert.Equal(new[] { "/api/my-pokemons", "/api/my-pokemons", "/api/my-teams", "/api/my-teams", "/api/my-teams", "/api/my-teams", "/api/my-teams", "/api/my-teams" }, putPaths);
+        Assert.Equal(new[] { "/api/my-pokemon", "/api/my-pokemon", "/api/my-team", "/api/my-team", "/api/my-team", "/api/my-team", "/api/my-team", "/api/my-team" }, putPaths);
 
-        // ポケモンの削除は my-pokemons だけ。チームから外す・空のチームを消す・使用中の解除はサーバーが行う
+        // ポケモンの削除は my-pokemon だけ。チームから外す・空のチームを消す・使用中の解除はサーバーが行う
         putPaths.Clear();
         Assert.True(await repo.RemovePokemonAsync(Ds, b.Id));
-        Assert.Equal(new[] { "/api/my-pokemons" }, putPaths);
+        Assert.Equal(new[] { "/api/my-pokemon" }, putPaths);
         var body = JsonNode.Parse(server.Bodies.Last()!)!;
         Assert.Null(body["dataSets"]![Ds]!["teams"]);
         var saved = server.State.For(Ds);
@@ -391,7 +391,7 @@ public class RosterSyncTests
 
         putPaths.Clear();
         Assert.True(await repo.RemoveTeamAsync(Ds, 1));
-        Assert.Equal(new[] { "/api/my-teams" }, putPaths);
+        Assert.Equal(new[] { "/api/my-team" }, putPaths);
         Assert.Empty(server.State.For(Ds).Teams);
         Assert.Single(server.State.For(Ds).Pokemon);
     }
