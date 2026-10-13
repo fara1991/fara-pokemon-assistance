@@ -2857,7 +2857,7 @@ html.vt-nav .sidebar {
     --field-beam: rgba(168, 85, 247, 0.12);
     --field-sky: rgba(196, 181, 253, 0.35);
     --field-stand: rgba(124, 58, 237, 0.1);
-    --field-mon-opacity: 0.3;
+    --field-mon-opacity: 0.55;
     --glass: rgba(255, 255, 255, 0.72);
     --brand-grad: linear-gradient(120deg, #7c3aed 0%, #c026d3 50%, #4f46e5 100%);
 }
@@ -2878,7 +2878,7 @@ html.vt-nav .sidebar {
     --field-beam: rgba(196, 181, 253, 0.09);
     --field-sky: rgba(76, 29, 149, 0.45);
     --field-stand: rgba(196, 181, 253, 0.08);
-    --field-mon-opacity: 0.32;
+    --field-mon-opacity: 0.6;
     --glass: rgba(26, 14, 48, 0.66);
     --brand-grad: linear-gradient(120deg, #c084fc 0%, #e879f9 45%, #818cf8 100%);
 }
