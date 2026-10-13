@@ -201,7 +201,7 @@ else if (data is not null)
     <div class="card-body pane-fill">
         <p class="small mb-0 cmd-legend">
             <code class="cmd-syntax"><span class="cmd-ph">名前</span></code> のように色の付いた部分は、実際の値（ポケモン名・番号など）に置き換えて打ちます。
-            <code class="cmd-syntax">[ ]</code> で囲んだ部分は省略できます（括弧は打ちません）。それ以外（<code>!@(App.CommandPrefix) detail -p</code> など）はそのまま打ちます。<br />対象は <code>-p</code>（ポケモン）と <code>-t</code>（チーム）のオプションで指定します。長い形の <code>--pokemon</code> / <code>--team</code> でも打てます。全角スペースや全角の英数字は、半角として読み取ります。
+            <code class="cmd-syntax">[ ]</code> で囲んだ部分は省略できます（括弧は打ちません）。それ以外（<code>!@(App.CommandPrefix) detail -p</code> など）はそのまま打ちます。<br />対象は <code>-p</code>（ポケモン）/ <code>-t</code>（チーム）で指定します（長い形は <code>--pokemon</code> / <code>--team</code>）。全角の空白・英数字は半角として読みます。
         </p>
         <div class="pane-scroll cmd-scroll">
         <div class="table-responsive">

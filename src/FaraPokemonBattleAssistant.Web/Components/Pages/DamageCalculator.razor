@@ -33,9 +33,15 @@ else if (data is not null && dataSet is not null)
             <div class="card">
                 <div class="card-header"><h5>攻撃側</h5></div>
                 <div class="card-body">
-                    <RosterPicker Groups="rosterGroups" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" OnPick="@(c => PickFromRoster(c, true))" />
+                    <RosterSwitch Groups="rosterGroups" @bind-Enabled="s.UseRosterAttacker" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" />
                     <div class="form-group mb-2">
-                        <label>ポケモン <Help Title="ポケモン">名前の一部（ひらがな・ローマ字でも可。例: ie → イエッサン）で絞り込めます。使用率の高い順に並んでいます。</Help></label>
+                        <label>ポケモン <Help Title="ポケモン">名前の一部（ひらがな・ローマ字でも可。例: ie → イエッサン）で絞り込めます。使用率の高い順に並んでいます。「登録から選ぶ」をオンにすると、登録したポケモンだけから選べます。</Help></label>
+                        @if (s.UseRosterAttacker && rosterGroups.Count > 0)
+                        {
+                            <RosterPokemonSelect Groups="rosterGroups" Data="data" SelectedKey="@s.AttackerRosterKey" OnPick="@(c => PickFromRoster(c, true))" />
+                        }
+                        else
+                        {
                         <SearchableSelect TItem="Pokemon"
                             Items="pokemonList"
                             DisplayText="@(p => p.Name)"
@@ -45,6 +51,7 @@ else if (data is not null && dataSet is not null)
                             Placeholder="ポケモン名を入力...">
                             <ItemTemplate Context="p">@PokemonRow(p)</ItemTemplate>
                         </SearchableSelect>
+                        }
                     </div>
                     @if (s.Attacker is not null)
                     {
@@ -87,9 +94,15 @@ else if (data is not null && dataSet is not null)
             <div class="card">
                 <div class="card-header"><h5>防御側</h5></div>
                 <div class="card-body">
-                    <RosterPicker Groups="rosterGroups" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" OnPick="@(c => PickFromRoster(c, false))" />
+                    <RosterSwitch Groups="rosterGroups" @bind-Enabled="s.UseRosterDefender" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" />
                     <div class="form-group mb-2">
                         <label>ポケモン</label>
+                        @if (s.UseRosterDefender && rosterGroups.Count > 0)
+                        {
+                            <RosterPokemonSelect Groups="rosterGroups" Data="data" SelectedKey="@s.DefenderRosterKey" OnPick="@(c => PickFromRoster(c, false))" />
+                        }
+                        else
+                        {
                         <SearchableSelect TItem="Pokemon"
                             Items="pokemonList"
                             DisplayText="@(p => p.Name)"
@@ -99,6 +112,7 @@ else if (data is not null && dataSet is not null)
                             Placeholder="ポケモン名を入力...">
                             <ItemTemplate Context="p">@PokemonRow(p)</ItemTemplate>
                         </SearchableSelect>
+                        }
                     </div>
                     @if (s.Defender is not null)
                     {
@@ -225,6 +239,11 @@ else if (data is not null && dataSet is not null)
         public bool IsCritical { get; set; }
         /// <summary>Z 技として使う（第 7 世代）。</summary>
         public bool IsZMove { get; set; }
+        /// <summary>「登録から選ぶ」のスイッチ（攻撃側・防御側）と、選んでいる登録の Key。</summary>
+        public bool UseRosterAttacker { get; set; }
+        public bool UseRosterDefender { get; set; }
+        public string? AttackerRosterKey { get; set; }
+        public string? DefenderRosterKey { get; set; }
         public bool Reflect { get; set; }
         public bool LightScreen { get; set; }
         public Weather Weather { get; set; }
@@ -285,6 +304,7 @@ else if (data is not null && dataSet is not null)
             if (s.DataSetKey != App.DataSetKey)
             {
                 s.DataSetKey = App.DataSetKey;
+                s.AttackerRosterKey = s.DefenderRosterKey = null;
                 s.Attacker = null;
                 s.Defender = null;
                 s.Move = null;
@@ -346,6 +366,7 @@ else if (data is not null && dataSet is not null)
 
     private void OnAttackerChanged(string value)
     {
+        s.AttackerRosterKey = null;
         var pokemon = data?.FindPokemon(ParseId(value));
         if (pokemon is null)
         {
@@ -370,6 +391,7 @@ else if (data is not null && dataSet is not null)
 
     private void OnDefenderChanged(string value)
     {
+        s.DefenderRosterKey = null;
         var pokemon = data?.FindPokemon(ParseId(value));
         if (pokemon is null)
         {
@@ -392,12 +414,14 @@ else if (data is not null && dataSet is not null)
         ApplyFieldFromAbility(build);
         if (isAttacker)
         {
+            s.AttackerRosterKey = choice.Key;
             s.Attacker = build;
             RefreshAttackerLists();
             s.Move = DefaultMove(build.Pokemon.Id);
         }
         else
         {
+            s.DefenderRosterKey = choice.Key;
             s.Defender = build;
             RefreshDefenderLists();
         }
