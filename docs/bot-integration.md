@@ -64,7 +64,7 @@ public sealed class PokemonAssistService
         var result = await _command.ExecuteAsync(message, new PokeCommandOptions
         {
             Format = Models.BattleFormat.Singles,   // ダブル配信なら Doubles
-            AllowMutations = canEdit,               // add pokemon / rm pokemon / add team など登録系は配信者本人とモデレーターだけ
+            AllowMutations = canEdit,               // add -p / rm -p / add -t など登録系は配信者本人とモデレーターだけ
         });
         return result.Message;
     }
@@ -73,7 +73,7 @@ public sealed class PokemonAssistService
 
 ### 登録データをサイトと共有する（データ連携）
 
-サイトの「登録ポケモン・チーム」ページで **データ連携を始める** を押すとアクセスキー（43 文字）が作られ、登録データがクラウド（`https://pokemon.fara-labs.com/api/roster`）に保存されます。
+サイトの「データ連携」ページ（`/sync`）で **データ連携を始める** を押すとアクセスキー（43 文字）が作られ、登録データがクラウド（`https://pokemon.fara-labs.com/api/roster`）に保存されます。
 ボット（Auto Bot Settings の Game タブ → ポケモンシリーズ の「アクセスキー」）に同じアクセスキーを設定し、`FileRosterStore` の代わりに `RemoteRosterStore` を使うと、サイトとボットが同じデータを読み書きします（データはクラウドの 1 か所だけにあり、コピーを同期するのではありません）。
 画面上の呼び方は「データ連携」「アクセスキー」ですが、コード上の名前（`syncKey` 引数、サイトの localStorage キー `fara-pokemon-battle-assistant.syncKey` など）は互換性のためそのままです。
 
@@ -130,4 +130,4 @@ dotnet run --project src/FaraPokemonBattleAssistant.Cli -- --data https://pokemo
 - 1 メッセージ 500 文字制限に合わせて、結果は `DamageCommandOptions.MaxLength`（既定 480）で切り詰めます。
 - 連投対策（同一ユーザーのクールダウンなど）はボット側で行ってください。計算自体は数ミリ秒です。
 - `!poke help` で使えるコマンド一覧が返ります（`!poke` はチャンピオンズ扱い）。
-- `AllowMutations = false` のとき、`add` / `rm` / `use team`（pokemon・team とも） は「配信者・モデレーターのみ行えます」と返し、閲覧・計算系はそのまま動きます。
+- `AllowMutations = false` のとき、`add` / `rm` / `use -t`（pokemon・team とも） は「配信者・モデレーターのみ行えます」と返し、閲覧・計算系はそのまま動きます。

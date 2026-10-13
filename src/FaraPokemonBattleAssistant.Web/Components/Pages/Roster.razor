@@ -1,85 +1,25 @@
 @page "/roster"
-@inherits AppPageBase
+@inherits RosterPageBase
 @using FaraPokemonBattleAssistant.Core.Roster
-@inject DataCatalog Catalog
-@inject RosterRepository Repo
-@inject CloudSync Sync
-@inject IJSRuntime JS
-@inject ToastService Toast
 
-<PageTitle>登録ポケモン・チーム | Pokémon Battle Assistant</PageTitle>
+<PageTitle>ポケモン登録 | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>登録ポケモン・チーム <Help Title="登録・チーム">育成済みのポケモン（努力値・性格・特性）を登録し、チームにまとめて「使用中」にすると、ダメージ計算機・素早さ比較・チャットコマンドでその構成が自動で使われます。データはゲームごとに分かれています。ふだんはこのブラウザに保存されますが、下の「データ連携」を使うと、別のブラウザ・端末やボットと同じデータを読み書きできます。</Help></h3>
-    <p class="text-muted mb-0">チャットの <code>!@(App.CommandPrefix) add / add team / use team / unuse team</code> と同じ内容をここで編集できます。チームが 0 体になると自動で削除されます。</p>
+    <h3>ポケモン登録 <Help Title="ポケモン登録">育成済みのポケモン（努力値・性格・特性）を登録します。登録したポケモンは、ダメージ計算機・素早さ比較の「登録から選ぶ」や、チーム登録・チャットコマンドで使えます。データはゲームごとに分かれています。</Help></h3>
+    <p class="text-muted mb-0">チャットの <code>!@(App.CommandPrefix) add -p</code> と同じ内容をここで編集できます。登録したポケモンは、チームに入れると計算に自動で使われます（<a href="team">チーム登録</a>）。</p>
     <p class="text-muted small mb-0 mt-1">H: HP / A: こうげき / B: ぼうぎょ / C: とくこう / D: とくぼう / S: すばやさ（<a href="glossary">用語・略語</a>）</p>
-</div>
-
-<div class="roster-layout pane-fill">
-<div class="card mb-3 sync-card">
-    <div class="card-header">
-        <h5>データ連携 @(Sync.IsSyncing ? "（連携中）" : "")
-            <Help Title="データ連携">
-                データ連携を始めると、登録データはクラウドの 1 か所に保存され、同じアクセスキーを入れた別のブラウザ・端末やボットがそのデータを直接読み書きします（コピーを取り合うのではなく、全員が同じデータを使います）。連携中はクラウドのデータだけを使い、このブラウザには保存しません。<br />
-                <strong>ボットで使うには:</strong> 「コピー」でアクセスキーをコピーし、ボット（<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a> / Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けます。チャットの <code>add</code> / <code>use team</code> などとこのページが同じデータを読み書きするようになります。<br />
-                アクセスキーを作り直したら、ボットや他の端末にも新しいアクセスキーを入れ直してください（古いキーは使えなくなります）。
-            </Help>
-        </h5>
-    </div>
-    <div class="card-body">
-        @if (!Sync.IsSyncing)
-        {
-            <p class="small text-muted mb-2">今はこのブラウザだけに保存しています。データ連携を始めると、別のブラウザ・端末やボットと同じ登録データを読み書きできます。</p>
-            <div class="d-flex flex-wrap gap-2 align-items-start">
-                <button class="btn btn-primary btn-sm" disabled="@syncBusy" @onclick="StartSyncAsync">データ連携を始める（新しいアクセスキーを作る）</button>
-                <div class="input-group input-group-sm sync-join">
-                    <input type="password" class="form-control" placeholder="アクセスキー（43 文字）" autocomplete="off" spellcheck="false" aria-label="アクセスキー"
-                           value="@joinKey" @oninput="@(e => joinKey = e.Value?.ToString() ?? "")" />
-                    <button class="btn btn-outline-primary" disabled="@(syncBusy || string.IsNullOrWhiteSpace(joinKey))" @onclick="JoinSyncAsync">アクセスキーを入力して連携</button>
-                </div>
-            </div>
-            <p class="small text-muted mb-0 mt-2">アクセスキーを入力して連携すると、このブラウザの登録データはクラウドのデータに置き換わります。新しいアクセスキーを作ったときは、このブラウザの登録データがそのままクラウドに保存されます。</p>
-        }
-        else
-        {
-            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-                <span>アクセスキー:</span>
-                <code class="sync-key">@(showKey ? Sync.Key : new string('•', 16))</code>
-                <button class="btn btn-outline-secondary btn-sm" @onclick="() => showKey = !showKey">@(showKey ? "隠す" : "表示")</button>
-                <button class="btn btn-outline-secondary btn-sm" @onclick="CopyKeyAsync">コピー</button>
-            </div>
-            <p class="small text-danger mb-2">アクセスキーはパスワードと同じです。知っている人は誰でも登録データを読み書きできるので、配信画面に映したり、人に教えたりしないでください。</p>
-            <p class="small mb-2">
-                @if (!string.IsNullOrEmpty(Sync.LastError))
-                {
-                    <span class="text-danger">読み書きできませんでした: @Sync.LastError</span>
-                }
-                else if (Sync.LastSyncedAt is { } at)
-                {
-                    <span class="text-muted">最終読み込み @at.ToLocalTime().ToString("HH:mm:ss")</span>
-                }
-                @if (!string.IsNullOrEmpty(Sync.LastNotice))
-                {
-                    <br /><span class="text-warning-emphasis">@Sync.LastNotice</span>
-                }
-            </p>
-            <div class="d-flex flex-wrap gap-2">
-                <button class="btn btn-outline-primary btn-sm" disabled="@syncBusy" @onclick="ReloadAsync">読み込み直す</button>
-                <button class="btn btn-outline-secondary btn-sm" disabled="@syncBusy" @onclick="RotateKeyAsync">アクセスキーを作り直す</button>
-                <button class="btn btn-outline-danger btn-sm" disabled="@syncBusy" @onclick="StopSyncAsync">データ連携をやめる</button>
-            </div>
-        }
-    </div>
+    <RegistrationStorageNote />
 </div>
 
 @if (dataSet is { CalcSupported: false })
 {
-    <CalcUnsupported DataSet="dataSet" Feature="登録・チーム" />
+    <CalcUnsupported DataSet="dataSet" Feature="ポケモン登録" />
 }
 else if (data is not null && roster is not null && dataSet is not null)
 {
-    <div class="split-row split-row-top pane-fill">
-        <div class="split-half">
+    @* PC: 左（登録フォーム）と右（登録一覧）がそれぞれ画面内に収まり、中だけがスクロールする *@
+    <div class="reg-layout pane-fill">
+        <div class="reg-col">
             <div class="card mb-3">
                 <div class="card-header"><h5>ポケモンを登録</h5></div>
                 <div class="card-body">
@@ -149,7 +89,8 @@ else if (data is not null && roster is not null && dataSet is not null)
                     <button class="btn btn-primary" @onclick="AddPokemonAsync" disabled="@(s.NewPokemon is null || s.NewNature is null)">登録</button>
                 </div>
             </div>
-
+        </div>
+        <div class="reg-col">
             <div class="card mb-3">
                 <div class="card-header"><h5>登録一覧（@roster.Pokemon.Count 体）</h5></div>
                 <div class="card-body p-0">
@@ -159,106 +100,29 @@ else if (data is not null && roster is not null && dataSet is not null)
                     }
                     else
                     {
-                        <table class="table table-sm mb-0 align-middle">
-                            <thead><tr><th>ID</th><th>ポケモン</th><th>性格</th><th>@EvRules.Label(dataSet.EvSystem)</th><th>実数値</th><th></th></tr></thead>
-                            <tbody>
-                            @foreach (var e in roster.Pokemon)
-                            {
-                                var build = RosterRepository.ToBuild(e, data);
-                                <tr>
-                                    <td>#@e.Id</td>
-                                    <td><PokemonLabel Pokemon="data.FindPokemon(e.PokemonId)" Small="true" /><br /><small class="text-muted">@(build?.Ability?.Name)</small></td>
-                                    <td>@e.Nature</td>
-                                    <td>@e.EVs.ToShortString()</td>
-                                    <td class="small">@(build is null ? "-" : FormatStats(StatCalculator.CalculateAll(build)))</td>
-                                    <td><button class="btn btn-outline-danger btn-sm" @onclick="() => RemovePokemonAsync(e.Id)">削除</button></td>
-                                </tr>
-                            }
-                            </tbody>
-                        </table>
+                        <ul class="list-group list-group-flush reg-list">
+                        @foreach (var e in roster.Pokemon)
+                        {
+                            var build = RosterRepository.ToBuild(e, data);
+                            <li class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <div class="min-w-0">
+                                        <span class="text-muted small me-1">#@e.Id</span><PokemonLabel Pokemon="data.FindPokemon(e.PokemonId)" Small="true" />
+                                        <small class="text-muted ms-1">@(build?.Ability?.Name)</small>
+                                    </div>
+                                    <button class="btn btn-outline-danger btn-sm flex-shrink-0" @onclick="() => RemovePokemonAsync(e.Id)">削除</button>
+                                </div>
+                                <div class="small mt-1">@NatureText(e.Nature)　@EvRules.Label(dataSet.EvSystem) @e.EVs.ToShortString()</div>
+                                <div class="small text-muted">実数値 @(build is null ? "-" : FormatStats(StatCalculator.CalculateAll(build)))</div>
+                            </li>
+                        }
+                        </ul>
                     }
                 </div>
             </div>
         </div>
-
-        <div class="split-half">
-            <div class="card mb-3">
-                <div class="card-header"><h5>チームに追加 <Help Title="チーム">1 チーム 6 体まで。同じ登録 ID をもう一度追加すると持ち物だけ更新します。メガシンカ後のポケモンはメガストーンが自動で付きます。</Help></h5></div>
-                <div class="card-body">
-                    <div class="row g-2">
-                        <div class="col-4">
-                            <label class="form-label">チーム番号</label>
-                            <input type="number" class="form-control" min="1" value="@s.TeamNumber" @onchange="@(e => s.TeamNumber = Math.Max(1, ParseId(e.Value)))" />
-                        </div>
-                        <div class="col-8">
-                            <label class="form-label">登録ポケモン</label>
-                            <select class="form-select" value="@s.TeamEntryId" @onchange="OnTeamEntryChanged">
-                                <option value="0">選択...</option>
-                                @foreach (var e in roster.Pokemon)
-                                {
-                                    <option value="@e.Id">#@e.Id @e.PokemonName（@e.Nature）</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">持ち物</label>
-                            @if (TeamEntryIsMega)
-                            {
-                                <FixedField Value="@s.TeamItem?.Name" Reason="@FixedField.MegaReason" />
-                            }
-                            else
-                            {
-                                <SearchableSelect TItem="Item"
-                                    Items="data.Items.Where(i => !i.IsMegaStone)"
-                                    DisplayText="@(i => i.Name)"
-                                    ValueSelector="@(i => i.Id.ToString())"
-                                    SelectedValue="@(s.TeamItem?.Id.ToString() ?? "")"
-                                    SelectedValueChanged="@(v => s.TeamItem = data.FindItem(ParseId(v)))"
-                                    Dropdown="true"
-                                    EmptyOption="持ち物なし"
-                                    Placeholder="持ち物なし（入力して検索）" />
-                            }
-                        </div>
-                    </div>
-                    <button class="btn btn-primary mt-3" @onclick="AddToTeamAsync" disabled="@(s.TeamEntryId == 0 || s.TeamNumber < 1)">チームに追加</button>
-                </div>
-            </div>
-
-            @foreach (var team in roster.Teams)
-            {
-                var isActive = roster.ActiveTeam == team.Number;
-                <div class="card mb-3 @(isActive ? "border-primary" : "")">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">チーム@(team.Number) @(isActive ? "（使用中）" : "")</h5>
-                        <div>
-                            @if (!isActive)
-                            {
-                                <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => UseTeamAsync(team.Number)">このチームを使用</button>
-                            }
-                            else
-                            {
-                                <button class="btn btn-outline-secondary btn-sm me-1" @onclick="UnuseTeamAsync">使用を解除</button>
-                            }
-                            <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveTeamAsync(team.Number)">チーム削除</button>
-                        </div>
-                    </div>
-                    <ul class="list-group list-group-flush">
-                        @foreach (var slot in team.Slots)
-                        {
-                            var entry = roster.Pokemon.FirstOrDefault(p => p.Id == slot.EntryId);
-                            var item = slot.ItemId is { } iid ? data.FindItem(iid) : null;
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span>#@slot.EntryId <PokemonLabel Pokemon="entry is null ? null : data.FindPokemon(entry.PokemonId)" Small="true" /> <small class="text-muted">@(entry?.Nature) @(entry?.EVs.ToShortString())</small> @(item is null ? "" : "@" + item.Name)</span>
-                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => RemoveFromTeamAsync(team.Number, slot.EntryId)">外す</button>
-                            </li>
-                        }
-                    </ul>
-                </div>
-            }
-        </div>
     </div>
 }
-</div>
 
 @code {
     public sealed class State
@@ -268,114 +132,38 @@ else if (data is not null && roster is not null && dataSet is not null)
         public StatSet NewEvs { get; set; } = new();
         public Nature? NewNature { get; set; }
         public Ability? NewAbility { get; set; }
-        public int TeamNumber { get; set; } = 1;
-        public int TeamEntryId { get; set; }
-        public Item? TeamItem { get; set; }
     }
 
     private State s = new();
-    private DataSetInfo? dataSet;
-    private PokemonDataSet? data;
-    private DataSetRoster? roster;
-    private bool syncBusy;
-    private bool showKey;
-    private string joinKey = "";
+
+    protected override string StateKey => "roster";
 
     protected override async Task OnAppReadyAsync()
     {
-        s = PageStates.Get<State>("roster");
-        Sync.Changed += OnSyncChanged;
-        await LoadAsync();
+        s = PageStates.Get<State>(StateKey);
+        await base.OnAppReadyAsync();
     }
 
-    private void OnSyncChanged() => _ = InvokeAsync(StateHasChanged);
-
-    public override void Dispose()
+    protected override void OnDataLoaded()
     {
-        Sync.Changed -= OnSyncChanged;
-        base.Dispose();
+        if (data is null) return;
+        if (s.DataSetKey != App.DataSetKey)
+        {
+            s.DataSetKey = App.DataSetKey;
+            s.NewPokemon = null;
+            s.NewEvs = new StatSet();
+            s.NewNature = data.FindNature("まじめ");
+            s.NewAbility = null;
+        }
+        s.NewNature ??= data.FindNature("まじめ");
     }
 
-    protected override Task OnAppChangedAsync() => LoadAsync();
-
-    private async Task LoadAsync()
-    {
-        try
-        {
-            dataSet = App.DataSet;
-            data = await Catalog.GetDataSetAsync(App.DataSetKey);
-            roster = null;
-            roster = (await Repo.GetAsync()).For(App.DataSetKey);
-            if (s.DataSetKey != App.DataSetKey)
-            {
-                s.DataSetKey = App.DataSetKey;
-                s.NewPokemon = null;
-                s.NewEvs = new StatSet();
-                s.NewNature = data.FindNature("まじめ");
-                s.NewAbility = null;
-                s.TeamItem = null;
-                s.TeamEntryId = 0;
-            }
-            s.NewNature ??= data.FindNature("まじめ");
-        }
-        catch (Exception ex)
-        {
-            Show($"読み込みに失敗しました: {CloudSync.Describe(ex)}", true);
-        }
-    }
-
-    /// <summary>登録データだけ読み直す（変更のあと。クラウドでは他の場所の変更も反映される）。</summary>
-    private async Task RefreshRosterAsync()
-    {
-        try
-        {
-            roster = (await Repo.GetAsync()).For(App.DataSetKey);
-        }
-        catch (Exception ex)
-        {
-            Show($"読み込みに失敗しました: {CloudSync.Describe(ex)}", true);
-        }
-    }
-
-    /// <summary>登録データを変更する操作を実行する。失敗したら理由を出し、最新の内容を読み直す。</summary>
-    private async Task MutateAsync(Func<Task> action)
-    {
-        try
-        {
-            await action();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Show(CloudSync.Describe(ex), true);
-        }
-        await RefreshRosterAsync();
-    }
-
-    private bool TeamEntryIsMega =>
-        roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId) is { } entry && data?.FindPokemon(entry.PokemonId)?.IsMega == true;
-
-    private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;
     private static int Clamp(object? value, int max) => Math.Clamp(int.TryParse(value?.ToString(), out var v) ? v : 0, 0, max);
-    private static string FormatStats(StatSet st) => $"H{st.HP}-A{st.Attack}-B{st.Defense}-C{st.SpAttack}-D{st.SpDefense}-S{st.Speed}";
-
-    // 処理の結果は画面右上のトーストで知らせる（Services/ToastService.cs）
-    private void Show(string text, bool isError) => Toast.Show(text, isError);
 
     private void OnNewPokemonChanged(string value)
     {
         s.NewPokemon = data?.FindPokemon(ParseId(value));
         s.NewAbility = s.NewPokemon is null || data is null ? null : AbilityEffects.ChooseDefault(data.AbilitiesOf(s.NewPokemon), null);
-    }
-
-    private void OnTeamEntryChanged(ChangeEventArgs e)
-    {
-        s.TeamEntryId = ParseId(e.Value);
-        var entry = roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId);
-        var pokemon = entry is null ? null : data?.FindPokemon(entry.PokemonId);
-        if (pokemon?.IsMega == true)
-            s.TeamItem = data?.FindItem(pokemon.MegaStoneId!.Value);
-        else if (s.TeamItem?.IsMegaStone == true)
-            s.TeamItem = null;
     }
 
     private PokemonBuild NewBuild() => new(s.NewPokemon!, dataSet!.EvSystem) { EVs = s.NewEvs, Nature = s.NewNature, Ability = s.NewAbility };
@@ -405,159 +193,5 @@ else if (data is not null && roster is not null && dataSet is not null)
             var deleted = before.Except(after).ToList();
             Show($"#{id} を削除しました" + (deleted.Count > 0 ? $"（0 体になった{string.Join("・", deleted.Select(n => $"チーム{n}"))}も削除しました）" : ""), false);
         });
-    }
-
-    private async Task AddToTeamAsync()
-    {
-        await MutateAsync(async () =>
-        {
-            var (team, _, replaced) = await Repo.AddToTeamAsync(App.DataSetKey, s.TeamNumber, s.TeamEntryId, s.TeamItem);
-            Show($"チーム{team.Number} に{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6）", false);
-        });
-    }
-
-    private async Task RemoveFromTeamAsync(int teamNo, int entryId)
-    {
-        await MutateAsync(async () =>
-        {
-            await Repo.RemoveFromTeamAsync(App.DataSetKey, teamNo, e => e.Id == entryId);
-            if ((await Repo.GetAsync()).For(App.DataSetKey).Teams.All(t => t.Number != teamNo))
-                Show($"チーム{teamNo} は 0 体になったので削除しました", false);
-        });
-    }
-
-    private async Task RemoveTeamAsync(int teamNo)
-    {
-        await MutateAsync(async () =>
-        {
-            await Repo.RemoveTeamAsync(App.DataSetKey, teamNo);
-            Show($"チーム{teamNo} を削除しました", false);
-        });
-    }
-
-    private async Task UnuseTeamAsync()
-    {
-        await MutateAsync(async () =>
-        {
-            await Repo.ClearActiveTeamAsync(App.DataSetKey);
-            Show("使用チームを解除しました", false);
-        });
-    }
-
-    private async Task UseTeamAsync(int teamNo)
-    {
-        await MutateAsync(async () =>
-        {
-            if (await Repo.UseTeamAsync(App.DataSetKey, teamNo))
-                Show($"チーム{teamNo} を使用します", false);
-            else
-                Toast.Warning($"チーム{teamNo} はありません（他の場所で削除された可能性があります）");
-        });
-    }
-
-    // ---- データ連携
-
-    private async Task<bool> ConfirmAsync(string text)
-    {
-        try
-        {
-            return await JS.InvokeAsync<bool>("confirm", text);
-        }
-        catch (JSException)
-        {
-            return false;
-        }
-    }
-
-    private async Task RunSyncAsync(Func<Task> action)
-    {
-        syncBusy = true;
-        try
-        {
-            await action();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Show(CloudSync.Describe(ex), true);
-        }
-        finally
-        {
-            syncBusy = false;
-        }
-        await LoadAsync();
-    }
-
-    private Task StartSyncAsync() => RunSyncAsync(async () =>
-    {
-        var hadData = await Sync.LocalHasDataAsync();
-        await Sync.StartNewAsync();
-        showKey = false;
-        Show("データ連携を始めました。" + (hadData ? "このブラウザの登録データをクラウドに保存しました。" : "") +
-             "別の端末やボットで使うときは、アクセスキーを「コピー」して貼り付けてください", false);
-    });
-
-    private async Task JoinSyncAsync()
-    {
-        var key = joinKey.Trim();
-        if (!RemoteRosterStore.IsValidKey(key))
-        {
-            Show("アクセスキーの形式が正しくありません（43 文字の英数字・-・_）", true);
-            return;
-        }
-        if (await Sync.LocalHasDataAsync()
-            && !await ConfirmAsync("このブラウザの登録データは削除され、クラウドのデータに置き換わります。よろしいですか？"))
-            return;
-        await RunSyncAsync(async () =>
-        {
-            var hasData = await Sync.JoinAsync(key);
-            joinKey = "";
-            showKey = false;
-            Show(hasData
-                ? "アクセスキーで連携しました。クラウドの登録データを表示しています"
-                : "アクセスキーで連携しました（このアクセスキーのクラウドデータはまだ空です。打ち間違えていないか確認してください）", false);
-        });
-    }
-
-    private async Task RotateKeyAsync()
-    {
-        if (!await ConfirmAsync("新しいアクセスキーを作り、データを移します。今のアクセスキーは使えなくなるので、ボットや他の端末には新しいアクセスキーを入れ直してください。よろしいですか？"))
-            return;
-        await RunSyncAsync(async () =>
-        {
-            var deletedOld = await Sync.RotateAsync();
-            showKey = false;
-            Show(deletedOld
-                ? "アクセスキーを作り直しました。ボットや他の端末には新しいアクセスキーを入れ直してください"
-                : "アクセスキーを作り直しました（古いアクセスキーのデータを消せませんでした。古いアクセスキーは控えずに破棄してください）", !deletedOld);
-        });
-    }
-
-    private async Task StopSyncAsync()
-    {
-        if (!await ConfirmAsync("このブラウザでのデータ連携をやめます。クラウドのデータは残るので、アクセスキーを入力すればまた連携できます（アクセスキーを控えておいてください）。このブラウザの登録データは空になります。よろしいですか？"))
-            return;
-        await RunSyncAsync(async () =>
-        {
-            await Sync.StopAsync();
-            showKey = false;
-            Show("データ連携をやめました。アクセスキーを入力すれば、また同じデータで連携できます", false);
-        });
-    }
-
-    private Task ReloadAsync() => RunSyncAsync(() => Task.CompletedTask);
-
-    private async Task CopyKeyAsync()
-    {
-        if (Sync.Key is null) return;
-        try
-        {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", Sync.Key);
-            Show("アクセスキーをコピーしました", false);
-        }
-        catch (JSException)
-        {
-            showKey = true;
-            Show("コピーできませんでした。表示したアクセスキーを選択してコピーしてください", true);
-        }
     }
 }

@@ -226,14 +226,13 @@ body {
     flex: 1 1 auto;
 }
 
-/* スマホ・狭い画面: 登録ページの外枠は中身をそのまま並べる（PC の段組みは下の @media で作る） */
-.roster-layout {
-    display: contents;
+/* 登録ページ（ポケモン登録・チーム登録）: スマホ・狭い画面では 2 つの列を縦に並べる（PC の段組みは下の @media で作る） */
+.reg-col {
+    min-width: 0;
 }
 
-/* 登録ページ: 右の列は中身の高さのまま（左の列の高さまで伸ばさない） */
-.split-row-top .split-half > .card:first-child {
-    flex: 0 0 auto;
+.reg-list .min-w-0 {
+    min-width: 0;
 }
 
 /* ---- 計算機・素早さ比較の段組み（広い画面では 3 列: 左 | 右 | 場の状態と結果） ---- */
@@ -2709,56 +2708,28 @@ html.vt-nav .sidebar {
     }
 }
 
-/* 登録・チーム（PC）: 左（登録フォームと登録一覧）と右（チーム）がそれぞれ画面内に収まり、中だけがスクロールする */
+/* ポケモン登録・チーム登録（PC）: 左（入力フォーム）と右（一覧）がそれぞれ画面内に収まり、中だけがスクロールする */
 @media (min-width: 768px) {
-    /* 左: 登録フォームと登録一覧（縦いっぱい）。右: データ連携（そのまま）の下にチーム。右下と左がそれぞれスクロールする */
-    .roster-layout.pane-fill {
+    .reg-layout.pane-fill {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
         gap: 0 1rem;
-        min-height: 24rem;
+        min-height: 20rem;
     }
 
-    .roster-layout > .sync-card {
-        grid-column: 2;
-        grid-row: 1;
-        margin-bottom: 0.75rem !important;
-    }
-
-    .roster-layout > .split-row {
-        display: contents;
-    }
-
-    .roster-layout > .split-row > .split-half:first-child {
-        grid-column: 1;
-        grid-row: 1 / span 2;
-    }
-
-    .roster-layout > .split-row > .split-half:last-child {
-        grid-column: 2;
-        grid-row: 2;
-    }
-
-    .roster-layout > .split-row > .split-half {
+    .reg-layout > .reg-col {
         min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
         scrollbar-gutter: stable;
     }
 
-    .roster-layout > .split-row > .split-half > * {
-        flex-shrink: 0;
-    }
+}
 
-    /* 登録一覧の見出し行はスクロールしても上に固定 */
-    .roster-layout .table thead th {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        background-color: var(--app-panel-bg);
-        box-shadow: 0 1px 0 var(--app-card-border);
-    }
+/* データ連携ページ: 読みやすい幅に収める */
+.sync-page {
+    max-width: 54rem;
 }
 
 /* チャットコマンド（PC）: 一覧の枠は画面内に収め、表とオプション表だけがスクロールする。表の見出し行は上に固定 */
@@ -2833,4 +2804,13 @@ html.vt-nav .sidebar {
     ::view-transition-new(*) {
         animation: none !important;
     }
+}
+
+/* 登録ページの上の、保存先の案内（データ連携していないときだけ） */
+.reg-note {
+    color: var(--app-muted);
+}
+
+.reg-note .bi {
+    margin-right: 0.25rem;
 }

@@ -409,27 +409,27 @@ public class PokeCommandTests
     public async Task Register_list_more_remove()
     {
         var cmd = NewCommand(out var store);
-        var add = await cmd.ExecuteAsync("!pokech add pokemon ガブリアス 4 32 0 0 0 30 ようき");
+        var add = await cmd.ExecuteAsync("!pokech add -p ガブリアス 4 32 0 0 0 30 ようき");
         Assert.True(add.Success, add.Message);
         Assert.Contains("#1", add.Message);
         Assert.NotNull(store.Json);
 
-        var tooMany = await cmd.ExecuteAsync("!pokech add pokemon ガブリアス 32 32 32 0 0 0 ようき");
+        var tooMany = await cmd.ExecuteAsync("!pokech add -p ガブリアス 32 32 32 0 0 0 ようき");
         Assert.False(tooMany.Success);
 
-        var ls = await cmd.ExecuteAsync("!pokech ls pokemon");
+        var ls = await cmd.ExecuteAsync("!pokech ls -p");
         Assert.Contains("ガブリアス(ようき)", ls.Message);
-        var lsFiltered = await cmd.ExecuteAsync("!pokech ls pokemon ピカチュウ");
+        var lsFiltered = await cmd.ExecuteAsync("!pokech ls -p ピカチュウ");
         Assert.Contains("登録されたポケモンはありません", lsFiltered.Message);
 
-        var more = await cmd.ExecuteAsync("!pokech detail pokemon 1");
+        var more = await cmd.ExecuteAsync("!pokech detail -p 1");
         Assert.True(more.Success, more.Message);
         Assert.Contains("実数値", more.Message);
         Assert.Contains("ようき", more.Message);
 
-        var rm = await cmd.ExecuteAsync("!pokech rm pokemon 1");
+        var rm = await cmd.ExecuteAsync("!pokech rm -p 1");
         Assert.True(rm.Success, rm.Message);
-        var lsAfter = await cmd.ExecuteAsync("!pokech ls pokemon");
+        var lsAfter = await cmd.ExecuteAsync("!pokech ls -p");
         Assert.Contains("ありません", lsAfter.Message);
     }
 
@@ -469,9 +469,9 @@ public class PokeCommandTests
     public async Task Sv_registration_uses_classic_limits()
     {
         var cmd = NewCommand(out _);
-        var ok = await cmd.ExecuteAsync("!pokesv add pokemon ガブリアス 4 252 0 0 0 252 ようき");
+        var ok = await cmd.ExecuteAsync("!pokesv add -p ガブリアス 4 252 0 0 0 252 ようき");
         Assert.True(ok.Success, ok.Message);
-        var bad = await cmd.ExecuteAsync("!pokesv add pokemon ガブリアス 4 253 0 0 0 252 ようき");
+        var bad = await cmd.ExecuteAsync("!pokesv add -p ガブリアス 4 253 0 0 0 252 ようき");
         Assert.False(bad.Success);
     }
 
@@ -479,19 +479,19 @@ public class PokeCommandTests
     public async Task Team_flow_and_team_aware_damage()
     {
         var cmd = NewCommand(out _);
-        Assert.True((await cmd.ExecuteAsync("!pokech add pokemon ガブリアス 4 32 0 0 0 30 ようき")).Success);
-        Assert.True((await cmd.ExecuteAsync("!pokech add pokemon リザードン 0 0 0 32 2 32 おくびょう")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech add -p ガブリアス 4 32 0 0 0 30 ようき")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech add -p リザードン 0 0 0 32 2 32 おくびょう")).Success);
 
-        var addTeam = await cmd.ExecuteAsync("!pokech add team 1 1 こだわりスカーフ");
+        var addTeam = await cmd.ExecuteAsync("!pokech add -t 1 1 こだわりスカーフ");
         Assert.True(addTeam.Success, addTeam.Message);
         Assert.Contains("こだわりスカーフ", addTeam.Message);
-        Assert.True((await cmd.ExecuteAsync("!pokech add team 1 2 きあいのタスキ")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech add -t 1 2 きあいのタスキ")).Success);
 
-        var lsTeam = await cmd.ExecuteAsync("!pokech ls team");
+        var lsTeam = await cmd.ExecuteAsync("!pokech ls -t");
         Assert.Contains("チーム1", lsTeam.Message);
-        var use = await cmd.ExecuteAsync("!pokech use team 1");
+        var use = await cmd.ExecuteAsync("!pokech use -t 1");
         Assert.True(use.Success, use.Message);
-        var moreTeam = await cmd.ExecuteAsync("!pokech detail team 1");
+        var moreTeam = await cmd.ExecuteAsync("!pokech detail -t 1");
         Assert.Contains("使用中", moreTeam.Message);
         Assert.Contains("@こだわりスカーフ", moreTeam.Message);
 
@@ -503,11 +503,11 @@ public class PokeCommandTests
         Assert.Equal(32, dmg.Request.Attacker.EVs.Attack);  // 登録した振り
         Assert.Equal(EvSystem.Points, dmg.Request.Attacker.EvSystem);
 
-        var rmMember = await cmd.ExecuteAsync("!pokech rm team 1 リザードン");
+        var rmMember = await cmd.ExecuteAsync("!pokech rm -t 1 リザードン");
         Assert.True(rmMember.Success, rmMember.Message);
-        var rmTeam = await cmd.ExecuteAsync("!pokech rm team 1");
+        var rmTeam = await cmd.ExecuteAsync("!pokech rm -t 1");
         Assert.True(rmTeam.Success, rmTeam.Message);
-        Assert.Contains("チームはありません", (await cmd.ExecuteAsync("!pokech ls team")).Message);
+        Assert.Contains("チームはありません", (await cmd.ExecuteAsync("!pokech ls -t")).Message);
     }
 
     [Fact]
@@ -515,14 +515,14 @@ public class PokeCommandTests
     {
         var cmd = NewCommand(out _);
         // 登録では持ち物を指定しない（チームに入れるときに指定する）
-        var withItem = await cmd.ExecuteAsync("!pokech add pokemon ガブリアス 4 32 0 0 0 30 ようき さめはだ @こだわりスカーフ");
+        var withItem = await cmd.ExecuteAsync("!pokech add -p ガブリアス 4 32 0 0 0 30 ようき さめはだ @こだわりスカーフ");
         Assert.False(withItem.Success);
-        Assert.Contains("add team", withItem.Message);
-        Assert.True((await cmd.ExecuteAsync("!pokech add pokemon ガブリアス 4 32 0 0 0 30 ようき さめはだ")).Success);
-        Assert.True((await cmd.ExecuteAsync("!pokech add team 1 1")).Success);
-        Assert.DoesNotContain("@", (await cmd.ExecuteAsync("!pokech detail team 1")).Message);
-        Assert.True((await cmd.ExecuteAsync("!pokech add team 1 1 こだわりスカーフ")).Success);
-        Assert.Contains("@こだわりスカーフ", (await cmd.ExecuteAsync("!pokech detail team 1")).Message);
+        Assert.Contains("add -t", withItem.Message);
+        Assert.True((await cmd.ExecuteAsync("!pokech add -p ガブリアス 4 32 0 0 0 30 ようき さめはだ")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech add -t 1 1")).Success);
+        Assert.DoesNotContain("@", (await cmd.ExecuteAsync("!pokech detail -t 1")).Message);
+        Assert.True((await cmd.ExecuteAsync("!pokech add -t 1 1 こだわりスカーフ")).Success);
+        Assert.Contains("@こだわりスカーフ", (await cmd.ExecuteAsync("!pokech detail -t 1")).Message);
     }
 
     [Fact]
@@ -547,9 +547,9 @@ public class PokeCommandTests
     public async Task Calc_estimates_defense_investment()
     {
         var cmd = NewCommand(out _);
-        Assert.True((await cmd.ExecuteAsync("!pokesv add pokemon ガブリアス 4 252 0 0 0 252 ようき")).Success);
-        Assert.True((await cmd.ExecuteAsync("!pokesv add team 1 1")).Success);
-        Assert.True((await cmd.ExecuteAsync("!pokesv use team 1")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add -p ガブリアス 4 252 0 0 0 252 ようき")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add -t 1 1")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv use -t 1")).Success);
 
         // まず既知の構成でダメージを出し、その最大値を観測値として逆算すると元の振りが候補に含まれる
         var known = await cmd.ExecuteAsync("!pokesv dmg ガブリアス じしん ハバタクカミ 防:H252 防:B0 防:おくびょう 防:持ち物なし");
@@ -566,9 +566,9 @@ public class PokeCommandTests
     public async Task Diff_compares_speed_with_reference_lines()
     {
         var cmd = NewCommand(out _);
-        Assert.True((await cmd.ExecuteAsync("!pokesv add pokemon ガブリアス 4 252 0 0 0 252 ようき")).Success);
-        Assert.True((await cmd.ExecuteAsync("!pokesv add team 1 1 こだわりスカーフ")).Success);
-        Assert.True((await cmd.ExecuteAsync("!pokesv use team 1")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add -p ガブリアス 4 252 0 0 0 252 ようき")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add -t 1 1 こだわりスカーフ")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv use -t 1")).Success);
 
         var diff = await cmd.ExecuteAsync("!pokesv faster ガブリアス ハバタクカミ");
         Assert.True(diff.Success, diff.Message);
@@ -586,7 +586,7 @@ public class PokeCommandTests
         var cmd = NewCommand(out _);
         var list = await cmd.ExecuteAsync("!poke help");
         Assert.True(list.Success, list.Message);
-        Assert.Contains("add team", list.Message);
+        Assert.Contains("add -t", list.Message);
         Assert.Contains("!pokech", list.Message);
         Assert.Contains("!pokesv", list.Message);
         Assert.Contains("!pokess", list.Message);
@@ -622,9 +622,9 @@ public class PokeCommandTests
     public async Task Calc_lists_ability_variants_when_they_differ()
     {
         var cmd = NewCommand(out _);
-        Assert.True((await cmd.ExecuteAsync("!pokesv add pokemon ガブリアス 4 252 0 0 0 252 ようき")).Success);
-        Assert.True((await cmd.ExecuteAsync("!pokesv add team 1 1")).Success);
-        Assert.True((await cmd.ExecuteAsync("!pokesv use team 1")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add -p ガブリアス 4 252 0 0 0 252 ようき")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add -t 1 1")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokesv use -t 1")).Success);
         // ドータクンへのじしんは振り方によって概ね 114〜180。150 なら候補がある
         var calc = await cmd.ExecuteAsync("!pokesv calc ガブリアス じしん ドータクン 150");
         Assert.True(calc.Success, calc.Message);
@@ -1126,19 +1126,19 @@ public class TeamCleanupTests
     {
         var store = new MemoryRosterStore();
         var cmd = new PokeCommand(TestData.Catalog(), new RosterRepository(store));
-        Assert.True((await cmd.ExecuteAsync("!pokech add pokemon ガブリアス 4 32 0 0 0 30 ようき")).Success);
-        Assert.True((await cmd.ExecuteAsync("!pokech add team 1 1")).Success);
-        Assert.True((await cmd.ExecuteAsync("!pokech use team 1")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech add -p ガブリアス 4 32 0 0 0 30 ようき")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech add -t 1 1")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech use -t 1")).Success);
 
-        var unuse = await cmd.ExecuteAsync("!pokech unuse team");
+        var unuse = await cmd.ExecuteAsync("!pokech unuse -t");
         Assert.True(unuse.Success, unuse.Message);
         Assert.Contains("解除", unuse.Message);
-        Assert.Contains("ありません", (await cmd.ExecuteAsync("!pokech unuse team")).Message);
+        Assert.Contains("ありません", (await cmd.ExecuteAsync("!pokech unuse -t")).Message);
 
-        await cmd.ExecuteAsync("!pokech use team 1");
-        var rm = await cmd.ExecuteAsync("!pokech rm pokemon 1");
+        await cmd.ExecuteAsync("!pokech use -t 1");
+        var rm = await cmd.ExecuteAsync("!pokech rm -p 1");
         Assert.Contains("チーム1を削除", rm.Message);
-        var teams = await cmd.ExecuteAsync("!pokech ls team");
+        var teams = await cmd.ExecuteAsync("!pokech ls -t");
         Assert.Contains("チームはありません", teams.Message);
     }
 
@@ -1147,9 +1147,9 @@ public class TeamCleanupTests
     {
         var store = new MemoryRosterStore();
         var cmd = new PokeCommand(TestData.Catalog(), new RosterRepository(store));
-        await cmd.ExecuteAsync("!pokech add pokemon ガブリアス 4 32 0 0 0 30 ようき");
-        await cmd.ExecuteAsync("!pokech add team 2 1");
-        var rm = await cmd.ExecuteAsync("!pokech rm team 2 ガブリアス");
+        await cmd.ExecuteAsync("!pokech add -p ガブリアス 4 32 0 0 0 30 ようき");
+        await cmd.ExecuteAsync("!pokech add -t 2 1");
+        var rm = await cmd.ExecuteAsync("!pokech rm -t 2 ガブリアス");
         Assert.Contains("チームを削除", rm.Message);
     }
 }

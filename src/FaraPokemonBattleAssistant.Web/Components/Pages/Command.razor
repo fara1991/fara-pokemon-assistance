@@ -42,7 +42,7 @@ else if (data is not null)
                 @if (Has(Field.Subject))
                 {
                     <div class="cmd-f-poke">
-                        <label class="form-label">@(s.Kind == "add pokemon" ? "ポケモン" : "ポケモン名（任意）")</label>
+                        <label class="form-label">@(s.Kind == "add -p" ? "ポケモン" : "ポケモン名（任意）")</label>
                         <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
                             SelectedValue="@(s.Subject?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { s.Subject = data.FindPokemon(ParseId(v)); BuildText(); })" Placeholder="例: ガブリアス">
                             <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /></ItemTemplate>
@@ -90,7 +90,7 @@ else if (data is not null)
                 @if (Has(Field.EntryId))
                 {
                     <div class="cmd-f-num">
-                        <label class="form-label" for="cmd-entry">登録 ID <Help Title="登録 ID">登録したポケモンの番号です。「登録・チーム」ページか ls pokemon コマンドで分かります。</Help></label>
+                        <label class="form-label" for="cmd-entry">登録 ID <Help Title="登録 ID">登録したポケモンの番号です。「ポケモン登録」ページか ls -p コマンドで分かります。</Help></label>
                         <input id="cmd-entry" class="form-control" inputmode="numeric" placeholder="例: 1" value="@s.EntryId" @onchange="@(e => { s.EntryId = e.Value?.ToString()?.Trim() ?? ""; BuildText(); })" />
                     </div>
                 }
@@ -201,7 +201,7 @@ else if (data is not null)
     <div class="card-body pane-fill">
         <p class="small mb-0 cmd-legend">
             <code class="cmd-syntax"><span class="cmd-ph">名前</span></code> のように色の付いた部分は、実際の値（ポケモン名・番号など）に置き換えて打ちます。
-            <code class="cmd-syntax">[ ]</code> で囲んだ部分は省略できます（括弧は打ちません）。それ以外（<code>!@(App.CommandPrefix) detail pokemon</code> など）はそのまま打ちます。
+            <code class="cmd-syntax">[ ]</code> で囲んだ部分は省略できます（括弧は打ちません）。それ以外（<code>!@(App.CommandPrefix) detail -p</code> など）はそのまま打ちます。<br />対象は <code>-p</code>（ポケモン）と <code>-t</code>（チーム）のオプションで指定します。長い形の <code>--pokemon</code> / <code>--team</code> でも打てます。全角スペースや全角の英数字は、半角として読み取ります。
         </p>
         <div class="pane-scroll cmd-scroll">
         <div class="table-responsive">
@@ -413,16 +413,16 @@ else if (data is not null)
         var ev = EvRules.Label(App.DataSet?.EvSystem ?? EvSystem.Classic);
         return new KindDef[]
         {
-            new("add pokemon", "add pokemon（登録）", "ポケモン", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability }),
-            new("ls pokemon", "ls pokemon（一覧）", "ポケモン", new[] { Field.Subject }),
-            new("detail pokemon", "detail pokemon（詳細）", "ポケモン", new[] { Field.EntryId }),
-            new("rm pokemon", "rm pokemon（削除）", "ポケモン", new[] { Field.EntryId }),
-            new("add team", "add team（追加）", "チーム", new[] { Field.TeamNo, Field.EntryId, Field.TeamItem }),
-            new("rm team", "rm team（外す・削除）", "チーム", new[] { Field.TeamNo, Field.Subject }),
-            new("use team", "use team（使用）", "チーム", new[] { Field.TeamNo }),
-            new("unuse team", "unuse team（解除）", "チーム", Array.Empty<Field>()),
-            new("ls team", "ls team（一覧）", "チーム", Array.Empty<Field>()),
-            new("detail team", "detail team（詳細）", "チーム", new[] { Field.TeamNo }),
+            new("add -p", "add -p（登録）", "ポケモン", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability }),
+            new("ls -p", "ls -p（一覧）", "ポケモン", new[] { Field.Subject }),
+            new("detail -p", "detail -p（詳細）", "ポケモン", new[] { Field.EntryId }),
+            new("rm -p", "rm -p（削除）", "ポケモン", new[] { Field.EntryId }),
+            new("add -t", "add -t（追加）", "チーム", new[] { Field.TeamNo, Field.EntryId, Field.TeamItem }),
+            new("rm -t", "rm -t（外す・削除）", "チーム", new[] { Field.TeamNo, Field.Subject }),
+            new("use -t", "use -t（使用）", "チーム", new[] { Field.TeamNo }),
+            new("unuse -t", "unuse -t（解除）", "チーム", Array.Empty<Field>()),
+            new("ls -t", "ls -t（一覧）", "チーム", Array.Empty<Field>()),
+            new("detail -t", "detail -t（詳細）", "チーム", new[] { Field.TeamNo }),
             new("dmg", "dmg（ダメージ）", "対戦", new[] { Field.Attacker, Field.Move, Field.Defender, Field.Weather, Field.Terrain }),
             new("calc", $"calc（{ev}推定）", "対戦", new[] { Field.Attacker, Field.Move, Field.Defender, Field.Weather, Field.Terrain, Field.Damage }),
             new("faster", "faster（素早さ比較）", "対戦", new[] { Field.Attacker, Field.Defender, Field.Weather, Field.Options }),
@@ -446,30 +446,30 @@ else if (data is not null)
         string Or(string value, string placeholder) => string.IsNullOrWhiteSpace(value) ? placeholder : value.Trim();
         switch (s.Kind)
         {
-            case "add pokemon":
+            case "add -p":
                 parts.Add(s.Subject?.Name ?? "名前");
                 for (var i = 0; i < 6; i++) parts.Add(Or(s.Evs[i], StatNames.Letter((Stat)i)));
                 parts.Add(Or(s.NatureName, "性格"));
                 if (!string.IsNullOrEmpty(s.AbilityName)) parts.Add(s.AbilityName);
                 break;
-            case "ls pokemon":
+            case "ls -p":
                 if (s.Subject is not null) parts.Add(s.Subject.Name);
                 break;
-            case "detail pokemon":
-            case "rm pokemon":
+            case "detail -p":
+            case "rm -p":
                 parts.Add(Or(s.EntryId, "登録ID"));
                 break;
-            case "add team":
+            case "add -t":
                 parts.Add(Or(s.TeamNo, "チーム番号"));
                 parts.Add(Or(s.EntryId, "登録ID"));
                 if (!string.IsNullOrEmpty(s.ItemName)) parts.Add(s.ItemName);
                 break;
-            case "rm team":
+            case "rm -t":
                 parts.Add(Or(s.TeamNo, "チーム番号"));
                 if (s.Subject is not null) parts.Add(s.Subject.Name);
                 break;
-            case "use team":
-            case "detail team":
+            case "use -t":
+            case "detail -t":
                 parts.Add(Or(s.TeamNo, "チーム番号"));
                 break;
             case "faster":
@@ -505,8 +505,8 @@ else if (data is not null)
         if (tokens.Count == 0) return null;
         var first = tokens[0].ToLowerInvariant();
         var second = tokens.Count > 1 ? tokens[1].ToLowerInvariant() : "";
-        if (second == "team" && first is "add" or "rm" or "use" or "unuse" or "ls" or "detail") { consumed = 2; return first + " team"; }
-        if (second == "pokemon" && first is "add" or "rm" or "ls" or "detail") { consumed = 2; return first + " pokemon"; }
+        if ((second is "-t" or "--team") && first is "add" or "rm" or "use" or "unuse" or "ls" or "detail") { consumed = 2; return first + " -t"; }
+        if ((second is "-p" or "--pokemon") && first is "add" or "rm" or "ls" or "detail") { consumed = 2; return first + " -p"; }
         if (first is "help" or "dmg" or "calc" or "faster") { consumed = 1; return first; }
         return null;
     }
@@ -518,7 +518,7 @@ else if (data is not null)
     private void ParseText()
     {
         if (data is null) return;
-        var tokens = s.Input.Split(new[] { ' ', '　', '\t' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+        var tokens = CommandText.Normalize(s.Input).Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
         if (tokens.Count > 0 && tokens[0].StartsWith('!')) tokens.RemoveAt(0);
         var kind = DetectKind(tokens, out var consumed);
         if (kind is null) return;
@@ -530,34 +530,34 @@ else if (data is not null)
 
         switch (kind)
         {
-            case "add pokemon":
+            case "add -p":
                 s.Subject = PokemonAt(0);
                 for (var i = 0; i < 6; i++) s.Evs[i] = NumberOrEmpty(tokens, 1 + i);
                 s.NatureName = tokens.Count > 7 && data.FindNature(tokens[7]) is { } n ? n.Name : "";
                 s.AbilityName = tokens.Count > 8 ? tokens[8] : "";
                 return;
-            case "ls pokemon":
+            case "ls -p":
                 s.Subject = PokemonAt(0);
                 return;
-            case "detail pokemon":
-            case "rm pokemon":
+            case "detail -p":
+            case "rm -p":
                 s.EntryId = NumberOrEmpty(tokens, 0);
                 return;
-            case "add team":
+            case "add -t":
                 s.TeamNo = NumberOrEmpty(tokens, 0);
                 s.EntryId = NumberOrEmpty(tokens, 1);
                 s.ItemName = tokens.Count > 2 && new NameResolver<Item>(data.Items, i => i.Name).Resolve(tokens[2]).Value is { } item ? item.Name : "";
                 return;
-            case "rm team":
+            case "rm -t":
                 s.TeamNo = NumberOrEmpty(tokens, 0);
                 s.Subject = PokemonAt(1);
                 return;
-            case "use team":
-            case "detail team":
+            case "use -t":
+            case "detail -t":
                 s.TeamNo = NumberOrEmpty(tokens, 0);
                 return;
-            case "unuse team":
-            case "ls team":
+            case "unuse -t":
+            case "ls -t":
             case "help":
                 return;
         }
@@ -667,18 +667,18 @@ else if (data is not null)
         var evExample = points ? "4 32 0 0 0 30" : "4 252 0 0 0 252";
         var gimmick = ds?.HasTerastal == true ? " テラスほのお" : ds?.HasDynamax == true ? " ダイマ" : "";
         // <...> は置き換える値（画面では色付きで表示）、[...] は省略できる部分
-        yield return new($"{p} add pokemon <名前> <H> <A> <B> <C> <D> <S> <性格> [<特性>]", "ポケモン",
+        yield return new($"{p} add -p <名前> <H> <A> <B> <C> <D> <S> <性格> [<特性>]", "ポケモン",
             points ? $"育成済みポケモンを登録（{evLabel}は各 0〜32、合計 66）" : $"育成済みポケモンを登録（{evLabel}は各 0〜252、合計 510）",
-            new[] { $"{p} add pokemon ガブリアス {evExample} ようき さめはだ" });
-        yield return new($"{p} ls pokemon [<名前>]", "ポケモン", "登録一覧（名前を付けるとそのポケモンだけ）", new[] { $"{p} ls pokemon", $"{p} ls pokemon ガブリアス" });
-        yield return new($"{p} detail pokemon <登録ID>", "ポケモン", "登録の詳細（性格・振り・特性・実数値・所属チーム）", new[] { $"{p} detail pokemon 1" });
-        yield return new($"{p} rm pokemon <登録ID>", "ポケモン", "登録を削除（チームからも外れる）", new[] { $"{p} rm pokemon 1" });
-        yield return new($"{p} add team <チーム番号> <登録ID> [<持ち物>]", "チーム", "チームに追加（6 体まで）。同じ登録 ID をもう一度指定すると持ち物を更新", new[] { $"{p} add team 1 1 こだわりスカーフ" });
-        yield return new($"{p} rm team <チーム番号> [<名前>]", "チーム", "チームから外す（名前を省くとチームごと削除。0 体になったチームも自動で削除）", new[] { $"{p} rm team 1 ガブリアス", $"{p} rm team 1" });
-        yield return new($"{p} use team <チーム番号>", "チーム", "使用チームにする。以降の dmg / calc / faster はこのチームの構成で計算", new[] { $"{p} use team 1" });
-        yield return new($"{p} unuse team", "チーム", "使用チームを解除（以降は使用率に基づく既定値で計算）", new[] { $"{p} unuse team" });
-        yield return new($"{p} ls team", "チーム", "チーム一覧", new[] { $"{p} ls team" });
-        yield return new($"{p} detail team <チーム番号>", "チーム", "チームの詳細", new[] { $"{p} detail team 1" });
+            new[] { $"{p} add -p ガブリアス {evExample} ようき さめはだ" });
+        yield return new($"{p} ls -p [<名前>]", "ポケモン", "登録一覧（名前を付けるとそのポケモンだけ）", new[] { $"{p} ls -p", $"{p} ls -p ガブリアス" });
+        yield return new($"{p} detail -p <登録ID>", "ポケモン", "登録の詳細（性格・振り・特性・実数値・所属チーム）", new[] { $"{p} detail -p 1" });
+        yield return new($"{p} rm -p <登録ID>", "ポケモン", "登録を削除（チームからも外れる）", new[] { $"{p} rm -p 1" });
+        yield return new($"{p} add -t <チーム番号> <登録ID> [<持ち物>]", "チーム", "チームに追加（6 体まで）。同じ登録 ID をもう一度指定すると持ち物を更新", new[] { $"{p} add -t 1 1 こだわりスカーフ" });
+        yield return new($"{p} rm -t <チーム番号> [<名前>]", "チーム", "チームから外す（名前を省くとチームごと削除。0 体になったチームも自動で削除）", new[] { $"{p} rm -t 1 ガブリアス", $"{p} rm -t 1" });
+        yield return new($"{p} use -t <チーム番号>", "チーム", "使用チームにする。以降の dmg / calc / faster はこのチームの構成で計算", new[] { $"{p} use -t 1" });
+        yield return new($"{p} unuse -t", "チーム", "使用チームを解除（以降は使用率に基づく既定値で計算）", new[] { $"{p} unuse -t" });
+        yield return new($"{p} ls -t", "チーム", "チーム一覧", new[] { $"{p} ls -t" });
+        yield return new($"{p} detail -t <チーム番号>", "チーム", "チームの詳細", new[] { $"{p} detail -t 1" });
         yield return new($"{p} dmg <攻撃側> <技>[<±ランク>] <防御側> [<オプション>]", "対戦", "通常と急所のダメージと確定数。使用チームにいるポケモンはその構成（持ち物は括弧内に表示）。オプションは下の表",
             new[] { $"{p} dmg ガブリアス じしん リザードン", $"{p} dmg ガブリアス じしん+1 リザードン 晴れ 急所", $"{p} dmg ガブリアス げきりん ドドゲザン 壁 HP50%", $"{p} dmg イエッサン ワイドフォース メガリザードンX サイコフィールド", $"{p} dmg ガブリアス じしん リザードン A252 いじっぱり こだわりハチマキ{gimmick}" });
         yield return new($"{p} calc <攻撃側> <技>[<±ランク>] <防御側> <受けたダメージ> [<オプション>]", "対戦", "受けた（与えた）ダメージから相手の防御側の努力値と性格補正を推定。93 なら実数、45% なら割合（H も推定）",
