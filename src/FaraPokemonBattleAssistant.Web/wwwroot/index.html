@@ -71,6 +71,21 @@
                 });
             };
             // ヘルプの吹き出し: ? ボタンの右（入らなければ左）に、画面からはみ出さないように出す
+            // 背景のバトルフィールド：ポケモンの画像を、画面に描かれた足場の真ん中に足元を合わせて置く。
+            // 大きさは足場の幅に比例させるので、奥の足場のポケモンは遠近で小さくなる
+            window.faraPlaceStage = function () {
+                [["foe", "field-pad-foe"], ["mine", "field-pad-mine"]].forEach(function (p) {
+                    var pad = document.querySelector("." + p[1]), img = document.querySelector(".field-mon-" + p[0]);
+                    if (!pad || !img) return;
+                    var r = pad.getBoundingClientRect(), w = r.width * 1.3;
+                    img.style.width = w + "px";
+                    img.style.left = (r.left + r.width / 2 - w / 2) + "px";
+                    img.style.top = (r.top + r.height / 2 - w * 0.92) + "px";
+                    img.style.visibility = "visible";
+                });
+            };
+            window.addEventListener("resize", function () { window.faraPlaceStage(); });
+
             window.faraPlaceNote = function (id) {
                 var el = document.getElementById(id);
                 if (!el || !wide.matches || el.closest(".sidebar")) return;

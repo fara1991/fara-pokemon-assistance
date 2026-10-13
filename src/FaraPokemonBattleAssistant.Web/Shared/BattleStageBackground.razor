@@ -3,6 +3,7 @@
 @inject AppState App
 @inject DataCatalog Catalog
 @inject BattleStage Stage
+@inject IJSRuntime JS
 @implements IDisposable
 
 <div class="bg-scene" aria-hidden="true">
@@ -31,20 +32,19 @@
                 <rect class="cl" x="56" y="4" width="88" height="34"></rect>
                 <rect class="cl" x="56" y="282" width="88" height="34"></rect>
             </svg>
-            <div class="field-pad field-pad-foe">
-                @if (Stage.Foe is { Icon.Length: > 0 } foe)
-                {
-                    <div class="field-stand"><img src="@foe.Icon" alt="" onerror="this.style.display='none'" /></div>
-                }
-            </div>
-            <div class="field-pad field-pad-mine">
-                @if (Stage.Mine is { Icon.Length: > 0 } mine)
-                {
-                    <div class="field-stand"><img src="@mine.Icon" alt="" onerror="this.style.display='none'" /></div>
-                }
-            </div>
+            <div class="field-pad field-pad-foe"></div>
+            <div class="field-pad field-pad-mine"></div>
         </div>
     </div>
+    @* ポケモンは床とは別に置き、足場の位置に合わせる（index.html の faraPlaceStage） *@
+    @if (Stage.Foe is { Icon.Length: > 0 } foe)
+    {
+        <img class="field-mon field-mon-foe" src="@foe.Icon" alt="" onerror="this.style.display='none'" />
+    }
+    @if (Stage.Mine is { Icon.Length: > 0 } mine)
+    {
+        <img class="field-mon field-mon-mine" src="@mine.Icon" alt="" onerror="this.style.display='none'" />
+    }
     <div class="field-horizon"></div>
     <div class="field-beam field-beam-1"></div>
     <div class="field-beam field-beam-2"></div>
@@ -76,6 +76,13 @@
     }
 
     private void OnStageChanged() => InvokeAsync(StateHasChanged);
+
+    // ポケモンの画像を足場の位置に合わせる（画面の大きさが変わったときは index.html 側で合わせ直す）
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try { await JS.InvokeVoidAsync("faraPlaceStage"); }
+        catch { /* 背景だけの飾りなので、失敗しても何もしない */ }
+    }
 
     public void Dispose()
     {
