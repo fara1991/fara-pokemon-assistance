@@ -38,7 +38,7 @@ jobs:
       - run: npm ci
 
       # サイトはカスタムドメインのルートで公開するので、<base href="/" /> はそのまま。
-      # 直接開いた URL（/speed など）は wrangler.jsonc の not_found_handling で index.html を返す。
+      # 直接開いた URL（/speed-comparison など）は wrangler.jsonc の not_found_handling で index.html を返す。
       - name: Publish Blazor WebAssembly
         run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --output publish
 

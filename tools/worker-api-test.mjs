@@ -110,7 +110,8 @@ try {
   check("POST は 405", (await req("POST", key, {})).status === 405);
   const notFound = await fetch(`${base}/api/other`, { headers: auth(key) });
   check("/api/ の他のパスは 404", notFound.status === 404);
-  const page = await fetch(`${base}/roster`);
+  const page = await fetch(`${base}/my-pokemon`);
+  check("以前の URL（/roster）も静的アセット（SPA）", (await fetch(`${base}/roster`)).status === 200);
   check("API 以外は今までどおり静的アセット（SPA）", page.status === 200 && (page.headers.get("content-type") ?? "").includes("text/html"));
 
   // DELETE（キーの作り直し）

@@ -1,7 +1,0 @@
-@page "/roster"
-@inject NavigationManager Nav
-@* 以前の URL（/roster）を /pokemon に転送する。既存のリンク・ブックマーク用。API のパス（/api/roster）とは別 *@
-
-@code {
-    protected override void OnInitialized() => Nav.NavigateTo("pokemon", replace: true);
-}

@@ -54,7 +54,7 @@ fara-pokemon-battle-assistant/
 接頭辞でデータセットを選びます: **`!pokech`** = ポケモンチャンピオンズ、**`!pokesv`** = スカーレット・バイオレット、**`!pokess`** = ソード・シールド（`!poke` はチャンピオンズ扱い）。
 `!poke help` で使えるコマンドの一覧が返ります。登録・削除・使用チームの変更は配信者本人とモデレーターだけに許可する想定です（`PokeCommandOptions.AllowMutations`）。
 登録データはボットなら PC 上の JSON、ブラウザなら localStorage に保存され、データセットごとに独立しています。
-サイトの「データ連携」ページ（`/sync`。ポケモン登録は `/pokemon`（以前の `/roster` は転送）、チーム登録は `/team`）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末やボットが同じデータを読み書きできます（連携中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。ボット側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
+サイトの「データ連携」ページ（`/data-sync`。ポケモン登録は `/my-pokemon`、チーム登録は `/my-teams`。以前の `/sync`・`/pokemon`・`/roster`・`/team` などは新しい URL に転送）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末やボットが同じデータを読み書きできます（連携中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。ボット側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
 
 ### 育成済みポケモンの登録（`-p` / `--pokemon`）
 
