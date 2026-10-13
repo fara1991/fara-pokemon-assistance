@@ -90,7 +90,7 @@ else if (data is not null)
                 @if (Has(Field.EntryId))
                 {
                     <div class="cmd-f-num">
-                        <label class="form-label" for="cmd-entry">登録 ID <Help Title="登録 ID">登録したポケモンの番号です。「登録・チーム」ページか ls pokemon コマンドで分かります。</Help></label>
+                        <label class="form-label" for="cmd-entry">登録 ID <Help Title="登録 ID">登録したポケモンの番号です。「ポケモン登録」ページか ls pokemon コマンドで分かります。</Help></label>
                         <input id="cmd-entry" class="form-control" inputmode="numeric" placeholder="例: 1" value="@s.EntryId" @onchange="@(e => { s.EntryId = e.Value?.ToString()?.Trim() ?? ""; BuildText(); })" />
                     </div>
                 }

@@ -73,7 +73,7 @@ public sealed class PokemonAssistService
 
 ### 登録データをサイトと共有する（データ連携）
 
-サイトの「登録ポケモン・チーム」ページで **データ連携を始める** を押すとアクセスキー（43 文字）が作られ、登録データがクラウド（`https://pokemon.fara-labs.com/api/roster`）に保存されます。
+サイトの「データ連携」ページ（`/sync`）で **データ連携を始める** を押すとアクセスキー（43 文字）が作られ、登録データがクラウド（`https://pokemon.fara-labs.com/api/roster`）に保存されます。
 ボット（Auto Bot Settings の Game タブ → ポケモンシリーズ の「アクセスキー」）に同じアクセスキーを設定し、`FileRosterStore` の代わりに `RemoteRosterStore` を使うと、サイトとボットが同じデータを読み書きします（データはクラウドの 1 か所だけにあり、コピーを同期するのではありません）。
 画面上の呼び方は「データ連携」「アクセスキー」ですが、コード上の名前（`syncKey` 引数、サイトの localStorage キー `fara-pokemon-battle-assistant.syncKey` など）は互換性のためそのままです。
 
