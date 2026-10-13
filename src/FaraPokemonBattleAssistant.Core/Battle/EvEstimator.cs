@@ -124,12 +124,12 @@ public sealed class EvEstimator
         var statLetter = StatNames.Letter(e.DefenseStat);
         var observed = e.ObservedAsPercent ? $"{e.ObservedDamage}%" : $"{e.ObservedDamage}";
         if (!e.HasResult)
-            return $"{defender.Name}が{move.Name}で{observed}ダメージになる{StatNames.Japanese(e.DefenseStat)}の振り方は見つかりませんでした（持ち物・特性・ランクが違う可能性）";
+            return $"{defender.Name}が{move.Name}で{observed}ダメージになる{statLetter}の振り方は見つかりませんでした（持ち物・特性・ランクが違う可能性）";
 
         var bandText = string.Join(" / ", e.Bands.Select(b =>
             b.MinEv == b.MaxEv ? $"{b.Label}:{statLetter}{b.MinEv}{unit}" : $"{b.Label}:{statLetter}{b.MinEv}〜{b.MaxEv}{unit}"));
         var hpText = e.HpEvRange is { } hp ? $" H{hp.MinEv}〜{hp.MaxEv}{unit}" : "";
         var statText = e.MinDefenseStat == e.MaxDefenseStat ? $"{e.MinDefenseStat}" : $"{e.MinDefenseStat}〜{e.MaxDefenseStat}";
-        return $"{defender.Name}が{move.Name}で{observed}ダメージ → {StatNames.Japanese(e.DefenseStat)}実数値 {statText}: {bandText}{hpText}";
+        return $"{defender.Name}が{move.Name}で{observed}ダメージ → {statLetter}実数値 {statText}: {bandText}{hpText}";
     }
 }

@@ -1426,7 +1426,7 @@ body {
     min-width: 12rem;
 }
 
-/* コマンドの種類（ダメージ計算・登録・チームなど）の小さなラベル */
+/* コマンドの種類（ポケモン・チーム・対戦・ヘルプ）の小さなラベル */
 .cmd-kind {
     display: inline-block;
     padding: 0.05rem 0.5rem;

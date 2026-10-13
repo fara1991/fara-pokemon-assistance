@@ -119,7 +119,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                         <div class="small @(s.NewEvs.Total > EvRules.MaxTotal(dataSet.EvSystem) ? "text-danger" : "text-muted")">合計 @s.NewEvs.Total / @EvRules.MaxTotal(dataSet.EvSystem)</div>
                     </div>
                     <div class="form-group mb-2">
-                        <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります（片方だけ押したときは、もう片方をこうげき・とくこうの振り方に合わせて補います）。名前で探すこともできます。</Help></label>
+                        <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります（片方だけ押したときは、もう片方を A・C の振り方に合わせて補います）。名前で探すこともできます。</Help></label>
                         <NaturePicker Natures="data.Natures" Value="s.NewNature" ValueChanged="@(n => s.NewNature = n)"
                             Physical="@(s.NewEvs.Attack >= s.NewEvs.SpAttack)" />
                     </div>

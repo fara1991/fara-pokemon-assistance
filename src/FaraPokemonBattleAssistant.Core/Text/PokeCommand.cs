@@ -166,7 +166,7 @@ public sealed class PokeCommand
         for (var i = 0; i < 6; i++)
         {
             if (!int.TryParse(args[1 + i], out var v))
-                return Fail($"{StatNames.Japanese(stats[i])}の{EvRules.Label(system)}「{args[1 + i]}」が数値ではありません");
+                return Fail($"{StatNames.Letter(stats[i])}の{EvRules.Label(system)}「{args[1 + i]}」が数値ではありません");
             evs[stats[i]] = v;
         }
         if (EvRules.Validate(system, evs) is { } error) return Fail(error);
@@ -320,7 +320,7 @@ public sealed class PokeCommand
         {
             if (!byId.TryGetValue(s.EntryId, out var e)) return $"#{s.EntryId}?";
             var item = s.ItemId is { } iid ? data.FindItem(iid)?.Name : null;
-            return $"#{e.Id} {e.PokemonName}({e.Nature} {e.EVs.ToShortString()}){(item is null ? "" : "@" + item)}";
+            return $"#{e.Id} {e.PokemonName}({data.FindNature(e.Nature)?.Describe() ?? e.Nature} {e.EVs.ToShortString()}){(item is null ? "" : "@" + item)}";
         });
         var active = roster.ActiveTeam == teamNo ? "(使用中)" : "";
         return Ok($"チーム{teamNo}{active}: " + string.Join(" / ", parts));
@@ -529,7 +529,7 @@ public sealed class PokeCommand
     {
         var stats = StatCalculator.CalculateAll(build);
         var ability = build.Ability?.Name ?? "特性不明";
-        return $"{entry.PokemonName} {entry.Nature} {entry.EVs.ToShortString()} {ability} 実数値 H{stats.HP}-A{stats.Attack}-B{stats.Defense}-C{stats.SpAttack}-D{stats.SpDefense}-S{stats.Speed}";
+        return $"{entry.PokemonName} {build.Nature?.Describe() ?? entry.Nature} {entry.EVs.ToShortString()} {ability} 実数値 H{stats.HP}-A{stats.Attack}-B{stats.Defense}-C{stats.SpAttack}-D{stats.SpDefense}-S{stats.Speed}";
     }
 
     /// <summary>計算に対応していないゲーム（昔の世代）を指定されたときの案内。</summary>

@@ -423,9 +423,9 @@ else if (data is not null)
             new("unuse team", "unuse team（解除）", "チーム", Array.Empty<Field>()),
             new("ls team", "ls team（一覧）", "チーム", Array.Empty<Field>()),
             new("detail team", "detail team（詳細）", "チーム", new[] { Field.TeamNo }),
-            new("dmg", "dmg（ダメージ）", "ダメージ計算", new[] { Field.Attacker, Field.Move, Field.Defender, Field.Weather, Field.Terrain }),
-            new("calc", $"calc（{ev}推定）", $"{ev}推定", new[] { Field.Attacker, Field.Move, Field.Defender, Field.Weather, Field.Terrain, Field.Damage }),
-            new("faster", "faster（素早さ比較）", "素早さ比較", new[] { Field.Attacker, Field.Defender, Field.Weather, Field.Options }),
+            new("dmg", "dmg（ダメージ）", "対戦", new[] { Field.Attacker, Field.Move, Field.Defender, Field.Weather, Field.Terrain }),
+            new("calc", $"calc（{ev}推定）", "対戦", new[] { Field.Attacker, Field.Move, Field.Defender, Field.Weather, Field.Terrain, Field.Damage }),
+            new("faster", "faster（素早さ比較）", "対戦", new[] { Field.Attacker, Field.Defender, Field.Weather, Field.Options }),
             new("help", "help（コマンド一覧）", "ヘルプ", Array.Empty<Field>()),
         };
     }
@@ -679,11 +679,11 @@ else if (data is not null)
         yield return new($"{p} unuse team", "チーム", "使用チームを解除（以降は使用率に基づく既定値で計算）", new[] { $"{p} unuse team" });
         yield return new($"{p} ls team", "チーム", "チーム一覧", new[] { $"{p} ls team" });
         yield return new($"{p} detail team <チーム番号>", "チーム", "チームの詳細", new[] { $"{p} detail team 1" });
-        yield return new($"{p} dmg <攻撃側> <技>[<±ランク>] <防御側> [<オプション>]", "ダメージ計算", "通常と急所のダメージと確定数。使用チームにいるポケモンはその構成（持ち物は括弧内に表示）。オプションは下の表",
+        yield return new($"{p} dmg <攻撃側> <技>[<±ランク>] <防御側> [<オプション>]", "対戦", "通常と急所のダメージと確定数。使用チームにいるポケモンはその構成（持ち物は括弧内に表示）。オプションは下の表",
             new[] { $"{p} dmg ガブリアス じしん リザードン", $"{p} dmg ガブリアス じしん+1 リザードン 晴れ 急所", $"{p} dmg ガブリアス げきりん ドドゲザン 壁 HP50%", $"{p} dmg イエッサン ワイドフォース メガリザードンX サイコフィールド", $"{p} dmg ガブリアス じしん リザードン A252 いじっぱり こだわりハチマキ{gimmick}" });
-        yield return new($"{p} calc <攻撃側> <技>[<±ランク>] <防御側> <受けたダメージ> [<オプション>]", $"{evLabel}推定", "受けた（与えた）ダメージから相手の防御側の努力値と性格補正を推定。93 なら実数、45% なら割合（H も推定）",
+        yield return new($"{p} calc <攻撃側> <技>[<±ランク>] <防御側> <受けたダメージ> [<オプション>]", "対戦", "受けた（与えた）ダメージから相手の防御側の努力値と性格補正を推定。93 なら実数、45% なら割合（H も推定）",
             new[] { $"{p} calc ガブリアス じしん リザードン 93", $"{p} calc ガブリアス じしん リザードン 45% サイコフィールド" });
-        yield return new($"{p} faster <自分> <相手> [<オプション>]", "素早さ比較", "素早さ比較。自分は使用チームの実数値、相手は 無振り / 準速 / 最速 / スカーフ最速 / 最遅。オプションは +1（自分のランク）・天候・まひ（相手）・自:まひ",
+        yield return new($"{p} faster <自分> <相手> [<オプション>]", "対戦", "素早さ比較。自分は使用チームの実数値、相手は 無振り / 準速 / 最速 / スカーフ最速 / 最遅。オプションは +1（自分のランク）・天候・まひ（相手）・自:まひ",
             new[] { $"{p} faster ガブリアス リザードン", $"{p} faster ガブリアス リザードン +1 まひ" });
         yield return new($"{p} help", "ヘルプ", "使えるコマンドの一覧（!poke help でも可）", new[] { $"{p} help" });
     }
