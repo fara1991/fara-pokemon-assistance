@@ -10,7 +10,7 @@
 
 <div class="page-header">
     <h3>データ連携 <Help Title="データ連携">登録したポケモンとチームを、別のブラウザ・端末やボットと共有するための設定です。使わないときは、登録データはこのブラウザだけに保存されます。</Help></h3>
-    <p class="text-muted mb-0">アクセスキーを作ると、<a href="roster">ポケモン登録</a>と<a href="team">チーム登録</a>のデータがクラウドに保存され、同じアクセスキーを入れた別のブラウザ・端末やボットから読み書きできます。</p>
+    <p class="text-muted mb-0">アクセスキーを作ると、<a href="pokemon">ポケモン登録</a>と<a href="team">チーム登録</a>のデータがクラウドに保存され、同じアクセスキーを入れた別のブラウザ・端末やボットから読み書きできます。</p>
 </div>
 
 @* PC: 見出しは固定にして、カードの中だけがスクロールする *@
@@ -68,14 +68,15 @@
 
 
 <div class="card mb-3">
-    <div class="card-header"><h5>ボットで使うには</h5></div>
+    <div class="card-header"><h5>API で使うには</h5></div>
     <div class="card-body">
+        <p class="small mb-2">アクセスキーを使うと、登録したポケモンとチームを、このサイトの外から API で読み書きできます。</p>
         <ol class="mb-2 ps-3">
-            <li>上の「データ連携を始める」を押して、アクセスキーを作ります。</li>
-            <li>「コピー」でアクセスキーをコピーします。</li>
-            <li>ボット（<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a> / Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けます。</li>
+            <li>上の「データ連携を始める」を押して、アクセスキーを作り、「コピー」でコピーします。</li>
+            <li>リクエストの <code>Authorization: Bearer アクセスキー</code> ヘッダーに入れて、このサイトの <code>/api/roster</code> を呼びます。<code>GET</code> で読み取り、<code>PUT</code> で保存、<code>DELETE</code> で削除です。</li>
         </ol>
-        <p class="small text-muted mb-0">チャットの <code>add</code> / <code>use -t</code> などと、このサイトが同じデータを読み書きするようになります。連携中はクラウドのデータだけを使い、このブラウザには保存しません（コピーを取り合うのではなく、全員が同じデータを使います）。アクセスキーを作り直したら、ボットや他の端末にも新しいアクセスキーを入れ直してください（古いキーは使えなくなります）。</p>
+        <p class="small text-muted mb-2">使い方の一例が、チャットのボットです。<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a>（Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けると、チャットの <code>add -p</code> / <code>use -t</code> などと、このサイトが同じデータを読み書きするようになります。</p>
+        <p class="small text-muted mb-0">連携中はクラウドのデータだけを使い、このブラウザには保存しません（コピーを取り合うのではなく、全員が同じデータを使います）。アクセスキーを作り直したら、API を使うほかのツールや端末にも新しいアクセスキーを入れ直してください（古いキーは使えなくなります）。</p>
     </div>
 </div>
 </div>

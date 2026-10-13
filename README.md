@@ -3,7 +3,7 @@
 ポケモン対戦アシスタント（Pokémon Battle Assistant）。ダメージ計算・素早さ比較・育成済みポケモンとチームの管理・タイプ相性を、**ブラウザ**（Cloudflare Workers）と **Twitch チャットのコマンド**（FaraBotModerator）の両方から使えるようにするプロジェクトです。
 
 - Web: https://pokemon.fara-labs.com/
-- チャット: `!dmg イエッサン♂ ワイドフォース メガリザードンX` → `イエッサン(C252 ひかえめ こだわりメガネ) ワイドフォース → メガリザードンX(H252 いじっぱり HP185): 61.6〜72.9% (114〜135) 確定2発 [効果抜群(2倍)]` のような 1 行が返ります。
+- チャット: `!dmg イエッサン♂ ワイドフォース メガリザードンX` → `イエッサン(C252 C↑A↓ こだわりメガネ) ワイドフォース → メガリザードンX(H252 A↑C↓ HP185): 61.6〜72.9% (114〜135) 確定2発 [効果抜群(2倍)]` のような 1 行が返ります。
 
 ## 構成
 
@@ -54,11 +54,11 @@ fara-pokemon-battle-assistant/
 接頭辞でデータセットを選びます: **`!pokech`** = ポケモンチャンピオンズ、**`!pokesv`** = スカーレット・バイオレット、**`!pokess`** = ソード・シールド（`!poke` はチャンピオンズ扱い）。
 `!poke help` で使えるコマンドの一覧が返ります。登録・削除・使用チームの変更は配信者本人とモデレーターだけに許可する想定です（`PokeCommandOptions.AllowMutations`）。
 登録データはボットなら PC 上の JSON、ブラウザなら localStorage に保存され、データセットごとに独立しています。
-サイトの「データ連携」ページ（`/sync`。ポケモン登録は `/roster`、チーム登録は `/team`）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末やボットが同じデータを読み書きできます（連携中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。ボット側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
+サイトの「データ連携」ページ（`/sync`。ポケモン登録は `/pokemon`（以前の `/roster` は転送）、チーム登録は `/team`）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末やボットが同じデータを読み書きできます（連携中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。ボット側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
 
 ### 育成済みポケモンの登録（`-p` / `--pokemon`）
 
-対象はオプションで指定します。ポケモンは `-p`（長い形は `--pokemon`）、チームは `-t`（`--team`）で、サブコマンドの直後に置きます（例: `add -p ガブリアス …`、`use --team 1`）。`add pokemon` のような単語の形は使えません（`add` だけを打つと、`-p` か `-t` を付けるよう案内します）。全角スペースや全角の英数字・記号（`ｄｍｇ`・`－ｐ`・`＋１` など）は半角として読み取ります（`PokeCommand` / `DamageCommand` の入口で `CommandText.Normalize`）。
+対象はオプションで指定します。ポケモンは `-p`（長い形は `--pokemon`）、チームは `-t`（`--team`）で、サブコマンドの直後に置きます（短い形: `!pokech add -p ガブリアス 4 32 0 0 0 30 ようき`、`!pokech use -t 1`。長い形も同じ意味: `!pokech add --pokemon ガブリアス 4 32 0 0 0 30 ようき`、`!pokech use --team 1`）。`add pokemon` のような単語の形は使えません（`add` だけを打つと、`-p` か `-t` を付けるよう案内します）。全角スペースや全角の英数字・記号（`ｄｍｇ`・`－ｐ`・`＋１` など）は半角として読み取ります（`PokeCommand` / `DamageCommand` の入口で `CommandText.Normalize`）。
 
 | コマンド | 内容 |
 |---|---|
@@ -167,7 +167,7 @@ npm run test:worker                                      # データ連携 API�
 
 ### 登録データの連携 API
 
-登録ポケモン・チーム（`RosterState` の JSON）を、サイトとボットで同じ場所に保存するための API です（`worker/index.js`）。
+登録ポケモン・チーム（`RosterState` の JSON）を、アクセスキーで読み書きするための API です（`worker/index.js`）。サイトの「データ連携」ページの「API で使うには」にも同じ説明があります。サイトも API の使い手の 1 つで、ボット（FaraBotModerator の `RemoteRosterStore`）はその一例です。
 アクセスキーごとに SQLite ストレージの Durable Object（`RosterSlot`）を 1 つ持ちます。本番と確認用は Worker が別なので、データも別々です。
 
 | メソッド | 内容 |

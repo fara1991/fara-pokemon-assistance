@@ -71,7 +71,7 @@ public sealed class PokeCommand
         return "ポケモン: add -p 名前 H A B C D S 性格 [特性] / ls -p [名前] / detail -p ID / rm -p ID ｜ " +
                "チーム: add -t 番号 ID [持ち物] / rm -t 番号 [名前] / use -t 番号 / unuse -t / ls -t / detail -t 番号 ｜ " +
                "計算: dmg 攻撃 技±ランク 防御 [努力値 性格 持ち物 特性 急所 やけど どく まひ 天候 …] / calc 攻撃 技 防御 ダメージ[%] / faster 自分 相手 [まひ] ｜ " +
-               $"接頭辞: {prefixes}（!poke はチャンピオンズ）";
+               $"接頭辞: {prefixes}（!poke はチャンピオンズ） ｜ -p/-t は --pokemon/--team でも可（例: use --team 1）";
     }
 
     public async Task<DamageCommandResult> ExecuteAsync(string message, PokeCommandOptions? options = null, CancellationToken ct = default)
