@@ -5,11 +5,30 @@ using FaraPokemonBattleAssistant.Core.Models;
 
 namespace FaraPokemonBattleAssistant.Core.Roster;
 
-/// <summary>登録データ（育成済みポケモン・チーム）の保存先。JSON 文字列を丸ごと読み書きする。</summary>
+/// <summary>登録データのうち、1 回の変更で書き換える部分。</summary>
+public enum RosterPart
+{
+    /// <summary>登録ポケモン（と次に振る登録 ID）。消したポケモンはチームからも外れる。</summary>
+    Pokemon,
+    /// <summary>チームと使用中チーム。</summary>
+    Teams,
+}
+
+/// <summary>登録データ（育成済みポケモン・チーム）の保存先。</summary>
 public interface IRosterStore
 {
+    /// <summary>登録データ全体を JSON（<see cref="RosterState"/>）で読む。まだ何も無ければ null。</summary>
     Task<string?> LoadAsync(CancellationToken ct = default);
+
+    /// <summary>登録データ全体を保存する（ファイル・ブラウザ。クラウドではデータの移し替え用）。</summary>
     Task SaveAsync(string json, CancellationToken ct = default);
+
+    /// <summary>
+    /// 1 つのゲーム（<paramref name="dataSetKey"/>）の、<paramref name="part"/> の部分だけを保存する。
+    /// <paramref name="state"/> は変更後の登録データ全体。ファイル・ブラウザは全体をそのまま保存し、
+    /// クラウド（<see cref="RemoteRosterStore"/>）はその部分の API（/api/my-pokemon・/api/my-team）だけを呼ぶ。
+    /// </summary>
+    Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default);
 
     /// <summary>
     /// 他の場所（別の端末・ボット）からも書き換えられる保存先なら true（<see cref="RemoteRosterStore"/>）。
@@ -39,6 +58,9 @@ public sealed class FileRosterStore : IRosterStore
         await File.WriteAllTextAsync(tmp, json, ct).ConfigureAwait(false);
         File.Move(tmp, Path, overwrite: true);
     }
+
+    public Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default) =>
+        SaveAsync(RosterRepository.Serialize(state), ct);
 }
 
 /// <summary>メモリ上だけ（テスト用）。</summary>
@@ -47,6 +69,8 @@ public sealed class MemoryRosterStore : IRosterStore
     public string? Json { get; set; }
     public Task<string?> LoadAsync(CancellationToken ct = default) => Task.FromResult(Json);
     public Task SaveAsync(string json, CancellationToken ct = default) { Json = json; return Task.CompletedTask; }
+    public Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default) =>
+        SaveAsync(RosterRepository.Serialize(state), ct);
 }
 
 public sealed class RegisteredPokemon
@@ -127,6 +151,8 @@ public sealed class RosterState
 /// 変更する操作は「読み込む → 変更する → 保存する」を 1 つずつ（同時に走らないように）行う。
 /// 保存先が <see cref="IRosterStore.AlwaysReload"/> のとき（クラウド）は毎回読み直し、保存時に他の場所の更新と競合したら
 /// （<see cref="RosterConflictException"/>）読み直して最大 <see cref="MaxConflictRetries"/> 回やり直す。
+/// 保存は変えた部分だけ（ポケモンの操作はポケモン、チームの操作はチーム。<see cref="IRosterStore.SavePartAsync"/>）。
+/// ポケモンを消したときにチームから外す処理は、クラウドではサーバーが同じ処理の中で行う（ここでも同じ変更をして表示に使う）。
 /// </remarks>
 public sealed class RosterRepository
 {
@@ -207,7 +233,7 @@ public sealed class RosterRepository
     /// 読み込む → <paramref name="apply"/> で変更する → 変更があれば保存する。
     /// クラウドでは毎回読み直し、競合したら読み直してやり直す（<paramref name="apply"/> は何度か呼ばれることがある）。
     /// </summary>
-    private async Task<T> MutateAsync<T>(string dataSetKey, Func<DataSetRoster, (T Result, bool Changed)> apply, CancellationToken ct)
+    private async Task<T> MutateAsync<T>(string dataSetKey, RosterPart part, Func<DataSetRoster, (T Result, bool Changed)> apply, CancellationToken ct)
     {
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -220,7 +246,7 @@ public sealed class RosterRepository
                 if (!changed) return result;
                 try
                 {
-                    await _store.SaveAsync(Serialize(state), ct).ConfigureAwait(false);
+                    await _store.SavePartAsync(state, dataSetKey, part, ct).ConfigureAwait(false);
                     return result;
                 }
                 catch (RosterConflictException) when (attempt < MaxConflictRetries)
@@ -246,7 +272,7 @@ public sealed class RosterRepository
 
     public async Task<RegisteredPokemon> AddPokemonAsync(string dataSetKey, Pokemon pokemon, StatSet evs, Nature nature, Ability? ability, CancellationToken ct = default)
     {
-        return await MutateAsync(dataSetKey, roster =>
+        return await MutateAsync(dataSetKey, RosterPart.Pokemon, roster =>
         {
             var entry = new RegisteredPokemon
             {
@@ -264,7 +290,7 @@ public sealed class RosterRepository
 
     public async Task<bool> RemovePokemonAsync(string dataSetKey, int entryId, CancellationToken ct = default)
     {
-        return await MutateAsync(dataSetKey, roster =>
+        return await MutateAsync(dataSetKey, RosterPart.Pokemon, roster =>
         {
             var removed = roster.Pokemon.RemoveAll(p => p.Id == entryId) > 0;
             foreach (var team in roster.Teams)
@@ -287,7 +313,7 @@ public sealed class RosterRepository
 
     public async Task<(Team Team, TeamSlot Slot, bool Replaced)> AddToTeamAsync(string dataSetKey, int teamNumber, int entryId, Item? item, CancellationToken ct = default)
     {
-        return await MutateAsync(dataSetKey, roster =>
+        return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
         {
             if (roster.Pokemon.All(p => p.Id != entryId))
                 throw new ArgumentException($"登録ID {entryId} はありません");
@@ -314,7 +340,7 @@ public sealed class RosterRepository
 
     public async Task<bool> RemoveFromTeamAsync(string dataSetKey, int teamNumber, Func<RegisteredPokemon, bool> predicate, CancellationToken ct = default)
     {
-        return await MutateAsync(dataSetKey, roster =>
+        return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
         {
             var team = roster.Teams.FirstOrDefault(t => t.Number == teamNumber);
             if (team is null) return (false, false);
@@ -327,7 +353,7 @@ public sealed class RosterRepository
 
     public async Task<bool> RemoveTeamAsync(string dataSetKey, int teamNumber, CancellationToken ct = default)
     {
-        return await MutateAsync(dataSetKey, roster =>
+        return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
         {
             var removed = roster.Teams.RemoveAll(t => t.Number == teamNumber) > 0;
             if (roster.ActiveTeam == teamNumber) roster.ActiveTeam = null;
@@ -337,7 +363,7 @@ public sealed class RosterRepository
 
     public async Task<bool> UseTeamAsync(string dataSetKey, int teamNumber, CancellationToken ct = default)
     {
-        return await MutateAsync(dataSetKey, roster =>
+        return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
         {
             if (roster.Teams.All(t => t.Number != teamNumber)) return (false, false);
             roster.ActiveTeam = teamNumber;
@@ -348,7 +374,7 @@ public sealed class RosterRepository
     /// <summary>使用チームを解除する。解除したら true（もともと無ければ false）。</summary>
     public async Task<bool> ClearActiveTeamAsync(string dataSetKey, CancellationToken ct = default)
     {
-        return await MutateAsync(dataSetKey, roster =>
+        return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
         {
             if (roster.ActiveTeam is null) return (false, false);
             roster.ActiveTeam = null;

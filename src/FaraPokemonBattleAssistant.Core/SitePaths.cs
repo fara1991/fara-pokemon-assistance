@@ -3,7 +3,7 @@ namespace FaraPokemonBattleAssistant.Core;
 /// <summary>
 /// サイトのページの URL（先頭の / なし）と、以前の URL から新しい URL への対応表。
 /// 古い URL は Web 側の <c>LegacyUrlRedirect</c> が新しい URL へ転送する（ブックマーク・既存のリンク用）。
-/// API のパス（/api/roster）とデータのパス（/data/...）はページの URL ではないので、ここには入れない。
+/// API のパス（/api/my-pokemon・/api/my-team・/api/access-key）とデータのパス（/data/...）はページの URL ではないので、ここには入れない。
 /// </summary>
 public static class SitePaths
 {
@@ -11,7 +11,7 @@ public static class SitePaths
     public const string SpeedComparison = "speed-comparison";
     public const string DataSync = "data-sync";
     public const string MyPokemon = "my-pokemon";
-    public const string MyTeams = "my-teams";
+    public const string MyTeam = "my-team";
     public const string TypeChart = "type-chart";
     public const string PokemonList = "pokemon-list";
     public const string BattleTerms = "battle-terms";
@@ -25,7 +25,8 @@ public static class SitePaths
         ["sync"] = DataSync,
         ["pokemon"] = MyPokemon,
         ["roster"] = MyPokemon,
-        ["team"] = MyTeams,
+        ["team"] = MyTeam,
+        ["my-teams"] = MyTeam,
         ["types"] = TypeChart,
         ["pokedex"] = PokemonList,
         ["glossary"] = BattleTerms,

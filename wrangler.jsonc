@@ -12,9 +12,9 @@
   "assets": {
     "directory": "./publish/wwwroot",
     "binding": "ASSETS",
-    // /speed-comparison・/my-pokemon・/my-teams などを直接開いたときも index.html を返す（Blazor 側でページを切り替える。以前の /speed・/pokemon・/roster・/team などは Blazor 側で新しい URL に転送）
+    // /speed-comparison・/my-pokemon・/my-team などを直接開いたときも index.html を返す（Blazor 側でページを切り替える。以前の /speed・/pokemon・/roster・/team・/my-teams などは Blazor 側で新しい URL に転送）
     "not_found_handling": "single-page-application",
-    // API だけ Worker スクリプトに渡す（それ以外は今までどおり静的アセット）
+    // API（/api/my-pokemon・/api/my-team・/api/access-key）だけ Worker スクリプトに渡す（それ以外は今までどおり静的アセット）
     "run_worker_first": ["/api/*"]
   },
   // アクセスキーごとの置き場。SQLite ストレージの Durable Object（無料プランで使える）

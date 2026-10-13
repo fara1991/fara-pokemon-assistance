@@ -85,9 +85,26 @@ public sealed class CloudSync : IRosterStore
             await _local.SaveAsync(json, ct);
             return;
         }
+        await SaveRemoteAsync(() => remote.SaveAsync(json, ct));
+    }
+
+    /// <summary>1 つのゲームのポケモンかチームだけを保存する（クラウドでは /api/my-pokemon か /api/my-team だけを呼ぶ）。</summary>
+    public async Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default)
+    {
+        var remote = await CurrentRemoteAsync();
+        if (remote is null)
+        {
+            await _local.SavePartAsync(state, dataSetKey, part, ct);
+            return;
+        }
+        await SaveRemoteAsync(() => remote.SavePartAsync(state, dataSetKey, part, ct));
+    }
+
+    private async Task SaveRemoteAsync(Func<Task> save)
+    {
         try
         {
-            await remote.SaveAsync(json, ct);
+            await save();
             // 競合して読み直したあとの保存なら、そのことを知らせる
             LastNotice = _conflicted ? "他の場所（ボットや別の端末）で更新されていたので、最新の内容を読み込み直してから保存しました" : null;
             _conflicted = false;
@@ -109,6 +126,12 @@ public sealed class CloudSync : IRosterStore
 
     // ---- データ連携の開始・参加・作り直し・停止
 
+    /// <summary>
+    /// 保存してあるアクセスキーを読み、連携中かどうかを確かめる（データ連携ページを直接開いたときに、まだ何も読み込んでいなくても
+    /// 「連携中」と表示するため）。
+    /// </summary>
+    public Task InitializeAsync() => EnsureInitializedAsync();
+
     /// <summary>このブラウザに（データ連携していないときの）登録データがあるか。</summary>
     public async Task<bool> LocalHasDataAsync()
     {
@@ -125,7 +148,7 @@ public sealed class CloudSync : IRosterStore
         var remote = new RemoteRosterStore(_http, _baseUri, key);
         var local = RosterRepository.Deserialize(await _local.LoadAsync());
         if (HasData(local))
-            await remote.SaveAsync(RosterRepository.Serialize(local)); // 新しいキーの置き場は空（版 0）
+            await MoveToNewKeyAsync(remote, RosterRepository.Serialize(local));
         else
             await remote.LoadAsync(); // つながるか確かめる
         await SwitchToAsync(key, remote);
@@ -161,7 +184,8 @@ public sealed class CloudSync : IRosterStore
         var key = RemoteRosterStore.GenerateKey();
         var remote = new RemoteRosterStore(_http, _baseUri, key);
         var json = await old.LoadAsync();
-        if (json is not null) await remote.SaveAsync(json);
+        if (json is not null) await MoveToNewKeyAsync(remote, json);
+        else await remote.LoadAsync(); // つながるか確かめる
         await SwitchToAsync(key, remote);
         try
         {
@@ -197,6 +221,24 @@ public sealed class CloudSync : IRosterStore
     };
 
     // ---- 内部
+
+    /// <summary>
+    /// 新しいキーの空の置き場（版 0）にデータを移す（ポケモン → チームの順に 2 回 PUT）。
+    /// 新しいキーはまだ誰も使っていないので、移し終わってから切り替えれば途中の状態は見えない。
+    /// 途中で失敗したら新しいキーは使わずに捨てる（置き場も消しておく）。
+    /// </summary>
+    private static async Task MoveToNewKeyAsync(RemoteRosterStore remote, string json)
+    {
+        try
+        {
+            await remote.SaveAsync(json);
+        }
+        catch
+        {
+            try { await remote.DeleteAsync(); } catch (Exception) { /* 消せなくても新しいキーは使わない */ }
+            throw;
+        }
+    }
 
     private async Task EnsureInitializedAsync()
     {

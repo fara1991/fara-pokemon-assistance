@@ -10,17 +10,21 @@ using Xunit;
 namespace FaraPokemonBattleAssistant.Core.Tests;
 
 /// <summary>
-/// データ連携 API（worker/index.js）と同じ動きをするメモリ上の偽サーバー。
+/// データ連携 API（worker/index.js の /api/my-pokemon・/api/my-team・/api/access-key）と同じ動きをするメモリ上の偽サーバー。
 /// </summary>
 internal sealed class FakeRosterServer : HttpMessageHandler
 {
     public long Revision { get; set; }
+    /// <summary>保存している登録データ（RosterState の JSON。サーバーと同じく 1 つの文書）。</summary>
     public string? RosterJson { get; set; }
+    public bool Deleted { get; set; }
     public string? ExpectedKey { get; set; }
     public List<HttpRequestMessage> Requests { get; } = new();
     public List<string?> Bodies { get; } = new();
     /// <summary>PUT を処理する直前に呼ぶ（他の端末の書き込みを割り込ませる）。</summary>
     public Action<FakeRosterServer>? BeforePut { get; set; }
+    /// <summary>GET を処理する直前に呼ぶ。</summary>
+    public Action<FakeRosterServer, string>? BeforeGet { get; set; }
     /// <summary>設定するとその応答を返す。</summary>
     public Func<HttpRequestMessage, HttpResponseMessage?>? Override { get; set; }
 
@@ -30,33 +34,79 @@ internal sealed class FakeRosterServer : HttpMessageHandler
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
         Bodies.Add(body);
         if (Override?.Invoke(request) is { } overridden) return overridden;
-        if (request.RequestUri!.AbsolutePath != "/api/roster") return Json(HttpStatusCode.NotFound, "{}");
+        var path = request.RequestUri!.AbsolutePath;
+        var methods = path switch
+        {
+            "/api/my-pokemon" or "/api/my-team" => new[] { "GET", "PUT" },
+            "/api/access-key" => new[] { "DELETE" },
+            _ => null,
+        };
+        if (methods is null) return Json(HttpStatusCode.NotFound, "{}");
+        if (!methods.Contains(request.Method.Method)) return Json(HttpStatusCode.MethodNotAllowed, "{}");
         var auth = request.Headers.Authorization;
         if (auth?.Scheme != "Bearer" || (ExpectedKey is not null && auth.Parameter != ExpectedKey))
             return Json(HttpStatusCode.Unauthorized, """{"error":"unauthorized"}""");
 
-        if (request.Method == HttpMethod.Get) return Current(HttpStatusCode.OK);
-        if (request.Method == HttpMethod.Delete)
+        if (path == "/api/access-key")
         {
             Revision = 0;
             RosterJson = null;
+            Deleted = true;
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
-        if (request.Method == HttpMethod.Put)
+        if (Deleted) return Json(HttpStatusCode.Gone, """{"error":"key_retired"}""");
+        var pokemon = path == "/api/my-pokemon";
+        if (request.Method == HttpMethod.Get)
         {
-            BeforePut?.Invoke(this);
-            var node = JsonNode.Parse(body!)!.AsObject();
-            var baseRevision = node["baseRevision"]!.GetValue<long>();
-            if (baseRevision != Revision) return Current(HttpStatusCode.Conflict);
-            RosterJson = node["roster"]!.ToJsonString();
-            Revision++;
-            return Json(HttpStatusCode.OK, $$"""{"revision":{{Revision}}}""");
+            BeforeGet?.Invoke(this, path);
+            return View(HttpStatusCode.OK, pokemon);
         }
-        return Json(HttpStatusCode.MethodNotAllowed, "{}");
+
+        BeforePut?.Invoke(this);
+        var node = JsonNode.Parse(body!)!.AsObject();
+        var baseRevision = node["baseRevision"]!.GetValue<long>();
+        if (baseRevision != Revision) return View(HttpStatusCode.Conflict, pokemon);
+        var state = RosterRepository.Deserialize(RosterJson);
+        foreach (var (key, value) in node["dataSets"]!.AsObject())
+        {
+            var roster = state.For(key);
+            if (pokemon)
+            {
+                roster.Pokemon = value!["pokemon"].Deserialize<List<RegisteredPokemon>>()!;
+                var nextId = value["nextId"]?.GetValue<int>() ?? 1;
+                roster.NextId = Math.Max(roster.NextId, Math.Max(nextId, roster.Pokemon.Select(p => p.Id).DefaultIfEmpty(0).Max() + 1));
+                var ids = roster.Pokemon.Select(p => p.Id).ToHashSet();
+                foreach (var team in roster.Teams) team.Slots.RemoveAll(slot => !ids.Contains(slot.EntryId));
+                RosterRepository.RemoveEmptyTeams(roster);
+            }
+            else
+            {
+                var teams = value!["teams"].Deserialize<List<Team>>()!;
+                var active = value["activeTeam"]?.GetValue<int>();
+                var ids = roster.Pokemon.Select(p => p.Id).ToHashSet();
+                if (teams.Any(t => t.Slots.Count is 0 or > 6 || t.Slots.Any(slot => !ids.Contains(slot.EntryId)))
+                    || (active is { } n && teams.All(t => t.Number != n)))
+                    return Json(HttpStatusCode.BadRequest, """{"error":"unknown_pokemon","message":"チーム1に、登録に無いポケモン（Id 99）が入っています"}""");
+                roster.Teams = teams.OrderBy(t => t.Number).ToList();
+                roster.ActiveTeam = active;
+            }
+        }
+        RosterJson = JsonNode.Parse(RosterRepository.Serialize(state))!.ToJsonString();
+        Revision++;
+        return Json(HttpStatusCode.OK, $$"""{"revision":{{Revision}}}""");
     }
 
-    private HttpResponseMessage Current(HttpStatusCode status) =>
-        Json(status, $$"""{"revision":{{Revision}},"roster":{{RosterJson ?? "null"}}}""");
+    private HttpResponseMessage View(HttpStatusCode status, bool pokemon)
+    {
+        var dataSets = new JsonObject();
+        foreach (var (key, roster) in RosterRepository.Deserialize(RosterJson).DataSets)
+        {
+            dataSets[key] = pokemon
+                ? new JsonObject { ["nextId"] = roster.NextId, ["pokemon"] = JsonSerializer.SerializeToNode(roster.Pokemon) }
+                : new JsonObject { ["teams"] = JsonSerializer.SerializeToNode(roster.Teams), ["activeTeam"] = roster.ActiveTeam };
+        }
+        return Json(status, new JsonObject { ["revision"] = Revision, ["dataSets"] = dataSets }.ToJsonString());
+    }
 
     public static HttpResponseMessage Json(HttpStatusCode status, string json) =>
         new(status) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
@@ -69,6 +119,9 @@ internal sealed class FakeRosterServer : HttpMessageHandler
         RosterJson = JsonNode.Parse(RosterRepository.Serialize(state))!.ToJsonString();
         Revision++;
     }
+
+    /// <summary>保存されている登録データ。</summary>
+    public RosterState State => RosterRepository.Deserialize(RosterJson);
 }
 
 public class RosterSyncTests
@@ -113,28 +166,60 @@ public class RosterSyncTests
     }
 
     [Fact]
-    public async Task Load_and_save_round_trip_with_bearer_key_and_revision()
+    public async Task Load_reads_both_resources_with_bearer_key()
     {
         var (server, store) = NewRemote();
         Assert.Null(await store.LoadAsync());
         Assert.Equal(0, store.Revision);
 
-        var request = server.Requests.Single();
-        Assert.Equal("https://pokemon.example/api/roster", request.RequestUri!.ToString());
-        Assert.Equal("Bearer", request.Headers.Authorization!.Scheme);
-        Assert.Equal(Key, request.Headers.Authorization.Parameter);
-        Assert.DoesNotContain(Key, request.RequestUri.ToString());
+        Assert.Equal(new[] { "https://pokemon.example/api/my-pokemon", "https://pokemon.example/api/my-team" },
+            server.Requests.Select(r => r.RequestUri!.ToString()));
+        Assert.All(server.Requests, request =>
+        {
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal("Bearer", request.Headers.Authorization!.Scheme);
+            Assert.Equal(Key, request.Headers.Authorization.Parameter);
+            Assert.DoesNotContain(Key, request.RequestUri!.ToString());
+        });
+    }
 
-        await store.SaveAsync("""{"Version":1,"DataSets":{"Champions":{"NextId":1,"Pokemon":[],"Teams":[],"ActiveTeam":null}},"Name":"ガブ"}""");
-        Assert.Equal(1, store.Revision);
-        var put = JsonNode.Parse(server.Bodies.Last()!)!;
-        Assert.Equal(0, put["baseRevision"]!.GetValue<long>());
-        Assert.Equal("ガブ", put["roster"]!["Name"]!.GetValue<string>());
-        Assert.Contains("ガブ", server.Bodies.Last()); // 日本語を \uXXXX にしない
+    [Fact]
+    public async Task Save_whole_state_puts_pokemon_then_teams_and_load_combines_them()
+    {
+        var (server, store) = NewRemote();
+        var state = new RosterState();
+        var r = state.For(Ds);
+        r.Pokemon.Add(new RegisteredPokemon { Id = 1, PokemonId = 445, PokemonName = "ガブリアス", Nature = "ようき" });
+        r.Pokemon.Add(new RegisteredPokemon { Id = 3, PokemonId = 6, PokemonName = "リザードン" });
+        r.NextId = 5;
+        r.Teams.Add(new Team { Number = 2, Slots = { new TeamSlot { EntryId = 3, ItemId = 275 }, new TeamSlot { EntryId = 1 } } });
+        r.ActiveTeam = 2;
+        state.For("Gen9").Pokemon.Add(new RegisteredPokemon { Id = 1, PokemonId = 987, PokemonName = "ハバタクカミ" });
+        state.For("Gen9").NextId = 2;
 
-        var loaded = await store.LoadAsync();
-        Assert.Equal(1, store.Revision);
-        Assert.Equal("ガブ", JsonNode.Parse(loaded!)!["Name"]!.GetValue<string>());
+        await store.SaveAsync(RosterRepository.Serialize(state));
+        Assert.Equal(2, store.Revision);
+        var puts = server.Requests.Select((req, i) => (req, body: server.Bodies[i])).Where(x => x.req.Method == HttpMethod.Put).ToList();
+        Assert.Equal(new[] { "/api/my-pokemon", "/api/my-team" }, puts.Select(x => x.req.RequestUri!.AbsolutePath));
+        var first = JsonNode.Parse(puts[0].body!)!;
+        Assert.Equal(0, first["baseRevision"]!.GetValue<long>());
+        Assert.Equal(5, first["dataSets"]![Ds]!["nextId"]!.GetValue<int>());
+        Assert.Equal("ガブリアス", first["dataSets"]![Ds]!["pokemon"]![0]!["PokemonName"]!.GetValue<string>());
+        Assert.Null(first["dataSets"]![Ds]!["teams"]);
+        Assert.Contains("ガブリアス", puts[0].body); // 日本語を \uXXXX にしない
+        var second = JsonNode.Parse(puts[1].body!)!;
+        Assert.Equal(1, second["baseRevision"]!.GetValue<long>());
+        Assert.Equal(2, second["dataSets"]![Ds]!["activeTeam"]!.GetValue<int>());
+        Assert.Null(second["dataSets"]![Ds]!["pokemon"]);
+
+        var loaded = RosterRepository.Deserialize(await store.LoadAsync());
+        Assert.Equal(2, store.Revision);
+        var ch = loaded.For(Ds);
+        Assert.Equal(new[] { 1, 3 }, ch.Pokemon.Select(p => p.Id));
+        Assert.Equal(5, ch.NextId);
+        Assert.Equal(2, ch.ActiveTeam);
+        Assert.Equal(new int?[] { 275, null }, ch.Teams.Single().Slots.Select(slot => slot.ItemId));
+        Assert.Equal("ハバタクカミ", loaded.For("Gen9").Pokemon.Single().PokemonName);
         Assert.NotNull(store.LastSyncedAt);
     }
 
@@ -144,7 +229,30 @@ public class RosterSyncTests
         var server = new FakeRosterServer { ExpectedKey = Key };
         var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example", Key);
         await store.LoadAsync();
-        Assert.Equal("https://pokemon.example/api/roster", server.Requests.Single().RequestUri!.ToString());
+        Assert.Equal("https://pokemon.example/api/my-pokemon", server.Requests.First().RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task Load_reads_again_when_revisions_differ_between_the_two_gets()
+    {
+        var (server, store) = NewRemote();
+        var interrupted = false;
+        server.BeforeGet = (s, path) =>
+        {
+            // 1 回目の my-pokemon と my-team の間に、他の端末が書く
+            if (path != "/api/my-team" || interrupted) return;
+            interrupted = true;
+            s.WriteFromElsewhere(state => state.For(Ds).Pokemon.Add(new RegisteredPokemon { Id = 1, PokemonName = "他の端末" }));
+        };
+        var loaded = RosterRepository.Deserialize(await store.LoadAsync());
+        Assert.Equal(4, server.Requests.Count);
+        Assert.Equal(1, store.Revision);
+        Assert.Equal("他の端末", loaded.For(Ds).Pokemon.Single().PokemonName);
+
+        // 毎回食い違うなら諦める
+        server.BeforeGet = (s, path) => { if (path == "/api/my-team") s.WriteFromElsewhere(_ => { }); };
+        var ex = await Assert.ThrowsAsync<RosterUnavailableException>(() => store.LoadAsync());
+        Assert.Equal(RosterUnavailableReason.Server, ex.Reason);
     }
 
     [Fact]
@@ -155,12 +263,15 @@ public class RosterSyncTests
         server.WriteFromElsewhere(s => s.For(Ds).NextId = 5);
         server.WriteFromElsewhere(s => s.For(Ds).NextId = 6);
 
-        var ex = await Assert.ThrowsAsync<RosterConflictException>(() => store.SaveAsync("""{"Version":1}"""));
+        var state = new RosterState();
+        var ex = await Assert.ThrowsAsync<RosterConflictException>(() => store.SavePartAsync(state, Ds, RosterPart.Pokemon));
         Assert.Equal(2, ex.CurrentRevision);
         Assert.Equal(2, store.Revision);
-        // 次の保存は新しい版を基準にする
-        await store.SaveAsync("""{"Version":1}""");
+        // 次の保存は新しい版を基準にする（チーム側の 409 も同じ）
+        await store.SavePartAsync(state, Ds, RosterPart.Teams);
         Assert.Equal(3, server.Revision);
+        server.WriteFromElsewhere(_ => { });
+        Assert.Equal(4, (await Assert.ThrowsAsync<RosterConflictException>(() => store.SavePartAsync(state, Ds, RosterPart.Teams))).CurrentRevision);
     }
 
     [Theory]
@@ -179,7 +290,7 @@ public class RosterSyncTests
         Assert.Equal(reason, load.Reason);
         Assert.Equal((int)status, load.StatusCode);
         Assert.DoesNotContain(Key, load.Message);
-        var save = await Assert.ThrowsAsync<RosterUnavailableException>(() => store.SaveAsync("{}"));
+        var save = await Assert.ThrowsAsync<RosterUnavailableException>(() => store.SavePartAsync(new RosterState(), Ds, RosterPart.Pokemon));
         Assert.Equal(reason, save.Reason);
     }
 
@@ -218,14 +329,107 @@ public class RosterSyncTests
     }
 
     [Fact]
-    public async Task Delete_clears_the_slot()
+    public async Task Rejected_save_shows_the_server_reason()
     {
         var (server, store) = NewRemote();
-        await store.SaveAsync("""{"Version":1}""");
+        server.Override = r => r.Method == HttpMethod.Put
+            ? FakeRosterServer.Json(HttpStatusCode.BadRequest, """{"error":"team_too_large","message":"Champions のチーム1が 7 体います（6 体まで）"}""")
+            : null;
+        var ex = await Assert.ThrowsAsync<RosterUnavailableException>(() => store.SavePartAsync(new RosterState(), Ds, RosterPart.Teams));
+        Assert.Equal(RosterUnavailableReason.Rejected, ex.Reason);
+        Assert.Contains("7 体います", ex.Message);
+    }
+
+    [Fact]
+    public async Task Delete_retires_the_key()
+    {
+        var (server, store) = NewRemote();
+        var state = new RosterState();
+        state.For(Ds).Pokemon.Add(new RegisteredPokemon { Id = 1, PokemonName = "ガブリアス" });
+        await store.SaveAsync(RosterRepository.Serialize(state));
         await store.DeleteAsync();
         Assert.Equal(HttpMethod.Delete, server.Requests.Last().Method);
+        Assert.Equal("/api/access-key", server.Requests.Last().RequestUri!.AbsolutePath);
         Assert.Null(server.RosterJson);
         Assert.Null(store.Revision);
+        // 以後そのキーは 410
+        Assert.Equal(RosterUnavailableReason.KeyRetired, (await Assert.ThrowsAsync<RosterUnavailableException>(() => store.LoadAsync())).Reason);
+        Assert.Equal(RosterUnavailableReason.KeyRetired,
+            (await Assert.ThrowsAsync<RosterUnavailableException>(() => store.SavePartAsync(state, Ds, RosterPart.Pokemon))).Reason);
+    }
+
+    [Fact]
+    public async Task Repository_saves_pokemon_changes_to_my_pokemon_and_team_changes_to_my_teams()
+    {
+        var (server, store) = NewRemote();
+        var (pokemon, nature) = await SamplePokemonAsync();
+        var repo = new RosterRepository(store);
+        var putPaths = new List<string>();
+        server.BeforePut = _ => putPaths.Add(server.Requests.Last().RequestUri!.AbsolutePath);
+
+        var a = await repo.AddPokemonAsync(Ds, pokemon, new StatSet(), nature, null);
+        var b = await repo.AddPokemonAsync(Ds, pokemon, new StatSet(), nature, null);
+        await repo.AddToTeamAsync(Ds, 1, a.Id, null);
+        await repo.AddToTeamAsync(Ds, 1, b.Id, null);
+        await repo.AddToTeamAsync(Ds, 2, b.Id, null);
+        await repo.UseTeamAsync(Ds, 2);
+        await repo.ClearActiveTeamAsync(Ds);
+        await repo.UseTeamAsync(Ds, 2);
+        Assert.Equal(new[] { "/api/my-pokemon", "/api/my-pokemon", "/api/my-team", "/api/my-team", "/api/my-team", "/api/my-team", "/api/my-team", "/api/my-team" }, putPaths);
+
+        // ポケモンの削除は my-pokemon だけ。チームから外す・空のチームを消す・使用中の解除はサーバーが行う
+        putPaths.Clear();
+        Assert.True(await repo.RemovePokemonAsync(Ds, b.Id));
+        Assert.Equal(new[] { "/api/my-pokemon" }, putPaths);
+        var body = JsonNode.Parse(server.Bodies.Last()!)!;
+        Assert.Null(body["dataSets"]![Ds]!["teams"]);
+        var saved = server.State.For(Ds);
+        Assert.Equal(new[] { a.Id }, saved.Teams.Single().Slots.Select(slot => slot.EntryId));
+        Assert.Equal(1, saved.Teams.Single().Number);
+        Assert.Null(saved.ActiveTeam);
+        Assert.Equal(3, saved.NextId); // 消した ID は使い回さない
+
+        putPaths.Clear();
+        Assert.True(await repo.RemoveTeamAsync(Ds, 1));
+        Assert.Equal(new[] { "/api/my-team" }, putPaths);
+        Assert.Empty(server.State.For(Ds).Teams);
+        Assert.Single(server.State.For(Ds).Pokemon);
+    }
+
+    [Fact]
+    public async Task Team_put_drops_slots_left_over_from_the_old_api()
+    {
+        // 以前の API は中身を確かめずに保存していたので、登録に無いポケモンを指す枠や 0 体のチームが残っていることがある
+        var (server, store) = NewRemote();
+        server.WriteFromElsewhere(state =>
+        {
+            var r = state.For(Ds);
+            r.Pokemon.Add(new RegisteredPokemon { Id = 1, PokemonName = "ガブリアス" });
+            r.NextId = 3;
+            r.Teams.Add(new Team { Number = 1, Slots = { new TeamSlot { EntryId = 1 }, new TeamSlot { EntryId = 2 }, new TeamSlot { EntryId = 1 } } });
+            r.Teams.Add(new Team { Number = 2, Slots = { new TeamSlot { EntryId = 9 } } });
+            r.Teams.Add(new Team { Number = 3 });
+            r.ActiveTeam = 2;
+        });
+        var repo = new RosterRepository(store);
+        await repo.AddToTeamAsync(Ds, 4, 1, null);
+        var saved = server.State.For(Ds);
+        Assert.Equal(new[] { 1, 4 }, saved.Teams.Select(t => t.Number));
+        Assert.Equal(new[] { 1 }, saved.Teams[0].Slots.Select(slot => slot.EntryId));
+        Assert.Null(saved.ActiveTeam);
+    }
+
+    [Fact]
+    public async Task Pokemon_put_only_sends_the_changed_game()
+    {
+        var (server, store) = NewRemote();
+        var (pokemon, nature) = await SamplePokemonAsync();
+        server.WriteFromElsewhere(state => state.For("Gen9").Pokemon.Add(new RegisteredPokemon { Id = 1, PokemonName = "ハバタクカミ" }));
+        await new RosterRepository(store).AddPokemonAsync(Ds, pokemon, new StatSet(), nature, null);
+        var body = JsonNode.Parse(server.Bodies.Last()!)!;
+        Assert.Equal(new[] { Ds }, body["dataSets"]!.AsObject().Select(p => p.Key));
+        Assert.Single(server.State.For("Gen9").Pokemon);
+        Assert.Single(server.State.For(Ds).Pokemon);
     }
 
     [Fact]
@@ -274,7 +478,7 @@ public class RosterSyncTests
         var added = await repo.AddPokemonAsync(Ds, pokemon, new StatSet(), nature, null);
 
         Assert.Equal(3, added.Id);
-        var saved = RosterRepository.Deserialize(server.RosterJson).For(Ds);
+        var saved = server.State.For(Ds);
         Assert.Equal(new[] { 1, 2, 3 }, saved.Pokemon.Select(p => p.Id));
         Assert.Contains(saved.Pokemon, p => p.PokemonName == "他の端末");
     }
