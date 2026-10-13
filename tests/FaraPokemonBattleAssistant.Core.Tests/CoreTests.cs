@@ -16,13 +16,16 @@ public static class TestData
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
             while (dir is not null)
             {
-                var candidate = Path.Combine(dir.FullName, "src", "FaraPokemonBattleAssistant.Web", "wwwroot", "data");
+                var candidate = Path.Combine(dir.FullName, "src", "FaraPokemonBattleAssistant.Web", "wwwroot", "api", "game");
                 if (Directory.Exists(candidate)) return candidate;
                 dir = dir.Parent;
             }
-            throw new DirectoryNotFoundException("wwwroot/data not found");
+            throw new DirectoryNotFoundException("wwwroot/api/game not found");
         }
     }
+
+    /// <summary>リポジトリのルート（tools/ の手入力ファイルを読むテスト用）。</summary>
+    public static string RepositoryRoot => Path.GetFullPath(Path.Combine(DataDirectory, "..", "..", "..", "..", ".."));
 
     public static DataCatalog Catalog() => new(new FileDataSource(DataDirectory));
 }
@@ -758,14 +761,14 @@ public class DataSourceTests
     private static HttpResponseMessage Text(string body, string mediaType) =>
         new(System.Net.HttpStatusCode.OK) { Content = new StringContent(body, System.Text.Encoding.UTF8, mediaType) };
 
-    private static HttpDataSource Http(FakeHandler handler) => new(new HttpClient(handler), "https://example.test/data");
+    private static HttpDataSource Http(FakeHandler handler) => new(new HttpClient(handler), "https://example.test/api/game");
 
     [Fact]
     public async Task Http_returns_csv_text()
     {
         var handler = new FakeHandler { Respond = _ => Text("Id,Name\n1,フシギダネ\n", "text/csv") };
         Assert.Equal("Id,Name\n1,フシギダネ\n", await Http(handler).ReadTextAsync("Gen9/pokemon.csv"));
-        Assert.Equal("/data/Gen9/pokemon.csv", handler.Requested.Single());
+        Assert.Equal("/api/game/Gen9/pokemon.csv", handler.Requested.Single());
     }
 
     [Fact]

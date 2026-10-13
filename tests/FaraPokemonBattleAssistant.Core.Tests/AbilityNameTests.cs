@@ -29,7 +29,7 @@ public class AbilityNameTests
     [Fact]
     public void Supplement_table_matches_data()
     {
-        var path = Path.GetFullPath(Path.Combine(TestData.DataDirectory, "..", "..", "..", "..", "tools", "ability_names_ja.csv"));
+        var path = Path.Combine(TestData.RepositoryRoot, "tools", "ability_names_ja.csv");
         var table = File.ReadLines(path).Skip(1).Where(l => l.Length > 0).Select(l => l.Split(',')).ToDictionary(c => c[0], c => c[1]);
         foreach (var file in Directory.GetFiles(TestData.DataDirectory, "abilities.csv", SearchOption.AllDirectories))
             foreach (var cols in File.ReadLines(file).Skip(1).Where(l => l.Length > 0).Select(l => l.Split(',')))

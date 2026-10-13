@@ -39,6 +39,7 @@ jobs:
 
       # サイトはカスタムドメインのルートで公開するので、<base href="/" /> はそのまま。
       # 直接開いた URL（/speed-comparison など）は wrangler.jsonc の not_found_handling で index.html を返す。
+      # ゲームデータ（wwwroot/api/game）は publish/wwwroot/api/game に入り、/api/game/... の静的アセットとして配られる（Worker は /api/my/* だけ）。
       - name: Publish Blazor WebAssembly
         run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --output publish
 

@@ -95,7 +95,7 @@
         try
         {
             // データと同じ読み方にする（ファイルが無いと SPA のフォールバックで index.html が 200 で返るため）
-            var text = (await new HttpDataSource(Http, "data/").ReadTextAsync("updated.txt"))?.Trim();
+            var text = (await new HttpDataSource(Http, HttpDataSource.GameDataPath).ReadTextAsync("updated.txt"))?.Trim();
             lastUpdated = string.IsNullOrEmpty(text) ? "不明" : DateTime.TryParse(text, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var dt)
                 ? FormatJst(dt)
                 : text;

@@ -12,7 +12,7 @@ Usage
   python tools/sync_data.py --skip-home     # only PokeAPI data
   python tools/sync_data.py --only Champions
 
-Output goes to src/FaraPokemonBattleAssistant.Web/wwwroot/data/<Key>/*.csv.
+Output goes to src/FaraPokemonBattleAssistant.Web/wwwroot/api/game/<Key>/*.csv.
 Hand-maintained inputs live next to this script: datasets.json, item_effects.csv.
 """
 from __future__ import annotations
@@ -31,7 +31,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS = Path(__file__).resolve().parent
-OUT_ROOT = ROOT / "src" / "FaraPokemonBattleAssistant.Web" / "wwwroot" / "data"
+OUT_ROOT = ROOT / "src" / "FaraPokemonBattleAssistant.Web" / "wwwroot" / "api" / "game"
 POKEAPI_CSV = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/"
 SPRITE_URL = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{id}.png"
 HOME_LIST_URL = "https://api.battle.pokemon-home.com/tt/cbd/competition/rankmatch/list"

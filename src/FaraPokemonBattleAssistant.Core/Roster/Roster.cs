@@ -26,7 +26,7 @@ public interface IRosterStore
     /// <summary>
     /// 1 つのゲーム（<paramref name="dataSetKey"/>）の、<paramref name="part"/> の部分だけを保存する。
     /// <paramref name="state"/> は変更後の登録データ全体。ファイル・ブラウザは全体をそのまま保存し、
-    /// クラウド（<see cref="RemoteRosterStore"/>）はその部分の API（/api/my-pokemon・/api/my-team）だけを呼ぶ。
+    /// クラウド（<see cref="RemoteRosterStore"/>）はその部分の API（/api/my/pokemon・/api/my/team）だけを呼ぶ。
     /// </summary>
     Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default);
 

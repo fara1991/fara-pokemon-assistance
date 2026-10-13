@@ -1,20 +1,20 @@
 // 登録データ（ポケモン・チーム）のデータ共有 API。
 //
-// サイト本体（静的アセット）は今までどおり Cloudflare が配信し、/api/* だけがこのスクリプトを通る
-// （wrangler.jsonc の assets.run_worker_first）。
+// サイト本体（静的アセット）は今までどおり Cloudflare が配信し、/api/my/* だけがこのスクリプトを通る
+// （wrangler.jsonc の assets.run_worker_first）。ゲームデータ（CSV）の /api/game/* は静的アセットで、ここには来ない。
 //
 // 登録データはゲーム（データセット: Champions・Gen9 など）ごとに分かれているので、本文の dataSets はゲームのキーごとのオブジェクト。
 //
-//   GET    /api/my-pokemon → 200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "pokemon": [...]}, ...}}
-//   PUT    /api/my-pokemon ← {"baseRevision": n, "dataSets": {"Champions": {"pokemon": [...], "nextId"?: n}}}
+//   GET    /api/my/pokemon → 200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "pokemon": [...]}, ...}}
+//   PUT    /api/my/pokemon ← {"baseRevision": n, "dataSets": {"Champions": {"pokemon": [...], "nextId"?: n}}}
 //                           → 200 {"revision": n+1} / 409 {"revision": 現在, "dataSets": 現在}
 //          書いたゲームのポケモンだけを置き換える（書かなかったゲームはそのまま）。同じ処理の中で、消えたポケモンをそのゲームの
 //          すべてのチームから外し、0 体になったチームを消し、使用中のチームが消えたら使用中を解除する。
-//   GET    /api/my-team    → 200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}, ...}}
-//   PUT    /api/my-team    ← {"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}}}
+//   GET    /api/my/team    → 200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}, ...}}
+//   PUT    /api/my/team    ← {"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}}}
 //                           → 200 {"revision": n+1} / 409 {"revision": 現在, "dataSets": 現在}
 //          書いたゲームのチームと使用中チームだけを置き換える。登録に無いポケモン・7 体以上・使用中のチームが無いなどは 400。
-//   DELETE /api/access-key  → 204（アクセスキーの作り直しで、古いキーを使えなくしてその置き場を消す。以後そのキーは 410）
+//   DELETE /api/my/access-key  → 204（アクセスキーの作り直しで、古いキーを使えなくしてその置き場を消す。以後そのキーは 410）
 //
 // revision は登録データ全体で 1 つ（どちらの PUT でも増える）。
 // 認証は "Authorization: Bearer <アクセスキー>"。アクセスキーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもの。
@@ -25,9 +25,9 @@ import { DurableObject } from "cloudflare:workers";
 
 /** パス → 使えるメソッド。 */
 const ROUTES = {
-  "/api/my-pokemon": ["GET", "PUT"],
-  "/api/my-team": ["GET", "PUT"],
-  "/api/access-key": ["DELETE"],
+  "/api/my/pokemon": ["GET", "PUT"],
+  "/api/my/team": ["GET", "PUT"],
+  "/api/my/access-key": ["DELETE"],
 };
 const KEY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 /** ゲーム（データセット）のキー。 */
@@ -215,9 +215,13 @@ function validateTeams(key, value, pokemonIds) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (!url.pathname.startsWith("/api/")) {
-      // run_worker_first の対象外（通常は来ない）。静的アセットに任せる
-      return env.ASSETS.fetch(request);
+    if (!url.pathname.startsWith("/api/") || url.pathname.startsWith("/api/game/")) {
+      // run_worker_first の対象外（通常は来ない。/api/game/* はゲームデータの静的アセット）。静的アセットに任せる。
+      // ここを通ったことが分かるようにヘッダーを付ける（tools/worker-api-test.mjs が「付いていない」ことを確かめる）
+      const response = await env.ASSETS.fetch(request);
+      const passed = new Response(response.body, response);
+      passed.headers.set("X-Worker-Fallback", "assets");
+      return passed;
     }
     try {
       return await catchInvalid(() => handleApi(request, env, url));
@@ -241,8 +245,8 @@ async function handleApi(request, env, url) {
   // Durable Object にはキーを渡さない（名前は SHA-256 のみ）
   const stub = env.ROSTER.get(env.ROSTER.idFromName(await sha256Hex(key)));
 
-  if (url.pathname === "/api/access-key") return stub.retire();
-  const resource = url.pathname === "/api/my-pokemon" ? "pokemon" : "teams";
+  if (url.pathname === "/api/my/access-key") return stub.retire();
+  const resource = url.pathname === "/api/my/pokemon" ? "pokemon" : "teams";
   if (method === "GET") return stub.getResource(resource);
 
   let bytes;

@@ -442,7 +442,7 @@ public enum BattleGimmick
     ZMove,
 }
 
-/// <summary>データセット（世代・ゲーム）の定義。<c>data/datasets.csv</c> に対応。</summary>
+/// <summary>データセット（世代・ゲーム）の定義。<c>api/game/datasets.csv</c> に対応。</summary>
 public sealed class DataSetInfo
 {
     public string Key { get; init; } = "";

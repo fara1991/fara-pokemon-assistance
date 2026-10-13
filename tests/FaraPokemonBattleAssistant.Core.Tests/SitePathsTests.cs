@@ -41,10 +41,10 @@ public class SitePathsTests
     [InlineData("/battle-terms")]
     [InlineData("/chat-commands")]
     [InlineData("/about-author")]
-    [InlineData("/api/my-pokemon")]
-    [InlineData("/api/my-team")]
-    [InlineData("/api/access-key")]
-    [InlineData("/data/Gen9/pokemon.csv")]
+    [InlineData("/api/my/pokemon")]
+    [InlineData("/api/my/team")]
+    [InlineData("/api/my/access-key")]
+    [InlineData("/api/game/Gen9/pokemon.csv")]
     public void New_urls_and_other_paths_are_not_redirected(string path)
         => Assert.Null(SitePaths.Redirect(path));
 

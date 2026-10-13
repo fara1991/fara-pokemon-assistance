@@ -5,7 +5,7 @@ using FaraPokemonBattleAssistant.Core.Text;
 
 // 使い方:
 //   dotnet run --project src/FaraPokemonBattleAssistant.Cli -- イエッサン♂ ワイドフォース メガリザードンX champions
-//   dotnet run --project src/FaraPokemonBattleAssistant.Cli -- --data https://pokemon.fara-labs.com/data/ ガブリアス じしん ハバタクカミ
+//   dotnet run --project src/FaraPokemonBattleAssistant.Cli -- --data https://pokemon.fara-labs.com/api/game/ ガブリアス じしん ハバタクカミ
 // 引数が無ければ対話モード。
 
 var dataArg = Environment.GetEnvironmentVariable("FPA_DATA");
@@ -68,7 +68,7 @@ static string FindLocalData()
     var dir = new DirectoryInfo(AppContext.BaseDirectory);
     while (dir is not null)
     {
-        var candidate = Path.Combine(dir.FullName, "src", "FaraPokemonBattleAssistant.Web", "wwwroot", "data");
+        var candidate = Path.Combine(dir.FullName, "src", "FaraPokemonBattleAssistant.Web", "wwwroot", "api", "game");
         if (Directory.Exists(candidate)) return candidate;
         candidate = Path.Combine(dir.FullName, "data");
         if (File.Exists(Path.Combine(candidate, "datasets.csv"))) return candidate;

@@ -3,7 +3,7 @@ namespace FaraPokemonBattleAssistant.Core;
 /// <summary>
 /// サイトのページの URL（先頭の / なし）と、以前の URL から新しい URL への対応表。
 /// 古い URL は Web 側の <c>LegacyUrlRedirect</c> が新しい URL へ転送する（ブックマーク・既存のリンク用）。
-/// API のパス（/api/my-pokemon・/api/my-team・/api/access-key）とデータのパス（/data/...）はページの URL ではないので、ここには入れない。
+/// API のパス（/api/my/pokemon・/api/my/team・/api/my/access-key）とゲームデータのパス（/api/game/...）はページの URL ではないので、ここには入れない。
 /// </summary>
 public static class SitePaths
 {

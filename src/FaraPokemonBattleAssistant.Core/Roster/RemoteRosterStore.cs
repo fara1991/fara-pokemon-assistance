@@ -8,7 +8,7 @@ using System.Text.Json;
 namespace FaraPokemonBattleAssistant.Core.Roster;
 
 /// <summary>
-/// 登録データをクラウド（公開サイトの <c>/api/my-pokemon</c>・<c>/api/my-team</c>）に保存する。サイトとボットで同じアクセスキーを使うと、同じデータを読み書きする。
+/// 登録データをクラウド（公開サイトの <c>/api/my/pokemon</c>・<c>/api/my/team</c>）に保存する。サイトとボットで同じアクセスキーを使うと、同じデータを読み書きする。
 /// </summary>
 /// <remarks>
 /// <para>
@@ -30,7 +30,7 @@ public sealed class RemoteRosterStore : IRosterStore
     /// <summary>本番サイト。</summary>
     public const string ProductionBaseUrl = "https://pokemon.fara-labs.com/";
     /// <summary>
-    /// 確認用サイト（データは本番と別。Cloudflare Access で /api/my-pokemon・/api/my-team・/api/access-key を Bypass にしておく必要がある）。
+    /// 確認用サイト（データは本番と別。Cloudflare Access で /api/my/pokemon・/api/my/team・/api/my/access-key を Bypass にしておく必要がある）。
     /// </summary>
     public const string DevelopBaseUrl = "https://pokemon-dev.fara-labs.com/";
     /// <summary>アクセスキーの文字数。</summary>
@@ -66,9 +66,9 @@ public sealed class RemoteRosterStore : IRosterStore
         if (!Uri.TryCreate(apiBaseUrl.EndsWith('/') ? apiBaseUrl : apiBaseUrl + "/", UriKind.Absolute, out var baseUri)
             || (baseUri.Scheme != Uri.UriSchemeHttps && baseUri.Scheme != Uri.UriSchemeHttp))
             throw new ArgumentException("サイトの URL が正しくありません", nameof(apiBaseUrl));
-        _pokemonEndpoint = new Uri(baseUri, "api/my-pokemon");
-        _teamsEndpoint = new Uri(baseUri, "api/my-team");
-        _accessKeyEndpoint = new Uri(baseUri, "api/access-key");
+        _pokemonEndpoint = new Uri(baseUri, "api/my/pokemon");
+        _teamsEndpoint = new Uri(baseUri, "api/my/team");
+        _accessKeyEndpoint = new Uri(baseUri, "api/my/access-key");
         _key = syncKey;
     }
 
@@ -101,7 +101,7 @@ public sealed class RemoteRosterStore : IRosterStore
     }
 
     /// <summary>
-    /// ポケモン（/api/my-pokemon）とチーム（/api/my-team）を読み、登録データ全体（<see cref="RosterState"/> の JSON）に組み立てる。
+    /// ポケモン（/api/my/pokemon）とチーム（/api/my/team）を読み、登録データ全体（<see cref="RosterState"/> の JSON）に組み立てる。
     /// どのゲームにもデータが無ければ null。
     /// </summary>
     public async Task<string?> LoadAsync(CancellationToken ct = default)
@@ -127,7 +127,7 @@ public sealed class RemoteRosterStore : IRosterStore
     }
 
     /// <summary>
-    /// 登録データ全体を、ポケモン（/api/my-pokemon）→ チーム（/api/my-team）の順で保存する。
+    /// 登録データ全体を、ポケモン（/api/my/pokemon）→ チーム（/api/my/team）の順で保存する。
     /// アクセスキーを作ったとき・作り直したときに、新しいキーの空の置き場へデータを移すためのもの
     /// （2 回の PUT なので、2 回目が失敗したらチームだけが移っていない状態になる。呼び出し側は新しいキーに切り替えずに捨てる）。
     /// JSON に無いゲームは変えない。
@@ -150,12 +150,12 @@ public sealed class RemoteRosterStore : IRosterStore
         await PutAsync(_teamsEndpoint, state, keys, RosterPart.Teams, ct).ConfigureAwait(false);
     }
 
-    /// <summary>1 つのゲームの、ポケモン（/api/my-pokemon）かチーム（/api/my-team）だけを保存する。</summary>
+    /// <summary>1 つのゲームの、ポケモン（/api/my/pokemon）かチーム（/api/my/team）だけを保存する。</summary>
     public Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default) =>
         PutAsync(part == RosterPart.Pokemon ? _pokemonEndpoint : _teamsEndpoint, state, new[] { dataSetKey }, part, ct);
 
     /// <summary>
-    /// このアクセスキーを使えなくし、その置き場を消す（<c>DELETE /api/access-key</c>。キーを作り直したあと、古いキーに対して呼ぶ）。
+    /// このアクセスキーを使えなくし、その置き場を消す（<c>DELETE /api/my/access-key</c>。キーを作り直したあと、古いキーに対して呼ぶ）。
     /// 以後このキーは使えなくなる（<see cref="RosterUnavailableReason.KeyRetired"/>）。
     /// </summary>
     public async Task DeleteAsync(CancellationToken ct = default)
