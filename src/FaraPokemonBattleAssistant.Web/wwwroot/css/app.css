@@ -2723,13 +2723,15 @@ html.vt-nav .sidebar {
         overflow-y: auto;
         overflow-x: hidden;
         scrollbar-gutter: stable;
+        /* スクロール枠の上端とカードの枠・見出しが重なって切れて見えないよう、上に少し余白を取る */
+        padding-top: 0.25rem;
     }
-
 }
 
 /* データ連携ページ: 読みやすい幅に収める */
 .sync-page {
     max-width: 54rem;
+    padding-top: 0.25rem;
 }
 
 /* チャットコマンド（PC）: 一覧の枠は画面内に収め、表とオプション表だけがスクロールする。表の見出し行は上に固定 */

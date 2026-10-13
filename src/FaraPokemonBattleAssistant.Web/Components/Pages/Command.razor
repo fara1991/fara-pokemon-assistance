@@ -201,7 +201,7 @@ else if (data is not null)
     <div class="card-body pane-fill">
         <p class="small mb-0 cmd-legend">
             <code class="cmd-syntax"><span class="cmd-ph">名前</span></code> のように色の付いた部分は、実際の値（ポケモン名・番号など）に置き換えて打ちます。
-            <code class="cmd-syntax">[ ]</code> で囲んだ部分は省略できます（括弧は打ちません）。それ以外（<code>!@(App.CommandPrefix) detail -p</code> など）はそのまま打ちます。<br />対象は <code>-p</code>（ポケモン）/ <code>-t</code>（チーム）で指定します（長い形は <code>--pokemon</code> / <code>--team</code>）。全角の空白・英数字は半角として読みます。
+            <code class="cmd-syntax">[ ]</code> で囲んだ部分は省略できます（括弧は打ちません）。それ以外（<code>!@(App.CommandPrefix) detail -p</code> など）はそのまま打ちます。<br />対象は短い形の <code>-p</code>（ポケモン）/ <code>-t</code>（チーム）で指定します。長い形の <code>--pokemon</code> / <code>--team</code> も同じ意味で使えます（例の最後に載せています）。全角の空白・英数字は半角として読みます。
         </p>
         <div class="pane-scroll cmd-scroll">
         <div class="table-responsive">
@@ -669,15 +669,15 @@ else if (data is not null)
         // <...> は置き換える値（画面では色付きで表示）、[...] は省略できる部分
         yield return new($"{p} add -p <名前> <H> <A> <B> <C> <D> <S> <性格> [<特性>]", "ポケモン",
             points ? $"育成済みポケモンを登録（{evLabel}は各 0〜32、合計 66）" : $"育成済みポケモンを登録（{evLabel}は各 0〜252、合計 510）",
-            new[] { $"{p} add -p ガブリアス {evExample} ようき さめはだ" });
-        yield return new($"{p} ls -p [<名前>]", "ポケモン", "登録一覧（名前を付けるとそのポケモンだけ）", new[] { $"{p} ls -p", $"{p} ls -p ガブリアス" });
-        yield return new($"{p} detail -p <登録ID>", "ポケモン", "登録の詳細（性格・振り・特性・実数値・所属チーム）", new[] { $"{p} detail -p 1" });
+            new[] { $"{p} add -p ガブリアス {evExample} ようき さめはだ", $"{p} add --pokemon ガブリアス {evExample} ようき" });
+        yield return new($"{p} ls -p [<名前>]", "ポケモン", "登録一覧（名前を付けるとそのポケモンだけ）", new[] { $"{p} ls -p", $"{p} ls -p ガブリアス", $"{p} ls --pokemon" });
+        yield return new($"{p} detail -p <登録ID>", "ポケモン", "登録の詳細（性格・振り・特性・実数値・所属チーム）", new[] { $"{p} detail -p 1", $"{p} detail --pokemon 1" });
         yield return new($"{p} rm -p <登録ID>", "ポケモン", "登録を削除（チームからも外れる）", new[] { $"{p} rm -p 1" });
-        yield return new($"{p} add -t <チーム番号> <登録ID> [<持ち物>]", "チーム", "チームに追加（6 体まで）。同じ登録 ID をもう一度指定すると持ち物を更新", new[] { $"{p} add -t 1 1 こだわりスカーフ" });
+        yield return new($"{p} add -t <チーム番号> <登録ID> [<持ち物>]", "チーム", "チームに追加（6 体まで）。同じ登録 ID をもう一度指定すると持ち物を更新", new[] { $"{p} add -t 1 1 こだわりスカーフ", $"{p} add --team 1 1 こだわりスカーフ" });
         yield return new($"{p} rm -t <チーム番号> [<名前>]", "チーム", "チームから外す（名前を省くとチームごと削除。0 体になったチームも自動で削除）", new[] { $"{p} rm -t 1 ガブリアス", $"{p} rm -t 1" });
-        yield return new($"{p} use -t <チーム番号>", "チーム", "使用チームにする。以降の dmg / calc / faster はこのチームの構成で計算", new[] { $"{p} use -t 1" });
+        yield return new($"{p} use -t <チーム番号>", "チーム", "使用チームにする。以降の dmg / calc / faster はこのチームの構成で計算", new[] { $"{p} use -t 1", $"{p} use --team 1" });
         yield return new($"{p} unuse -t", "チーム", "使用チームを解除（以降は使用率に基づく既定値で計算）", new[] { $"{p} unuse -t" });
-        yield return new($"{p} ls -t", "チーム", "チーム一覧", new[] { $"{p} ls -t" });
+        yield return new($"{p} ls -t", "チーム", "チーム一覧", new[] { $"{p} ls -t", $"{p} ls --team" });
         yield return new($"{p} detail -t <チーム番号>", "チーム", "チームの詳細", new[] { $"{p} detail -t 1" });
         yield return new($"{p} dmg <攻撃側> <技>[<±ランク>] <防御側> [<オプション>]", "対戦", "通常と急所のダメージと確定数。使用チームにいるポケモンはその構成（持ち物は括弧内に表示）。オプションは下の表",
             new[] { $"{p} dmg ガブリアス じしん リザードン", $"{p} dmg ガブリアス じしん+1 リザードン 晴れ 急所", $"{p} dmg ガブリアス げきりん ドドゲザン 壁 HP50%", $"{p} dmg イエッサン ワイドフォース メガリザードンX サイコフィールド", $"{p} dmg ガブリアス じしん リザードン A252 いじっぱり こだわりハチマキ{gimmick}" });

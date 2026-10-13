@@ -71,7 +71,7 @@ public sealed class PokeCommand
         return "ポケモン: add -p 名前 H A B C D S 性格 [特性] / ls -p [名前] / detail -p ID / rm -p ID ｜ " +
                "チーム: add -t 番号 ID [持ち物] / rm -t 番号 [名前] / use -t 番号 / unuse -t / ls -t / detail -t 番号 ｜ " +
                "計算: dmg 攻撃 技±ランク 防御 [努力値 性格 持ち物 特性 急所 やけど どく まひ 天候 …] / calc 攻撃 技 防御 ダメージ[%] / faster 自分 相手 [まひ] ｜ " +
-               $"接頭辞: {prefixes}（!poke はチャンピオンズ）";
+               $"接頭辞: {prefixes}（!poke はチャンピオンズ） ｜ -p/-t は --pokemon/--team でも可（例: use --team 1）";
     }
 
     public async Task<DamageCommandResult> ExecuteAsync(string message, PokeCommandOptions? options = null, CancellationToken ct = default)
@@ -207,7 +207,7 @@ public sealed class PokeCommand
         }
         var list = entries.ToList();
         if (list.Count == 0) return Ok($"{ds.Name}: 登録されたポケモンはありません");
-        return Ok($"{ds.Name} 登録{list.Count}体: " + string.Join(" ", list.Select(e => $"#{e.Id} {e.PokemonName}({e.Nature})")));
+        return Ok($"{ds.Name} 登録{list.Count}体: " + string.Join(" ", list.Select(e => $"#{e.Id} {e.PokemonName}{NatureParen(data, e.Nature)}")));
     }
 
     private async Task<DamageCommandResult> MoreAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, CancellationToken ct)
@@ -327,7 +327,7 @@ public sealed class PokeCommand
         {
             if (!byId.TryGetValue(s.EntryId, out var e)) return $"#{s.EntryId}?";
             var item = s.ItemId is { } iid ? data.FindItem(iid)?.Name : null;
-            return $"#{e.Id} {e.PokemonName}({data.FindNature(e.Nature)?.Describe() ?? e.Nature} {e.EVs.ToShortString()}){(item is null ? "" : "@" + item)}";
+            return $"#{e.Id} {e.PokemonName}({NatureSpace(data, e.Nature)}{e.EVs.ToShortString()}){(item is null ? "" : "@" + item)}";
         });
         var active = roster.ActiveTeam == teamNo ? "(使用中)" : "";
         return Ok($"チーム{teamNo}{active}: " + string.Join(" / ", parts));
@@ -532,11 +532,16 @@ public sealed class PokeCommand
         return usage.IsEmpty ? null : usage;
     }
 
+    /// <summary>返信用の性格表示（<c>C↑A↓</c>）。補正のない性格・不明な性格は空。</summary>
+    private static string NatureSummary(PokemonDataSet data, string name) => data.FindNature(name)?.Summary() ?? "";
+    private static string NatureParen(PokemonDataSet data, string name) => NatureSummary(data, name) is { Length: > 0 } t ? $"({t})" : "";
+    private static string NatureSpace(PokemonDataSet data, string name) => NatureSummary(data, name) is { Length: > 0 } t ? t + " " : "";
+
     private static string Describe(RegisteredPokemon entry, PokemonBuild build)
     {
         var stats = StatCalculator.CalculateAll(build);
         var ability = build.Ability?.Name ?? "特性不明";
-        return $"{entry.PokemonName} {build.Nature?.Describe() ?? entry.Nature} {entry.EVs.ToShortString()} {ability} 実数値 H{stats.HP}-A{stats.Attack}-B{stats.Defense}-C{stats.SpAttack}-D{stats.SpDefense}-S{stats.Speed}";
+        return $"{entry.PokemonName} {(build.Nature?.Summary() is { } nt ? nt + " " : "")}{entry.EVs.ToShortString()} {ability} 実数値 H{stats.HP}-A{stats.Attack}-B{stats.Defense}-C{stats.SpAttack}-D{stats.SpDefense}-S{stats.Speed}";
     }
 
     /// <summary>計算に対応していないゲーム（昔の世代）を指定されたときの案内。</summary>
