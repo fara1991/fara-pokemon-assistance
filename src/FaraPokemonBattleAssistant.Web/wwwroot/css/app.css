@@ -75,7 +75,7 @@ body {
     background: var(--app-body-bg);
 }
 
-/* 地の色は .bg-scene（宇宙の背景）が塗る。下の「宇宙の背景」を参照 */
+/* 地の色は .bg-scene（バトルフィールドの背景）が塗る。下の「バトルフィールドの背景」を参照 */
 
 .btn-primary {
     --bs-btn-bg: #7c3aed;
@@ -2834,42 +2834,53 @@ html.vt-nav .sidebar {
 }
 
 /* =========================================================
-   宇宙の背景（MainLayout.razor の .bg-scene）と、すりガラスのカード
-   - 星は大きさごとに 3 層。遠い（小さい）星ほどゆっくり流れる。手前の星は瞬く
-   - 十字に光る星 3 つ、ときどき流れ星、ぼかした光（星雲）がゆっくり漂う
-   - カードは半透明にして、後ろの背景が透けるようにする（fara-labs.com と同じ作り）
-   元に戻すときは、この節と MainLayout.razor の .bg-scene を消す
+   バトルフィールドの背景（Shared/BattleStageBackground.razor の .bg-scene）
+   - 空・観客席・地平線は水平。コートは床の上で回して、自分の陣地を左下・相手の陣地を右上に置く
+   - 足場には、ダメージ計算機・素早さ比較で選んだ 2 体（未選択ならランダムな 2 体）が立つ（Services/BattleStage.cs）
+   - 動くのは照明・足場の輪・ポケモンの揺れ・観客席のフラッシュ・光のぼかし
+   元に戻すときは、この節と MainLayout.razor の <BattleStageBackground /> を消す
    ========================================================= */
 :root,
 [data-bs-theme="light"] {
     --space-0: #f7f4fd;
     --space-1: #efe7fd;
     --space-glow: rgba(168, 85, 247, 0.18);
-    --star: rgba(109, 40, 217, 0.55);
-    --star-tint: rgba(192, 38, 211, 0.45);
     --nebula-1: rgba(168, 85, 247, 0.32);
     --nebula-2: rgba(232, 121, 249, 0.24);
     --nebula-3: rgba(99, 102, 241, 0.2);
     --nebula-blend: normal;
+    --field-line: rgba(124, 58, 237, 0.3);
+    --field-fill: rgba(168, 85, 247, 0.07);
+    --field-band: rgba(168, 85, 247, 0.05);
+    --field-pad: rgba(124, 58, 237, 0.22);
+    --field-pad-fill: rgba(168, 85, 247, 0.06);
+    --field-beam: rgba(168, 85, 247, 0.12);
+    --field-sky: rgba(196, 181, 253, 0.35);
+    --field-stand: rgba(124, 58, 237, 0.1);
+    --field-mon-opacity: 0.3;
     --glass: rgba(255, 255, 255, 0.86);
     --brand-grad: linear-gradient(120deg, #7c3aed 0%, #c026d3 50%, #4f46e5 100%);
 }
 
 [data-bs-theme="dark"] {
-    --space-0: #070312;
-    --space-1: #120828;
+    --space-0: #0c0616;
+    --space-1: #140a26;
     --space-glow: rgba(124, 58, 237, 0.35);
-    --star: rgba(255, 255, 255, 0.9);
-    --star-tint: rgba(233, 213, 255, 0.85);
     --nebula-1: rgba(168, 85, 247, 0.55);
     --nebula-2: rgba(232, 121, 249, 0.4);
     --nebula-3: rgba(99, 102, 241, 0.35);
     --nebula-blend: screen;
+    --field-line: rgba(216, 200, 255, 0.3);
+    --field-fill: rgba(124, 58, 237, 0.1);
+    --field-band: rgba(196, 181, 253, 0.04);
+    --field-pad: rgba(196, 181, 253, 0.2);
+    --field-pad-fill: rgba(168, 85, 247, 0.07);
+    --field-beam: rgba(196, 181, 253, 0.09);
+    --field-sky: rgba(76, 29, 149, 0.45);
+    --field-stand: rgba(196, 181, 253, 0.08);
+    --field-mon-opacity: 0.32;
     --glass: rgba(26, 14, 48, 0.82);
     --brand-grad: linear-gradient(120deg, #c084fc 0%, #e879f9 45%, #818cf8 100%);
-    --app-body-bg: #070312;
-    --bs-body-bg: #070312;
-    --bs-body-bg-rgb: 7, 3, 18;
 }
 
 .bg-scene {
@@ -2881,101 +2892,73 @@ html.vt-nav .sidebar {
     background:
         radial-gradient(ellipse 80% 60% at 50% -10%, var(--space-glow), transparent 70%),
         linear-gradient(180deg, var(--space-0) 0%, var(--space-1) 100%);
+    /* PC では左のサイドバー（230px）を除いた範囲の真ん中にコートを置く */
+    --stage-shift: 115px;
 }
 
 .bg-layer { position: absolute; }
 
-.stars {
-    left: 0;
-    right: 0;
-    top: -200px;
-    height: calc(100% + 400px);
-    background-repeat: repeat;
+.field-sky { position: absolute; inset: 0 0 60% 0; background: linear-gradient(180deg, var(--field-sky), transparent); }
+.field-horizon { position: absolute; left: 0; right: 0; top: 40%; height: 2px; background: linear-gradient(90deg, transparent, var(--field-pad), transparent); box-shadow: 0 0 24px 6px var(--field-beam); }
+.field-stands {
+    position: absolute; left: 0; right: 0; top: 22%; height: 18%;
+    background: repeating-linear-gradient(180deg, var(--field-stand) 0 3px, transparent 3px 14px);
+    mask-image: linear-gradient(180deg, transparent, #000 60%);
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 60%);
+}
+.field-flash { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 4px rgba(255, 255, 255, 0.7); opacity: 0; animation: field-flash 7s ease-out infinite; }
+@keyframes field-flash { 0%, 90%, 100% { opacity: 0; } 92% { opacity: 0.9; } }
+
+.field-floor { position: absolute; left: 0; right: 0; top: 40%; bottom: 0; perspective: 900px; perspective-origin: 50% -20%; background: linear-gradient(180deg, var(--field-fill), transparent 120%); }
+/* コートの面（真上から見た長方形）。奥へ倒してから、床の上で時計回りに回す */
+.field-plane { position: absolute; left: calc(50% + var(--stage-shift)); top: 40%; width: 44vw; height: 72vw; margin: -36vw 0 0 -22vw; transform-style: preserve-3d; transform: rotateX(62deg) rotateZ(60deg); }
+.field-court { position: absolute; inset: 0; width: 100%; height: 100%; }
+.field-court .cl { fill: none; stroke: var(--field-line); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.field-court .cf { fill: var(--field-fill); }
+.field-court .band { fill: var(--field-band); }
+.field-court .em { fill: var(--field-line); opacity: 0.5; }
+
+/* 足場（床に描いた円。遠近で楕円に見える） */
+.field-pad { position: absolute; left: 50%; width: 16vw; height: 16vw; margin-left: -8vw; border-radius: 50%; border: 2px solid var(--field-pad); background: radial-gradient(circle, var(--field-pad-fill), transparent 70%); transform-style: preserve-3d; }
+.field-pad::before, .field-pad::after { content: ""; position: absolute; border-radius: 50%; border: 2px dashed var(--field-pad); }
+.field-pad::before { inset: 14%; }
+.field-pad::after { inset: 34%; border-style: solid; animation: field-pad-pulse 4s ease-in-out infinite; }
+@keyframes field-pad-pulse { 50% { transform: scale(1.25); opacity: 0.3; } }
+.field-pad-foe { top: 17%; }
+.field-pad-foe::after { animation-delay: -2s; }
+.field-pad-mine { top: 81%; margin-top: -16vw; }
+
+/* ポケモン：床の回転を打ち消して、カメラの方を向いて立たせる。自分側は左右反転 */
+.field-stand { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; transform: rotateZ(-60deg) rotateX(-62deg); }
+.field-stand img { position: absolute; bottom: 0; width: 14vw; margin-left: -7vw; image-rendering: pixelated; opacity: var(--field-mon-opacity); animation: field-mon-idle 2.6s ease-in-out infinite; }
+.field-pad-mine .field-stand img { transform: scaleX(-1); animation-delay: -1.3s; }
+@keyframes field-mon-idle { 50% { translate: 0 -4%; } }
+
+.field-beam { position: absolute; top: -10%; width: 260px; height: 130%; transform-origin: top center; background: linear-gradient(180deg, var(--field-beam), transparent 75%); clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%); animation: field-beam-sway 14s ease-in-out infinite alternate; }
+.field-beam-1 { left: 22%; transform: rotate(-18deg); }
+.field-beam-2 { right: 10%; transform: rotate(16deg); animation-duration: 18s; animation-delay: -6s; }
+@keyframes field-beam-sway { 0% { rotate: -8deg; } 100% { rotate: 10deg; } }
+
+/* スマホ（サイドバーは上のバー）では、真ん中をずらさない */
+@media (max-width: 767.98px) {
+    .bg-scene { --stage-shift: 0px; }
 }
 
-.stars-far {
-    background-size: 160px 140px;
-    opacity: 0.55;
-    animation: star-drift 120s linear infinite;
-    background-image:
-        radial-gradient(0.8px 0.8px at 12px 20px, var(--star), transparent),
-        radial-gradient(0.7px 0.7px at 70px 95px, var(--star), transparent),
-        radial-gradient(0.9px 0.9px at 128px 48px, var(--star), transparent),
-        radial-gradient(0.6px 0.6px at 40px 122px, var(--star), transparent),
-        radial-gradient(0.8px 0.8px at 104px 130px, var(--star), transparent),
-        radial-gradient(0.7px 0.7px at 150px 8px, var(--star), transparent);
+/* 縦長の画面：地平線を上げ、コートと足場を画面幅に合わせて大きくする */
+@media (max-aspect-ratio: 1/1) {
+    .field-sky { inset: 0 0 66% 0; }
+    .field-stands { top: 20%; height: 14%; }
+    .field-horizon, .field-floor { top: 34%; }
+    .field-plane { left: calc(50% + var(--stage-shift)); top: 50%; width: 70vw; height: 110vw; margin: -55vw 0 0 -35vw; transform: rotateX(66deg) rotateZ(48deg); }
+    .field-stand { transform: rotateZ(-48deg) rotateX(-66deg); }
+    .field-pad { width: 25vw; height: 25vw; margin-left: -12.5vw; }
+    .field-pad-foe { top: 14%; }
+    .field-pad-mine { top: 86%; margin-top: -25vw; }
+    .field-stand img { width: 24vw; margin-left: -12vw; }
+    .field-beam { width: 160px; }
 }
 
-.stars-mid {
-    background-size: 290px 250px;
-    opacity: 0.8;
-    animation: star-drift 80s linear infinite;
-    background-image:
-        radial-gradient(1.2px 1.2px at 30px 40px, var(--star), transparent),
-        radial-gradient(1.1px 1.1px at 160px 120px, var(--star-tint), transparent),
-        radial-gradient(1.3px 1.3px at 240px 30px, var(--star), transparent),
-        radial-gradient(1px 1px at 90px 200px, var(--star-tint), transparent),
-        radial-gradient(1.2px 1.2px at 210px 220px, var(--star), transparent);
-}
-
-.stars-near {
-    background-size: 520px 460px;
-    animation: star-drift 50s linear infinite, star-twinkle 4s ease-in-out infinite alternate;
-    background-image:
-        radial-gradient(2px 2px at 80px 90px, var(--star), transparent),
-        radial-gradient(1.8px 1.8px at 380px 60px, var(--star-tint), transparent),
-        radial-gradient(2.2px 2.2px at 260px 330px, var(--star), transparent),
-        radial-gradient(1.6px 1.6px at 470px 400px, var(--star-tint), transparent);
-}
-
-@keyframes star-drift { to { transform: translateY(200px); } }
-@keyframes star-twinkle { 50% { opacity: 0.45; } }
-
-.spark {
-    position: absolute;
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: var(--star);
-    box-shadow: 0 0 8px 2px var(--star-tint);
-    animation: star-spark 5s ease-in-out infinite;
-}
-
-.spark::before,
-.spark::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-}
-
-.spark::before { width: 22px; height: 1px; background: linear-gradient(90deg, transparent, var(--star), transparent); }
-.spark::after { width: 1px; height: 22px; background: linear-gradient(180deg, transparent, var(--star), transparent); }
-.spark-1 { top: 14%; left: 62%; }
-.spark-2 { top: 58%; left: 86%; animation-delay: -1.8s; animation-duration: 6.5s; }
-.spark-3 { top: 78%; left: 34%; animation-delay: -3.2s; animation-duration: 7s; }
-@keyframes star-spark { 0%, 100% { opacity: 0.25; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1); } }
-
-.meteor {
-    position: absolute;
-    width: 140px;
-    height: 1.5px;
-    border-radius: 1px;
-    background: linear-gradient(90deg, var(--star), transparent);
-    opacity: 0;
-    transform-origin: left center;
-}
-
-.meteor-1 { top: 12%; left: 78%; animation: meteor 11s ease-in 2s infinite; }
-.meteor-2 { top: 34%; left: 96%; animation: meteor 17s ease-in 8s infinite; }
-
-@keyframes meteor {
-    0% { opacity: 0; transform: rotate(155deg) translateX(0); }
-    2% { opacity: 1; }
-    8%, 100% { opacity: 0; transform: rotate(155deg) translateX(520px); }
-}
-
+/* 光のぼかし（fara-labs.com と同じ紫・ピンク・青） */
 .bg-blob span {
     display: block;
     width: 100%;
