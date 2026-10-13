@@ -131,11 +131,11 @@ public sealed class PokemonBuild
         isDynamax = isDynamax,
     };
 
-    /// <summary>チャット向けの短い説明（例: <c>C252 ひかえめ こだわりメガネ サイコメイカー</c>）。</summary>
+    /// <summary>チャット向けの短い説明（例: <c>C252 C↑A↓ こだわりメガネ サイコメイカー</c>）。</summary>
     public string DescribeShort()
     {
         var parts = new List<string> { EVs.ToShortString() };
-        if (Nature is not null) parts.Add(Nature.Name);
+        if (Nature?.Summary() is { } natureText) parts.Add(natureText);
         if (Item is not null) parts.Add(Item.Name);
         if (Ability is not null) parts.Add(Ability.Name);
         if (IsTerastallized) parts.Add($"テラス{TypeNames.ToJapanese(TeraType!)}");

@@ -424,6 +424,12 @@ public sealed class Nature
         return $"{Name}（{StatNames.Letter(IncreasedStat.Value)}↑{StatNames.Letter(DecreasedStat.Value)}↓）";
     }
 
+    /// <summary>チャットの返信用の性格表示。上がる・下がる能力だけを出す（例: <c>C↑A↓</c>）。補正のない性格は <c>null</c>（表示しない）。</summary>
+    public string? Summary() =>
+        IncreasedStat is null || DecreasedStat is null
+            ? null
+            : $"{StatNames.Letter(IncreasedStat.Value)}↑{StatNames.Letter(DecreasedStat.Value)}↓";
+
     public override string ToString() => Name;
 }
 

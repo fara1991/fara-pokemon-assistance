@@ -418,14 +418,14 @@ public class PokeCommandTests
         Assert.False(tooMany.Success);
 
         var ls = await cmd.ExecuteAsync("!pokech ls -p");
-        Assert.Contains("ガブリアス(ようき)", ls.Message);
+        Assert.Contains("ガブリアス(S↑C↓)", ls.Message);
         var lsFiltered = await cmd.ExecuteAsync("!pokech ls -p ピカチュウ");
         Assert.Contains("登録されたポケモンはありません", lsFiltered.Message);
 
         var more = await cmd.ExecuteAsync("!pokech detail -p 1");
         Assert.True(more.Success, more.Message);
         Assert.Contains("実数値", more.Message);
-        Assert.Contains("ようき", more.Message);
+        Assert.Contains("S↑C↓", more.Message);
 
         var rm = await cmd.ExecuteAsync("!pokech rm -p 1");
         Assert.True(rm.Success, rm.Message);
