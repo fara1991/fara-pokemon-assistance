@@ -11,7 +11,7 @@ namespace FaraPokemonBattleAssistant.Web.Services;
 /// 無ければこのブラウザの localStorage（<see cref="BrowserRosterStore"/>）を使う。
 /// </summary>
 /// <remarks>
-/// 連携中はクラウドだけが正で、このブラウザには登録データを残さない（localStorage に置くのはアクセスキーだけ）。
+/// データ共有中はクラウドだけが正で、このブラウザには登録データを残さない（localStorage に置くのはアクセスキーだけ）。
 /// アクセスキーはパスワードと同じ扱いで、ログ・エラー表示には出さない。
 /// </remarks>
 public sealed class CloudSync : IRosterStore
@@ -38,10 +38,10 @@ public sealed class CloudSync : IRosterStore
         _services = services;
     }
 
-    /// <summary>連携中か。</summary>
+    /// <summary>データ共有中か。</summary>
     public bool IsSyncing => _remote is not null;
 
-    /// <summary>アクセスキー（データ連携していなければ null）。画面に出すときは伏せ字にする。</summary>
+    /// <summary>アクセスキー（データ共有していなければ null）。画面に出すときは伏せ字にする。</summary>
     public string? Key => _key;
 
     /// <summary>最後にクラウドとの読み書きが成功した時刻。</summary>
@@ -53,7 +53,7 @@ public sealed class CloudSync : IRosterStore
     /// <summary>最後の保存で他の場所の更新と競合し、読み直して保存し直したときのお知らせ。</summary>
     public string? LastNotice { get; private set; }
 
-    /// <summary>データ連携の状態（開始・停止・成功・失敗）が変わったとき。</summary>
+    /// <summary>データ共有の状態（開始・停止・成功・失敗）が変わったとき。</summary>
     public event Action? Changed;
 
     public bool AlwaysReload => _remote is not null;
@@ -124,26 +124,26 @@ public sealed class CloudSync : IRosterStore
         }
     }
 
-    // ---- データ連携の開始・参加・作り直し・停止
+    // ---- データ共有の開始・参加・作り直し・停止
 
     /// <summary>
-    /// 保存してあるアクセスキーを読み、連携中かどうかを確かめる（データ連携ページを直接開いたときに、まだ何も読み込んでいなくても
-    /// 「連携中」と表示するため）。
+    /// 保存してあるアクセスキーを読み、データ共有中かどうかを確かめる（データ共有ページを直接開いたときに、まだ何も読み込んでいなくても
+    /// 「データ共有中」と表示するため）。
     /// </summary>
     public Task InitializeAsync() => EnsureInitializedAsync();
 
-    /// <summary>このブラウザに（データ連携していないときの）登録データがあるか。</summary>
+    /// <summary>このブラウザに（データ共有していないときの）登録データがあるか。</summary>
     public async Task<bool> LocalHasDataAsync()
     {
         await EnsureInitializedAsync();
         return HasData(RosterRepository.Deserialize(await _local.LoadAsync()));
     }
 
-    /// <summary>新しいアクセスキーを作ってデータ連携を始める。このブラウザの登録データをクラウドに上げ、ブラウザからは消す。</summary>
+    /// <summary>新しいアクセスキーを作ってデータ共有を始める。このブラウザの登録データをクラウドに上げ、ブラウザからは消す。</summary>
     public async Task StartNewAsync()
     {
         await EnsureInitializedAsync();
-        if (IsSyncing) throw new InvalidOperationException("すでにデータ連携しています");
+        if (IsSyncing) throw new InvalidOperationException("すでにデータ共有しています");
         var key = RemoteRosterStore.GenerateKey();
         var remote = new RemoteRosterStore(_http, _baseUri, key);
         var local = RosterRepository.Deserialize(await _local.LoadAsync());
@@ -162,7 +162,7 @@ public sealed class CloudSync : IRosterStore
     public async Task<bool> JoinAsync(string key)
     {
         await EnsureInitializedAsync();
-        if (IsSyncing) throw new InvalidOperationException("すでにデータ連携しています");
+        if (IsSyncing) throw new InvalidOperationException("すでにデータ共有しています");
         key = key.Trim();
         if (!RemoteRosterStore.IsValidKey(key))
             throw new ArgumentException("アクセスキーの形式が正しくありません（43 文字の英数字・-・_）");
@@ -180,7 +180,7 @@ public sealed class CloudSync : IRosterStore
     public async Task<bool> RotateAsync()
     {
         await EnsureInitializedAsync();
-        var old = _remote ?? throw new InvalidOperationException("データ連携していません");
+        var old = _remote ?? throw new InvalidOperationException("データ共有していません");
         var key = RemoteRosterStore.GenerateKey();
         var remote = new RemoteRosterStore(_http, _baseUri, key);
         var json = await old.LoadAsync();
@@ -198,7 +198,7 @@ public sealed class CloudSync : IRosterStore
         }
     }
 
-    /// <summary>データ連携をやめる（このブラウザでキーを忘れる）。クラウドのデータは残り、このブラウザの登録データは空になる。</summary>
+    /// <summary>データ共有をやめる（このブラウザでキーを忘れる）。クラウドのデータは残り、このブラウザの登録データは空になる。</summary>
     public async Task StopAsync()
     {
         await EnsureInitializedAsync();
@@ -248,7 +248,7 @@ public sealed class CloudSync : IRosterStore
     }
 
     /// <summary>
-    /// 今の保存先。データ連携していないときは毎回 localStorage のキーを確かめ、別のタブでデータ連携を始めていたらクラウドに切り替える。
+    /// 今の保存先。データ共有していないときは毎回 localStorage のキーを確かめ、別のタブでデータ共有を始めていたらクラウドに切り替える。
     /// </summary>
     private async Task<RemoteRosterStore?> CurrentRemoteAsync()
     {

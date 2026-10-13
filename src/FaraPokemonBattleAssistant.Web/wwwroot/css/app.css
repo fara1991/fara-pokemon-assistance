@@ -2275,7 +2275,7 @@ button.compact-cell {
     opacity: 1;
 }
 
-/* 登録ページのデータ連携 */
+/* 登録ページのデータ共有 */
 .sync-card .sync-join { max-width: 32rem; flex: 1 1 20rem; }
 @media (max-width: 575.98px) {
     /* スマホではアクセスキーの入力欄を 1 行、ボタンをその下に */
@@ -2728,7 +2728,7 @@ html.vt-nav .sidebar {
     }
 }
 
-/* データ連携ページ: 読みやすい幅に収める */
+/* データ共有ページ: 読みやすい幅に収める */
 .sync-page {
     max-width: 54rem;
     padding-top: 0.25rem;

@@ -6,7 +6,7 @@ public sealed record ToastItem(int Id, ToastKind Kind, string Text);
 
 /// <summary>
 /// 画面の右上に重ねて出す通知（トースト）。サイト全体で使う。
-/// 登録・削除・更新・データ連携など、データを変える処理の結果を知らせるときに呼ぶ。
+/// 登録・削除・更新・データ共有など、データを変える処理の結果を知らせるときに呼ぶ。
 /// 数秒で自動で消え、複数出たら縦に積む（表示は Components/Toasts.razor）。
 /// </summary>
 public sealed class ToastService

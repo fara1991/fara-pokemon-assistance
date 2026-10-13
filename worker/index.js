@@ -1,4 +1,4 @@
-// 登録データ（ポケモン・チーム）のデータ連携 API。
+// 登録データ（ポケモン・チーム）のデータ共有 API。
 //
 // サイト本体（静的アセット）は今までどおり Cloudflare が配信し、/api/* だけがこのスクリプトを通る
 // （wrangler.jsonc の assets.run_worker_first）。

@@ -1,9 +1,9 @@
 @inject CloudSync Sync
 @implements IDisposable
-@* 登録データの保存先を 1 行で知らせる。データ連携のページへの入口も兼ねる。 *@
+@* 登録データの保存先を 1 行で知らせる。データ共有のページへの入口も兼ねる。 *@
 @if (!Sync.IsSyncing)
 {
-    <Notice Class="mt-2">このブラウザだけに保存しています。ほかの端末やボットと共有するには<a href="data-sync">データ連携</a>を使います。</Notice>
+    <Notice Class="mt-2">このブラウザだけに保存しています。ほかの端末やボットと共有するには<a href="data-share">データ共有</a>を使います。</Notice>
 }
 
 @code {

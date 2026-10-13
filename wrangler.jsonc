@@ -1,7 +1,7 @@
 {
   // Cloudflare Workers で公開する設定。
   // サイト本体は dotnet publish の出力（publish/wwwroot）を静的アセットとして配信し、
-  // /api/*（登録データのデータ連携）だけ Worker スクリプト（worker/index.js）を通す。
+  // /api/*（登録データのデータ共有）だけ Worker スクリプト（worker/index.js）を通す。
   //   本番:   npx wrangler deploy               → https://pokemon.fara-labs.com/          （deploy.yml・master への push）
   //   確認用: npx wrangler deploy --env develop → https://pokemon-dev.fara-labs.com/  （deploy-develop.yml・develop への push）
   // 本番と確認用は Worker が別なので、登録データ（Durable Object）も別々。

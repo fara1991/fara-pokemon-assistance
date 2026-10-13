@@ -1,4 +1,4 @@
-// データ連携 API（worker/index.js）の動作確認。
+// データ共有 API（worker/index.js）の動作確認。
 //   npm run test:worker
 // wrangler dev をローカル（一時ディレクトリに保存）で起動して、/api/my-pokemon・/api/my-team・/api/access-key の
 // 401・空の GET・PUT・409・400・413・410、ポケモン削除でチームから外れることなどを確かめる。
