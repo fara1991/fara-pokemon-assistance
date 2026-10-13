@@ -235,10 +235,6 @@ else if (data is not null && dataSet is not null)
         }
         // そのゲームに無いフィールドは外す
         if (dataSet is { HasTerrain: false } || s.Terrain == Terrain.Psychic && dataSet is { HasPsychicTerrain: false }) s.Terrain = Terrain.None;
-        // 空いている欄には、背景のバトルフィールドに立っている 2 体を入れる（どちらのページでも未選択ならランダムな 2 体）
-        Stage.EnsureDefaults(App.DataSetKey, data);
-        if (s.Builds[0] is null && !s.UseRoster[0] && Stage.Mine is { } mine) OnPokemonChanged(0, mine.Id.ToString());
-        if (s.Builds[1] is null && !s.UseRoster[1] && Stage.Foe is { } foe) OnPokemonChanged(1, foe.Id.ToString());
     }
 
     // 選んでいるポケモン1（手前）・ポケモン2（奥）を、背景のバトルフィールドに立たせる

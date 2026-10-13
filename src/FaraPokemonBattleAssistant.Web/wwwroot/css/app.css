@@ -2836,7 +2836,7 @@ html.vt-nav .sidebar {
 /* =========================================================
    バトルフィールドの背景（Shared/BattleStageBackground.razor の .bg-scene）
    - 空・観客席・地平線は水平。コートは床の上で回して、自分の陣地を左下・相手の陣地を右上に置く
-   - 足場には、ダメージ計算機・素早さ比較で選んだ 2 体（未選択ならランダムな 2 体）が立つ（Services/BattleStage.cs）
+   - 足場には、ダメージ計算機・素早さ比較で選んだ 2 体（どちらも未選択ならランダムな 2 体）が立つ（Services/BattleStage.cs）
    - 動くのは照明・足場の輪・ポケモンの揺れ・観客席のフラッシュ・光のぼかし
    元に戻すときは、この節と MainLayout.razor の <BattleStageBackground /> を消す
    ========================================================= */
@@ -2858,7 +2858,7 @@ html.vt-nav .sidebar {
     --field-sky: rgba(196, 181, 253, 0.35);
     --field-stand: rgba(124, 58, 237, 0.1);
     --field-mon-opacity: 0.3;
-    --glass: rgba(255, 255, 255, 0.86);
+    --glass: rgba(255, 255, 255, 0.72);
     --brand-grad: linear-gradient(120deg, #7c3aed 0%, #c026d3 50%, #4f46e5 100%);
 }
 
@@ -2879,7 +2879,7 @@ html.vt-nav .sidebar {
     --field-sky: rgba(76, 29, 149, 0.45);
     --field-stand: rgba(196, 181, 253, 0.08);
     --field-mon-opacity: 0.32;
-    --glass: rgba(26, 14, 48, 0.82);
+    --glass: rgba(26, 14, 48, 0.66);
     --brand-grad: linear-gradient(120deg, #c084fc 0%, #e879f9 45%, #818cf8 100%);
 }
 
@@ -2911,7 +2911,7 @@ html.vt-nav .sidebar {
 
 .field-floor { position: absolute; left: 0; right: 0; top: 40%; bottom: 0; perspective: 900px; perspective-origin: 50% -20%; background: linear-gradient(180deg, var(--field-fill), transparent 120%); }
 /* コートの面（真上から見た長方形）。奥へ倒してから、床の上で時計回りに回す */
-.field-plane { position: absolute; left: calc(50% + var(--stage-shift)); top: 40%; width: 44vw; height: 72vw; margin: -36vw 0 0 -22vw; transform-style: preserve-3d; transform: rotateX(62deg) rotateZ(60deg); }
+.field-plane { position: absolute; left: calc(50% + var(--stage-shift)); top: 40%; width: 36vw; height: 58vw; margin: -29vw 0 0 -18vw; transform-style: preserve-3d; transform: rotateX(62deg) rotateZ(60deg); }
 .field-court { position: absolute; inset: 0; width: 100%; height: 100%; }
 .field-court .cl { fill: none; stroke: var(--field-line); stroke-width: 2px; vector-effect: non-scaling-stroke; }
 .field-court .cf { fill: var(--field-fill); }
@@ -2919,18 +2919,18 @@ html.vt-nav .sidebar {
 .field-court .em { fill: var(--field-line); opacity: 0.5; }
 
 /* 足場（床に描いた円。遠近で楕円に見える） */
-.field-pad { position: absolute; left: 50%; width: 16vw; height: 16vw; margin-left: -8vw; border-radius: 50%; border: 2px solid var(--field-pad); background: radial-gradient(circle, var(--field-pad-fill), transparent 70%); transform-style: preserve-3d; }
+.field-pad { position: absolute; left: 50%; width: 13vw; height: 13vw; margin-left: -6.5vw; border-radius: 50%; border: 2px solid var(--field-pad); background: radial-gradient(circle, var(--field-pad-fill), transparent 70%); transform-style: preserve-3d; }
 .field-pad::before, .field-pad::after { content: ""; position: absolute; border-radius: 50%; border: 2px dashed var(--field-pad); }
 .field-pad::before { inset: 14%; }
 .field-pad::after { inset: 34%; border-style: solid; animation: field-pad-pulse 4s ease-in-out infinite; }
 @keyframes field-pad-pulse { 50% { transform: scale(1.25); opacity: 0.3; } }
 .field-pad-foe { top: 17%; }
 .field-pad-foe::after { animation-delay: -2s; }
-.field-pad-mine { top: 81%; margin-top: -16vw; }
+.field-pad-mine { top: 81%; margin-top: -13vw; }
 
 /* ポケモン：床の回転を打ち消して、カメラの方を向いて立たせる。自分側は左右反転 */
 .field-stand { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; transform: rotateZ(-60deg) rotateX(-62deg); }
-.field-stand img { position: absolute; bottom: 0; width: 14vw; margin-left: -7vw; image-rendering: pixelated; opacity: var(--field-mon-opacity); animation: field-mon-idle 2.6s ease-in-out infinite; }
+.field-stand img { position: absolute; bottom: 0; width: 11vw; margin-left: -5.5vw; image-rendering: pixelated; opacity: var(--field-mon-opacity); animation: field-mon-idle 2.6s ease-in-out infinite; }
 .field-pad-mine .field-stand img { transform: scaleX(-1); animation-delay: -1.3s; }
 @keyframes field-mon-idle { 50% { translate: 0 -4%; } }
 
@@ -2949,12 +2949,12 @@ html.vt-nav .sidebar {
     .field-sky { inset: 0 0 66% 0; }
     .field-stands { top: 20%; height: 14%; }
     .field-horizon, .field-floor { top: 34%; }
-    .field-plane { left: calc(50% + var(--stage-shift)); top: 50%; width: 70vw; height: 110vw; margin: -55vw 0 0 -35vw; transform: rotateX(66deg) rotateZ(48deg); }
+    .field-plane { left: calc(50% + var(--stage-shift)); top: 50%; width: 60vw; height: 94vw; margin: -47vw 0 0 -30vw; transform: rotateX(66deg) rotateZ(48deg); }
     .field-stand { transform: rotateZ(-48deg) rotateX(-66deg); }
-    .field-pad { width: 25vw; height: 25vw; margin-left: -12.5vw; }
+    .field-pad { width: 21vw; height: 21vw; margin-left: -10.5vw; }
     .field-pad-foe { top: 14%; }
-    .field-pad-mine { top: 86%; margin-top: -25vw; }
-    .field-stand img { width: 24vw; margin-left: -12vw; }
+    .field-pad-mine { top: 86%; margin-top: -21vw; }
+    .field-stand img { width: 20vw; margin-left: -10vw; }
     .field-beam { width: 160px; }
 }
 
