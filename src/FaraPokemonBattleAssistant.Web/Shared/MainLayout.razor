@@ -1,19 +1,7 @@
 @inherits LayoutComponentBase
 
-@* 宇宙の背景（星・流れ星・星雲）。見た目だけの飾りで、操作には関わらない。CSS は app.css の「宇宙の背景」 *@
-<div class="bg-scene" aria-hidden="true">
-    <div class="bg-layer stars stars-far"></div>
-    <div class="bg-layer stars stars-mid"></div>
-    <div class="bg-layer stars stars-near"></div>
-    <span class="spark spark-1"></span>
-    <span class="spark spark-2"></span>
-    <span class="spark spark-3"></span>
-    <span class="meteor meteor-1"></span>
-    <span class="meteor meteor-2"></span>
-    <div class="bg-layer bg-blob blob-1"><span></span></div>
-    <div class="bg-layer bg-blob blob-2"><span></span></div>
-    <div class="bg-layer bg-blob blob-3"><span></span></div>
-</div>
+@* 背景のバトルフィールド（Shared/BattleStageBackground.razor） *@
+<BattleStageBackground />
 
 <div class="page">
     <div class="sidebar">
