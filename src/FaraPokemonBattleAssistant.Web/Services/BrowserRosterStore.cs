@@ -31,6 +31,10 @@ public sealed class BrowserRosterStore : IRosterStore
         await _js.InvokeVoidAsync("localStorage.setItem", ct, Key, json);
     }
 
+    /// <summary>ブラウザでは登録データ全体をそのまま保存する。</summary>
+    public Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default) =>
+        SaveAsync(RosterRepository.Serialize(state), ct);
+
     /// <summary>このブラウザの登録データを消す（データ連携を始めたとき）。</summary>
     public async Task ClearAsync(CancellationToken ct = default)
     {
