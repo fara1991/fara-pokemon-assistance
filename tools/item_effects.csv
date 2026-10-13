@@ -89,3 +89,12 @@ colbur-berry,ResistBerry,効果抜群の技のダメージを1回だけ半減,1.
 babiri-berry,ResistBerry,効果抜群の技のダメージを1回だけ半減,1.0,1.0,1.0,1.0,1.0,Steel,1.0
 roseli-berry,ResistBerry,効果抜群の技のダメージを1回だけ半減,1.0,1.0,1.0,1.0,1.0,Fairy,1.0
 chilan-berry,ResistBerry,ノーマル技のダメージを1回だけ半減,1.0,1.0,1.0,1.0,1.0,Normal,1.0
+iron-ball,Other,素早さが半分になる,1.0,1.0,1.0,1.0,1.0,,1.0
+macho-brace,Other,素早さが半分になる（努力値が入りやすくなる）,1.0,1.0,1.0,1.0,1.0,,1.0
+power-weight,Other,素早さが半分になる,1.0,1.0,1.0,1.0,1.0,,1.0
+power-bracer,Other,素早さが半分になる,1.0,1.0,1.0,1.0,1.0,,1.0
+power-belt,Other,素早さが半分になる,1.0,1.0,1.0,1.0,1.0,,1.0
+power-lens,Other,素早さが半分になる,1.0,1.0,1.0,1.0,1.0,,1.0
+power-band,Other,素早さが半分になる,1.0,1.0,1.0,1.0,1.0,,1.0
+power-anklet,Other,素早さが半分になる,1.0,1.0,1.0,1.0,1.0,,1.0
+quick-powder,Other,メタモンの素早さが2倍になる,1.0,1.0,1.0,1.0,1.0,,1.0

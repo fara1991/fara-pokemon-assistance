@@ -192,6 +192,7 @@ else if (data is not null)
 
 @if (!string.IsNullOrEmpty(s.Output))
 {
+    <div class="form-label mb-1 chat-reply-title">ボットの返信 <span class="fw-normal text-muted small">チャットにボットが返す文です</span></div>
     <div class="alert @(s.Success ? "alert-success" : "alert-warning") chat-output">@s.Output</div>
 }
 
