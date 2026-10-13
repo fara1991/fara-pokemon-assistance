@@ -397,6 +397,29 @@ public class RosterSyncTests
     }
 
     [Fact]
+    public async Task Team_put_drops_slots_left_over_from_the_old_api()
+    {
+        // 以前の API は中身を確かめずに保存していたので、登録に無いポケモンを指す枠や 0 体のチームが残っていることがある
+        var (server, store) = NewRemote();
+        server.WriteFromElsewhere(state =>
+        {
+            var r = state.For(Ds);
+            r.Pokemon.Add(new RegisteredPokemon { Id = 1, PokemonName = "ガブリアス" });
+            r.NextId = 3;
+            r.Teams.Add(new Team { Number = 1, Slots = { new TeamSlot { EntryId = 1 }, new TeamSlot { EntryId = 2 }, new TeamSlot { EntryId = 1 } } });
+            r.Teams.Add(new Team { Number = 2, Slots = { new TeamSlot { EntryId = 9 } } });
+            r.Teams.Add(new Team { Number = 3 });
+            r.ActiveTeam = 2;
+        });
+        var repo = new RosterRepository(store);
+        await repo.AddToTeamAsync(Ds, 4, 1, null);
+        var saved = server.State.For(Ds);
+        Assert.Equal(new[] { 1, 4 }, saved.Teams.Select(t => t.Number));
+        Assert.Equal(new[] { 1 }, saved.Teams[0].Slots.Select(slot => slot.EntryId));
+        Assert.Null(saved.ActiveTeam);
+    }
+
+    [Fact]
     public async Task Pokemon_put_only_sends_the_changed_game()
     {
         var (server, store) = NewRemote();

@@ -216,9 +216,10 @@ public sealed class RemoteRosterStore : IRosterStore
                 }
                 else
                 {
+                    var teams = ValidTeams(roster);
                     writer.WritePropertyName("teams");
-                    JsonSerializer.Serialize(writer, roster.Teams.Where(t => t.Slots.Count > 0).ToList(), ItemOptions);
-                    if (roster.ActiveTeam is { } active && roster.Teams.Any(t => t.Number == active && t.Slots.Count > 0))
+                    JsonSerializer.Serialize(writer, teams, ItemOptions);
+                    if (roster.ActiveTeam is { } active && teams.Any(t => t.Number == active))
                         writer.WriteNumber("activeTeam", active);
                     else
                         writer.WriteNull("activeTeam");
@@ -231,6 +232,22 @@ public sealed class RemoteRosterStore : IRosterStore
         var content = new ByteArrayContent(buffer.WrittenSpan.ToArray());
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
         return content;
+    }
+
+    /// <summary>
+    /// サーバーが受け付ける形のチーム。以前の API は中身を確かめずに保存していたので、登録に無いポケモンを指す枠・同じポケモンの重複・
+    /// 0 体のチームが残っていることがある。それらを除いて送る（そのままだと 400 になり、チームの操作やデータの移し替えができなくなる）。
+    /// </summary>
+    private static List<Team> ValidTeams(DataSetRoster roster)
+    {
+        var ids = roster.Pokemon.Select(p => p.Id).ToHashSet();
+        var teams = new List<Team>();
+        foreach (var team in roster.Teams.GroupBy(t => t.Number).Select(g => g.First()))
+        {
+            var slots = team.Slots.Where(s => ids.Contains(s.EntryId)).GroupBy(s => s.EntryId).Select(g => g.First()).Take(6).ToList();
+            if (slots.Count > 0) teams.Add(new Team { Number = team.Number, Slots = slots });
+        }
+        return teams;
     }
 
     /// <summary>GET の応答 <c>{"revision": n, "dataSets": {...}}</c> を読む。</summary>
