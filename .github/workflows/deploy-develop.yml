@@ -38,6 +38,7 @@ jobs:
 
       - run: npm ci
 
+      # ゲームデータ（wwwroot/api/game）は publish/wwwroot/api/game に入り、/api/game/... の静的アセットとして配られる（Worker は /api/my/* だけ）。
       - name: Publish Blazor WebAssembly
         run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --output publish
 

@@ -23,7 +23,7 @@ public class ItemAvailabilityTests
         foreach (var name in new[] { "こだわりスカーフ", "いのちのたま", "きあいのタスキ", "たべのこし", "ゴツゴツメット", "オボンのみ", "ひかりのこな" })
             Assert.Contains(data.Items, i => i.Name == name);
         // 持ち物の一覧は tools/champions_items.txt（出典つき）。メガストーン以外は、一覧と完全に一致する
-        var listed = File.ReadAllLines(Path.Combine(TestData.DataDirectory, "..", "..", "..", "..", "tools", "champions_items.txt"))
+        var listed = File.ReadAllLines(Path.Combine(TestData.RepositoryRoot, "tools", "champions_items.txt"))
             .Where(l => l.Length > 0 && !l.StartsWith('#')).ToHashSet();
         var actual = data.Items.Where(i => !i.IsMegaStone).Select(i => i.Name).ToHashSet();
         Assert.Equal(listed.OrderBy(x => x), actual.OrderBy(x => x));

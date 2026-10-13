@@ -12,7 +12,7 @@ fara-pokemon-battle-assistant/
 ├── src/
 │   ├── FaraPokemonBattleAssistant.Core/   計算ロジック・CSV 読み込み・名前解決・登録/チーム・チャットコマンド（クラスライブラリ）
 │   ├── FaraPokemonBattleAssistant.Web/    Blazor WebAssembly（Cloudflare Workers に公開）
-│   │   └── wwwroot/data/             ★ データ CSV。Web もボットもこのファイルを読む
+│   │   └── wwwroot/api/game/         ★ ゲームデータ CSV。Web もボットもこのファイルを読む（公開サイトでは /api/game/... で配られる）
 │   └── FaraPokemonBattleAssistant.Cli/    コマンドをターミナルで試す / ボット組み込み前の動作確認用
 ├── tests/FaraPokemonBattleAssistant.Core.Tests/
 ├── tools/
@@ -48,6 +48,7 @@ fara-pokemon-battle-assistant/
 - `datasets.json` の `calc: "Reference"` のゲームは参照のみです（計算機などでは案内を出します）。
 - 第3〜7世代のダメージ計算（`LegacyDamageCalculator`）は、その世代の補正の順番・丸め（第3〜4世代は補正ごとの切り捨て・タイプ一致の位置、急所 2 倍 / 1.5 倍、スキン系 1.3 倍、フィールド 1.5 倍、まひ 1/4、やけど 1/8 など）で行います。公開されているダメージ計算ツール（@smogon/calc）の結果と、`tools/calc_vectors` で作った条件（`tests/.../Data/calc_vectors.json`。第3〜7世代に加え、ソード・シールド / スカーレット・バイオレット / チャンピオンズの条件も含む）で一致を確かめています（第3世代のウェザーボールは、天候があると威力ではなくダメージが 2 倍になり、変わったタイプで物理・特殊も決まります。天候がないときはツールが特殊技として計算しますが、ゲームではノーマルタイプの物理技なので、その条件だけ比較から除いています）。ちからずく・すてみの対象の技は `move_lists.js` で作る `Data/move_lists.json` で全部の技を照合します。今のゲームの計算を意図して変えたときは `Data/calc_snapshot.txt` を作り直し、変わったケースを確認します。
 - 手動で更新する場合: `python tools/sync_data.py`（HOME を飛ばすなら `--skip-home`）。
+- 公開サイトでは `src/FaraPokemonBattleAssistant.Web/wwwroot/api/game/` がそのまま `https://pokemon.fara-labs.com/api/game/`（確認用は `https://pokemon-dev.fara-labs.com/api/game/`）で配られます（`datasets.csv`・`natures.csv`・`updated.txt`・`<ゲーム>/pokemon.csv` など。認証なしの静的ファイルで、Worker は通りません）。ボット（`HttpDataSource` + `CachingDataSource`）もこの URL から読みます。無いファイルはサイトの SPA 設定のため `404` ではなく `index.html`（`200`、`text/html`）が返るので、`HttpDataSource` は HTML を「無い」として扱います。
 
 ## チャットコマンド
 
@@ -127,7 +128,7 @@ dotnet run --project src/FaraPokemonBattleAssistant.Cli -- "!pokech dmg イエ�
 [docs/bot-integration.md](docs/bot-integration.md) を参照してください。要点:
 
 1. `FaraBotModerator.csproj` から `FaraPokemonBattleAssistant.Core` を参照する（隣に clone して `ProjectReference`、または CI の成果物 `.nupkg`）。
-2. 起動時に `DataCatalog` を 1 つ作る。データ元は公開サイトの URL（`https://pokemon.fara-labs.com/data/`）+ ローカルキャッシュ。
+2. 起動時に `DataCatalog` を 1 つ作る。データ元は公開サイトの URL（`https://pokemon.fara-labs.com/api/game/`）+ ローカルキャッシュ。
 3. `OnMessageReceived` で `!pokech` / `!pokesv` / `!pokess` を見つけたら `PokeCommand.ExecuteAsync` の結果をそのまま `SendMessage`。登録・削除は配信者本人とモデレーターだけに許可する。
 
 ## 開発
@@ -164,7 +165,7 @@ npm run test:worker                                      # データ共有 API�
 
 ## 公開（Cloudflare Workers）
 
-`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon`。設定は `wrangler.jsonc`）。サイト本体は静的アセットで、`/api/*` だけ Worker スクリプト（`worker/index.js`）を通ります。
+`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon`。設定は `wrangler.jsonc`）。サイト本体とゲームデータ（`/api/game/*`）は静的アセットで、登録データの API `/api/my/*` だけ Worker スクリプト（`worker/index.js`）を通ります（`run_worker_first: ["/api/*", "!/api/game/*"]`）。
 手動で公開し直すときは **Actions → Deploy to Cloudflare Workers → Run workflow**。
 
 `develop` への push（PR のマージ含む）では `deploy-develop.yml` が確認用の https://pokemon-dev.fara-labs.com/ に公開します（Worker `fara-pokemon-dev`。検索エンジンには載らないよう `X-Robots-Tag: noindex` を付けています）。本番には影響しません。
@@ -187,21 +188,21 @@ npm run test:worker                                      # データ共有 API�
 
 | メソッド | 内容 |
 |---|---|
-| `GET /api/my-pokemon` | `200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "pokemon": [...]}, ...}}`（データが無ければ `"dataSets": {}`） |
-| `PUT /api/my-pokemon` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"pokemon": [...], "nextId": n}}}`（`nextId` は省略可）。書いたゲームのポケモンだけを置き換え、**同じ処理の中で**、消えたポケモンをそのゲームのすべてのチームから外し、0 体になったチームを消し、使用中のチームが消えたら使用中を解除します。成功で `200 {"revision": n+1}` |
-| `GET /api/my-team` | `200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}, ...}}` |
-| `PUT /api/my-team` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}}}`。書いたゲームのチームと使用中チームだけを置き換えます。登録に無いポケモン・7 体以上・0 体のチーム・同じチーム番号や同じポケモンの重複・無いチームを使用中にする、は `400`（`message` に理由）で、何も保存しません。成功で `200 {"revision": n+1}` |
-| `DELETE /api/access-key` | このアクセスキーを使えなくし、その置き場を消す（キーの作り直し用）。`204`。以後そのキーはすべての API で `410` |
+| `GET /api/my/pokemon` | `200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "pokemon": [...]}, ...}}`（データが無ければ `"dataSets": {}`） |
+| `PUT /api/my/pokemon` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"pokemon": [...], "nextId": n}}}`（`nextId` は省略可）。書いたゲームのポケモンだけを置き換え、**同じ処理の中で**、消えたポケモンをそのゲームのすべてのチームから外し、0 体になったチームを消し、使用中のチームが消えたら使用中を解除します。成功で `200 {"revision": n+1}` |
+| `GET /api/my/team` | `200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}, ...}}` |
+| `PUT /api/my/team` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}}}`。書いたゲームのチームと使用中チームだけを置き換えます。登録に無いポケモン・7 体以上・0 体のチーム・同じチーム番号や同じポケモンの重複・無いチームを使用中にする、は `400`（`message` に理由）で、何も保存しません。成功で `200 {"revision": n+1}` |
+| `DELETE /api/my/access-key` | このアクセスキーを使えなくし、その置き場を消す（キーの作り直し用）。`204`。以後そのキーはすべての API で `410` |
 
 - `revision` は登録データ全体で 1 つです（どちらの PUT でも増えます）。`baseRevision` が現在と違えば `409 {"revision": 現在, "dataSets": そのリソースの現在の内容}` なので、読み直してからやり直してください。両方を読むときは 2 回の GET の `revision` が同じことを確かめ、違えば読み直します
 - 書かなかったゲームは変わりません。登録 ID は使い回さず、`nextId` は「保存していた値・送った `nextId`・一番大きい `Id` + 1」の最大になります
 - 本文と保存後の登録データ全体の上限は 256 KB で、超えると `413`
 - 認証は `Authorization: Bearer <アクセスキー>`。アクセスキーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもので、形式が違えば `401`。キーはクライアントが作るもので、作成・登録の API はありません（新しいキーの置き場は空で、`revision` は 0）
-- キーの作り直し・データ共有の開始では、新しいキーの空の置き場に `PUT /api/my-pokemon`（`baseRevision` 0）→ `PUT /api/my-team`（`baseRevision` 1）の順で移してから新しいキーに切り替え、古いキーには `DELETE /api/access-key` を呼びます。新しいキーは移し終わるまで誰も使わないので、途中の状態は見えません（途中で失敗したら新しいキーは使わずに捨てます）
+- キーの作り直し・データ共有の開始では、新しいキーの空の置き場に `PUT /api/my/pokemon`（`baseRevision` 0）→ `PUT /api/my/team`（`baseRevision` 1）の順で移してから新しいキーに切り替え、古いキーには `DELETE /api/my/access-key` を呼びます。新しいキーは移し終わるまで誰も使わないので、途中の状態は見えません（途中で失敗したら新しいキーは使わずに捨てます）
 - サーバーはキーを保存せず、`SHA-256(キー)` を Durable Object の名前に使います。キーはログ・URL・エラーメッセージに出しません
 - すべての応答に `Cache-Control: no-store`。CORS ヘッダーは付けません（サイトは同じオリジン、ボットはブラウザではないため）
-- 以前の `/api/roster` はありません（`404`）
-- 確認用サイト（Cloudflare Access の内側）では、`/api/my-pokemon`・`/api/my-team`・`/api/access-key` を Access の **Bypass** にしないとボットから使えません（キーで認証するので Access は不要）
+- 以前の `/api/roster`・`/api/my-pokemon`・`/api/my-team`・`/api/access-key` はありません（`404`）。ゲームデータは API ではなく静的ファイル（`/api/game/...`。上の「データ」を参照）で、以前の `/data/...` もありません
+- 確認用サイト（Cloudflare Access の内側）では、`/api/*`（登録データの API `/api/my/*` とゲームデータ `/api/game/*`）を Access の **Bypass** にしないとボットから使えません（登録データはキーで認証するので Access は不要）
 
 Cloudflare の DNS に `pokemon` / `pokemon-dev` のレコード（GitHub Pages 時代の CNAME など）が残っていると、カスタムドメインの作成で失敗します。削除してから再実行してください。
 

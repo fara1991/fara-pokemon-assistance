@@ -1,8 +1,9 @@
 // データ共有 API（worker/index.js）の動作確認。
 //   npm run test:worker
-// wrangler dev をローカル（一時ディレクトリに保存）で起動して、/api/my-pokemon・/api/my-team・/api/access-key の
+// wrangler dev をローカル（一時ディレクトリに保存）で起動して、/api/my/pokemon・/api/my/team・/api/my/access-key の
 // 401・空の GET・PUT・409・400・413・410、ポケモン削除でチームから外れることなどを確かめる。
-// publish/wwwroot が無いと wrangler dev が起動しないので、無ければ空の index.html だけ置く。
+// あわせて、ゲームデータ（/api/game/*）が Worker を通らずに静的アセットとして返ること、以前のパス（/api/my-pokemon・/data/...）が無いことも確かめる。
+// publish/wwwroot が無いと wrangler dev が起動しないので、無ければ空の index.html と最小の api/game/datasets.csv だけ置く。
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -16,6 +17,10 @@ const persist = mkdtempSync(join(tmpdir(), "roster-api-test-"));
 if (!existsSync("publish/wwwroot/index.html")) {
   mkdirSync("publish/wwwroot", { recursive: true });
   writeFileSync("publish/wwwroot/index.html", "<!doctype html><title>test</title>");
+}
+if (!existsSync("publish/wwwroot/api/game/datasets.csv")) {
+  mkdirSync("publish/wwwroot/api/game", { recursive: true });
+  writeFileSync("publish/wwwroot/api/game/datasets.csv", "Key,Name,Generation,EvSystem,CommandPrefix,Gimmick,UsageFallback,Calc\nChampions,test,9,Points,pokech,None,,Full\n");
 }
 
 const wrangler = spawn(
@@ -38,7 +43,7 @@ function check(name, ok, detail = "") {
 async function waitReady() {
   for (let i = 0; i < 120; i++) {
     try {
-      const r = await fetch(`${base}/api/my-pokemon`);
+      const r = await fetch(`${base}/api/my/pokemon`);
       if (r.status === 401) return;
     } catch {}
     await new Promise((r) => setTimeout(r, 500));
@@ -57,9 +62,9 @@ async function req(method, path, key, body, headers = {}) {
   try { json = text ? JSON.parse(text) : null; } catch {}
   return { status: r.status, json, text, headers: r.headers };
 }
-const P = "/api/my-pokemon";
-const T = "/api/my-team";
-const K = "/api/access-key";
+const P = "/api/my/pokemon";
+const T = "/api/my/team";
+const K = "/api/my/access-key";
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const mon = (id, name) => ({ Id: id, PokemonId: 445, PokemonName: name, HP: 4, Attack: 32, Nature: "ようき" });
 const slot = (id, item = null) => ({ EntryId: id, ItemId: item });
@@ -78,7 +83,7 @@ try {
   const unauth = await req("PUT", P, null, { baseRevision: 0, dataSets: { Champions: { pokemon: [] } } });
   check("キーなしの PUT は 401", unauth.status === 401);
   check("401 の本文にキーが含まれない", !unauth.text.includes(key));
-  check("キーなしの DELETE /api/access-key は 401", (await req("DELETE", K)).status === 401);
+  check("キーなしの DELETE /api/my/access-key は 401", (await req("DELETE", K)).status === 401);
 
   // 空の GET
   const emptyP = await req("GET", P, key);
@@ -175,18 +180,38 @@ try {
 
   // その他のパス・メソッド
   check("POST は 405", (await req("POST", P, key, {})).status === 405);
-  check("DELETE /api/my-pokemon は 405", (await req("DELETE", P, key)).status === 405);
-  check("GET /api/access-key は 405", (await req("GET", K, key)).status === 405);
+  check("DELETE /api/my/pokemon は 405", (await req("DELETE", P, key)).status === 405);
+  check("GET /api/my/access-key は 405", (await req("GET", K, key)).status === 405);
   check("以前の /api/roster は 404", (await req("GET", "/api/roster", key)).status === 404);
-  check("複数形の /api/my-pokemons は 404", (await req("GET", "/api/my-pokemons", key)).status === 404);
+  check("以前の /api/my-pokemon は 404", (await req("GET", "/api/my-pokemon", key)).status === 404);
+  check("以前の /api/my-team は 404", (await req("GET", "/api/my-team", key)).status === 404);
+  check("以前の DELETE /api/access-key は 404", (await req("DELETE", "/api/access-key", key)).status === 404);
+  check("複数形の /api/my/pokemons は 404", (await req("GET", "/api/my/pokemons", key)).status === 404);
+  check("/api/my そのものは 404", (await req("GET", "/api/my", key)).status === 404);
   check("/api/ の他のパスは 404", (await req("GET", "/api/other", key)).status === 404);
   const page = await fetch(`${base}/my-pokemon`);
   check("以前の URL（/my-teams）も静的アセット（SPA）", (await fetch(`${base}/my-teams`)).status === 200);
   check("API 以外は今までどおり静的アセット（SPA）", page.status === 200 && (page.headers.get("content-type") ?? "").includes("text/html"));
 
-  // DELETE /api/access-key（キーの作り直し）
+  // ゲームデータ（/api/game/*）は静的アセット。run_worker_first の "!/api/game/*" で Worker を通らない
+  // （Worker を通ると worker/index.js が X-Worker-Fallback を付けるので、それが無いことで確かめる）
+  const csv = await fetch(`${base}/api/game/datasets.csv`);
+  const csvText = await csv.text();
+  check("/api/game/datasets.csv は 200 で CSV（アクセスキーなし）", csv.status === 200 && (csv.headers.get("content-type") ?? "").includes("text/csv") && csvText.startsWith("Key,"), `${csv.status} ${csv.headers.get("content-type")}`);
+  check("/api/game/* は Worker を通らない（X-Worker-Fallback が無い）", csv.headers.get("x-worker-fallback") === null);
+  const missingCsv = await fetch(`${base}/api/game/NoSuchGame/pokemon.csv`);
+  const missingText = await missingCsv.text();
+  check("無い /api/game/... は CSV として返らない（404 か SPA の index.html）",
+    missingCsv.status === 404 || (missingCsv.status === 200 && (missingCsv.headers.get("content-type") ?? "").includes("text/html") && /<!doctype html|<html/i.test(missingText)),
+    `${missingCsv.status} ${missingCsv.headers.get("content-type")}`);
+  console.log(`     （参考）無い /api/game/... の応答: ${missingCsv.status} ${missingCsv.headers.get("content-type")}`);
+  const oldData = await fetch(`${base}/data/datasets.csv`);
+  check("以前の /data/datasets.csv は無い（404 か SPA の index.html）",
+    oldData.status === 404 || (oldData.status === 200 && (oldData.headers.get("content-type") ?? "").includes("text/html")), `${oldData.status} ${oldData.headers.get("content-type")}`);
+
+  // DELETE /api/my/access-key（キーの作り直し）
   const del = await req("DELETE", K, key);
-  check("DELETE /api/access-key は 204", del.status === 204);
+  check("DELETE /api/my/access-key は 204", del.status === 204);
   check("DELETE 後の GET my-pokemon は 410", (await req("GET", P, key)).status === 410);
   check("DELETE 後の GET my-team は 410", (await req("GET", T, key)).status === 410);
   check("DELETE 後の PUT my-pokemon は 410", (await req("PUT", P, key, { baseRevision: 0, dataSets: { Champions: { pokemon: [] } } })).status === 410);

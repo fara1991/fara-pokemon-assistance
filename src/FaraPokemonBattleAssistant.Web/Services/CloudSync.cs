@@ -88,7 +88,7 @@ public sealed class CloudSync : IRosterStore
         await SaveRemoteAsync(() => remote.SaveAsync(json, ct));
     }
 
-    /// <summary>1 つのゲームのポケモンかチームだけを保存する（クラウドでは /api/my-pokemon か /api/my-team だけを呼ぶ）。</summary>
+    /// <summary>1 つのゲームのポケモンかチームだけを保存する（クラウドでは /api/my/pokemon か /api/my/team だけを呼ぶ）。</summary>
     public async Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default)
     {
         var remote = await CurrentRemoteAsync();

@@ -33,11 +33,17 @@ public sealed class FileDataSource : IDataSource
 /// <summary>HTTP で読む（Blazor WebAssembly、または公開サイトからボットが取得する用途）。</summary>
 public sealed class HttpDataSource : IDataSource
 {
+    /// <summary>
+    /// 公開サイトがゲームデータ（CSV）を配っているパス（サイトの URL からの相対。例: <c>https://pokemon.fara-labs.com/</c> + <c>api/game/</c>）。
+    /// 静的アセットとしてそのまま配られ、登録データの API（<c>/api/my/...</c>）と違って Worker は通らない。
+    /// </summary>
+    public const string GameDataPath = "api/game/";
+
     private readonly HttpClient _httpClient;
     private readonly string _baseUrl;
 
     /// <param name="httpClient">HttpClient。</param>
-    /// <param name="baseUrl">データルートの URL（例: <c>https://pokemon.fara-labs.com/data/</c>）。</param>
+    /// <param name="baseUrl">データルートの URL（例: <c>https://pokemon.fara-labs.com/api/game/</c> = サイトの URL + <see cref="GameDataPath"/>）。</param>
     public HttpDataSource(HttpClient httpClient, string baseUrl)
     {
         _httpClient = httpClient;

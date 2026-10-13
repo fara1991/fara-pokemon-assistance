@@ -1,7 +1,8 @@
 {
   // Cloudflare Workers で公開する設定。
   // サイト本体は dotnet publish の出力（publish/wwwroot）を静的アセットとして配信し、
-  // /api/*（登録データのデータ共有）だけ Worker スクリプト（worker/index.js）を通す。
+  // /api/my/*（登録データのデータ共有）だけ Worker スクリプト（worker/index.js）を通す。
+  // ゲームデータ（CSV）の /api/game/* は wwwroot/api/game をそのまま静的アセットとして配る（Worker は通らない）。
   //   本番:   npx wrangler deploy               → https://pokemon.fara-labs.com/          （deploy.yml・master への push）
   //   確認用: npx wrangler deploy --env develop → https://pokemon-dev.fara-labs.com/  （deploy-develop.yml・develop への push）
   // 本番と確認用は Worker が別なので、登録データ（Durable Object）も別々。
@@ -14,8 +15,9 @@
     "binding": "ASSETS",
     // /speed-comparison・/my-pokemon・/my-team などを直接開いたときも index.html を返す（Blazor 側でページを切り替える。以前の /speed・/pokemon・/roster・/team・/my-teams などは Blazor 側で新しい URL に転送）
     "not_found_handling": "single-page-application",
-    // API（/api/my-pokemon・/api/my-team・/api/access-key）だけ Worker スクリプトに渡す（それ以外は今までどおり静的アセット）
-    "run_worker_first": ["/api/*"]
+    // 登録データの API（/api/my/pokemon・/api/my/team・/api/my/access-key）だけ Worker スクリプトに渡す。
+    // ゲームデータの /api/game/* は先頭 ! の除外で静的アセットのまま（それ以外のパスも今までどおり静的アセット）
+    "run_worker_first": ["/api/*", "!/api/game/*"]
   },
   // アクセスキーごとの置き場。SQLite ストレージの Durable Object（無料プランで使える）
   "durable_objects": {
@@ -35,7 +37,7 @@
         "directory": "./publish/wwwroot",
         "binding": "ASSETS",
         "not_found_handling": "single-page-application",
-        "run_worker_first": ["/api/*"]
+        "run_worker_first": ["/api/*", "!/api/game/*"]
       },
       // durable_objects はトップレベルから引き継がれないので、環境ごとに書く
       "durable_objects": {

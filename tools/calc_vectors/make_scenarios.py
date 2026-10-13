@@ -3,7 +3,7 @@
 
   python tools/calc_vectors/make_scenarios.py --cache <PokeAPI CSV のキャッシュ> --gens 3 4 5 6 7 8 9 Champions > scenarios.json
 
-サイトのデータ（wwwroot/data/GenN、Champions）から、ポケモン・技・持ち物・特性・場の状態を固定の乱数で選ぶ。
+サイトのデータ（wwwroot/api/game/GenN、Champions）から、ポケモン・技・持ち物・特性・場の状態を固定の乱数で選ぶ。
 公開されているダメージ計算ツール（@smogon/calc）で使う英語の識別子も一緒に書き出し、
 expected.js がそのツールで期待値を付ける。C# 側のテスト（LegacyCalcVectorTests）が同じ条件で計算して比べる。
 """
@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT / "src" / "FaraPokemonBattleAssistant.Web" / "wwwroot" / "data"
+DATA = ROOT / "src" / "FaraPokemonBattleAssistant.Web" / "wwwroot" / "api" / "game"
 
 NATURES_EN = ["Hardy", "Lonely", "Brave", "Adamant", "Naughty", "Bold", "Docile", "Relaxed", "Impish", "Lax",
               "Timid", "Hasty", "Serious", "Jolly", "Naive", "Modest", "Mild", "Quiet", "Bashful", "Rash",
