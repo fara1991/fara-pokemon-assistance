@@ -12,7 +12,7 @@
 <div class="page-header">
     <h3>登録ポケモン・チーム <Help Title="登録・チーム">育成済みのポケモン（努力値・性格・特性）を登録し、チームにまとめて「使用中」にすると、ダメージ計算機・素早さ比較・チャットコマンドでその構成が自動で使われます。データはゲームごとに分かれています。ふだんはこのブラウザに保存されますが、下の「データ連携」を使うと、別のブラウザ・端末やボットと同じデータを読み書きできます。</Help></h3>
     <p class="text-muted mb-0">チャットの <code>!@(App.CommandPrefix) add / add team / use team / unuse team</code> と同じ内容をここで編集できます。チームが 0 体になると自動で削除されます。</p>
-    <p class="text-muted small mb-0 mt-1">H: HP / A: 攻撃 / B: 防御 / C: 特攻 / D: 特防 / S: 素早さ（<a href="glossary">用語・略語</a>）</p>
+    <p class="text-muted small mb-0 mt-1">H: HP / A: こうげき / B: ぼうぎょ / C: とくこう / D: とくぼう / S: すばやさ（<a href="glossary">用語・略語</a>）</p>
 </div>
 
 <div class="roster-layout pane-fill">
@@ -21,7 +21,7 @@
         <h5>データ連携 @(Sync.IsSyncing ? "（連携中）" : "")
             <Help Title="データ連携">
                 データ連携を始めると、登録データはクラウドの 1 か所に保存され、同じアクセスキーを入れた別のブラウザ・端末やボットがそのデータを直接読み書きします（コピーを取り合うのではなく、全員が同じデータを使います）。連携中はクラウドのデータだけを使い、このブラウザには保存しません。<br />
-                <strong>ボットで使うには:</strong> 「コピー」でアクセスキーをコピーし、ボット（<a href="https://fara-labs.com/works#bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a> / Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けます。チャットの <code>add</code> / <code>use team</code> などとこのページが同じデータを読み書きするようになります。<br />
+                <strong>ボットで使うには:</strong> 「コピー」でアクセスキーをコピーし、ボット（<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a> / Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けます。チャットの <code>add</code> / <code>use team</code> などとこのページが同じデータを読み書きするようになります。<br />
                 アクセスキーを作り直したら、ボットや他の端末にも新しいアクセスキーを入れ直してください（古いキーは使えなくなります）。
             </Help>
         </h5>
@@ -119,7 +119,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                         <div class="small @(s.NewEvs.Total > EvRules.MaxTotal(dataSet.EvSystem) ? "text-danger" : "text-muted")">合計 @s.NewEvs.Total / @EvRules.MaxTotal(dataSet.EvSystem)</div>
                     </div>
                     <div class="form-group mb-2">
-                        <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります（片方だけ押したときは、もう片方を攻撃・特攻の振り方に合わせて補います）。名前で探すこともできます。</Help></label>
+                        <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります（片方だけ押したときは、もう片方をこうげき・とくこうの振り方に合わせて補います）。名前で探すこともできます。</Help></label>
                         <NaturePicker Natures="data.Natures" Value="s.NewNature" ValueChanged="@(n => s.NewNature = n)"
                             Physical="@(s.NewEvs.Attack >= s.NewEvs.SpAttack)" />
                     </div>

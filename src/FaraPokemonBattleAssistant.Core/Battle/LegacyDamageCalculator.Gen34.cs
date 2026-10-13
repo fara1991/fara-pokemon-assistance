@@ -129,7 +129,7 @@ internal sealed partial class LegacyDamageCalculator
         var isCritical = request.IsCritical && defAbility is not ("battle-armor" or "shell-armor");
         if (request.IsCritical && !isCritical) modifiers.Add($"{defName}(急所に当たらない)");
         var isPhysical = category == MoveCategory.Physical;
-        var statName = isPhysical ? "攻撃" : "特攻";
+        var statName = isPhysical ? "こうげき" : "とくこう";
         var pinch = attacker.CurrentHp * 3 <= attacker.MaxHp && (atkAbility == "overgrow" && moveType == "Grass" || atkAbility == "blaze" && moveType == "Fire"
             || atkAbility == "torrent" && moveType == "Water" || atkAbility == "swarm" && moveType == "Bug");
 
@@ -199,7 +199,7 @@ internal sealed partial class LegacyDamageCalculator
 
         // --- 防御側の実数値
         var defenseStatKind = isPhysical ? Stat.Defense : Stat.SpDefense;
-        var defStatName = isPhysical ? "防御" : "特防";
+        var defStatName = isPhysical ? "ぼうぎょ" : "とくぼう";
         var defense = StatCalculator.Calculate(defender, defenseStatKind);
         var defenseBoost = defender.Boosts[defenseStatKind];
         var applyDefenseBoost = defenseBoost < 0 || !isCritical && defenseBoost > 0;
@@ -209,14 +209,14 @@ internal sealed partial class LegacyDamageCalculator
             if (atkAbility == "unaware") { if (defenseBoost != 0) modifiers.Add($"{atkName}(ランク無視)"); }
             else if (applyDefenseBoost) { defense = StatCalculator.ApplyBoost(defense, defenseBoost); modifiers.Add($"防御側ランク{(defenseBoost > 0 ? "+" : "")}{defenseBoost}"); }
             if (defAbility == "marvel-scale" && defender.Status != StatusCondition.None && isPhysical) { defense = defense * 3 / 2; modifiers.Add($"{defName}({defStatName}1.5倍)"); }
-            if (weather == Weather.Sand && defender.Pokemon.HasType("Rock") && !isPhysical) { defense = defense * 3 / 2; modifiers.Add("砂嵐(いわタイプの特防1.5倍)"); }
-            if (selfDestruct) { defense /= 2; modifiers.Add($"{move.Name}(相手の防御半分)"); }
+            if (weather == Weather.Sand && defender.Pokemon.HasType("Rock") && !isPhysical) { defense = defense * 3 / 2; modifiers.Add("砂嵐(いわタイプのとくぼう1.5倍)"); }
+            if (selfDestruct) { defense /= 2; modifiers.Add($"{move.Name}(相手のぼうぎょ半分)"); }
             defense = Math.Max(1, defense);
         }
         else
         {
             if (defAbility == "marvel-scale" && defender.Status != StatusCondition.None && isPhysical) { defense = defense * 3 / 2; modifiers.Add($"{defName}({defStatName}1.5倍)"); }
-            if (selfDestruct) { defense /= 2; modifiers.Add($"{move.Name}(相手の防御半分)"); }
+            if (selfDestruct) { defense /= 2; modifiers.Add($"{move.Name}(相手のぼうぎょ半分)"); }
             if (applyDefenseBoost) { defense = StatCalculator.ApplyBoost(defense, defenseBoost); modifiers.Add($"防御側ランク{(defenseBoost > 0 ? "+" : "")}{defenseBoost}"); }
         }
 

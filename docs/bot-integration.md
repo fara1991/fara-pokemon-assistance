@@ -64,7 +64,7 @@ public sealed class PokemonAssistService
         var result = await _command.ExecuteAsync(message, new PokeCommandOptions
         {
             Format = Models.BattleFormat.Singles,   // ダブル配信なら Doubles
-            AllowMutations = canEdit,               // add / rm / use team は配信者本人とモデレーターだけ
+            AllowMutations = canEdit,               // add pokemon / rm pokemon / add team など登録系は配信者本人とモデレーターだけ
         });
         return result.Message;
     }
@@ -129,5 +129,5 @@ dotnet run --project src/FaraPokemonBattleAssistant.Cli -- --data https://pokemo
 - Twitch は `/` 始まりのメッセージを自身のコマンドとして扱うため、`!` 始まりにしています。
 - 1 メッセージ 500 文字制限に合わせて、結果は `DamageCommandOptions.MaxLength`（既定 480）で切り詰めます。
 - 連投対策（同一ユーザーのクールダウンなど）はボット側で行ってください。計算自体は数ミリ秒です。
-- `!poke cmd ls` で使えるコマンド一覧が返ります（`!poke` はチャンピオンズ扱い）。
-- `AllowMutations = false` のとき、`add` / `rm` / `use team` は「配信者・モデレーターのみ行えます」と返し、閲覧・計算系はそのまま動きます。
+- `!poke help` で使えるコマンド一覧が返ります（`!poke` はチャンピオンズ扱い）。
+- `AllowMutations = false` のとき、`add` / `rm` / `use team`（pokemon・team とも） は「配信者・モデレーターのみ行えます」と返し、閲覧・計算系はそのまま動きます。

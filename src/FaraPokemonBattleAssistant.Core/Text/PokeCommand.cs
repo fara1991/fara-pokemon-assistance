@@ -17,8 +17,8 @@ public sealed class PokeCommandOptions
 /// <summary>
 /// <c>!pokech</c> / <c>!pokesv</c> / <c>!pokess</c> で始まるコマンド群。接頭辞でデータセットが決まる。
 /// <list type="bullet">
-/// <item><c>add 名前 H A B C D S 性格 [特性]</c> 登録、<c>ls [名前]</c> 一覧、<c>more ID</c> 詳細、<c>rm ID</c> 削除</item>
-/// <item><c>add team 番号 ID [持ち物]</c>、<c>rm team 番号 [名前]</c>、<c>use team 番号</c>、<c>ls team</c>、<c>more team 番号</c></item>
+/// <item><c>add pokemon 名前 H A B C D S 性格 [特性]</c> 登録、<c>ls pokemon [名前]</c> 一覧、<c>detail pokemon ID</c> 詳細、<c>rm pokemon ID</c> 削除</item>
+/// <item><c>add team 番号 ID [持ち物]</c>、<c>rm team 番号 [名前]</c>、<c>use team 番号</c>、<c>ls team</c>、<c>detail team 番号</c>、<c>help</c> 一覧</item>
 /// <item><c>dmg 攻撃側 技±ランク 防御側 [オプション]</c> 通常と急所、<c>calc 攻撃側 技±ランク 防御側 受けたダメージ[%]</c> 努力値推定、<c>faster 自分 相手</c> 素早さ比較</item>
 /// </list>
 /// 使用チームに入っているポケモンは、その努力値・性格・特性・持ち物で計算される。
@@ -40,7 +40,7 @@ public sealed class PokeCommand
     }
 
     public static string Usage(string prefix) =>
-        $"!{prefix} add 名前 H A B C D S 性格 | ls [名前] | more ID | rm ID | add team 番号 ID [持ち物] | rm team 番号 [名前] | use team 番号 | unuse team | ls team | more team 番号 | dmg 攻撃 技±ランク 防御 | calc 攻撃 技 防御 ダメージ | faster 自分 相手";
+        $"!{prefix} add pokemon 名前 H A B C D S 性格 | ls pokemon [名前] | detail pokemon ID | rm pokemon ID | add team 番号 ID [持ち物] | rm team 番号 [名前] | use team 番号 | unuse team | ls team | detail team 番号 | help | dmg 攻撃 技±ランク 防御 | calc 攻撃 技 防御 ダメージ | faster 自分 相手";
 
     /// <summary>メッセージがこのコマンド群のものかを判定し、接頭辞と残りを返す。</summary>
     public async Task<(DataSetInfo DataSet, string Arguments)?> MatchAsync(string message, CancellationToken ct = default)
@@ -61,15 +61,15 @@ public sealed class PokeCommand
         return ds is null ? null : (ds, rest);
     }
 
-    /// <summary>データセットを選ばない共通接頭辞（<c>!poke cmd ls</c> など）。</summary>
+    /// <summary>データセットを選ばない共通接頭辞（<c>!poke help</c> など）。</summary>
     public const string GenericPrefix = "poke";
 
-    /// <summary>使えるコマンドの一覧（<c>cmd ls</c>）。</summary>
+    /// <summary>使えるコマンドの一覧（<c>help</c>）。</summary>
     public static string CommandList(IEnumerable<DataSetInfo> dataSets)
     {
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
-        return "登録: add 名前 H A B C D S 性格 [特性] / ls [名前] / more ID / rm ID ｜ " +
-               "チーム: add team 番号 ID [持ち物] / rm team 番号 [名前] / use team 番号 / unuse team / ls team / more team 番号 ｜ " +
+        return "ポケモン: add pokemon 名前 H A B C D S 性格 [特性] / ls pokemon [名前] / detail pokemon ID / rm pokemon ID ｜ " +
+               "チーム: add team 番号 ID [持ち物] / rm team 番号 [名前] / use team 番号 / unuse team / ls team / detail team 番号 ｜ " +
                "計算: dmg 攻撃 技±ランク 防御 [努力値 性格 持ち物 特性 急所 やけど どく まひ 天候 …] / calc 攻撃 技 防御 ダメージ[%] / faster 自分 相手 [まひ] ｜ " +
                $"接頭辞: {prefixes}（!poke はチャンピオンズ）";
     }
@@ -119,9 +119,10 @@ public sealed class PokeCommand
         var sub = tokens[0].ToLowerInvariant();
         var args = tokens.Skip(1).ToList();
         var isTeam = args.Count > 0 && args[0].Equals("team", StringComparison.OrdinalIgnoreCase);
-        if (isTeam) args.RemoveAt(0);
+        var isPokemon = args.Count > 0 && args[0].Equals("pokemon", StringComparison.OrdinalIgnoreCase);
+        if (isTeam || isPokemon) args.RemoveAt(0);
         // ヘルプと参照専用データセットの拒否はデータ本体を使わないので、データセットを読み込む前に返す
-        if (sub is "cmd" or "cmds" or "commands" or "help" or "?" or "ヘルプ")
+        if (sub is "help")
             return Ok(CommandList(await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false)));
         if (!ds.CalcSupported)
             return Fail(NotCalcSupported(ds));
@@ -130,13 +131,15 @@ public sealed class PokeCommand
         switch (sub)
         {
             case "add" when isTeam: return await AddTeamAsync(ds, data, args, options, ct).ConfigureAwait(false);
-            case "add": return await AddAsync(ds, data, args, options, ct).ConfigureAwait(false);
-            case "ls" or "list" when isTeam: return await ListTeamsAsync(ds, ct).ConfigureAwait(false);
-            case "ls" or "list": return await ListAsync(ds, data, args, ct).ConfigureAwait(false);
-            case "more" or "show" or "info" when isTeam: return await MoreTeamAsync(ds, data, args, ct).ConfigureAwait(false);
-            case "more" or "show" or "info": return await MoreAsync(ds, data, args, ct).ConfigureAwait(false);
-            case "rm" or "del" or "remove" when isTeam: return await RemoveTeamAsync(ds, data, args, options, ct).ConfigureAwait(false);
-            case "rm" or "del" or "remove": return await RemoveAsync(ds, args, options, ct).ConfigureAwait(false);
+            case "add" when isPokemon: return await AddAsync(ds, data, args, options, ct).ConfigureAwait(false);
+            case "ls" when isTeam: return await ListTeamsAsync(ds, ct).ConfigureAwait(false);
+            case "ls" when isPokemon: return await ListAsync(ds, data, args, ct).ConfigureAwait(false);
+            case "detail" when isTeam: return await MoreTeamAsync(ds, data, args, ct).ConfigureAwait(false);
+            case "detail" when isPokemon: return await MoreAsync(ds, data, args, ct).ConfigureAwait(false);
+            case "rm" when isTeam: return await RemoveTeamAsync(ds, data, args, options, ct).ConfigureAwait(false);
+            case "rm" when isPokemon: return await RemoveAsync(ds, args, options, ct).ConfigureAwait(false);
+            case "add" or "ls" or "detail" or "rm":
+                return Fail($"「{tokens[0]}」の後に pokemon か team を付けてください（例: !{ds.CommandPrefix} {sub} pokemon / {sub} team）。{Usage(ds.CommandPrefix)}");
             case "unuse" or "release" or "clear" when isTeam || args.Count == 0: return await UnuseTeamAsync(ds, options, ct).ConfigureAwait(false);
             case "use" when isTeam || args.Count > 0: return await UseTeamAsync(ds, args, options, ct).ConfigureAwait(false);
             case "dmg" or "damage": return await DamageAsync(ds, data, args, options, ct).ConfigureAwait(false);
@@ -153,7 +156,7 @@ public sealed class PokeCommand
         if (!options.AllowMutations) return Fail("登録は配信者・モデレーターのみ行えます");
         var system = ds.EvSystem;
         if (args.Count < 8)
-            return Fail($"書式: !{ds.CommandPrefix} add 名前 H A B C D S 性格 [特性]（{EvRules.Label(system)}は各 0〜{EvRules.MaxPerStat(system)}、合計 {EvRules.MaxTotal(system)} まで）");
+            return Fail($"書式: !{ds.CommandPrefix} add pokemon 名前 H A B C D S 性格 [特性]（{EvRules.Label(system)}は各 0〜{EvRules.MaxPerStat(system)}、合計 {EvRules.MaxTotal(system)} まで）");
 
         var pokemon = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
         if (!pokemon.IsResolved) return Fail(NotFound("ポケモン", args[0], pokemon.Candidates.Select(p => p.Name)));
@@ -208,7 +211,7 @@ public sealed class PokeCommand
 
     private async Task<DamageCommandResult> MoreAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, CancellationToken ct)
     {
-        if (args.Count == 0 || !int.TryParse(args[0], out var id)) return Fail($"書式: !{ds.CommandPrefix} more 登録ID");
+        if (args.Count == 0 || !int.TryParse(args[0], out var id)) return Fail($"書式: !{ds.CommandPrefix} detail pokemon 登録ID");
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == id);
         if (entry is null) return Fail($"登録ID {id} はありません");
@@ -222,7 +225,7 @@ public sealed class PokeCommand
     private async Task<DamageCommandResult> RemoveAsync(DataSetInfo ds, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("削除は配信者・モデレーターのみ行えます");
-        if (args.Count == 0 || !int.TryParse(args[0], out var id)) return Fail($"書式: !{ds.CommandPrefix} rm 登録ID");
+        if (args.Count == 0 || !int.TryParse(args[0], out var id)) return Fail($"書式: !{ds.CommandPrefix} rm pokemon 登録ID");
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == id);
         if (entry is null) return Fail($"登録ID {id} はありません");
@@ -308,7 +311,7 @@ public sealed class PokeCommand
 
     private async Task<DamageCommandResult> MoreTeamAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, CancellationToken ct)
     {
-        if (args.Count == 0 || !int.TryParse(args[0], out var teamNo)) return Fail($"書式: !{ds.CommandPrefix} more team チーム番号");
+        if (args.Count == 0 || !int.TryParse(args[0], out var teamNo)) return Fail($"書式: !{ds.CommandPrefix} detail team チーム番号");
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var team = roster.Teams.FirstOrDefault(t => t.Number == teamNo);
         if (team is null) return Fail($"チーム{teamNo} はありません");

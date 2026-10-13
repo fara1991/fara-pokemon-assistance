@@ -162,13 +162,13 @@ public sealed class DamageCalculator
         switch (defender.Ability?.Identifier)
         {
             case "stamina" when _generation >= 7:
-                Boost(Stat.Defense, 1, $"{defender.Ability.Name}(当たるたびに防御+1)");
+                Boost(Stat.Defense, 1, $"{defender.Ability.Name}(当たるたびにぼうぎょ+1)");
                 break;
             case "water-compaction" when _generation >= 7 && first.MoveType == "Water":
-                Boost(Stat.Defense, 2, $"{defender.Ability.Name}(当たるたびに防御+2)");
+                Boost(Stat.Defense, 2, $"{defender.Ability.Name}(当たるたびにぼうぎょ+2)");
                 break;
             case "weak-armor" when _generation >= 5 && physical:
-                Boost(Stat.Defense, -1, $"{defender.Ability.Name}(当たるたびに防御-1)");
+                Boost(Stat.Defense, -1, $"{defender.Ability.Name}(当たるたびにぼうぎょ-1)");
                 break;
         }
         return usedItem;
@@ -267,7 +267,7 @@ public sealed class DamageCalculator
         var attackStatKind = move.AttackStatUsed;
         var defenseStatKind = move.DefenseStatUsed;
         var hitsPhysical = defenseStatKind == Stat.Defense;
-        if (move.UsesPhysicalDefense) modifiers.Add($"{move.Name}(相手の防御で計算)");
+        if (move.UsesPhysicalDefense) modifiers.Add($"{move.Name}(相手のぼうぎょで計算)");
 
         var attackerGrounded = IsGrounded(attacker, attackerAbility, attackerItem);
         var defenderGrounded = IsGrounded(defender, defenderAbility, defenderItem);
@@ -392,11 +392,11 @@ public sealed class DamageCalculator
 
         // --- 攻撃側の実数値（イカサマは相手の攻撃とランク、ボディプレスは自分の防御とランク。メテオビームは溜めるときに特攻 +1）
         var attackSource = moveId == MoveEffects.MoveIdFoulPlay ? defender : attacker;
-        if (moveId == MoveEffects.MoveIdFoulPlay) modifiers.Add($"{move.Name}(相手の攻撃で計算)");
+        if (moveId == MoveEffects.MoveIdFoulPlay) modifiers.Add($"{move.Name}(相手のこうげきで計算)");
         if (moveId == MoveEffects.MoveIdBodyPress)
         {
             attackStatKind = Stat.Defense;
-            modifiers.Add($"{move.Name}(自分の防御で計算)");
+            modifiers.Add($"{move.Name}(自分のぼうぎょで計算)");
         }
         var attackStat = StatCalculator.Calculate(attackSource, attackStatKind);
         var attackBoost = attackSource.Boosts[attackStatKind];
@@ -404,7 +404,7 @@ public sealed class DamageCalculator
         if (MoveEffects.RaisesSpAttackFirst(move) && moveId != 0)
         {
             attackBoost = Math.Min(6, attackBoost + 1);
-            modifiers.Add($"{move.Name}(溜めるときに特攻+1)");
+            modifiers.Add($"{move.Name}(溜めるときにとくこう+1)");
         }
         if (attackBoost != 0 && !(isCritical && attackBoost < 0))
         {
@@ -418,7 +418,7 @@ public sealed class DamageCalculator
         if (attackerAbility == "hustle" && isPhysical)
         {
             attackStat = PokeRound(attackStat * 3 / 2.0);
-            modifiers.Add($"{atkName}(攻撃1.5倍)");
+            modifiers.Add($"{atkName}(こうげき1.5倍)");
         }
         var atMods = AttackModifiers(attacker, defender, move, moveType, isPhysical, attackerAbility, defenderAbility, attackerItem,
             weather, terrain, modifiers);
@@ -444,13 +444,13 @@ public sealed class DamageCalculator
         if (weather == Weather.Sand && !hitsPhysical && defenderTypes.Contains("Rock"))
         {
             defenseStat = PokeRound(defenseStat * 3 / 2.0);
-            modifiers.Add("砂嵐(いわタイプの特防1.5倍)");
+            modifiers.Add("砂嵐(いわタイプのとくぼう1.5倍)");
         }
         // 剣盾の「あられ」にはこおりタイプの防御上昇が無い（第 9 世代の「雪」だけ）
         if (weather == Weather.Snow && _generation >= 9 && hitsPhysical && defenderTypes.Contains("Ice"))
         {
             defenseStat = PokeRound(defenseStat * 3 / 2.0);
-            modifiers.Add("雪(こおりタイプの防御1.5倍)");
+            modifiers.Add("雪(こおりタイプのぼうぎょ1.5倍)");
         }
         var dfMods = DefenseModifiers(request, attacker, defender, hitsPhysical, attackerAbility, defenderAbility, defenderItem, weather, terrain, modifiers);
         defenseStat = Math.Max(1, PokeRound(defenseStat * (double)LegacyDamageCalculator.Chain(dfMods, 410, 131072) / 4096));
@@ -664,7 +664,7 @@ public sealed class DamageCalculator
         void Add(int value, string text) { mods.Add(value); modifiers.Add(text); }
         var atkName = attacker.Ability?.Name ?? "";
         var defName = defender.Ability?.Name ?? "";
-        var statName = isPhysical ? "攻撃" : "特攻";
+        var statName = isPhysical ? "こうげき" : "とくこう";
         // もうか・しんりょく・げきりゅう・むしのしらせ: HP 1/3 以下で対応タイプの技の攻撃・特攻 1.5 倍
         var pinch = attacker.CurrentHp * 3 <= attacker.MaxHp && (attackerAbility == "blaze" && moveType == "Fire"
             || attackerAbility == "overgrow" && moveType == "Grass" || attackerAbility == "torrent" && moveType == "Water"
@@ -729,7 +729,7 @@ public sealed class DamageCalculator
         void Add(int value, string text) { mods.Add(value); modifiers.Add(text); }
         var atkName = attacker.Ability?.Name ?? "";
         var defName = defender.Ability?.Name ?? "";
-        var statName = hitsPhysical ? "防御" : "特防";
+        var statName = hitsPhysical ? "ぼうぎょ" : "とくぼう";
 
         if (defenderAbility == "marvel-scale" && defender.Status != StatusCondition.None && hitsPhysical)
             Add(6144, $"{defName}(状態異常で{statName}1.5倍)");

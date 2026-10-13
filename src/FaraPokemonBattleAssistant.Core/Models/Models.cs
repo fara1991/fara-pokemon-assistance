@@ -255,11 +255,11 @@ public static class StatNames
     public static string Japanese(Stat stat) => stat switch
     {
         Stat.HP => "HP",
-        Stat.Attack => "攻撃",
-        Stat.Defense => "防御",
-        Stat.SpAttack => "特攻",
-        Stat.SpDefense => "特防",
-        Stat.Speed => "素早さ",
+        Stat.Attack => "こうげき",
+        Stat.Defense => "ぼうぎょ",
+        Stat.SpAttack => "とくこう",
+        Stat.SpDefense => "とくぼう",
+        Stat.Speed => "すばやさ",
         _ => "?",
     };
 
