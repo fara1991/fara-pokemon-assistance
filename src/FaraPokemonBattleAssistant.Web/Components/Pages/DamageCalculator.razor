@@ -64,12 +64,12 @@ else if (data is not null && dataSet is not null)
                         </SearchableSelect>
                         @if (s.Move is not null)
                         {
-                            <div class="small text-muted mt-1"><TypeIcon Type="@s.Move.Type" Small="true" /> @CategoryText(s.Move) 威力 @(s.Move.Power > 0 ? s.Move.Power.ToString() : "-")@(s.Move.UsesPhysicalDefense ? "（相手の防御で計算）" : "")@(s.Move.IsFixedDamage ? "（固定ダメージ技のため計算できません）" : "")</div>
+                            <div class="small text-muted mt-1"><TypeIcon Type="@s.Move.Type" Small="true" /> @CategoryText(s.Move) 威力 @(s.Move.Power > 0 ? s.Move.Power.ToString() : "-")@(s.Move.UsesPhysicalDefense ? "（相手のぼうぎょで計算）" : "")@(s.Move.IsFixedDamage ? "（固定ダメージ技のため計算できません）" : "")</div>
                         }
                         @if (dataSet.HasZMove && s.Move is { IsDamaging: true })
                         {
-                            <div class="form-check mt-1">
-                                <input class="form-check-input" type="checkbox" id="zmove" checked="@s.IsZMove" @onchange="@(e => s.IsZMove = e.Value is true)" />
+                            <div class="form-check form-switch mt-1">
+                                <input class="form-check-input" type="checkbox" role="switch" id="zmove" checked="@s.IsZMove" @onchange="@(e => s.IsZMove = e.Value is true)" />
                                 <label class="form-check-label" for="zmove">Z技にする（威力 @ZMove.Power(s.Move)） <Help Title="Z技">第7世代の Z 技として計算します。威力は元の技の威力から決まる Z 技の威力になり、持ち物は Z クリスタル扱い（ほかの持ち物の効果なし）です。接触・パンチなどの技の性質や追加効果は無くなるので、かたいツメ・てつのこぶし・ちからずくなどは効きません。スキン系の特性でタイプは変わりません。</Help></label>
                             </div>
                         }
@@ -115,7 +115,7 @@ else if (data is not null && dataSet is not null)
                 <div class="card-body">
                     <div class="row g-2">
                         <div class="col-sm-6">
-                            <label class="form-label mb-1" for="weather">天候 <Help Title="天候">晴れはほのお 1.5 倍・みず 0.5 倍、雨はその逆。砂嵐はいわタイプの特防 1.5 倍、雪はこおりタイプの防御 1.5 倍（第7世代までは「あられ」で、防御は上がりません）。天候で発動する特性（サンパワー等）にも使います。</Help></label>
+                            <label class="form-label mb-1" for="weather">天候 <Help Title="天候">晴れはほのお 1.5 倍・みず 0.5 倍、雨はその逆。砂嵐はいわタイプのとくぼう 1.5 倍、雪はこおりタイプのぼうぎょ 1.5 倍（第7世代までは「あられ」で、ぼうぎょは上がりません）。天候で発動する特性（サンパワー等）にも使います。</Help></label>
                             <select id="weather" class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
                                 @foreach (var w in Enum.GetValues<Weather>())
                                 {
@@ -137,16 +137,16 @@ else if (data is not null && dataSet is not null)
                         }
                     </div>
                     <div class="field-checks mt-2">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="reflect" checked="@s.Reflect" @onchange="@(e => s.Reflect = e.Value is true)" />
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="reflect" checked="@s.Reflect" @onchange="@(e => s.Reflect = e.Value is true)" />
                             <label class="form-check-label" for="reflect">リフレクター <Help Title="リフレクター">防御側の場のリフレクター。物理技のダメージが 0.5 倍（ダブルは約 0.67 倍）になります。オーロラベールは両方にチェックしてください。急所と特性すりぬけは壁を無視します。</Help></label>
                         </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="light-screen" checked="@s.LightScreen" @onchange="@(e => s.LightScreen = e.Value is true)" />
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="light-screen" checked="@s.LightScreen" @onchange="@(e => s.LightScreen = e.Value is true)" />
                             <label class="form-check-label" for="light-screen">ひかりのかべ <Help Title="ひかりのかべ">防御側の場のひかりのかべ。特殊技のダメージが 0.5 倍（ダブルは約 0.67 倍）になります。</Help></label>
                         </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="crit" checked="@s.IsCritical" @onchange="@(e => s.IsCritical = e.Value is true)" />
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="crit" checked="@s.IsCritical" @onchange="@(e => s.IsCritical = e.Value is true)" />
                             <label class="form-check-label" for="crit">急所 <Help Title="急所">ダメージ 1.5 倍（スナイパーは 2.25 倍）。攻撃側のマイナスランクと防御側のプラスランクを無視します。</Help></label>
                         </div>
                     </div>
@@ -520,12 +520,15 @@ else if (data is not null && dataSet is not null)
         defenderItems = ItemChoices(s.Defender, i => i.IsDefensive);
     }
 
-    /// <summary>その側に関係する持ち物だけ（使用率順）。今持たせている持ち物は必ず含める。</summary>
+    /// <summary>そのゲームで選べるすべての持ち物。その側に関係する持ち物を先に（使用率順）、残りをその後ろに並べる。</summary>
     private IReadOnlyList<Item> ItemChoices(PokemonBuild build, Func<Item, bool> relevant)
     {
-        var items = data!.Items.Where(i => relevant(i) && !i.IsMegaStone).ToList();
-        if (build.Item is not null && !items.Contains(build.Item)) items.Insert(0, build.Item);
-        return usage is null ? items : usage.SortByUsage(items, i => i.Id, usage.ItemOrder(build.Pokemon.Id));
+        var all = data!.Items.Where(i => !i.IsMegaStone).ToList();
+        if (build.Item is not null && !all.Contains(build.Item)) all.Insert(0, build.Item);
+        var first = all.Where(relevant).ToList();
+        var rest = all.Where(i => !first.Contains(i));
+        var ordered = usage is null ? first : usage.SortByUsage(first, i => i.Id, usage.ItemOrder(build.Pokemon.Id));
+        return ordered.Concat(rest).ToList();
     }
 
     private IReadOnlyList<Stat> EvStats(bool isAttacker)
@@ -559,7 +562,7 @@ else if (data is not null && dataSet is not null)
         @* PC では 2 列に並べて、ページをスクロールせずに見えるようにする *@
         <div class="build-grid">
             <div class="form-group mb-3">
-                <label>持ち物 <Help Title="持ち物">@(isAttacker ? "攻撃側はダメージに関係する持ち物（こだわり系・いのちのたま・タイプ強化など）だけを表示します。" : "防御側は防御に関係する持ち物（とつげきチョッキ・しんかのきせきなど）だけを表示します。")メガシンカ後のポケモンはメガストーンで固定です。</Help></label>
+                <label>持ち物 <Help Title="持ち物">@(isAttacker ? "攻撃側はダメージに関係する持ち物（こだわり系・いのちのたま・タイプ強化など）を先に並べます。ほかの持ち物も選べます。" : "防御側はぼうぎょに関係する持ち物（とつげきチョッキ・しんかのきせきなど）を先に並べます。ほかの持ち物も選べます。")メガシンカ後のポケモンはメガストーンで固定です。</Help></label>
                 @if (build.Pokemon.IsMega)
                 {
                     <FixedField Value="@build.Item?.Name" Reason="@FixedField.MegaReason" />
@@ -608,8 +611,8 @@ else if (data is not null && dataSet is not null)
             }
             @if (dataSet.HasDynamax)
             {
-                <div class="form-check build-check">
-                    <input class="form-check-input" type="checkbox" id="dmax-@side" checked="@build.IsDynamax" @onchange="@(e => build.IsDynamax = e.Value is true)" />
+                <div class="form-check form-switch build-check">
+                    <input class="form-check-input" type="checkbox" role="switch" id="dmax-@side" checked="@build.IsDynamax" @onchange="@(e => build.IsDynamax = e.Value is true)" />
                     <label class="form-check-label" for="dmax-@side">ダイマックス <Help Title="ダイマックス">HP が 2 倍になり、技はダイマックス技の威力（威力 90〜150、かくとう・どくは 70〜100）になります。</Help></label>
                 </div>
             }
@@ -655,7 +658,7 @@ else if (data is not null && dataSet is not null)
                 </div>
             }
             <div class="form-group mb-2">
-                <label>状態異常 <Help Title="状態異常">やけどは物理技のダメージ 0.5 倍（こんじょう・からげんきは除く）。どく・もうどくは毎ターンの定数ダメージを確定数に含めます。まひは素早さ 0.5 倍です。</Help></label>
+                <label>状態異常 <Help Title="状態異常">やけどは物理技のダメージ 0.5 倍（こんじょう・からげんきは除く）。どく・もうどくは毎ターンの定数ダメージを確定数に含めます。まひはすばやさ 0.5 倍です。</Help></label>
                 <select class="form-select form-select-sm" value="@build.Status" @onchange="@(e => build.Status = ParseEnum(e.Value, StatusCondition.None))">
                     @foreach (var st in Enum.GetValues<StatusCondition>())
                     {
@@ -708,7 +711,7 @@ else if (data is not null && dataSet is not null)
             }
         </p>
         @RenderHpBar(result, lastRequest)
-        <p class="mb-1"><strong>防御側 HP:</strong> @result.DefenderHP　<strong>攻撃実数値:</strong> @result.AttackStat　<strong>防御実数値:</strong> @result.DefenseStat　<strong>威力:</strong> @result.BasePower（@TypeNames.ToJapanese(result.MoveType)）</p>
+        <p class="mb-1"><strong>防御側 HP:</strong> @result.DefenderHP　<strong>こうげき実数値:</strong> @result.AttackStat　<strong>ぼうぎょ実数値:</strong> @result.DefenseStat　<strong>威力:</strong> @result.BasePower（@TypeNames.ToJapanese(result.MoveType)）</p>
         @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
         {
             <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data!.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>

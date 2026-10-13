@@ -12,6 +12,8 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 var baseAddress = builder.HostEnvironment.BaseAddress;
+// 確認用サイトで開いているときだけ fara-labs.com へのリンクを確認用に切り替える（ホスト名は実行時に決まる）
+FaraPokemonBattleAssistant.Core.SiteLinks.CurrentHost = new Uri(baseAddress).Host;
 // シングルトンの DataCatalog から使うので、HttpClient もシングルトンにする
 // （Scoped だと Development 環境のスコープ検証で起動時に例外になる）
 builder.Services.AddSingleton(_ => new HttpClient { BaseAddress = new Uri(baseAddress) });
