@@ -248,7 +248,13 @@ public sealed class PokeCommand
         if (args.Count > 2)
         {
             var itemMatch = new NameResolver<Item>(data.Items, i => i.Name).Resolve(string.Join(" ", args.Skip(2)));
-            if (!itemMatch.IsResolved) return Fail(NotFound("持ち物", args[2], itemMatch.Candidates.Select(i => i.Name)));
+            if (!itemMatch.IsResolved)
+            {
+                var askedItem = string.Join(" ", args.Skip(2));
+                return await DamageCommand.ItemExistsElsewhereAsync(_catalog, ds.Key, askedItem, ct).ConfigureAwait(false)
+                    ? Fail($"持ち物「{askedItem}」は{ds.Name}にありません")
+                    : Fail(NotFound("持ち物", args[2], itemMatch.Candidates.Select(i => i.Name)));
+            }
             item = itemMatch.Value;
         }
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);

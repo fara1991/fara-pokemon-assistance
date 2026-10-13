@@ -336,7 +336,10 @@ public sealed class DamageCommand
                 continue;
             }
 
-            warnings.Add($"「{rawToken}」は無視");
+            if (await ItemExistsElsewhereAsync(_catalog, dataSetKey, token, ct).ConfigureAwait(false))
+                warnings.Add($"「{rawToken}」は{data.Info.Name}にない持ち物のため無視");
+            else
+                warnings.Add($"「{rawToken}」は無視");
         }
 
         // --- 既定値
@@ -430,7 +433,9 @@ public sealed class DamageCommand
         var tagText = tags.Count > 0 ? $" [{string.Join(" ", tags)}]" : "";
         var warnText = warnings is { Count: > 0 } ? $" ※{string.Join("、", warnings)}" : "";
 
-        return $"{a.Pokemon.Name}({a.DescribeShort()}) {request.Move.Name} → {d.Pokemon.Name}({d.DescribeShort()} HP{result.DefenderHP}): " +
+        // ダイマックス技・Z 技に変わるときは、変換後の技名も添える（例: じしん（ライジングランドオーバー））
+        var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
+        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort()} HP{result.DefenderHP}): " +
                $"{result.RangeText} {result.KnockOut}{tagText}{warnText}";
     }
 
@@ -545,6 +550,26 @@ public sealed class DamageCommand
     }
 
     /// <summary>別のデータセットにその名前があれば、切り替え方を案内する。</summary>
+    /// <summary>
+    /// 今のゲームにない持ち物が、ほかのゲーム（第9世代＝すべての持ち物がある）の持ち物名と完全に一致するか。
+    /// 「そのゲームにない持ち物」と「ただの打ち間違い」を、案内の文で区別するために使う。
+    /// </summary>
+    internal static async Task<bool> ItemExistsElsewhereAsync(DataCatalog catalog, string currentKey, string token, CancellationToken ct)
+    {
+        const string AllItemsKey = "Gen9";
+        if (currentKey == AllItemsKey || string.IsNullOrWhiteSpace(token)) return false;
+        try
+        {
+            var all = await catalog.GetDataSetAsync(AllItemsKey, ct).ConfigureAwait(false);
+            var normalized = NameNormalizer.Normalize(token.TrimStart('@', '＠'));
+            return all.Items.Any(i => !i.IsMegaStone && NameNormalizer.Normalize(i.Name) == normalized);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
     private async Task<string> ElsewhereHintAsync(string query, PokemonDataSet current, IReadOnlyList<DataSetInfo> dataSets, CancellationToken ct)
     {
         foreach (var info in dataSets.Reverse())

@@ -619,12 +619,34 @@ class Builder:
                 with path.open(encoding="utf-8", newline="") as f:
                     for r in csv.DictReader(f):
                         wanted.setdefault(r["ItemId"], None)
+        # datasets.json の items_file があるゲーム（チャンピオンズ）は、その一覧にある持ち物だけを出す。
+        # 一覧にあって効果表（item_effects.csv）に無い持ち物は、効果なしの項目として出す
+        allowed: set[str] | None = None
+        if ds.get("items_file"):
+            allowed = set()
+            by_name: dict[str, str] = {}
+            for iid in self.items:
+                n = pick_name(self.item_names, iid)
+                if n:
+                    by_name.setdefault(unicodedata.normalize("NFKC", n), iid)
+            for line in (TOOLS / ds["items_file"]).read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                iid = by_name.get(unicodedata.normalize("NFKC", line))
+                if iid is None:
+                    log(f"  WARNING: 持ち物「{line}」が元データに見つかりません（{ds['items_file']}）")
+                    continue
+                allowed.add(iid)
+                wanted.setdefault(iid, None)
         rows = []
         for iid in sorted(wanted, key=int):
+            if allowed is not None and iid not in allowed:
+                continue  # そのゲームにはまだ無い持ち物
             name = pick_name(self.item_names, iid)
             if not name:
                 continue
-            if self.item_first_generation.get(iid, 0) > generation:
+            if allowed is None and self.item_first_generation.get(iid, 0) > generation:
                 continue  # そのゲームには存在しない持ち物
             eff = wanted[iid] or {}
             rows.append([

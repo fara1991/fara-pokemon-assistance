@@ -76,6 +76,14 @@ public sealed class DamageCalculator
 
     public DamageResult Calculate(DamageRequest request)
     {
+        var result = CalculateCore(request);
+        // ダイマックス技・Z 技に変わった技の名前と威力（結果の表示用。威力は計算に使った値）
+        result.Converted = ConvertedMoves.For(request, result.MoveType.Length > 0 ? result.MoveType : request.Move.Type, _generation);
+        return result;
+    }
+
+    private DamageResult CalculateCore(DamageRequest request)
+    {
         var move = request.Move;
         var maxOrZ = request.Attacker.IsDynamax || request.IsZMove && _generation == 7;
         // 必ず急所に当たる技（やまあらし・あんこくきょうだなど）
