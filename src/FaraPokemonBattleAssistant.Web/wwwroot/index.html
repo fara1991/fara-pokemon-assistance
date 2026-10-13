@@ -78,6 +78,8 @@
                     var pad = document.querySelector("." + p[1]), img = document.querySelector(".field-mon-" + p[0]);
                     if (!pad || !img) return;
                     var r = pad.getBoundingClientRect(), w = r.width * 1.3;
+                    // フィールドが回って手前に来た足場のポケモンほど、前に重ねる
+                    img.style.zIndex = String(Math.round(r.top + r.height / 2));
                     img.style.width = w + "px";
                     img.style.left = (r.left + r.width / 2 - w / 2) + "px";
                     img.style.top = (r.top + r.height / 2 - w * 0.92) + "px";
@@ -85,6 +87,10 @@
                 });
             };
             window.addEventListener("resize", function () { window.faraPlaceStage(); });
+            // フィールドは回り続けるので、毎フレーム合わせ直す（視差効果を減らす設定では回らないので、描き直しと画面の大きさが変わったときだけ）
+            if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+                (function follow() { window.faraPlaceStage(); requestAnimationFrame(follow); })();
+            }
 
             window.faraPlaceNote = function (id) {
                 var el = document.getElementById(id);

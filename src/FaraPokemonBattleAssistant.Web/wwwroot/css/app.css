@@ -2895,7 +2895,7 @@ html.vt-nav .sidebar {
     /* PC では左のサイドバー（230px）を除いた範囲の真ん中にコートを置く */
     --stage-shift: 115px;
     /* コートの大きさの単位。横長の画面では高さも見て、下が切れないようにする */
-    --u: min(1vw, 1.4vh);
+    --u: min(1.3vw, 1.8vh);
 }
 
 .bg-layer { position: absolute; }
@@ -2913,7 +2913,10 @@ html.vt-nav .sidebar {
 
 .field-floor { position: absolute; left: 0; right: 0; top: 40%; bottom: 0; perspective: 900px; perspective-origin: 50% -20%; background: linear-gradient(180deg, var(--field-fill), transparent 120%); }
 /* コートの面（真上から見た長方形）。奥へ倒してから、床の上で時計回りに回す */
-.field-plane { position: absolute; left: calc(50% + var(--stage-shift)); top: 23%; width: calc(30 * var(--u)); height: calc(49 * var(--u)); margin: calc(-24.5 * var(--u)) 0 0 calc(-15 * var(--u)); transform-style: preserve-3d; transform: rotateX(62deg) rotateZ(60deg); }
+/* 床の上でゆっくり 1 周回り続ける（2 分で 1 周）。回っても地平線を越えにくいよう、中心は床の真ん中あたり */
+.field-plane { position: absolute; left: calc(50% + var(--stage-shift)); top: 45%; width: calc(30 * var(--u)); height: calc(49 * var(--u)); margin: calc(-24.5 * var(--u)) 0 0 calc(-15 * var(--u)); transform: rotateX(62deg) rotateZ(60deg); animation: field-spin 120s linear infinite; }
+@keyframes field-spin { from { transform: rotateX(62deg) rotateZ(60deg); } to { transform: rotateX(62deg) rotateZ(420deg); } }
+@keyframes field-spin-tall { from { transform: rotateX(66deg) rotateZ(48deg); } to { transform: rotateX(66deg) rotateZ(408deg); } }
 .field-court { position: absolute; inset: 0; width: 100%; height: 100%; }
 .field-court .cl { fill: none; stroke: var(--field-line); stroke-width: 2px; vector-effect: non-scaling-stroke; }
 .field-court .cf { fill: var(--field-fill); }
@@ -2952,7 +2955,7 @@ html.vt-nav .sidebar {
     .field-sky { inset: 0 0 66% 0; }
     .field-stands { top: 20%; height: 14%; }
     .field-horizon, .field-floor { top: 34%; }
-    .field-plane { top: 50%; width: calc(46 * var(--u)); height: calc(72 * var(--u)); margin: calc(-36 * var(--u)) 0 0 calc(-23 * var(--u)); transform: rotateX(66deg) rotateZ(48deg); }
+    .field-plane { top: 50%; width: calc(46 * var(--u)); height: calc(72 * var(--u)); margin: calc(-36 * var(--u)) 0 0 calc(-23 * var(--u)); transform: rotateX(66deg) rotateZ(48deg); animation-name: field-spin-tall; }
     .field-pad { width: calc(11 * var(--u)); height: calc(11 * var(--u)); margin-left: calc(-5.5 * var(--u)); }
     .field-pad-foe { top: 12%; }
     .field-pad-mine { top: 88%; margin-top: calc(-11 * var(--u)); }
