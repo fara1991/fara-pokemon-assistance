@@ -226,6 +226,8 @@ public sealed class DamageResult
     public required int BasePower { get; init; }
     /// <summary>実際に判定に使われた技タイプ（スキン系特性で変わる）。</summary>
     public string MoveType { get; init; } = "";
+    /// <summary>ダイマックス技・Z 技に変わった場合の、変換後の技（名前と威力。威力は <see cref="BasePower"/> と同じ）。通常の技なら null。</summary>
+    public ConvertedMove? Converted { get; set; }
     public required KnockOut KnockOut { get; init; }
     public required IReadOnlyList<string> Modifiers { get; init; }
 

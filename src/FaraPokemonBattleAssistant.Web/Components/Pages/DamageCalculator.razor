@@ -64,13 +64,13 @@ else if (data is not null && dataSet is not null)
                         </SearchableSelect>
                         @if (s.Move is not null)
                         {
-                            <div class="small text-muted mt-1"><TypeIcon Type="@s.Move.Type" Small="true" /> @CategoryText(s.Move) 威力 @(s.Move.Power > 0 ? s.Move.Power.ToString() : "-")@(s.Move.UsesPhysicalDefense ? "（相手の B で計算）" : "")@(s.Move.IsFixedDamage ? "（固定ダメージ技のため計算できません）" : "")</div>
+                            <div class="small text-muted mt-1"><TypeIcon Type="@s.Move.Type" Small="true" /> @CategoryText(s.Move) 威力 @(s.Move.Power > 0 ? s.Move.Power.ToString() : "-")@MaxZText()@(s.Move.UsesPhysicalDefense ? "（相手の B で計算）" : "")@(s.Move.IsFixedDamage ? "（固定ダメージ技のため計算できません）" : "")</div>
                         }
                         @if (dataSet.HasZMove && s.Move is { IsDamaging: true })
                         {
                             <div class="form-check form-switch mt-1">
                                 <input class="form-check-input" type="checkbox" role="switch" id="zmove" checked="@s.IsZMove" @onchange="@(e => s.IsZMove = e.Value is true)" />
-                                <label class="form-check-label" for="zmove">Z技にする（威力 @ZMove.Power(s.Move)） <Help Title="Z技">第7世代の Z 技として計算します。威力は元の技の威力から決まる Z 技の威力になり、持ち物は Z クリスタル扱い（ほかの持ち物の効果なし）です。接触・パンチなどの技の性質や追加効果は無くなるので、かたいツメ・てつのこぶし・ちからずくなどは効きません。スキン系の特性でタイプは変わりません。</Help></label>
+                                <label class="form-check-label" for="zmove">Z技にする（威力 @(s.Attacker is null ? ZMove.Power(s.Move) : ZMove.Power(s.Move, s.Attacker.Pokemon))） <Help Title="Z技">第7世代の Z 技として計算します。威力は元の技の威力から決まる Z 技の威力になり、持ち物は Z クリスタル扱い（ほかの持ち物の効果なし）です。接触・パンチなどの技の性質や追加効果は無くなるので、かたいツメ・てつのこぶし・ちからずくなどは効きません。スキン系の特性でタイプは変わりません。</Help></label>
                             </div>
                         }
                     </div>
@@ -698,7 +698,7 @@ else if (data is not null && dataSet is not null)
         @* 入力欄に画像が出ているので、ここは 1 行の文字だけにする *@
         <p class="result-matchup mb-1">
             <strong>@lastRequest.Attacker.Pokemon.Name</strong>
-            <span class="mx-1"><TypeIcon Type="@result.MoveType" Small="true" /> @lastRequest.Move.Name →</span>
+            <span class="mx-1"><TypeIcon Type="@result.MoveType" Small="true" /> @lastRequest.Move.Name@(result.Converted is { } conv ? $"（{conv.Name}）" : "") →</span>
             <strong data-swap="@lastRequest.Defender.Pokemon.Name">@lastRequest.Defender.Pokemon.Name</strong>
         </p>
         @* 数字は data-count の span に分ける（見た目の文字は RangeText と同じ。入力を変えると前の結果から数え上げる） *@
@@ -814,6 +814,14 @@ else if (data is not null && dataSet is not null)
     /// （構成の実数値・ランク・特性・持ち物・状態・残り HP・テラスタル・ダイマックス、技、場の状態、形式）が変わったときだけ計算し直す。
     /// </summary>
     /// <summary>Z 技で計算するか（第 7 世代でチェックしたときだけ）。</summary>
+    /// <summary>ダイマックス・Z 技がオンのときの、変換後の技名と威力（例: （ダイソウゲン 威力 140））。計算に使う威力と同じ値。</summary>
+    private string MaxZText()
+    {
+        if (s.Attacker is null || s.Move is null || dataSet is null) return "";
+        var c = ConvertedMoves.Preview(s.Move, s.Attacker, UseZMove, dataSet.Generation, s.Weather, s.Terrain);
+        return c is null ? "" : $"（{c.Name} 威力 {c.Power}）";
+    }
+
     private bool UseZMove => s.IsZMove && dataSet?.HasZMove == true;
 
     private void UpdateResult()

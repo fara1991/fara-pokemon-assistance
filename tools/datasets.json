@@ -155,6 +155,7 @@
       "home": null,
       "usage_fallback": "Gen9",
       "pokedex_id": 36,
+      "items_file": "champions_items.txt",
       "learnset_fallback_version_groups": [
         25,
         26,

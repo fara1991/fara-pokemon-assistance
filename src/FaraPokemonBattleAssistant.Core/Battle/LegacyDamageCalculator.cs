@@ -56,7 +56,7 @@ internal sealed partial class LegacyDamageCalculator
         var isZ = _gen == 7 && request.IsZMove;
         var attackerItem = isZ ? null : attacker.Item;
         var defenderItem = defender.Item;
-        if (isZ) modifiers.Add($"Z技(威力{ZMove.Power(move)}・持ち物はZクリスタル)");
+        if (isZ) modifiers.Add($"Z技(威力{ZMove.Power(move, attacker.Pokemon)}・持ち物はZクリスタル)");
 
         var atkAbility = attacker.Ability?.Identifier ?? "";
         var defAbility = defender.Ability?.Identifier ?? "";
@@ -145,7 +145,7 @@ internal sealed partial class LegacyDamageCalculator
         var defenderGrounded = IsGrounded(defender, defAbility, defenderItem);
 
         // --- 威力
-        var basePower = isZ ? ZMove.Power(move) : move.Power;
+        var basePower = isZ ? ZMove.Power(move, attacker.Pokemon) : move.Power;
         var bpMods = _gen >= 7
             ? BasePowerModsGen7(request, attacker, defender, move, moveType, isZ, flags, hasAte, atkAbility, defAbility,
                 attackerItem, defenderItem, basePower, terrain, weather, attackerGrounded, defenderGrounded, modifiers)
@@ -589,6 +589,52 @@ public static class ZMove
         [718] = 185,  // マルチアタック
         [742] = 180,  // ダブルパンツァー
     };
+
+    /// <summary>専用 Z 技（技 ID → 条件に合うポケモン・技名・威力）。専用の Z クリスタルを持つ前提で、そのポケモンがその技を使うときだけ。</summary>
+    private sealed record Exclusive(Func<Pokemon, bool> Holder, string Name, int Power);
+
+    private static Func<Pokemon, bool> Species(params int[] ids) => p => ids.Contains(p.SpeciesId);
+    private static Func<Pokemon, bool> Forms(params int[] ids) => p => ids.Contains(p.Id);
+
+    private static readonly Dictionary<int, Exclusive> ExclusiveMoves = new()
+    {
+        [344] = new(Species(25), "ひっさつのピカチュート", 210),                       // ボルテッカー（ピカチュウ）
+        [85] = new(Forms(10100), "ライトニングサーフライド", 175),                     // 10まんボルト（アローラのライチュウ）
+        [662] = new(Species(724), "シャドーアローズストライク", 180),                   // かげぬい（ジュナイパー）
+        [663] = new(Species(727), "ハイパーダーククラッシャー", 180),                   // DDラリアット（ガオガエン）
+        [664] = new(Species(730), "わだつみのシンフォニア", 195),                       // うたかたのアリア（アシレーヌ）
+        [712] = new(Species(802), "しちせいだっこんたい", 195),                         // シャドースチール（マーシャドー）
+        [416] = new(Species(143), "ほんきをだす　こうげき", 210),                       // ギガインパクト（カビゴン）
+        [94] = new(Species(151), "オリジンズスーパーノヴァ", 185),                     // サイコキネシス（ミュウ）
+        [722] = new(Forms(10157), "てんこがすめつぼうのひかり", 200),                   // フォトンゲイザー（ウルトラネクロズマ）
+        [713] = new(p => p.SpeciesId == 791 || p.Id == 10155, "サンシャインスマッシャー", 200),   // メテオドライブ（ソルガレオ・たそがれのたてがみ）
+        [714] = new(p => p.SpeciesId == 792 || p.Id == 10156, "ムーンライトブラスター", 200),     // シャドーレイ（ルナアーラ・あかつきのつばさ）
+        [583] = new(Species(778), "ぽかぼかフレンドタイム", 190),                       // じゃれつく（ミミッキュ）
+        [444] = new(Species(745), "ラジアルエッジストーム", 190),                       // ストーンエッジ（ルガルガン）
+        [691] = new(Species(784), "ブレイジングソウルビート", 185),                     // スケイルノイズ（ジャラランガ）
+    };
+
+    private static readonly Dictionary<string, string> GenericNames = new()
+    {
+        ["Normal"] = "ウルトラダッシュアタック", ["Fighting"] = "ぜんりょくむそうげきれつけん", ["Flying"] = "ファイナルダイブクラッシュ",
+        ["Poison"] = "アシッドポイズンデリート", ["Ground"] = "ライジングランドオーバー", ["Rock"] = "ワールズエンドフォール",
+        ["Bug"] = "ぜったいほしょくかいてんざん", ["Ghost"] = "むげんあんやへのいざない", ["Steel"] = "ちょうぜつらせんれんげき",
+        ["Fire"] = "ダイナミックフルフレイム", ["Water"] = "スーパーアクアトルネード", ["Grass"] = "ブルームシャインエクストラ",
+        ["Electric"] = "スパーキングギガボルト", ["Psychic"] = "マキシマムサイブレイカー", ["Ice"] = "レイジングジオフリーズ",
+        ["Dragon"] = "アルティメットドラゴンバーン", ["Dark"] = "ブラックホールイクリプス", ["Fairy"] = "ラブリースターインパクト",
+    };
+
+    /// <summary>専用 Z 技があるポケモンと技の組み合わせか。</summary>
+    public static bool HasExclusive(Move move, Pokemon attacker) => ExclusiveMoves.TryGetValue(move.Id, out var e) && e.Holder(attacker);
+
+    /// <summary><paramref name="attacker"/> が <paramref name="move"/> を Z 技にしたときの技名（専用 Z 技があればそれ）。</summary>
+    public static string Name(Move move, Pokemon attacker, string moveType) =>
+        ExclusiveMoves.TryGetValue(move.Id, out var e) && e.Holder(attacker) ? e.Name
+        : GenericNames.TryGetValue(moveType, out var n) ? n : "Z技";
+
+    /// <summary><paramref name="attacker"/> が <paramref name="move"/> を Z 技にしたときの威力。</summary>
+    public static int Power(Move move, Pokemon attacker) =>
+        ExclusiveMoves.TryGetValue(move.Id, out var e) && e.Holder(attacker) ? e.Power : Power(move);
 
     public static int Power(Move move)
     {

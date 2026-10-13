@@ -69,6 +69,8 @@ public class CalcVectorTests
             var attacker = Build(data, v.Attacker);
             var defender = Build(data, v.Defender);
             var move = data.FindMove(v.Move.Id)!;
+            // 公開ツールは専用 Z 技（ひっさつのピカチュート等）も、技のタイプの Z 技として計算するので、比べない
+            if (v.Z && ZMove.HasExclusive(move, attacker.Pokemon)) continue;
             var request = new DamageRequest
             {
                 Attacker = attacker,
