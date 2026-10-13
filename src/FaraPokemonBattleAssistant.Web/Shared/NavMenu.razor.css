@@ -18,6 +18,28 @@
 .top-row {
     height: 3.5rem;
     background-color: rgba(0, 0, 0, 0.4);
+    position: relative;
+}
+
+/* サイト名の下の線。紫からピンクへのグラデーションがゆっくり流れる */
+.top-row::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #c084fc, #e879f9, #818cf8, #c084fc);
+    background-size: 200% 100%;
+    animation: brand-shimmer 6s linear infinite;
+}
+
+@keyframes brand-shimmer {
+    to { background-position: 200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .top-row::after { animation: none; }
 }
 
 .navbar-brand {

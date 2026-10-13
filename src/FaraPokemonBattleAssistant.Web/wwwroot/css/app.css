@@ -75,9 +75,7 @@ body {
     background: var(--app-body-bg);
 }
 
-[data-bs-theme="dark"] body {
-    background: linear-gradient(180deg, #0c0616 0%, #140a26 100%) fixed;
-}
+/* 地の色は .bg-scene（宇宙の背景）が塗る。下の「宇宙の背景」を参照 */
 
 .btn-primary {
     --bs-btn-bg: #7c3aed;
@@ -2833,4 +2831,261 @@ html.vt-nav .sidebar {
 
 .app-notice-body {
     min-width: 0;
+}
+
+/* =========================================================
+   宇宙の背景（MainLayout.razor の .bg-scene）と、すりガラスのカード
+   - 星は大きさごとに 3 層。遠い（小さい）星ほどゆっくり流れる。手前の星は瞬く
+   - 十字に光る星 3 つ、ときどき流れ星、ぼかした光（星雲）がゆっくり漂う
+   - カードは半透明にして、後ろの背景が透けるようにする（fara-labs.com と同じ作り）
+   元に戻すときは、この節と MainLayout.razor の .bg-scene を消す
+   ========================================================= */
+:root,
+[data-bs-theme="light"] {
+    --space-0: #f7f4fd;
+    --space-1: #efe7fd;
+    --space-glow: rgba(168, 85, 247, 0.18);
+    --star: rgba(109, 40, 217, 0.55);
+    --star-tint: rgba(192, 38, 211, 0.45);
+    --nebula-1: rgba(168, 85, 247, 0.32);
+    --nebula-2: rgba(232, 121, 249, 0.24);
+    --nebula-3: rgba(99, 102, 241, 0.2);
+    --nebula-blend: normal;
+    --glass: rgba(255, 255, 255, 0.78);
+    --brand-grad: linear-gradient(120deg, #7c3aed 0%, #c026d3 50%, #4f46e5 100%);
+}
+
+[data-bs-theme="dark"] {
+    --space-0: #070312;
+    --space-1: #120828;
+    --space-glow: rgba(124, 58, 237, 0.35);
+    --star: rgba(255, 255, 255, 0.9);
+    --star-tint: rgba(233, 213, 255, 0.85);
+    --nebula-1: rgba(168, 85, 247, 0.55);
+    --nebula-2: rgba(232, 121, 249, 0.4);
+    --nebula-3: rgba(99, 102, 241, 0.35);
+    --nebula-blend: screen;
+    --glass: rgba(34, 20, 60, 0.55);
+    --brand-grad: linear-gradient(120deg, #c084fc 0%, #e879f9 45%, #818cf8 100%);
+    --app-body-bg: #070312;
+    --bs-body-bg: #070312;
+    --bs-body-bg-rgb: 7, 3, 18;
+}
+
+.bg-scene {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, var(--space-glow), transparent 70%),
+        linear-gradient(180deg, var(--space-0) 0%, var(--space-1) 100%);
+}
+
+.bg-layer { position: absolute; }
+
+.stars {
+    left: 0;
+    right: 0;
+    top: -200px;
+    height: calc(100% + 400px);
+    background-repeat: repeat;
+}
+
+.stars-far {
+    background-size: 160px 140px;
+    opacity: 0.55;
+    animation: star-drift 120s linear infinite;
+    background-image:
+        radial-gradient(0.8px 0.8px at 12px 20px, var(--star), transparent),
+        radial-gradient(0.7px 0.7px at 70px 95px, var(--star), transparent),
+        radial-gradient(0.9px 0.9px at 128px 48px, var(--star), transparent),
+        radial-gradient(0.6px 0.6px at 40px 122px, var(--star), transparent),
+        radial-gradient(0.8px 0.8px at 104px 130px, var(--star), transparent),
+        radial-gradient(0.7px 0.7px at 150px 8px, var(--star), transparent);
+}
+
+.stars-mid {
+    background-size: 290px 250px;
+    opacity: 0.8;
+    animation: star-drift 80s linear infinite;
+    background-image:
+        radial-gradient(1.2px 1.2px at 30px 40px, var(--star), transparent),
+        radial-gradient(1.1px 1.1px at 160px 120px, var(--star-tint), transparent),
+        radial-gradient(1.3px 1.3px at 240px 30px, var(--star), transparent),
+        radial-gradient(1px 1px at 90px 200px, var(--star-tint), transparent),
+        radial-gradient(1.2px 1.2px at 210px 220px, var(--star), transparent);
+}
+
+.stars-near {
+    background-size: 520px 460px;
+    animation: star-drift 50s linear infinite, star-twinkle 4s ease-in-out infinite alternate;
+    background-image:
+        radial-gradient(2px 2px at 80px 90px, var(--star), transparent),
+        radial-gradient(1.8px 1.8px at 380px 60px, var(--star-tint), transparent),
+        radial-gradient(2.2px 2.2px at 260px 330px, var(--star), transparent),
+        radial-gradient(1.6px 1.6px at 470px 400px, var(--star-tint), transparent);
+}
+
+@keyframes star-drift { to { transform: translateY(200px); } }
+@keyframes star-twinkle { 50% { opacity: 0.45; } }
+
+.spark {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--star);
+    box-shadow: 0 0 8px 2px var(--star-tint);
+    animation: star-spark 5s ease-in-out infinite;
+}
+
+.spark::before,
+.spark::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.spark::before { width: 22px; height: 1px; background: linear-gradient(90deg, transparent, var(--star), transparent); }
+.spark::after { width: 1px; height: 22px; background: linear-gradient(180deg, transparent, var(--star), transparent); }
+.spark-1 { top: 14%; left: 62%; }
+.spark-2 { top: 58%; left: 86%; animation-delay: -1.8s; animation-duration: 6.5s; }
+.spark-3 { top: 78%; left: 34%; animation-delay: -3.2s; animation-duration: 7s; }
+@keyframes star-spark { 0%, 100% { opacity: 0.25; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1); } }
+
+.meteor {
+    position: absolute;
+    width: 140px;
+    height: 1.5px;
+    border-radius: 1px;
+    background: linear-gradient(90deg, var(--star), transparent);
+    opacity: 0;
+    transform-origin: left center;
+}
+
+.meteor-1 { top: 12%; left: 78%; animation: meteor 11s ease-in 2s infinite; }
+.meteor-2 { top: 34%; left: 96%; animation: meteor 17s ease-in 8s infinite; }
+
+@keyframes meteor {
+    0% { opacity: 0; transform: rotate(155deg) translateX(0); }
+    2% { opacity: 1; }
+    8%, 100% { opacity: 0; transform: rotate(155deg) translateX(520px); }
+}
+
+.bg-blob span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    filter: blur(70px);
+    mix-blend-mode: var(--nebula-blend);
+    animation: nebula-float 24s ease-in-out infinite alternate;
+}
+
+.blob-1 { width: 520px; height: 520px; top: -120px; left: 80px; }
+.blob-1 span { background: radial-gradient(circle, var(--nebula-1), transparent 65%); animation-duration: 18s; }
+.blob-2 { width: 460px; height: 460px; top: 30%; right: -120px; }
+.blob-2 span { background: radial-gradient(circle, var(--nebula-2), transparent 65%); }
+.blob-3 { width: 600px; height: 600px; top: 65%; left: 30%; }
+.blob-3 span { background: radial-gradient(circle, var(--nebula-3), transparent 65%); animation-duration: 30s; }
+
+@keyframes nebula-float {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(60px, -40px) scale(1.1); }
+    100% { transform: translate(-50px, 50px) scale(0.94); }
+}
+
+/* すりガラスのカード（中の表も背景を透かす） */
+.card {
+    --bs-card-bg: var(--glass);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+}
+
+.card .table {
+    --bs-table-bg: transparent;
+}
+
+.card > .card-header {
+    background: transparent;
+}
+
+/* サイト名・数値の書体（fara-labs.com の見出しと同じ Outfit） */
+.navbar-brand,
+.home-title {
+    font-family: "Outfit", var(--bs-font-sans-serif);
+    font-weight: 600;
+}
+
+/* ホームのサイト名：紫からピンクへのグラデーションの文字 */
+.home-title {
+    font-size: clamp(2rem, 4.2vw, 3.4rem);
+    line-height: 1.1;
+    margin-bottom: 0.5rem;
+    background: var(--brand-grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: home-rise 0.7s cubic-bezier(.16, 1, .3, 1) 0.1s backwards;
+}
+
+.home-lead {
+    max-width: 44em;
+    animation: home-rise 0.7s cubic-bezier(.16, 1, .3, 1) 0.25s backwards;
+}
+
+@keyframes home-rise { from { opacity: 0; transform: translateY(14px); } }
+
+/* ホーム：ほかの機能のリスト */
+.home-tools {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.home-tools li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    padding: 0.8rem 1rem;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.home-tools li:first-child { border-top: 0; }
+.home-tools .home-tool-text { flex: 1 1 auto; min-width: 0; }
+.home-tools .home-tool-text p { margin: 0; font-size: 0.875rem; color: var(--bs-secondary-color); }
+.home-tools .home-tool-actions { flex: none; display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+
+@media (min-width: 992px) {
+    .home-tools-2col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .home-tools-2col li:nth-child(2) { border-top: 0; }
+    .home-tools-2col li:nth-child(even) { border-left: 1px solid var(--bs-border-color); }
+}
+
+@media (max-width: 575.98px) {
+    .home-tools li { flex-wrap: wrap; }
+    .home-tools .home-tool-actions { justify-content: flex-start; }
+}
+
+/* 計算結果の割合を大きく、数値の書体で */
+.result-main strong {
+    font-family: "Outfit", var(--bs-font-sans-serif);
+    font-weight: 600;
+    font-size: 1.5rem;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bg-scene *,
+    .bg-scene *::before,
+    .bg-scene *::after,
+    .home-title,
+    .home-lead {
+        animation: none !important;
+    }
 }
