@@ -321,10 +321,6 @@ else if (data is not null && dataSet is not null)
             if (dataSet is { HasTerrain: false } || s.Terrain == Terrain.Psychic && dataSet is { HasPsychicTerrain: false }) s.Terrain = Terrain.None;
             RefreshAttackerLists();
             RefreshDefenderLists();
-            // 空いている欄には、背景のバトルフィールドに立っている 2 体を入れる（どちらのページでも未選択ならランダムな 2 体）
-            Stage.EnsureDefaults(App.DataSetKey, data);
-            if (s.Attacker is null && !s.UseRosterAttacker && Stage.Mine is { } mine) OnAttackerChanged(mine.Id.ToString());
-            if (s.Defender is null && !s.UseRosterDefender && Stage.Foe is { } foe) OnDefenderChanged(foe.Id.ToString());
         }
         catch (Exception ex)
         {
