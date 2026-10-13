@@ -5,50 +5,28 @@
 <PageTitle>ホーム | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>Pokémon Battle Assistant</h3>
-    <p class="text-muted mb-0">ダメージ計算・素早さ比較・育成済みポケモンとチームの管理・タイプ相性をまとめたサイトです。配信中は Twitch のチャットコマンドからも同じ機能を使えます。</p>
+    <h1 class="home-title">Pokémon Battle Assistant</h1>
+    <p class="text-muted mb-0 home-lead">ダメージ計算・素早さ比較・育成済みポケモンとチームの管理・タイプ相性をまとめたサイトです。配信中は Twitch のチャットコマンドからも同じ機能を使えます。</p>
 </div>
 
 @* PC: 見出しは固定にして、カードの並びの中だけがスクロールする *@
 <div class="pane-scroll">
+@* 主役の計算機を大きく、右に対応ゲームと更新日。ほかの機能は下に 1 つのリストにまとめる *@
 <div class="row g-3">
-    <div class="col-md-6">
+    <div class="col-lg-7">
         <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title">ダメージ計算機</h5>
+            <div class="card-body d-flex flex-column">
+                <h2 class="card-title h4">ダメージ計算機</h2>
                 <p class="card-text">
                     努力値・性格・持ち物・特性・ランク補正・急所・壁・天候・フィールド・状態異常・残り HP を指定して、
                     乱数 16 通りのダメージと確定数を出します。確定数には回復きのみ・たべのこし・定数ダメージも含めます。受けたダメージから相手の努力値を推定することもできます。
                 </p>
-                <a href="damage-calculator" class="btn btn-primary">計算機を開く</a>
+                <div class="mt-auto"><a href="damage-calculator" class="btn btn-primary">計算機を開く</a></div>
             </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title">チャットコマンド</h5>
-                <p class="card-text">
-                    配信中に <code>!@(App.CommandPrefix) dmg ガブリアス じしん リザードン</code> のように打つと、ボットが結果を 1 行で返します。
-                    同じコマンドをブラウザで試せます。
-                </p>
-                <a href="chat-commands" class="btn btn-secondary">コマンドを試す</a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row g-3 mt-1">
-    <div class="col-md-4"><div class="card h-100"><div class="card-body"><h6 class="card-title">ポケモン・チーム登録</h6><p class="card-text small">育成済みのポケモンとチームを登録しておくと、計算のときに自分の構成が自動で入ります（<code>!@(App.CommandPrefix) add / add -t / use -t</code>）。</p><a href="my-pokemon" class="btn btn-outline-primary btn-sm">ポケモン登録</a> <a href="my-team" class="btn btn-outline-primary btn-sm">チーム登録</a></div></div></div>
-    <div class="col-md-4"><div class="card h-100"><div class="card-body"><h6 class="card-title">素早さ比較</h6><p class="card-text small">2 体のポケモンの S を比べて、どちらが先に動くかを確認します（チャットでは <code>!@(App.CommandPrefix) faster</code>）。</p><a href="speed-comparison" class="btn btn-outline-primary btn-sm">開く</a></div></div></div>
-    <div class="col-md-4"><div class="card h-100"><div class="card-body"><h6 class="card-title">タイプ相性表</h6><p class="card-text small">18 タイプの相性をアイコンで一覧できます。</p><a href="type-chart" class="btn btn-outline-primary btn-sm">開く</a></div></div></div>
-    <div class="col-md-4"><div class="card h-100"><div class="card-body"><h6 class="card-title">用語・略語</h6><p class="card-text small">H・A・B・C・D・S などの略語と、種族値・努力値・確定数などの用語の意味をまとめています。</p><a href="battle-terms" class="btn btn-outline-primary btn-sm">開く</a></div></div></div>
-    <div class="col-md-4"><div class="card h-100"><div class="card-body"><h6 class="card-title">ポケモン一覧</h6><p class="card-text small">選んでいるゲームのポケモンを全国図鑑順に一覧し、タイプ・特性・覚える技で絞り込んだり、種族値で並べ替えたりできます。</p><a href="pokemon-list" class="btn btn-outline-primary btn-sm">開く</a></div></div></div>
-</div>
-
-<div class="row g-3 mt-1">
-    <div class="col-md-6">
-        <div class="card h-100">
+    <div class="col-lg-5 d-flex flex-column gap-3">
+        <div class="card">
             <div class="card-body">
                 <h6 class="card-title">対応しているゲーム <Help Title="ゲームの切り替え">左のメニューの「ゲーム」で切り替えます。選んだゲームは全ページとチャットコマンドの接頭辞に反映されます。</Help></h6>
                 <ul class="mb-0 small">
@@ -58,9 +36,7 @@
                 </ul>
             </div>
         </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card h-100">
+        <div class="card">
             <div class="card-body">
                 <h6 class="card-title">サイト内ポケモンデータの更新 <Help Title="サイト内ポケモンデータの更新">ポケモン・技・持ち物・使用率のデータは毎週月曜の昼に自動で更新されます。更新後にページを再読み込みすると新しいデータになります。</Help></h6>
                 <table class="table table-sm mb-0 small">
@@ -72,6 +48,36 @@
             </div>
         </div>
     </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header fw-bold">ほかの機能</div>
+    <ul class="home-tools home-tools-2col">
+        <li>
+            <div class="home-tool-text"><b>チャットコマンド</b><p>配信中に <code>!@(App.CommandPrefix) dmg ガブリアス じしん リザードン</code> のように打つと、ボットが結果を 1 行で返します。ブラウザでも試せます。</p></div>
+            <div class="home-tool-actions"><a href="chat-commands" class="btn btn-outline-primary btn-sm">コマンドを試す</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>ポケモン・チーム登録</b><p>育成済みのポケモンとチームを登録しておくと、計算のときに自分の構成が自動で入ります（<code>!@(App.CommandPrefix) add / add -t / use -t</code>）。</p></div>
+            <div class="home-tool-actions"><a href="my-pokemon" class="btn btn-outline-primary btn-sm">ポケモン登録</a><a href="my-team" class="btn btn-outline-primary btn-sm">チーム登録</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>素早さ比較</b><p>2 体のポケモンの S を比べて、どちらが先に動くかを確認します（チャットでは <code>!@(App.CommandPrefix) faster</code>）。</p></div>
+            <div class="home-tool-actions"><a href="speed-comparison" class="btn btn-outline-primary btn-sm">開く</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>タイプ相性表</b><p>18 タイプの相性をアイコンで一覧できます。</p></div>
+            <div class="home-tool-actions"><a href="type-chart" class="btn btn-outline-primary btn-sm">開く</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>ポケモン一覧</b><p>選んでいるゲームのポケモンを全国図鑑順に一覧し、タイプ・特性・覚える技で絞り込んだり、種族値で並べ替えたりできます。</p></div>
+            <div class="home-tool-actions"><a href="pokemon-list" class="btn btn-outline-primary btn-sm">開く</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>用語・略語</b><p>H・A・B・C・D・S などの略語と、種族値・努力値・確定数などの用語の意味をまとめています。</p></div>
+            <div class="home-tool-actions"><a href="battle-terms" class="btn btn-outline-primary btn-sm">開く</a></div>
+        </li>
+    </ul>
 </div>
 
 
