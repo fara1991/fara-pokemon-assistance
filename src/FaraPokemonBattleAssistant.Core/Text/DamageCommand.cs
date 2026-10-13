@@ -82,6 +82,7 @@ public sealed class DamageCommand
     public async Task<DamageCommandResult> ExecuteAsync(string argumentText, DamageCommandOptions? options = null, CancellationToken ct = default)
     {
         options ??= new DamageCommandOptions();
+        argumentText = CommandText.Normalize(argumentText);
         try
         {
             return await ExecuteCoreAsync(argumentText, options, ct).ConfigureAwait(false);
