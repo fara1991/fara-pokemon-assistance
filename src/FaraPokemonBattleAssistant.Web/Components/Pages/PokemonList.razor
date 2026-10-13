@@ -58,15 +58,15 @@
                 <strong>@results.Count 匹</strong>
                 @if (hasMega)
                 {
-                    <div class="form-check mb-0">
-                        <input class="form-check-input" type="checkbox" id="dex-mega" checked="@f.MegaOnly" @onchange="@(e => { f.MegaOnly = e.Value is true; Refresh(); })" />
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="dex-mega" checked="@f.MegaOnly" @onchange="@(e => { f.MegaOnly = e.Value is true; Refresh(); })" />
                         <label class="form-check-label" for="dex-mega">メガシンカのみ</label>
                     </div>
                 }
                 @if (hasProvisional)
                 {
-                    <div class="form-check mb-0">
-                        <input class="form-check-input" type="checkbox" id="dex-prov" checked="@f.IncludeProvisional" @onchange="@(e => { f.IncludeProvisional = e.Value is true; Refresh(); })" />
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="dex-prov" checked="@f.IncludeProvisional" @onchange="@(e => { f.IncludeProvisional = e.Value is true; Refresh(); })" />
                         <label class="form-check-label" for="dex-prov">未収録も表示</label>
                     </div>
                 }

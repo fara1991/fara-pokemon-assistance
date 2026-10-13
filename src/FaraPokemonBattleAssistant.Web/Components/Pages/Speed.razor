@@ -174,12 +174,12 @@ else if (data is not null && dataSet is not null)
 
     private Item? Scarf => data?.Items.FirstOrDefault(i => i.Id == 264);
 
-    /// <summary>素早さが変わる持ち物だけ（こだわりスカーフ・くろいてっきゅう・パワー系）。今持たせている持ち物は必ず含める。</summary>
+    /// <summary>そのゲームで選べるすべての持ち物。すばやさが変わる持ち物（こだわりスカーフ・くろいてっきゅう・パワー系）を先に並べる。</summary>
     private IReadOnlyList<Item> SpeedItems(PokemonBuild build)
     {
-        var items = data!.Items.Where(SpeedCalculator.IsSpeedItem).ToList();
-        if (build.Item is not null && !items.Contains(build.Item)) items.Insert(0, build.Item);
-        return items;
+        var all = data!.Items.Where(i => !i.IsMegaStone).ToList();
+        if (build.Item is not null && !all.Contains(build.Item)) all.Insert(0, build.Item);
+        return all.Where(SpeedCalculator.IsSpeedItem).Concat(all.Where(i => !SpeedCalculator.IsSpeedItem(i))).ToList();
     }
 
     protected override async Task OnAppReadyAsync()
@@ -282,7 +282,7 @@ else if (data is not null && dataSet is not null)
                     </div>
                     <div class="build-grid mb-2">
                     <div class="form-group">
-                        <label>持ち物 <Help Title="持ち物">すばやさが変わる持ち物だけを表示します。こだわりスカーフは 1.5 倍、くろいてっきゅう・パワー系（パワーリストなど）は 0.5 倍で計算します。メガシンカ後はメガストーンで固定です。</Help></label>
+                        <label>持ち物 <Help Title="持ち物">すばやさが変わる持ち物を先に並べます。ほかの持ち物も選べます。こだわりスカーフは 1.5 倍、くろいてっきゅう・パワー系（パワーリストなど）は 0.5 倍で計算します。メガシンカ後はメガストーンで固定です。</Help></label>
                         @if (build.Pokemon.IsMega)
                         {
                             <FixedField Value="@build.Item?.Name" Reason="@FixedField.MegaReason" />
@@ -316,12 +316,12 @@ else if (data is not null && dataSet is not null)
                             </select>
                         </div>
                         <div class="col-6 d-flex flex-column justify-content-end">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="para-@side" checked="@(build.Status == StatusCondition.Paralysis)" @onchange="@(e => build.Status = e.Value is true ? StatusCondition.Paralysis : StatusCondition.None)" />
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="para-@side" checked="@(build.Status == StatusCondition.Paralysis)" @onchange="@(e => build.Status = e.Value is true ? StatusCondition.Paralysis : StatusCondition.None)" />
                                 <label class="form-check-label" for="para-@side">まひ（@(dataSet.Generation <= 6 ? "1/4" : "0.5 倍")）</label>
                             </div>
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="tailwind-@side" checked="@s.Tailwind[side]" @onchange="@(e => s.Tailwind[side] = e.Value is true)" />
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="tailwind-@side" checked="@s.Tailwind[side]" @onchange="@(e => s.Tailwind[side] = e.Value is true)" />
                                 <label class="form-check-label" for="tailwind-@side">おいかぜ（2 倍）</label>
                             </div>
                         </div>

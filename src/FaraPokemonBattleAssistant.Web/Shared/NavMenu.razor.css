@@ -33,7 +33,7 @@
 
 .nav-item {
     font-size: 0.9rem;
-    padding-bottom: 0.3rem;
+    padding-bottom: 0.15rem;
 }
 
 .nav-item:first-of-type {
@@ -41,7 +41,7 @@
 }
 
 .nav-item:last-of-type {
-    padding-bottom: 1rem;
+    padding-bottom: 0.5rem;
 }
 
 /* グループの見出し（配信者向け など）。小さな文字で、項目より控えめに */
@@ -50,8 +50,8 @@
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.04em;
-    margin-top: 0.5rem;
-    margin-bottom: 0.35rem;
+    margin-top: 0.4rem;
+    margin-bottom: 0.2rem;
 }
 
 .nav-item ::deep .bi {
@@ -66,10 +66,10 @@
 .nav-item ::deep a {
     color: #d7d7d7;
     border-radius: 4px;
-    height: 2.6rem;
+    height: 2.3rem;
     display: flex;
     align-items: center;
-    line-height: 2.6rem;
+    line-height: 2.3rem;
     padding-left: 1rem;
     text-decoration: none;
 }
@@ -89,10 +89,10 @@
     color: #d7d7d7;
     opacity: 0.4;
     border-radius: 4px;
-    height: 2.6rem;
+    height: 2.3rem;
     display: flex;
     align-items: center;
-    line-height: 2.6rem;
+    line-height: 2.3rem;
     padding-left: 1rem;
     cursor: not-allowed;
     user-select: none;
