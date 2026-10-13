@@ -1,4 +1,4 @@
-@page "/data-sync"
+@page "/data-share"
 @using FaraPokemonBattleAssistant.Core.Roster
 @implements IDisposable
 @inject CloudSync Sync
@@ -6,10 +6,10 @@
 @inject IJSRuntime JS
 @inject ToastService Toast
 
-<PageTitle>データ連携 | Pokémon Battle Assistant</PageTitle>
+<PageTitle>データ共有 | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>データ連携 <Help Title="データ連携">登録したポケモンとチームを、別のブラウザ・端末やボットと共有するための設定です。使わないときは、登録データはこのブラウザだけに保存されます。</Help></h3>
+    <h3>データ共有 <Help Title="データ共有">登録したポケモンとチームを、別のブラウザ・端末やボットと共有するための設定です。使わないときは、登録データはこのブラウザだけに保存されます。</Help></h3>
     <p class="text-muted mb-0">アクセスキーを作ると、<a href="my-pokemon">ポケモン登録</a>と<a href="my-team">チーム登録</a>のデータがクラウドに保存され、同じアクセスキーを入れた別のブラウザ・端末やボットから読み書きできます。</p>
 </div>
 
@@ -18,21 +18,21 @@
 <div class="sync-page">
 <div class="card mb-3 sync-card">
     <div class="card-header">
-        <h5>アクセスキー @(Sync.IsSyncing ? "（連携中）" : "（未連携）")</h5>
+        <h5>アクセスキー @(Sync.IsSyncing ? "（データ共有中）" : "（未共有）")</h5>
     </div>
     <div class="card-body">
         @if (!Sync.IsSyncing)
         {
-            <Notice Class="mb-2">今はこのブラウザだけに保存しています。データ連携を始めると、別のブラウザ・端末やボットと同じ登録データを読み書きできます。</Notice>
+            <Notice Class="mb-2">今はこのブラウザだけに保存しています。データ共有を始めると、別のブラウザ・端末やボットと同じ登録データを読み書きできます。</Notice>
             <div class="d-flex flex-wrap gap-2 align-items-start">
-                <button class="btn btn-primary btn-sm" disabled="@syncBusy" @onclick="StartSyncAsync">データ連携を始める（新しいアクセスキーを作る）</button>
+                <button class="btn btn-primary btn-sm" disabled="@syncBusy" @onclick="StartSyncAsync">データ共有を始める（新しいアクセスキーを作る）</button>
                 <div class="input-group input-group-sm sync-join">
                     <input type="password" class="form-control" placeholder="アクセスキー（43 文字）" autocomplete="off" spellcheck="false" aria-label="アクセスキー"
                            value="@joinKey" @oninput="@(e => joinKey = e.Value?.ToString() ?? "")" />
-                    <button class="btn btn-outline-primary" disabled="@(syncBusy || string.IsNullOrWhiteSpace(joinKey))" @onclick="JoinSyncAsync">アクセスキーを入力して連携</button>
+                    <button class="btn btn-outline-primary" disabled="@(syncBusy || string.IsNullOrWhiteSpace(joinKey))" @onclick="JoinSyncAsync">アクセスキーを入力して共有</button>
                 </div>
             </div>
-            <p class="small text-muted mb-0 mt-2">アクセスキーを入力して連携すると、このブラウザの登録データはクラウドのデータに置き換わります。新しいアクセスキーを作ったときは、このブラウザの登録データがそのままクラウドに保存されます。</p>
+            <p class="small text-muted mb-0 mt-2">アクセスキーを入力して共有を始めると、このブラウザの登録データはクラウドのデータに置き換わります。新しいアクセスキーを作ったときは、このブラウザの登録データがそのままクラウドに保存されます。</p>
         }
         else
         {
@@ -60,7 +60,7 @@
             <div class="d-flex flex-wrap gap-2">
                 <button class="btn btn-outline-primary btn-sm" disabled="@syncBusy" @onclick="ReloadAsync">読み込み直す</button>
                 <button class="btn btn-outline-secondary btn-sm" disabled="@syncBusy" @onclick="RotateKeyAsync">アクセスキーを作り直す</button>
-                <button class="btn btn-outline-danger btn-sm" disabled="@syncBusy" @onclick="StopSyncAsync">データ連携をやめる</button>
+                <button class="btn btn-outline-danger btn-sm" disabled="@syncBusy" @onclick="StopSyncAsync">データ共有をやめる</button>
             </div>
         }
     </div>
@@ -72,7 +72,7 @@
     <div class="card-body">
         <p class="small mb-2">アクセスキーを使うと、登録したポケモンとチームを、このサイトの外から API で読み書きできます。</p>
         <ol class="mb-2 ps-3">
-            <li>上の「データ連携を始める」を押して、アクセスキーを作り、「コピー」でコピーします。</li>
+            <li>上の「データ共有を始める」を押して、アクセスキーを作り、「コピー」でコピーします。</li>
             <li>リクエストの <code>Authorization: Bearer アクセスキー</code> ヘッダーに入れて、このサイトの API を呼びます。</li>
         </ol>
         <div class="table-responsive">
@@ -87,9 +87,9 @@
                 </tbody>
             </table>
         </div>
-        <p class="small text-muted mb-2">本文はゲームごと（<code>"dataSets": {"Champions": {...}}</code>）です。<code>PUT</code> には読み取ったときの <code>revision</code> を <code>baseRevision</code> として付けます。その間に他の場所で更新されていたら <code>409</code> になるので、読み直してからやり直してください（<code>revision</code> はポケモンとチームで共通です）。詳しくは <a href="https://github.com/fara1991/fara-pokemon-battle-assistant#登録データの連携-api" target="_blank" rel="noopener noreferrer">README</a> を見てください。</p>
+        <p class="small text-muted mb-2">本文はゲームごと（<code>"dataSets": {"Champions": {...}}</code>）です。<code>PUT</code> には読み取ったときの <code>revision</code> を <code>baseRevision</code> として付けます。その間に他の場所で更新されていたら <code>409</code> になるので、読み直してからやり直してください（<code>revision</code> はポケモンとチームで共通です）。詳しくは <a href="https://github.com/fara1991/fara-pokemon-battle-assistant#登録データの共有-api" target="_blank" rel="noopener noreferrer">README</a> を見てください。</p>
         <p class="small text-muted mb-2">使い方の一例が、チャットのボットです。<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a>（Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けると、チャットの <code>add -p</code> / <code>use -t</code> などと、このサイトが同じデータを読み書きするようになります。</p>
-        <p class="small text-muted mb-0">連携中はクラウドのデータだけを使い、このブラウザには保存しません（コピーを取り合うのではなく、全員が同じデータを使います）。アクセスキーを作り直したら、API を使うほかのツールや端末にも新しいアクセスキーを入れ直してください（古いキーは使えなくなります）。</p>
+        <p class="small text-muted mb-0">データ共有中はクラウドのデータだけを使い、このブラウザには保存しません（コピーを取り合うのではなく、全員が同じデータを使います）。アクセスキーを作り直したら、API を使うほかのツールや端末にも新しいアクセスキーを入れ直してください（古いキーは使えなくなります）。</p>
     </div>
 </div>
 </div>
@@ -103,7 +103,7 @@
     protected override async Task OnInitializedAsync()
     {
         Sync.Changed += OnSyncChanged;
-        // ページを直接開いたときも、保存してあるアクセスキーがあれば「連携中」と表示する
+        // ページを直接開いたときも、保存してあるアクセスキーがあれば「データ共有中」と表示する
         await Sync.InitializeAsync();
     }
 
@@ -113,7 +113,7 @@
 
     private void Show(string text, bool isError) => Toast.Show(text, isError);
 
-    // ---- データ連携
+    // ---- データ共有
 
     private async Task<bool> ConfirmAsync(string text)
     {
@@ -150,7 +150,7 @@
         var hadData = await Sync.LocalHasDataAsync();
         await Sync.StartNewAsync();
         showKey = false;
-        Show("データ連携を始めました。" + (hadData ? "このブラウザの登録データをクラウドに保存しました。" : "") +
+        Show("データ共有を始めました。" + (hadData ? "このブラウザの登録データをクラウドに保存しました。" : "") +
              "別の端末やボットで使うときは、アクセスキーを「コピー」して貼り付けてください", false);
     });
 
@@ -171,8 +171,8 @@
             joinKey = "";
             showKey = false;
             Show(hasData
-                ? "アクセスキーで連携しました。クラウドの登録データを表示しています"
-                : "アクセスキーで連携しました（このアクセスキーのクラウドデータはまだ空です。打ち間違えていないか確認してください）", false);
+                ? "アクセスキーでデータ共有を始めました。クラウドの登録データを表示しています"
+                : "アクセスキーでデータ共有を始めました（このアクセスキーのクラウドデータはまだ空です。打ち間違えていないか確認してください）", false);
         });
     }
 
@@ -192,13 +192,13 @@
 
     private async Task StopSyncAsync()
     {
-        if (!await ConfirmAsync("このブラウザでのデータ連携をやめます。クラウドのデータは残るので、アクセスキーを入力すればまた連携できます（アクセスキーを控えておいてください）。このブラウザの登録データは空になります。よろしいですか？"))
+        if (!await ConfirmAsync("このブラウザでのデータ共有をやめます。クラウドのデータは残るので、アクセスキーを入力すればまた共有できます（アクセスキーを控えておいてください）。このブラウザの登録データは空になります。よろしいですか？"))
             return;
         await RunSyncAsync(async () =>
         {
             await Sync.StopAsync();
             showKey = false;
-            Show("データ連携をやめました。アクセスキーを入力すれば、また同じデータで連携できます", false);
+            Show("データ共有をやめました。アクセスキーを入力すれば、また同じデータで共有できます", false);
         });
     }
 

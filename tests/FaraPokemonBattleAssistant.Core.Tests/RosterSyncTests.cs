@@ -10,7 +10,7 @@ using Xunit;
 namespace FaraPokemonBattleAssistant.Core.Tests;
 
 /// <summary>
-/// データ連携 API（worker/index.js の /api/my-pokemon・/api/my-team・/api/access-key）と同じ動きをするメモリ上の偽サーバー。
+/// データ共有 API（worker/index.js の /api/my-pokemon・/api/my-team・/api/access-key）と同じ動きをするメモリ上の偽サーバー。
 /// </summary>
 internal sealed class FakeRosterServer : HttpMessageHandler
 {

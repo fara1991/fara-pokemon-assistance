@@ -37,7 +37,7 @@ jobs:
           path: artifacts/nuget/*.nupkg
 
   worker:
-    # データ連携 API（worker/index.js）を wrangler dev で起動して確認する
+    # データ共有 API（worker/index.js）を wrangler dev で起動して確認する
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

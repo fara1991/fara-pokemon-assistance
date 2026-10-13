@@ -9,7 +9,7 @@ public static class SitePaths
 {
     public const string DamageCalculator = "damage-calculator";
     public const string SpeedComparison = "speed-comparison";
-    public const string DataSync = "data-sync";
+    public const string DataShare = "data-share";
     public const string MyPokemon = "my-pokemon";
     public const string MyTeam = "my-team";
     public const string TypeChart = "type-chart";
@@ -22,7 +22,8 @@ public static class SitePaths
     public static readonly IReadOnlyDictionary<string, string> Legacy = new Dictionary<string, string>
     {
         ["speed"] = SpeedComparison,
-        ["sync"] = DataSync,
+        ["sync"] = DataShare,
+        ["data-sync"] = DataShare,
         ["pokemon"] = MyPokemon,
         ["roster"] = MyPokemon,
         ["team"] = MyTeam,

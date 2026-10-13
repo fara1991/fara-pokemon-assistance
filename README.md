@@ -54,7 +54,7 @@ fara-pokemon-battle-assistant/
 接頭辞でデータセットを選びます: **`!pokech`** = ポケモンチャンピオンズ、**`!pokesv`** = スカーレット・バイオレット、**`!pokess`** = ソード・シールド（`!poke` はチャンピオンズ扱い）。
 `!poke help` で使えるコマンドの一覧が返ります。登録・削除・使用チームの変更は配信者本人とモデレーターだけに許可する想定です（`PokeCommandOptions.AllowMutations`）。
 登録データはボットなら PC 上の JSON、ブラウザなら localStorage に保存され、データセットごとに独立しています。
-サイトの「データ連携」ページ（`/data-sync`。ポケモン登録は `/my-pokemon`、チーム登録は `/my-team`。以前の `/sync`・`/pokemon`・`/roster`・`/team`・`/my-teams` などは新しい URL に転送）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末やボットが同じデータを読み書きできます（連携中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。ボット側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
+サイトの「データ共有」ページ（`/data-share`。ポケモン登録は `/my-pokemon`、チーム登録は `/my-team`。以前の `/data-sync`・`/sync`・`/pokemon`・`/roster`・`/team`・`/my-teams` などは新しい URL に転送）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末やボットが同じデータを読み書きできます（データ共有中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。ボット側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
 
 ### 育成済みポケモンの登録（`-p` / `--pokemon`）
 
@@ -138,7 +138,7 @@ dotnet test tests/FaraPokemonBattleAssistant.Core.Tests
 dotnet run --project src/FaraPokemonBattleAssistant.Web      # https://localhost:52017
 npm ci && npm run preview                                # Cloudflare と同じ動きで http://localhost:8787
 npm run check                                            # dotnet publish + wrangler deploy --dry-run（本番・develop）
-npm run test:worker                                      # データ連携 API（worker/index.js）を wrangler dev で確認
+npm run test:worker                                      # データ共有 API（worker/index.js）を wrangler dev で確認
 ```
 
 ### 計算で考慮しているもの
@@ -177,9 +177,9 @@ npm run test:worker                                      # データ連携 API�
 | Secrets | `CLOUDFLARE_API_TOKEN` | Cloudflare の API トークン（テンプレート Edit Cloudflare Workers、ゾーン `fara-labs.com`） |
 | Variables | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare のアカウント ID |
 
-### 登録データの連携 API
+### 登録データの共有 API
 
-登録ポケモン・チームを、アクセスキーで読み書きするための API です（`worker/index.js`）。サイトの「データ連携」ページの「API で使うには」にも同じ説明があります。サイトも API の使い手の 1 つで、ボット（FaraBotModerator の `RemoteRosterStore`）はその一例です。
+登録ポケモン・チームを、アクセスキーで読み書きするための API です（`worker/index.js`）。サイトの「データ共有」ページの「API で使うには」にも同じ説明があります。サイトも API の使い手の 1 つで、ボット（FaraBotModerator の `RemoteRosterStore`）はその一例です。
 アクセスキーごとに SQLite ストレージの Durable Object（`RosterSlot`）を 1 つ持ち、登録データ（`RosterState` の JSON）を 1 つの文書として保存しています。API はその一部（ポケモン / チーム）を読み書きします。本番と確認用は Worker が別なので、データも別々です。
 
 登録データはゲーム（データセットのキー: `Champions`・`Gen9` など。大文字小文字は区別しない）ごとに分かれているので、本文の `dataSets` はゲームのキーごとのオブジェクトです。
@@ -197,7 +197,7 @@ npm run test:worker                                      # データ連携 API�
 - 書かなかったゲームは変わりません。登録 ID は使い回さず、`nextId` は「保存していた値・送った `nextId`・一番大きい `Id` + 1」の最大になります
 - 本文と保存後の登録データ全体の上限は 256 KB で、超えると `413`
 - 認証は `Authorization: Bearer <アクセスキー>`。アクセスキーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもので、形式が違えば `401`。キーはクライアントが作るもので、作成・登録の API はありません（新しいキーの置き場は空で、`revision` は 0）
-- キーの作り直し・データ連携の開始では、新しいキーの空の置き場に `PUT /api/my-pokemon`（`baseRevision` 0）→ `PUT /api/my-team`（`baseRevision` 1）の順で移してから新しいキーに切り替え、古いキーには `DELETE /api/access-key` を呼びます。新しいキーは移し終わるまで誰も使わないので、途中の状態は見えません（途中で失敗したら新しいキーは使わずに捨てます）
+- キーの作り直し・データ共有の開始では、新しいキーの空の置き場に `PUT /api/my-pokemon`（`baseRevision` 0）→ `PUT /api/my-team`（`baseRevision` 1）の順で移してから新しいキーに切り替え、古いキーには `DELETE /api/access-key` を呼びます。新しいキーは移し終わるまで誰も使わないので、途中の状態は見えません（途中で失敗したら新しいキーは使わずに捨てます）
 - サーバーはキーを保存せず、`SHA-256(キー)` を Durable Object の名前に使います。キーはログ・URL・エラーメッセージに出しません
 - すべての応答に `Cache-Control: no-store`。CORS ヘッダーは付けません（サイトは同じオリジン、ボットはブラウザではないため）
 - 以前の `/api/roster` はありません（`404`）
