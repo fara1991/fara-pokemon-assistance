@@ -23,7 +23,7 @@
     <div class="card-body">
         @if (!Sync.IsSyncing)
         {
-            <p class="small text-muted mb-2">今はこのブラウザだけに保存しています。データ連携を始めると、別のブラウザ・端末やボットと同じ登録データを読み書きできます。</p>
+            <Notice Class="mb-2">今はこのブラウザだけに保存しています。データ連携を始めると、別のブラウザ・端末やボットと同じ登録データを読み書きできます。</Notice>
             <div class="d-flex flex-wrap gap-2 align-items-start">
                 <button class="btn btn-primary btn-sm" disabled="@syncBusy" @onclick="StartSyncAsync">データ連携を始める（新しいアクセスキーを作る）</button>
                 <div class="input-group input-group-sm sync-join">

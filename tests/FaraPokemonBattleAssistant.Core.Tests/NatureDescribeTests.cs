@@ -17,11 +17,11 @@ public class NatureDescribeTests
     }
 
     [Fact]
-    public void Summary_shows_only_stat_changes_and_omits_neutral()
+    public void Summary_shows_only_stat_changes_and_labels_neutral()
     {
         var modest = new Nature { Name = "ひかえめ", IncreasedStat = Stat.SpAttack, DecreasedStat = Stat.Attack };
         Assert.Equal("C↑A↓", modest.Summary());
-        Assert.Null(new Nature { Name = "まじめ" }.Summary());
+        Assert.Equal("補正無し", new Nature { Name = "まじめ" }.Summary());
     }
 
     [Fact]
@@ -33,11 +33,11 @@ public class NatureDescribeTests
         Assert.Contains("A↑C↓", adamant.Message);
         Assert.DoesNotContain("いじっぱり", adamant.Message);
         var hardy = await cmd.ExecuteAsync("!pokech add -p ガブリアス 0 32 0 0 2 32 まじめ");
+        Assert.Contains("補正無し", hardy.Message);
         Assert.DoesNotContain("まじめ", hardy.Message);
         Assert.DoesNotContain("↑", hardy.Message);
         var ls = await cmd.ExecuteAsync("!pokech ls -p");
         Assert.Contains("#1 ガブリアス(A↑C↓)", ls.Message);
-        Assert.Contains("#2 ガブリアス", ls.Message);
-        Assert.DoesNotContain("#2 ガブリアス(", ls.Message);
+        Assert.Contains("#2 ガブリアス(補正無し)", ls.Message);
     }
 }
