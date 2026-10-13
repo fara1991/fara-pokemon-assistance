@@ -282,7 +282,7 @@ else if (data is not null && dataSet is not null)
                     </div>
                     <div class="build-grid mb-2">
                     <div class="form-group">
-                        <label>持ち物 <Help Title="持ち物">すばやさが変わる持ち物を先に並べます。ほかの持ち物も選べます。こだわりスカーフは 1.5 倍、くろいてっきゅう・パワー系（パワーリストなど）は 0.5 倍で計算します。メガシンカ後はメガストーンで固定です。</Help></label>
+                        <label>持ち物 <Help Title="持ち物">すばやさが変わる持ち物を先に並べます。ほかの持ち物も選べます。こだわりスカーフは 1.5 倍、くろいてっきゅう・きょうせいギプス・パワー系（パワーリストなど）は 0.5 倍、スピードパウダーはメタモンが持つと 2 倍で計算します。メガシンカ後はメガストーンで固定です。</Help></label>
                         @if (build.Pokemon.IsMega)
                         {
                             <FixedField Value="@build.Item?.Name" Reason="@FixedField.MegaReason" />

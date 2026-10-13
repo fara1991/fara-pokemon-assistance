@@ -302,6 +302,23 @@ public class SpeedConditionTests
     private static PokemonBuild Build(string ability, int speed = 100) =>
         new(Mon(speed)) { Ability = new Ability { Id = 1, Identifier = ability, Name = ability } };
 
+    [Theory]
+    [InlineData(264, 1, 1.5)]   // こだわりスカーフ
+    [InlineData(255, 1, 0.5)]   // くろいてっきゅう
+    [InlineData(192, 1, 0.5)]   // きょうせいギプス
+    [InlineData(266, 1, 0.5)]   // パワーリスト
+    [InlineData(271, 1, 0.5)]   // パワーウエイト
+    [InlineData(251, 132, 2.0)] // スピードパウダー（メタモン）
+    [InlineData(251, 1, 1.0)]   // スピードパウダー（メタモン以外は効かない）
+    public void Speed_items_are_applied(int itemId, int pokemonId, double factor)
+    {
+        var mon = new Pokemon { Id = pokemonId, Name = "テスト", Type1 = "Normal", BaseStats = new StatSet(100, 100, 100, 100, 100, 100), SpeciesId = pokemonId };
+        var build = new PokemonBuild(mon) { Item = new Item { Id = itemId, Name = "x" } };
+        var plain = StatCalculator.Calculate(build, Stat.Speed);
+        Assert.InRange(SpeedCalculator.Effective(build).Speed, (int)Math.Floor(plain * factor), (int)Math.Ceiling(plain * factor));
+        Assert.True(SpeedCalculator.IsSpeedItem(build.Item!));
+    }
+
     [Fact]
     public void Chlorophyll_doubles_in_sun_and_is_shown_as_potential_otherwise()
     {

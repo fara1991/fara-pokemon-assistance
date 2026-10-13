@@ -8,6 +8,11 @@ public static class SpeedCalculator
 {
     private const int ItemIdChoiceScarf = 264;
     private const int ItemIdIronBall = 255;
+    /// <summary>きょうせいギプス。パワー系と同じく素早さ 0.5 倍。</summary>
+    private const int ItemIdMachoBrace = 192;
+    /// <summary>スピードパウダー。メタモンが持つと素早さ 2 倍（へんしん後は効かないので、ここでは変身前として扱う）。</summary>
+    private const int ItemIdQuickPowder = 251;
+    private const int PokemonIdDitto = 132;
     /// <summary>パワーリスト・パワーレンズ・パワーバンド・パワーアンクル・パワーウエイト（パワーベルトは 267）。素早さ 0.5 倍。</summary>
     private static readonly HashSet<int> PowerItemIds = new() { 266, 267, 268, 269, 270, 271 };
 
@@ -123,13 +128,15 @@ public static class SpeedCalculator
         null => null,
         { Id: ItemIdChoiceScarf } item => new SpeedFactor($"{item.Name}(1.5倍)", 1.5),
         { Id: ItemIdIronBall } item => new SpeedFactor($"{item.Name}(0.5倍)", 0.5),
+        { Id: ItemIdMachoBrace } item => new SpeedFactor($"{item.Name}(0.5倍)", 0.5),
+        { Id: ItemIdQuickPowder } item when build.Pokemon.Id == PokemonIdDitto => new SpeedFactor($"{item.Name}(2倍)", 2.0),
         var item when PowerItemIds.Contains(item.Id) => new SpeedFactor($"{item.Name}(0.5倍)", 0.5),
         _ => null,
     };
 
-    /// <summary>素早さが変わる持ち物（こだわりスカーフ・くろいてっきゅう・パワー系）か。素早さ比較の持ち物の候補に使う。</summary>
+    /// <summary>素早さが変わる持ち物（こだわりスカーフ・くろいてっきゅう・きょうせいギプス・パワー系・スピードパウダー）か。素早さ比較の持ち物の候補に使う。</summary>
     public static bool IsSpeedItem(Item item) =>
-        item.Id is ItemIdChoiceScarf or ItemIdIronBall || PowerItemIds.Contains(item.Id);
+        item.Id is ItemIdChoiceScarf or ItemIdIronBall or ItemIdMachoBrace or ItemIdQuickPowder || PowerItemIds.Contains(item.Id);
 
     private static bool ParadoxActive(PokemonBuild build, string ability, Weather weather, Terrain terrain) =>
         build.Item?.Id == ItemIdBoosterEnergy || (ability == "protosynthesis" ? weather == Weather.Sun : terrain == Terrain.Electric);
