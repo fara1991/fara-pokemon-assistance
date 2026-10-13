@@ -3,7 +3,7 @@
 @* 登録データの保存先を 1 行で知らせる。データ連携のページへの入口も兼ねる。 *@
 @if (!Sync.IsSyncing)
 {
-    <div class="alert alert-info reg-note small mb-0 mt-2 py-2" role="status"><i class="bi bi-info-circle" aria-hidden="true"></i> このブラウザだけに保存しています。ほかの端末やボットと共有するには<a href="sync">データ連携</a>を使います。</div>
+    <Notice Class="mt-2">このブラウザだけに保存しています。ほかの端末やボットと共有するには<a href="sync">データ連携</a>を使います。</Notice>
 }
 
 @code {

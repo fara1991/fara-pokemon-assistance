@@ -96,7 +96,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                 <div class="card-body p-0">
                     @if (roster.Pokemon.Count == 0)
                     {
-                        <p class="p-3 mb-0 text-muted">まだ登録がありません。</p>
+                        <Notice Empty="true" Class="m-3">まだ登録がありません。</Notice>
                     }
                     else
                     {

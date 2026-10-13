@@ -58,7 +58,19 @@ fara-pokemon-battle-assistant/
 
 ### 育成済みポケモンの登録（`-p` / `--pokemon`）
 
-対象はオプションで指定します。ポケモンは `-p`（長い形は `--pokemon`）、チームは `-t`（`--team`）で、サブコマンドの直後に置きます（短い形: `!pokech add -p ガブリアス 4 32 0 0 0 30 ようき`、`!pokech use -t 1`。長い形も同じ意味: `!pokech add --pokemon ガブリアス 4 32 0 0 0 30 ようき`、`!pokech use --team 1`）。`add pokemon` のような単語の形は使えません（`add` だけを打つと、`-p` か `-t` を付けるよう案内します）。全角スペースや全角の英数字・記号（`ｄｍｇ`・`－ｐ`・`＋１` など）は半角として読み取ります（`PokeCommand` / `DamageCommand` の入口で `CommandText.Normalize`）。
+対象はオプションで指定します。ポケモンは `-p`（長い形は `--pokemon`）、チームは `-t`（`--team`）で、サブコマンドの直後に置きます。長い形は短い形と同じ意味です（例は下）。`add pokemon` のような単語の形は使えません（`add` だけを打つと、`-p` か `-t` を付けるよう案内します）。全角スペースや全角の英数字・記号（`ｄｍｇ`・`－ｐ`・`＋１` など）は半角として読み取ります（`PokeCommand` / `DamageCommand` の入口で `CommandText.Normalize`）。
+
+例（短い形の直後に、同じ意味の長い形を並べています）:
+
+```
+!pokech add -p ガブリアス 4 32 0 0 0 30 ようき
+!pokech add --pokemon ガブリアス 4 32 0 0 0 30 ようき
+!pokech ls -p
+!pokech ls --pokemon
+!pokech ls -p ガブリアス
+!pokech use -t 1
+!pokech use --team 1
+```
 
 | コマンド | 内容 |
 |---|---|

@@ -106,7 +106,7 @@
         </div>
         @if (results.Count == 0)
         {
-            <p class="text-muted p-3 mb-0">条件に合うポケモンはいません。</p>
+            <Notice Empty="true" Class="m-3">条件に合うポケモンはいません。</Notice>
         }
         <Virtualize TItem="Pokemon" Items="results" Context="p" ItemSize="54" OverscanCount="8">
             <div class="dex-item @(s.SelectedId == p.Id ? "selected" : "")" @key="p.Id">
