@@ -2851,7 +2851,7 @@ html.vt-nav .sidebar {
     --nebula-2: rgba(232, 121, 249, 0.24);
     --nebula-3: rgba(99, 102, 241, 0.2);
     --nebula-blend: normal;
-    --glass: rgba(255, 255, 255, 0.78);
+    --glass: rgba(255, 255, 255, 0.86);
     --brand-grad: linear-gradient(120deg, #7c3aed 0%, #c026d3 50%, #4f46e5 100%);
 }
 
@@ -2865,7 +2865,7 @@ html.vt-nav .sidebar {
     --nebula-2: rgba(232, 121, 249, 0.4);
     --nebula-3: rgba(99, 102, 241, 0.35);
     --nebula-blend: screen;
-    --glass: rgba(34, 20, 60, 0.55);
+    --glass: rgba(26, 14, 48, 0.82);
     --brand-grad: linear-gradient(120deg, #c084fc 0%, #e879f9 45%, #818cf8 100%);
     --app-body-bg: #070312;
     --bs-body-bg: #070312;
@@ -2999,11 +2999,11 @@ html.vt-nav .sidebar {
     100% { transform: translate(-50px, 50px) scale(0.94); }
 }
 
-/* すりガラスのカード（中の表も背景を透かす） */
+/* 半透明のカード（中の表も背景を透かす）。
+   backdrop-filter（ぼかし）は使わない: 付けた要素が position: fixed の基準になり、
+   画面基準で置く候補リスト（faraPlaceDropdown）やヘルプの吹き出しがずれたり、カードの外で切れたりする */
 .card {
     --bs-card-bg: var(--glass);
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
 }
 
 .card .table {
