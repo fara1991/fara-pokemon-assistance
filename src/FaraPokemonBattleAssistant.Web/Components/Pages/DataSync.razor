@@ -1,4 +1,4 @@
-@page "/sync"
+@page "/data-sync"
 @using FaraPokemonBattleAssistant.Core.Roster
 @implements IDisposable
 @inject CloudSync Sync
@@ -10,7 +10,7 @@
 
 <div class="page-header">
     <h3>データ連携 <Help Title="データ連携">登録したポケモンとチームを、別のブラウザ・端末やボットと共有するための設定です。使わないときは、登録データはこのブラウザだけに保存されます。</Help></h3>
-    <p class="text-muted mb-0">アクセスキーを作ると、<a href="pokemon">ポケモン登録</a>と<a href="team">チーム登録</a>のデータがクラウドに保存され、同じアクセスキーを入れた別のブラウザ・端末やボットから読み書きできます。</p>
+    <p class="text-muted mb-0">アクセスキーを作ると、<a href="my-pokemon">ポケモン登録</a>と<a href="my-teams">チーム登録</a>のデータがクラウドに保存され、同じアクセスキーを入れた別のブラウザ・端末やボットから読み書きできます。</p>
 </div>
 
 @* PC: 見出しは固定にして、カードの中だけがスクロールする *@

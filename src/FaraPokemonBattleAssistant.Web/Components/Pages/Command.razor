@@ -1,4 +1,4 @@
-@page "/command"
+@page "/chat-commands"
 @inherits AppPageBase
 @inject DataCatalog Catalog
 @inject PokeCommand Poke
@@ -11,7 +11,7 @@
     <h3>チャットコマンドを試す <Help Title="チャットコマンド">Twitch のチャットに打つのと同じ文字列を入力すると、ボットが返す 1 行がそのまま表示されます。接頭辞（!@(App.CommandPrefix)）は左のメニューで選んだゲームに合わせて変わります。</Help></h3>
     <p class="mb-1">Twitch の配信チャットでボット（<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a>）に打つ <code>!@(App.CommandPrefix)</code> のコマンドを、ブラウザで組み立てて試せるページです。配信中に打つ前に結果を確かめたり、使えるコマンドを調べたりするときに使います。</p>
     <p class="text-muted mb-0">下の選択欄を変えるとコマンドに反映され、コマンドを書き換えると選択欄にも反映されます。</p>
-    <p class="text-muted small mb-0 mt-1">H: HP / A: こうげき / B: ぼうぎょ / C: とくこう / D: とくぼう / S: すばやさ（<a href="glossary">用語・略語</a>）</p>
+    <p class="text-muted small mb-0 mt-1">H: HP / A: こうげき / B: ぼうぎょ / C: とくこう / D: とくぼう / S: すばやさ（<a href="battle-terms">用語・略語</a>）</p>
 </div>
 
 @if (App.DataSet is { CalcSupported: false } refOnly)

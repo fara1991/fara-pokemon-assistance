@@ -1,4 +1,4 @@
-@page "/speed"
+@page "/speed-comparison"
 @inherits AppPageBase
 @using FaraPokemonBattleAssistant.Core.Roster
 @inject DataCatalog Catalog
@@ -210,7 +210,7 @@ else if (data is not null && dataSet is not null)
         if (P1Query is > 0 and var id)
         {
             OnPokemonChanged(0, id.ToString());
-            Nav.NavigateTo("speed", replace: true);
+            Nav.NavigateTo("speed-comparison", replace: true);
         }
     }
 

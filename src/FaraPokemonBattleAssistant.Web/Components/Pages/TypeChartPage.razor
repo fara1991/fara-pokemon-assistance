@@ -1,4 +1,4 @@
-@page "/types"
+@page "/type-chart"
 @inherits AppPageBase
 @using FaraPokemonBattleAssistant.Core.Battle
 @inject DataCatalog Catalog
@@ -311,7 +311,7 @@
         if (PokemonQuery is > 0 and var id)
         {
             OnSelectedChanged(id.ToString());
-            Nav.NavigateTo("types", replace: true);
+            Nav.NavigateTo("type-chart", replace: true);
         }
     }
 
