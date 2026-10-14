@@ -47,14 +47,21 @@ public static class SelfFieldEffects
 
     /// <summary>
     /// <paramref name="attacker"/>（特性 <paramref name="attackerAbility"/>）が作る天候・フィールドで、<paramref name="move"/>（タイプは <paramref name="type"/>。スキン系で変わった後）が
-    /// <paramref name="target"/> に当たるときの補正。天候・フィールドを作らない特性なら補正なし。
+    /// <paramref name="target"/> に当たるときの補正。天候・フィールドを作らない特性なら補正なし（ちからもち・ヨガパワーの物理技 2 倍だけは掛かる）。
     /// 相手がノーてんき・エアロックなら天候の効果は無い。フィールドの補正は第 7 世代 1.5 倍、第 8 世代から 1.3 倍。
     /// </summary>
     public static Result For(Move move, string type, Pokemon attacker, Ability? attackerAbility, Pokemon target, Ability? targetAbility, int generation)
     {
         var ability = attackerAbility?.Identifier;
         var name = FieldName(ability, generation);
-        if (name is null) return new Result(type, 1.0, false, false, null);
+        if (name is null)
+        {
+            // 天候・フィールドを作らない特性でも、攻撃を 2 倍にするちからもち・ヨガパワーは、物理技の威力の倍率に含める
+            // （ボディプレスは防御で計算するので掛からない）。タイプ相性表の「威力 × 倍率」の並び順に効く
+            if (ability is "huge-power" or "pure-power" && move.Category == MoveCategory.Physical && move.Id != MoveIdBodyPress)
+                return new Result(type, 2.0, false, false, attackerAbility!.Name);
+            return new Result(type, 1.0, false, false, null);
+        }
 
         var weatherNegated = targetAbility?.Identifier is "cloud-nine" or "air-lock";
         var weather = weatherNegated ? null : FieldEffects.WeatherFromAbility(ability);
