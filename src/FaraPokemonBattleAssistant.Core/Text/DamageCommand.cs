@@ -417,10 +417,38 @@ public sealed class DamageCommand
     {
         var a = request.Attacker;
         var d = request.Defender;
+        var tagText = TagText(request, result, dataSet, request.IsCritical);
+        var warnText = warnings is { Count: > 0 } ? $" ※{string.Join("、", warnings)}" : "";
+
+        // ダイマックス技・Z 技に変わるときは、変換後の技名も添える（例: じしん（ライジングランドオーバー））
+        var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
+        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort()} HP{result.DefenderHP}): " +
+               $"{result.RangeText} {result.KnockOut}{tagText}{warnText}";
+    }
+
+    /// <summary>
+    /// 急所なし・ありを 1 つにまとめた表示（ダメージ計算機の「チャットでの表示」用）。
+    /// 例: 〜: 12.6〜15.3% (24〜29) 乱数7発(8.4%) / 急所 18.9〜22.6% (36〜43) 乱数5発(97.5%) [いまひとつ(0.5倍) 雪]。
+    /// <paramref name="request"/> は急所なしの条件、<paramref name="crit"/> は同じ条件で急所に当たったときの結果。
+    /// </summary>
+    public static string FormatBoth(DamageRequest request, DamageResult result, DamageResult crit, DataSetInfo dataSet, IReadOnlyList<string>? warnings = null)
+    {
+        var a = request.Attacker;
+        var d = request.Defender;
+        var tagText = TagText(request, result, dataSet, withCritical: false);
+        var warnText = warnings is { Count: > 0 } ? $" ※{string.Join("、", warnings)}" : "";
+        var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
+        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort()} HP{result.DefenderHP}): " +
+               $"{result.RangeText} {result.KnockOut} / 急所 {crit.RangeText} {crit.KnockOut}{tagText}{warnText}";
+    }
+
+    /// <summary>末尾の [相性 Z技 急所 天候 フィールド 壁 ダブル]。</summary>
+    private static string TagText(DamageRequest request, DamageResult result, DataSetInfo dataSet, bool withCritical)
+    {
         var tags = new List<string>();
         if (result.TypeEffectiveness != 1.0) tags.Add(result.EffectivenessText);
         if (request.IsZMove) tags.Add("Z技");
-        if (request.IsCritical) tags.Add("急所");
+        if (withCritical) tags.Add("急所");
         if (request.Weather != Weather.None) tags.Add(FieldNames.Japanese(request.Weather, dataSet.Generation));
         if (request.Terrain != Terrain.None) tags.Add(FieldNames.Japanese(request.Terrain));
         if (request.Screen) tags.Add("壁");
@@ -430,13 +458,7 @@ public sealed class DamageCommand
             if (request.LightScreen) tags.Add("ひかりのかべ");
         }
         if (request.Format == BattleFormat.Doubles) tags.Add("ダブル");
-        var tagText = tags.Count > 0 ? $" [{string.Join(" ", tags)}]" : "";
-        var warnText = warnings is { Count: > 0 } ? $" ※{string.Join("、", warnings)}" : "";
-
-        // ダイマックス技・Z 技に変わるときは、変換後の技名も添える（例: じしん（ライジングランドオーバー））
-        var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
-        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort()} HP{result.DefenderHP}): " +
-               $"{result.RangeText} {result.KnockOut}{tagText}{warnText}";
+        return tags.Count > 0 ? $" [{string.Join(" ", tags)}]" : "";
     }
 
     /// <summary>「HP50%」「残りHP30%」（正規化後の小文字）。</summary>
