@@ -23,7 +23,11 @@
 <Toasts />
 
 @code {
-    protected override void OnInitialized() => Stage.Changed += OnStageChanged;
+    protected override async Task OnInitializedAsync()
+    {
+        Stage.Changed += OnStageChanged;
+        await Stage.InitializeAsync();
+    }
 
     private void OnStageChanged() => InvokeAsync(StateHasChanged);
 

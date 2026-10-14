@@ -1,6 +1,7 @@
 @page "/my-pokemon"
 @inherits RosterPageBase
 @using FaraPokemonBattleAssistant.Core.Roster
+@inject BattleStage Stage
 
 <PageTitle>ポケモン登録 | Pokémon Battle Assistant</PageTitle>
 
@@ -82,6 +83,27 @@ else if (data is not null && roster is not null && dataSet is not null)
                             </select>
                         }
                     </div>
+                    <div class="form-group mb-3">
+                        <label>技（4 つまで） <Help Title="技">登録するポケモンが覚える技から、4 つまで選べます（選ばなくても登録できます）。同じ技は 1 つだけです。左のメニューの「対戦画面で表示」をオンにすると、選んだ技が対戦画面の右下に出ます。</Help></label>
+                        <div class="move-pick-grid">
+                            @for (var i = 0; i < RegisteredPokemon.MaxMoves; i++)
+                            {
+                                var slot = i;
+                                <SearchableSelect TItem="Move"
+                                    Items="MoveChoices(slot)"
+                                    DisplayText="@(m => m.Name)"
+                                    ValueSelector="@(m => m.Id.ToString())"
+                                    SelectedValue="@(s.NewMoves[slot]?.Id.ToString() ?? "")"
+                                    SelectedValueChanged="@(v => OnMoveChanged(slot, v))"
+                                    Disabled="@(s.NewPokemon is null)"
+                                    Dropdown="true"
+                                    EmptyOption="なし"
+                                    Placeholder="@($"技 {slot + 1}")">
+                                    <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto">@(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
+                                </SearchableSelect>
+                            }
+                        </div>
+                    </div>
                     @if (s.NewPokemon is not null)
                     {
                         <div class="stats-summary mb-2">実数値：@FormatStats(StatCalculator.CalculateAll(NewBuild()))</div>
@@ -113,6 +135,13 @@ else if (data is not null && roster is not null && dataSet is not null)
                                     <button class="btn btn-outline-danger btn-sm flex-shrink-0" @onclick="() => RemovePokemonAsync(e.Id)">削除</button>
                                 </div>
                                 <div class="small mt-1">@NatureText(e.Nature)　@EvRules.Label(dataSet.EvSystem) @e.EVs.ToShortString()</div>
+                                @if (e.MoveIds.Count > 0)
+                                {
+                                    <div class="small reg-moves">技：@foreach (var mid in e.MoveIds)
+                                    {
+                                        if (data.FindMove(mid) is { } mv) { <span class="reg-move"><TypeIcon Type="@mv.Type" Small="true" />@mv.Name</span> }
+                                    }</div>
+                                }
                                 <div class="small text-muted">実数値 @(build is null ? "-" : FormatStats(StatCalculator.CalculateAll(build)))</div>
                             </li>
                         }
@@ -132,6 +161,8 @@ else if (data is not null && roster is not null && dataSet is not null)
         public StatSet NewEvs { get; set; } = new();
         public Nature? NewNature { get; set; }
         public Ability? NewAbility { get; set; }
+        /// <summary>選んでいる技（4 つの枠。空の枠は null）。</summary>
+        public Move?[] NewMoves { get; set; } = new Move?[RegisteredPokemon.MaxMoves];
     }
 
     private State s = new();
@@ -154,15 +185,48 @@ else if (data is not null && roster is not null && dataSet is not null)
             s.NewEvs = new StatSet();
             s.NewNature = data.FindNature("まじめ");
             s.NewAbility = null;
+            s.NewMoves = new Move?[RegisteredPokemon.MaxMoves];
         }
         s.NewNature ??= data.FindNature("まじめ");
     }
+
+    // 登録するポケモンを、背景のバトルフィールドの自分側（左下）に立たせ、選んだ技を「対戦画面で表示」に出す。
+    // 登録の入力は、ダメージ計算機・素早さ比較で選んだポケモンには入れない（ShowOnly）
+    protected override void OnAfterRender(bool firstRender)
+    {
+        Stage.ShowOnly(App.DataSetKey, s.NewPokemon, null);
+        Stage.SetScene(this, BuildScene());
+    }
+
+    public override void Dispose()
+    {
+        Stage.ClearScene(this);
+        base.Dispose();
+    }
+
+    private RegisterScene? BuildScene()
+    {
+        if (dataSet is null || s.NewPokemon is null) return null;
+        var moves = s.NewMoves.OfType<Move>().Select(m => new MoveSlot(m.Name, m.Type)).ToList();
+        return new RegisterScene(s.NewPokemon.Name, StatCalculator.CalculateAll(NewBuild()).HP, moves);
+    }
+
+    /// <summary>その枠で選べる技。登録するポケモンが覚える技から、ほかの枠で選んだ技を除く。</summary>
+    private IReadOnlyList<Move> MoveChoices(int slot)
+    {
+        if (data is null || s.NewPokemon is null) return Array.Empty<Move>();
+        var taken = s.NewMoves.Where((m, i) => i != slot && m is not null).Select(m => m!.Id).ToHashSet();
+        return data.LearnableMoves(s.NewPokemon.Id).Where(m => !taken.Contains(m.Id)).ToList();
+    }
+
+    private void OnMoveChanged(int slot, string value) => s.NewMoves[slot] = data?.FindMove(ParseId(value));
 
     private static int Clamp(object? value, int max) => Math.Clamp(int.TryParse(value?.ToString(), out var v) ? v : 0, 0, max);
 
     private void OnNewPokemonChanged(string value)
     {
         s.NewPokemon = data?.FindPokemon(ParseId(value));
+        s.NewMoves = new Move?[RegisteredPokemon.MaxMoves];
         s.NewAbility = s.NewPokemon is null || data is null ? null : AbilityEffects.ChooseDefault(data.AbilitiesOf(s.NewPokemon), null);
     }
 
@@ -174,12 +238,13 @@ else if (data is not null && roster is not null && dataSet is not null)
         if (EvRules.Validate(dataSet.EvSystem, s.NewEvs) is { } error) { Show(error, true); return; }
         await MutateAsync(async () =>
         {
-            var entry = await Repo.AddPokemonAsync(App.DataSetKey, s.NewPokemon, s.NewEvs.Clone(), s.NewNature, s.NewAbility);
+            var entry = await Repo.AddPokemonAsync(App.DataSetKey, s.NewPokemon, s.NewEvs.Clone(), s.NewNature, s.NewAbility, s.NewMoves.OfType<Move>().Select(m => m.Id).ToList());
             Show($"#{entry.Id} {entry.PokemonName} を登録しました", false);
             // 続けて別のポケモンを登録しやすいよう、選択中のポケモンと特性は空に戻す（振り分けは 0 に戻す。性格は残す）
             s.NewPokemon = null;
             s.NewAbility = null;
             s.NewEvs = new StatSet();
+            s.NewMoves = new Move?[RegisteredPokemon.MaxMoves];
         });
     }
 

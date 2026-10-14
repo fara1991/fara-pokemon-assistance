@@ -1,5 +1,6 @@
 using FaraPokemonBattleAssistant.Core.Data;
 using FaraPokemonBattleAssistant.Core.Models;
+using Microsoft.JSInterop;
 
 namespace FaraPokemonBattleAssistant.Web.Services;
 
@@ -11,6 +12,32 @@ namespace FaraPokemonBattleAssistant.Web.Services;
 /// </summary>
 public sealed class BattleStage
 {
+    private const string StorageKey = "fara-pokemon-battle-assistant.battle-view";
+    private readonly IJSRuntime _js;
+    private Task? _init;
+
+    public BattleStage(IJSRuntime js) => _js = js;
+
+    /// <summary>「対戦画面で表示」のスイッチを前回の状態に戻す（ブラウザに保存している）。複数の場所から呼ばれても 1 回だけ読む。</summary>
+    public Task InitializeAsync() => _init ??= InitializeCoreAsync();
+
+    private async Task InitializeCoreAsync()
+    {
+        try
+        {
+            var saved = await _js.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            if (saved == "1" && !BattleView)
+            {
+                BattleView = true;
+                Changed?.Invoke();
+            }
+        }
+        catch
+        {
+            // localStorage が使えない環境（プライベートモード等）ではオフのまま
+        }
+    }
+
     /// <summary>今の 2 体を決めたときのデータセット。データセットが変わったら選び直す。</summary>
     public string DataSetKey { get; private set; } = "";
     public Pokemon? Mine { get; private set; }
@@ -37,6 +64,27 @@ public sealed class BattleStage
     {
         if (BattleView == on) return;
         BattleView = on;
+        Changed?.Invoke();
+        _ = SaveAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        try { await _js.InvokeVoidAsync("localStorage.setItem", StorageKey, BattleView ? "1" : "0"); }
+        catch { /* 保存できなくても、その場の表示には困らない */ }
+    }
+
+    /// <summary>
+    /// 背景に立たせる 2 体を、ページで「選んだ」ことにせずに出す（ポケモン登録用。ほかのページの入力欄には入れない）。
+    /// 選んでいない側（null）は今のままにする。
+    /// </summary>
+    public void ShowOnly(string dataSetKey, Pokemon? mine, Pokemon? foe)
+    {
+        if (dataSetKey != DataSetKey) return;
+        var next = (Mine: mine ?? Mine, Foe: foe ?? Foe);
+        if (next.Mine?.Id == Mine?.Id && next.Foe?.Id == Foe?.Id) return;
+        Mine = next.Mine;
+        Foe = next.Foe;
         Changed?.Invoke();
     }
 

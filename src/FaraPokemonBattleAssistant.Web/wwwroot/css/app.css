@@ -2971,10 +2971,8 @@ html.vt-nav .sidebar {
 .bg-scene.battle .field-plane { animation: none; }
 .page.battle-active main { visibility: hidden; }
 
-.card-header-switch { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.card-header-switch h5 { margin-bottom: 0; }
-.battle-switch { margin: 0; white-space: nowrap; font-size: 0.85rem; }
-.result-bar-switch { padding: 0.15rem 1rem 0.4rem 2.7rem; }
+/* サイドバーのスイッチ（暗い背景なので文字は明るく） */
+.sidebar .side-battle { color: rgba(255, 255, 255, 0.85); font-size: 0.85rem; }
 
 .battle-ui {
     position: fixed;
@@ -2987,8 +2985,6 @@ html.vt-nav .sidebar {
 @media (min-width: 768px) {
     .battle-ui { inset: 0 0 0 230px; --bv-gap: 1.25rem; }
 }
-
-.bv-controls { position: absolute; top: var(--bv-gap); left: var(--bv-gap); }
 
 .bv-box,
 .bv-msg {
@@ -3013,6 +3009,29 @@ html.vt-nav .sidebar {
 @media (min-width: 768px) {
     .bv-msg { align-self: center; width: min(44rem, 100%); }
 }
+/* ポケモン登録: 左下に自分側、右下に技 4 つ（2×2） */
+.bv-bottom-moves { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 0.75rem; }
+.bv-moves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; width: min(25rem, 58%); }
+.bv-move {
+    display: flex; align-items: center; gap: 0.4rem; min-width: 0;
+    padding: 0.55rem 0.7rem; border: 1px solid var(--app-card-border); border-radius: 0.7rem;
+    background: var(--glass); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18); color: var(--bs-body-color); font-weight: 700;
+}
+.bv-move span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bv-move-empty { justify-content: center; color: var(--app-muted); font-weight: 400; }
+@media (max-width: 575.98px) {
+    /* 狭い画面では、技を右下に 1 列に並べる（技名を切らずに読める） */
+    .bv-moves { grid-template-columns: 1fr; width: 58%; gap: 0.35rem; }
+    .bv-move { padding: 0.4rem 0.55rem; font-size: 0.85rem; }
+    .bv-bottom-moves .bv-box { width: 38%; padding: 0.45rem 0.55rem; }
+    .bv-bottom-moves .bv-name { font-size: 0.85rem; }
+}
+
+/* ポケモン登録: 技の 4 枠と、登録一覧の技 */
+.move-pick-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
+.reg-move { display: inline-flex; align-items: center; gap: 0.2rem; margin-right: 0.6rem; }
+
 .bv-msg-move { font-size: 1.05rem; }
 .bv-msg-dmg { margin-top: 0.2rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; }
 .bv-msg-range { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }

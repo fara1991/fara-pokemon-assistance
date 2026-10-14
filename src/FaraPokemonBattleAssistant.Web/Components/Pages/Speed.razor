@@ -77,7 +77,7 @@ else if (data is not null && dataSet is not null)
             @if (s.Builds.Any(x => x is not null))
             {
                 <div class="card result-card result-sticky">
-                    <div class="card-header card-header-switch"><h5>結果</h5>@if (both) { <BattleViewSwitch InputId="battle-view-card" /> }</div>
+                    <div class="card-header"><h5>結果</h5></div>
                     <div class="card-body">
                         @if (s.Builds[0] is { } a && s.Builds[1] is { } b)
                         {
@@ -139,7 +139,6 @@ else if (data is not null && dataSet is not null)
                             <strong>@Verdict(ba, bb, speeds[0]!.Value, speeds[1]!.Value)</strong>
                             <span class="text-muted">（S@(speeds[0]) vs S@(speeds[1])）</span>
                         </div>
-                        <BattleViewSwitch InputId="battle-view-bar" Class="result-bar-switch" />
                     </div>
                 }
             }
