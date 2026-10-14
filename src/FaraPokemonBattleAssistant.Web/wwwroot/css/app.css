@@ -2489,6 +2489,17 @@ button.compact-cell {
     background: var(--app-hp);
 }
 
+/* 急所の乱数で減る幅（通常の幅は赤の斜線、急所は黄の斜線） */
+.hp-calc-range-crit {
+    background: repeating-linear-gradient(-45deg, rgba(245, 158, 11, 0.8) 0 6px, transparent 6px 11px);
+    border-left: 2px solid #f59e0b;
+}
+
+.hp-key-crit {
+    background: repeating-linear-gradient(-45deg, rgba(245, 158, 11, 0.8) 0 4px, transparent 4px 7px);
+    border-left: 2px solid #f59e0b;
+}
+
 .hp-key-gone {
     background: var(--app-dmg);
     opacity: 0.25;
