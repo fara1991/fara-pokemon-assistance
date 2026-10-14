@@ -235,6 +235,12 @@ else if (data is not null && dataSet is not null)
         }
         // そのゲームに無いフィールドは外す
         if (dataSet is { HasTerrain: false } || s.Terrain == Terrain.Psychic && dataSet is { HasPsychicTerrain: false }) s.Terrain = Terrain.None;
+        // ダメージ計算機で選んだポケモンを入れる（攻撃側 → ポケモン1、防御側 → ポケモン2。「登録から選ぶ」の欄はそのまま）
+        if (Stage.DataSetKey == App.DataSetKey)
+        {
+            if (!s.UseRoster[0] && Stage.PickedMine is { } mine && s.Builds[0]?.Pokemon.Id != mine.Id) OnPokemonChanged(0, mine.Id.ToString());
+            if (!s.UseRoster[1] && Stage.PickedFoe is { } foe && s.Builds[1]?.Pokemon.Id != foe.Id) OnPokemonChanged(1, foe.Id.ToString());
+        }
     }
 
     // 選んでいるポケモン1（手前）・ポケモン2（奥）を、背景のバトルフィールドに立たせる

@@ -321,6 +321,12 @@ else if (data is not null && dataSet is not null)
             if (dataSet is { HasTerrain: false } || s.Terrain == Terrain.Psychic && dataSet is { HasPsychicTerrain: false }) s.Terrain = Terrain.None;
             RefreshAttackerLists();
             RefreshDefenderLists();
+            // 素早さ比較で選んだポケモンを入れる（ポケモン1 → 攻撃側、ポケモン2 → 防御側。「登録から選ぶ」の欄はそのまま）
+            if (Stage.DataSetKey == App.DataSetKey)
+            {
+                if (!s.UseRosterAttacker && Stage.PickedMine is { } mine && s.Attacker?.Pokemon.Id != mine.Id) OnAttackerChanged(mine.Id.ToString());
+                if (!s.UseRosterDefender && Stage.PickedFoe is { } foe && s.Defender?.Pokemon.Id != foe.Id) OnDefenderChanged(foe.Id.ToString());
+            }
         }
         catch (Exception ex)
         {

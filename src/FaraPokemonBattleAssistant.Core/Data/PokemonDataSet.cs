@@ -91,8 +91,27 @@ public sealed class PokemonDataSet
                     ? pokemonTable.GetInt(row, "MegaStoneId") : null,
             });
         }
-        Pokemon = pokemon;
-        _pokemonById = pokemon.ToDictionary(p => p.Id);
+        // 見た目だけが違うフォルム（メガニャオニクスの ♂・♀ など。名前・タイプ・種族値・特性・メガストーンがすべて同じ）は、
+        // 対戦で違いが無いので 1 体にまとめる。まとめた方の Id で探されたとき（登録済みのデータなど）は、残した方を返す
+        var kept = new List<Pokemon>();
+        var byBattleKey = new Dictionary<string, Pokemon>();
+        var byId = new Dictionary<int, Pokemon>();
+        foreach (var p in pokemon)
+        {
+            var s = p.BaseStats;
+            var key = string.Join("|", p.SpeciesId, p.Name, p.Type1, p.Type2, s.HP, s.Attack, s.Defense, s.SpAttack, s.SpDefense, s.Speed,
+                string.Join(";", p.AbilityIds), p.MegaStoneId, p.IsProvisional);
+            if (byBattleKey.TryGetValue(key, out var same))
+            {
+                byId[p.Id] = same;
+                continue;
+            }
+            byBattleKey[key] = p;
+            byId[p.Id] = p;
+            kept.Add(p);
+        }
+        Pokemon = kept;
+        _pokemonById = byId;
 
         var moveTable = CsvTable.Parse(movesText);
         var moves = new List<Move>();
