@@ -2489,16 +2489,6 @@ button.compact-cell {
     background: var(--app-hp);
 }
 
-/* 急所の乱数で減る幅（通常の幅は赤の斜線、急所は黄の斜線） */
-.hp-calc-range-crit {
-    background: repeating-linear-gradient(-45deg, rgba(245, 158, 11, 0.8) 0 6px, transparent 6px 11px);
-    border-left: 2px solid #f59e0b;
-}
-
-.hp-key-crit {
-    background: repeating-linear-gradient(-45deg, rgba(245, 158, 11, 0.8) 0 4px, transparent 4px 7px);
-    border-left: 2px solid #f59e0b;
-}
 
 .hp-key-gone {
     background: var(--app-dmg);
@@ -3065,6 +3055,14 @@ html.vt-nav .sidebar {
    結果は、その上に重ねた枠（左下＝自分側、右上＝相手側、下＝技とダメージ）に出す。入力欄は隠す（入力した内容は残る） */
 .bg-scene.battle { --field-mon-opacity: 1; }
 .bg-scene.battle .field-plane { animation: none; }
+/* 横長の画面（PC）では、コートの奥が観客席にはみ出ないよう、観客席・地平線を上に上げる（コートの位置は変えない） */
+@media (min-aspect-ratio: 1/1) {
+    .bg-scene.battle .field-sky { inset: 0 0 76% 0; }
+    .bg-scene.battle .field-stands { top: 7%; height: 17%; }
+    .bg-scene.battle .field-horizon, .bg-scene.battle .field-floor { top: 24%; }
+    .bg-scene.battle .field-plane { top: 47%; }
+}
+
 /* 縦長の画面（スマホ）では、対戦画面のフィールドと、観客席・地平線を上に詰める */
 @media (max-aspect-ratio: 1/1) {
     .bg-scene.battle .field-sky { inset: 0 0 80% 0; }

@@ -186,7 +186,7 @@ else if (data is not null && dataSet is not null)
                         </ol>
                         <div class="input-group">
                             <span class="input-group-text">受けたダメージ</span>
-                            <input class="form-control" inputmode="decimal" placeholder="数値または割合（例: 93 / 45%）" value="@s.ObservedDamageText" @oninput="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
+                            <input class="form-control" placeholder="数値または割合（例: 93 / 45%）" value="@s.ObservedDamageText" @oninput="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
                         </div>
                         <div class="form-check form-switch mt-2">
                             <input class="form-check-input" type="checkbox" role="switch" id="estimate-crit" checked="@s.EstimateCritical" @onchange="@(e => s.EstimateCritical = e.Value is true)" />
@@ -928,7 +928,7 @@ else if (data is not null && dataSet is not null)
                 <span class="ms-2 badge @(crit.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@crit.KnockOut</span>
             </p>
         }
-        @RenderHpBar(result, lastRequest, crit)
+        @RenderHpBar(result, lastRequest)
         <p class="mb-1"><strong>防御側 HP:</strong> @result.DefenderHP　<strong>こうげき実数値:</strong> @result.AttackStat　<strong>ぼうぎょ実数値:</strong> @result.DefenseStat　<strong>威力:</strong> @result.BasePower（@TypeNames.ToJapanese(result.MoveType)）</p>
         @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
         {
@@ -968,24 +968,19 @@ else if (data is not null && dataSet is not null)
     /// 防御側の HP バー。必ず残る HP（最大ダメージ後）・乱数で減る幅・必ず減る HP（最小ダメージ分）の 3 つを、
     /// 今の HP を起点に最大 HP に対する割合で描く。動き（前の結果からの伸び縮み・ポケモンを変えたときは満タンから）は wwwroot/js/motion.js が付ける。
     /// </summary>
-    private RenderFragment RenderHpBar(DamageResult result, DamageRequest lastRequest, DamageResult? crit = null) => __builder =>
+    private RenderFragment RenderHpBar(DamageResult result, DamageRequest lastRequest) => __builder =>
     {
-        // 1 本のバーに、通常（赤の斜線）と急所（黄の斜線）の乱数で減る幅を並べる。緑は、急所の最大ダメージでも残る HP
+        // HP バーは急所なし（通常）だけを出す。急所は、上の「通常」「急所」の行で見る
         var maxHp = result.DefenderHP;
         var start = StartHp(result, lastRequest);
         var immune = result.TypeEffectiveness == 0.0;
         var minD = immune ? 0 : Math.Min(result.MinDamage, start);
         var maxD = immune ? 0 : Math.Min(result.MaxDamage, start);
-        var critMinD = crit is null || immune ? minD : Math.Min(crit.MinDamage, start);
-        var critMaxD = crit is null || immune ? maxD : Math.Min(crit.MaxDamage, start);
-        var worstD = Math.Max(maxD, critMaxD);
         double P(int hp) => hp * 100.0 / maxHp;
-        var keep = P(start - worstD);
+        var keep = P(start - maxD);
         var level = keep > 50 ? "high" : keep > 20 ? "mid" : "low";
         var name = lastRequest.Defender.Pokemon.Name;
-        var left = immune ? $"{start} / {maxHp}（減らない）"
-            : crit is null ? $"残り {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)} / {maxHp}"
-            : $"残り 通常 {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)} / 急所 {Math.Max(0, start - critMaxD)}〜{Math.Max(0, start - critMinD)} / {maxHp}";
+        var left = immune ? $"{start} / {maxHp}（減らない）" : $"残り {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)} / {maxHp}";
         <div class="hp-calc" data-hp-calc data-hp-key="@name" data-hp-immune="@(immune ? "1" : "0")" data-hp-start="@Pct(P(start))">
             <div class="hp-calc-line">
                 <span class="hp-calc-name" data-swap="@name"><PokemonIcon Pokemon="lastRequest.Defender.Pokemon" Small="true" /> @name の HP@(start < maxHp ? $"（現在 {start}）" : "")</span>
@@ -994,17 +989,12 @@ else if (data is not null && dataSet is not null)
             <div class="hp-calc-bar" role="img" aria-label="@(immune ? $"{name} の HP は減りません" : $"{name} の HP {left}")">
                 <div class="hp-calc-gone" data-hp-part="gone" style="left:@Pct(P(start - minD));width:@Pct(P(minD))"></div>
                 <div class="hp-calc-fill" data-hp-part="fill" data-level="@level" style="left:0%;width:@Pct(keep)"></div>
-                <div class="hp-calc-range" data-hp-part="range" style="left:@Pct(P(start - maxD));width:@Pct(P(maxD - minD));@(immune ? "display:none" : "")"></div>
-                @if (crit is not null && !immune)
-                {
-                    <div class="hp-calc-range hp-calc-range-crit" style="left:@Pct(P(start - critMaxD));width:@Pct(Math.Max(P(critMaxD - critMinD), 0.6))"></div>
-                }
+                <div class="hp-calc-range" data-hp-part="range" style="left:@Pct(keep);width:@Pct(P(maxD - minD));@(immune ? "display:none" : "")"></div>
             </div>
             <div class="hp-calc-legend">
-                <span><i class="hp-key-keep"></i>@(crit is null ? "必ず残る HP" : "急所でも必ず残る HP")</span>
+                <span><i class="hp-key-keep"></i>必ず残る HP</span>
                 <span><i class="hp-key-gone"></i>必ず減る HP</span>
-                <span><i class="hp-key-range"></i>@(crit is null ? "乱数で減る幅" : "通常の乱数で減る幅")</span>
-                @if (crit is not null) { <span><i class="hp-key-crit"></i>急所の乱数で減る幅</span> }
+                <span><i class="hp-key-range"></i>乱数で減る幅</span>
             </div>
         </div>
     };
