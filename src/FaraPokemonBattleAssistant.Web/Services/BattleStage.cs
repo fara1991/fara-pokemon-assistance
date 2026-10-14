@@ -56,6 +56,21 @@ public sealed class BattleStage
     public BattleScene? Scene { get; private set; }
 
     private object? sceneOwner;
+    private object? conditionsOwner;
+
+    /// <summary>いま開いているページで入力している天候・フィールド（ダメージ計算機・素早さ比較・ポケモン登録）。背景のフィールドに見た目で出る。</summary>
+    public Weather Weather { get; private set; }
+    public Terrain Terrain { get; private set; }
+
+    /// <summary>ページが、入力している天候・フィールドを出す。同じ内容なら何もしない（描画のたびに呼んでよい）。</summary>
+    public void SetConditions(object owner, Weather weather, Terrain terrain)
+    {
+        if (ReferenceEquals(conditionsOwner, owner) && Weather == weather && Terrain == terrain) return;
+        conditionsOwner = owner;
+        Weather = weather;
+        Terrain = terrain;
+        Changed?.Invoke();
+    }
 
     /// <summary>対戦画面を出している状態か（スイッチがオンで、出す結果がある）。</summary>
     public bool BattleActive => BattleView && Scene is not null;
@@ -101,10 +116,21 @@ public sealed class BattleStage
     /// <summary>ページが閉じたとき・結果がなくなったときに消す。別のページが出した結果は消さない。</summary>
     public void ClearScene(object owner)
     {
-        if (!ReferenceEquals(sceneOwner, owner)) return;
-        sceneOwner = null;
-        Scene = null;
-        Changed?.Invoke();
+        var changed = false;
+        if (ReferenceEquals(sceneOwner, owner))
+        {
+            sceneOwner = null;
+            Scene = null;
+            changed = true;
+        }
+        if (ReferenceEquals(conditionsOwner, owner))
+        {
+            conditionsOwner = null;
+            Weather = Weather.None;
+            Terrain = Terrain.None;
+            changed = true;
+        }
+        if (changed) Changed?.Invoke();
     }
 
     /// <summary>そのデータセットで、まだ 2 体が決まっていなければランダムに決める。</summary>

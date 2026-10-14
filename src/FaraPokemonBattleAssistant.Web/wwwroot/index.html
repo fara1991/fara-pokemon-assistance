@@ -100,6 +100,83 @@
                 (function follow() { window.faraPlaceStage(); requestAnimationFrame(follow); })();
             }
 
+            // 背景の天候（雨・砂嵐・雪）。細かい粒をキャンバスに描く（縞模様ではなく、まばらな雨粒・砂粒・雪の粒）。
+            // kind: "rain" | "sand" | "snow" | ""（なし）、strong: 対戦画面のとき true（粒を多く・濃く）。同じ指定なら何もしない
+            (function () {
+                var kind = "", strong = false, parts = [], raf = 0, last = 0, W = 0, H = 0, canvas = null, ctx = null;
+                var reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+                function rnd(a, b) { return a + Math.random() * (b - a); }
+                function make() {
+                    var area = W * H, k = strong ? 1 : 0.5, n;
+                    parts = [];
+                    if (kind === "rain") n = area / (strong ? 16000 : 30000);
+                    else if (kind === "sand") n = area / (strong ? 8000 : 16000);
+                    else n = area / (strong ? 11000 : 22000);
+                    n = Math.min(Math.round(n), 140);
+                    for (var i = 0; i < n; i++) {
+                        var p = { x: rnd(0, W), y: rnd(0, H), a: rnd(0.35, 0.8) * (0.6 + 0.4 * k) };
+                        if (kind === "rain") { p.len = rnd(9, 20); p.vy = rnd(650, 950); p.vx = -p.vy * 0.12; }
+                        else if (kind === "sand") { p.s = rnd(1.4, 3); p.vx = rnd(260, 520); p.vy = rnd(-18, 30); }
+                        else { p.r = rnd(1.2, 3); p.vy = rnd(24, 60); p.vx = rnd(-12, 12); p.ph = rnd(0, 6.28); }
+                        parts.push(p);
+                    }
+                }
+                function draw(dt) {
+                    ctx.clearRect(0, 0, W, H);
+                    // ライトモード（明るい背景）では、粒を濃い色にして見えるようにする
+                    var light = document.documentElement.getAttribute("data-bs-theme") !== "dark";
+                    var rainRgb = light ? "70,110,190" : "190,215,255", sandRgb = light ? "175,128,60" : "232,200,140", snowRgb = light ? "150,185,235" : "255,255,255";
+                    for (var i = 0; i < parts.length; i++) {
+                        var p = parts[i];
+                        p.x += p.vx * dt; p.y += p.vy * dt;
+                        if (kind === "snow") p.x += Math.sin(p.ph += dt * 1.4) * 0.3;
+                        if (p.y > H + 24) { p.y = -24; p.x = rnd(0, W); }
+                        if (p.y < -30) p.y = H + 20;
+                        if (p.x > W + 24) { p.x = -24; p.y = rnd(0, H); }
+                        if (p.x < -24) p.x = W + 24;
+                        if (kind === "rain") {
+                            ctx.strokeStyle = "rgba(" + rainRgb + "," + Math.min(1, p.a * (light ? 1.1 : 0.8)) + ")";
+                            ctx.lineWidth = 1;
+                            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + p.vx / p.vy * p.len, p.y - p.len); ctx.stroke();
+                        } else if (kind === "sand") {
+                            ctx.fillStyle = "rgba(" + sandRgb + "," + Math.min(1, p.a * (light ? 1.0 : 0.85)) + ")";
+                            ctx.fillRect(p.x, p.y, p.s, p.s);
+                        } else {
+                            ctx.fillStyle = "rgba(" + snowRgb + "," + p.a + ")";
+                            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
+                        }
+                    }
+                }
+                function frame(t) {
+                    var dt = Math.min(0.05, (t - last) / 1000 || 0.016);
+                    last = t;
+                    draw(dt);
+                    raf = requestAnimationFrame(frame);
+                }
+                function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; if (ctx) ctx.clearRect(0, 0, W, H); parts = []; }
+                function size() {
+                    if (!canvas) return;
+                    W = canvas.width = canvas.clientWidth;
+                    H = canvas.height = canvas.clientHeight;
+                }
+                window.faraWeather = function (nextKind, nextStrong) {
+                    nextKind = nextKind || ""; nextStrong = !!nextStrong;
+                    if (nextKind === kind && nextStrong === strong && (kind === "" || raf || reduce.matches)) return;
+                    kind = nextKind; strong = nextStrong;
+                    stop();
+                    if (!kind) return;
+                    canvas = document.querySelector(".wx-canvas");
+                    if (!canvas) { kind = ""; return; }
+                    ctx = canvas.getContext("2d");
+                    size();
+                    make();
+                    if (reduce.matches) { draw(0); return; }   // 視差効果を減らす設定では、動かさず 1 枚だけ描く
+                    last = performance.now();
+                    raf = requestAnimationFrame(frame);
+                };
+                window.addEventListener("resize", function () { if (kind) { size(); make(); if (reduce.matches) draw(0); } });
+            })();
+
             window.faraPlaceNote = function (id) {
                 var el = document.getElementById(id);
                 if (!el || !wide.matches || el.closest(".sidebar")) return;

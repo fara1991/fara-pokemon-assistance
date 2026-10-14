@@ -14,6 +14,7 @@
     --app-dmg: rgba(229, 72, 77, 0.9);
     --app-dmg-range: rgba(229, 72, 77, 0.38);
     --app-track: #e7e1f5;
+    --app-range-empty: #cdc3e6;
     --app-win: #15803d;
     --app-roll-ko-bg: #fde7ea;
 
@@ -43,6 +44,7 @@
     --app-dmg: rgba(251, 113, 133, 0.9);
     --app-dmg-range: rgba(251, 113, 133, 0.35);
     --app-track: #261a40;
+    --app-range-empty: #4f3f78;
     --app-win: #4ade80;
     --app-roll-ko-bg: #3d1a2a;
 
@@ -707,6 +709,29 @@ body {
     flex: 1 1 5rem;
     min-width: 4.5rem;
 }
+
+/* 残り HP のスライダー: 背景に溶けないよう、HP バーと同じ色で残り HP の分を塗り、空の分は見える灰色にする。つまみは白地に同じ色の縁 */
+.hp-range { --hp: 100%; --hp-color: var(--app-hp); --hp-empty: var(--app-range-empty); background: transparent; height: 1.5rem; }
+.hp-range[data-level="mid"] { --hp-color: var(--app-hp-mid); }
+.hp-range[data-level="low"] { --hp-color: var(--app-hp-low); }
+.hp-range::-webkit-slider-runnable-track {
+    box-sizing: border-box; height: 0.75rem; border-radius: 999px; border: 1px solid var(--app-card-border);
+    background: linear-gradient(90deg, var(--hp-color) var(--hp), var(--hp-empty) var(--hp));
+}
+.hp-range::-moz-range-track {
+    box-sizing: border-box; height: 0.75rem; border-radius: 999px; border: 1px solid var(--app-card-border);
+    background: linear-gradient(90deg, var(--hp-color) var(--hp), var(--hp-empty) var(--hp));
+}
+.hp-range::-webkit-slider-thumb {
+    box-sizing: border-box; width: 1.2rem; height: 1.2rem; margin-top: -0.26rem; border: 3px solid var(--hp-color); background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.hp-range::-moz-range-thumb {
+    box-sizing: border-box; width: 1.2rem; height: 1.2rem; border: 3px solid var(--hp-color); background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.hp-range:focus { box-shadow: none; }
+.hp-range:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
 
 .hp-input {
     width: auto;
@@ -3053,47 +3078,40 @@ html.vt-nav .sidebar {
 .bv-cond-weather { background: #4f7cd6; }
 .bv-cond-terrain { background: #5aa05a; }
 
-/* 背景に出す天候（.wx-layer）とフィールド（床の色）。対戦画面のときだけ */
-.wx-layer { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.6s; }
+/* ---- 天候・フィールド（開いているページで入力している内容を、背景のフィールドに見た目で出す）----
+   対戦画面（.battle）のときは濃く、そうでないときは控えめに出す。
+   雨・砂嵐・雪の粒は index.html の faraWeather がキャンバス（.wx-canvas）に描く。ここは色の味付けと、床の色 */
+.wx-layer { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.6s; --wx-tint: transparent; background: var(--wx-tint); }
+.wx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .bg-scene.wx-rain .wx-layer, .bg-scene.wx-sun .wx-layer, .bg-scene.wx-sand .wx-layer, .bg-scene.wx-snow .wx-layer { opacity: 1; }
-.bg-scene.wx-rain .wx-layer {
-    background:
-        repeating-linear-gradient(105deg, transparent 0 13px, rgba(170, 200, 255, 0.5) 13px 14px),
-        linear-gradient(180deg, rgba(40, 70, 140, 0.3), rgba(40, 70, 140, 0.12));
-    background-size: 120px 160px, 100% 100%;
-    animation: wx-rain-fall 0.5s linear infinite;
-}
-@keyframes wx-rain-fall { to { background-position: -40px 160px, 0 0; } }
+.bg-scene.wx-rain .wx-layer { --wx-tint: linear-gradient(180deg, rgba(50, 85, 160, 0.1), rgba(50, 85, 160, 0.04)); }
+.bg-scene.wx-rain.battle .wx-layer { --wx-tint: linear-gradient(180deg, rgba(50, 85, 160, 0.2), rgba(50, 85, 160, 0.08)); }
+.bg-scene.wx-sand .wx-layer { --wx-tint: linear-gradient(180deg, rgba(190, 145, 80, 0.1), rgba(190, 145, 80, 0.05)); }
+.bg-scene.wx-sand.battle .wx-layer { --wx-tint: linear-gradient(180deg, rgba(190, 145, 80, 0.2), rgba(190, 145, 80, 0.1)); }
+.bg-scene.wx-snow .wx-layer { --wx-tint: linear-gradient(180deg, rgba(200, 225, 255, 0.08), rgba(200, 225, 255, 0.02)); }
+.bg-scene.wx-snow.battle .wx-layer { --wx-tint: linear-gradient(180deg, rgba(200, 225, 255, 0.16), rgba(200, 225, 255, 0.05)); }
 .bg-scene.wx-sun .wx-layer {
-    background:
-        radial-gradient(circle at 82% 8%, rgba(255, 214, 90, 0.75) 0, rgba(255, 190, 60, 0.35) 18%, transparent 46%),
-        linear-gradient(180deg, rgba(255, 170, 60, 0.18), rgba(255, 200, 100, 0.06));
+    --wx-tint:
+        radial-gradient(circle at 82% 8%, rgba(255, 214, 90, 0.4) 0, rgba(255, 190, 60, 0.18) 18%, transparent 44%),
+        linear-gradient(180deg, rgba(255, 170, 60, 0.06), transparent);
 }
-.bg-scene.wx-sand .wx-layer {
-    background:
-        repeating-linear-gradient(8deg, transparent 0 22px, rgba(255, 230, 170, 0.35) 22px 24px),
-        linear-gradient(180deg, rgba(190, 140, 70, 0.36), rgba(190, 140, 70, 0.2));
-    background-size: 220px 60px, 100% 100%;
-    animation: wx-sand-blow 1.6s linear infinite;
+.bg-scene.wx-sun.battle .wx-layer {
+    --wx-tint:
+        radial-gradient(circle at 82% 8%, rgba(255, 214, 90, 0.7) 0, rgba(255, 190, 60, 0.32) 18%, transparent 46%),
+        linear-gradient(180deg, rgba(255, 170, 60, 0.14), rgba(255, 200, 100, 0.04));
 }
-@keyframes wx-sand-blow { to { background-position: 220px 0, 0 0; } }
-.bg-scene.wx-snow .wx-layer {
-    background:
-        radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 2px, transparent 3px) 0 0 / 70px 70px,
-        radial-gradient(circle, rgba(255, 255, 255, 0.7) 0 1.5px, transparent 2.5px) 30px 20px / 110px 110px,
-        linear-gradient(180deg, rgba(200, 225, 255, 0.28), rgba(200, 225, 255, 0.1));
-    animation: wx-snow-fall 6s linear infinite;
-}
-@keyframes wx-snow-fall { to { background-position: -20px 70px, 10px 130px, 0 0; } }
 
-.bg-scene.tr-electric { --field-line: rgba(245, 190, 20, 0.85); --field-fill: rgba(250, 210, 40, 0.28); --field-band: rgba(250, 210, 40, 0.16); --field-pad: rgba(245, 190, 20, 0.7); --field-pad-fill: rgba(250, 210, 40, 0.2); }
-.bg-scene.tr-grassy { --field-line: rgba(50, 160, 70, 0.85); --field-fill: rgba(70, 190, 90, 0.3); --field-band: rgba(70, 190, 90, 0.17); --field-pad: rgba(50, 160, 70, 0.7); --field-pad-fill: rgba(70, 190, 90, 0.2); }
-.bg-scene.tr-psychic { --field-line: rgba(220, 70, 180, 0.85); --field-fill: rgba(235, 90, 200, 0.28); --field-band: rgba(235, 90, 200, 0.16); --field-pad: rgba(220, 70, 180, 0.7); --field-pad-fill: rgba(235, 90, 200, 0.2); }
-.bg-scene.tr-misty { --field-line: rgba(240, 130, 190, 0.85); --field-fill: rgba(255, 170, 215, 0.3); --field-band: rgba(255, 170, 215, 0.18); --field-pad: rgba(240, 130, 190, 0.7); --field-pad-fill: rgba(255, 170, 215, 0.22); }
-.bg-scene.tr-misty .field-floor::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, rgba(255, 200, 230, 0.45), transparent 70%); }
-@media (prefers-reduced-motion: reduce) {
-    .wx-layer { animation: none !important; }
-}
+/* フィールド: 床の線・面の色。控えめ（通常）→ 濃く（対戦画面） */
+.bg-scene.tr-electric { --field-line: rgba(245, 190, 20, 0.5); --field-fill: rgba(250, 210, 40, 0.12); --field-band: rgba(250, 210, 40, 0.07); --field-pad: rgba(245, 190, 20, 0.4); --field-pad-fill: rgba(250, 210, 40, 0.1); }
+.bg-scene.tr-grassy { --field-line: rgba(50, 160, 70, 0.5); --field-fill: rgba(70, 190, 90, 0.13); --field-band: rgba(70, 190, 90, 0.07); --field-pad: rgba(50, 160, 70, 0.4); --field-pad-fill: rgba(70, 190, 90, 0.1); }
+.bg-scene.tr-psychic { --field-line: rgba(220, 70, 180, 0.5); --field-fill: rgba(235, 90, 200, 0.12); --field-band: rgba(235, 90, 200, 0.07); --field-pad: rgba(220, 70, 180, 0.4); --field-pad-fill: rgba(235, 90, 200, 0.1); }
+.bg-scene.tr-misty { --field-line: rgba(240, 130, 190, 0.5); --field-fill: rgba(255, 170, 215, 0.14); --field-band: rgba(255, 170, 215, 0.08); --field-pad: rgba(240, 130, 190, 0.4); --field-pad-fill: rgba(255, 170, 215, 0.12); }
+.bg-scene.tr-electric.battle { --field-line: rgba(245, 190, 20, 0.85); --field-fill: rgba(250, 210, 40, 0.28); --field-band: rgba(250, 210, 40, 0.16); --field-pad: rgba(245, 190, 20, 0.7); --field-pad-fill: rgba(250, 210, 40, 0.2); }
+.bg-scene.tr-grassy.battle { --field-line: rgba(50, 160, 70, 0.85); --field-fill: rgba(70, 190, 90, 0.3); --field-band: rgba(70, 190, 90, 0.17); --field-pad: rgba(50, 160, 70, 0.7); --field-pad-fill: rgba(70, 190, 90, 0.2); }
+.bg-scene.tr-psychic.battle { --field-line: rgba(220, 70, 180, 0.85); --field-fill: rgba(235, 90, 200, 0.28); --field-band: rgba(235, 90, 200, 0.16); --field-pad: rgba(220, 70, 180, 0.7); --field-pad-fill: rgba(235, 90, 200, 0.2); }
+.bg-scene.tr-misty.battle { --field-line: rgba(240, 130, 190, 0.85); --field-fill: rgba(255, 170, 215, 0.3); --field-band: rgba(255, 170, 215, 0.18); --field-pad: rgba(240, 130, 190, 0.7); --field-pad-fill: rgba(255, 170, 215, 0.22); }
+.bg-scene.tr-misty .field-floor::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, rgba(255, 200, 230, 0.16), transparent 70%); }
+.bg-scene.tr-misty.battle .field-floor::after { background: radial-gradient(ellipse at 50% 60%, rgba(255, 200, 230, 0.45), transparent 70%); }
 
 /* ポケモン登録: 技の 4 枠と、登録一覧の技 */
 .move-pick-summary { list-style: none; padding: 0; }

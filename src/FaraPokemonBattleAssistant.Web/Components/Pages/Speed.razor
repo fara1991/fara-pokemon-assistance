@@ -248,6 +248,7 @@ else if (data is not null && dataSet is not null)
     {
         Stage.Show(s.DataSetKey, s.Builds[0]?.Pokemon, s.Builds[1]?.Pokemon);
         Stage.SetScene(this, BuildScene());
+        Stage.SetConditions(this, s.Weather, s.Terrain);
     }
 
     public override void Dispose()
@@ -267,7 +268,7 @@ else if (data is not null && dataSet is not null)
         return new SpeedScene(
             a.Pokemon.Name, speedA, b.Pokemon.Name, speedB, axis,
             speedA != speedB && MovesFirst(speedA, speedB), speedA != speedB && MovesFirst(speedB, speedA),
-            Verdict(a, b, speedA, speedB)) { Weather = s.Weather, Terrain = s.Terrain };
+            Verdict(a, b, speedA, speedB));
     }
 
     private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;
