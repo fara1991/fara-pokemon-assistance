@@ -14,7 +14,7 @@
     --app-dmg: rgba(229, 72, 77, 0.9);
     --app-dmg-range: rgba(229, 72, 77, 0.38);
     --app-track: #e7e1f5;
-    --app-range-empty: #cdc3e6;
+    --app-range-empty: #d9d6e3;
     --app-win: #15803d;
     --app-roll-ko-bg: #fde7ea;
 
@@ -44,7 +44,7 @@
     --app-dmg: rgba(251, 113, 133, 0.9);
     --app-dmg-range: rgba(251, 113, 133, 0.35);
     --app-track: #261a40;
-    --app-range-empty: #4f3f78;
+    --app-range-empty: #33304a;
     --app-win: #4ade80;
     --app-roll-ko-bg: #3d1a2a;
 
@@ -2357,6 +2357,8 @@ button.compact-cell {
 .calc-mode-btn small { color: var(--app-muted); font-size: 0.75rem; }
 .calc-mode-btn.active { border-color: var(--bs-primary); box-shadow: inset 0 0 0 1px var(--bs-primary); background: color-mix(in srgb, var(--bs-primary) 14%, var(--glass)); }
 .calc-mode-btn:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+.estimate-kind { flex: 0 0 auto; width: auto; min-width: 10.5rem; }
+.estimate-card .input-group > .form-control { min-width: 0; }
 .estimate-steps { padding-left: 1.2rem; margin-bottom: 0.75rem; color: var(--app-muted); }
 .estimate-unknown { padding: 0.7rem 0.9rem; border: 2px dashed var(--app-card-border); border-radius: 0.7rem; background: color-mix(in srgb, var(--bs-primary) 6%, transparent); }
 
@@ -3159,6 +3161,15 @@ html.vt-nav .sidebar {
     .bv-move { padding: 0.4rem 0.55rem; font-size: 0.85rem; }
     .bv-bottom-moves .bv-box { width: 38%; padding: 0.45rem 0.55rem; }
     .bv-bottom-moves .bv-name { font-size: 0.85rem; }
+}
+
+/* スマホ（タッチ操作）: 背景が動くので、枠のぼかし（backdrop-filter）は毎フレーム再計算になって重い。ぼかさず、少し濃くする */
+@media (pointer: coarse) {
+    .bv-box, .bv-msg, .bv-move {
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        background: color-mix(in srgb, var(--bs-body-bg) 88%, transparent);
+    }
 }
 
 /* 天候・フィールドの表示（左上の札） */
