@@ -156,6 +156,7 @@
       "usage_fallback": "Gen9",
       "pokedex_id": 36,
       "items_file": "champions_items.txt",
+      "learnset_override_url": "https://raw.githubusercontent.com/smogon/pokemon-showdown/master/data/mods/champions/learnsets.ts",
       "learnset_fallback_version_groups": [
         25,
         26,
@@ -165,7 +166,7 @@
         [20, 21, 22],
         [17, 18]
       ],
-      "note": "収録ポケモンは champions 図鑑 (pokedex 36)。champions の技データが無いポケモンは SV の技で補い、SV にも居ないポケモン（ガラルのバリヤード等）は剣盾 → USUM の順に古いゲームの技で補う。使用率は HOME に無いので SV のものを並び順に使う。",
+      "note": "収録ポケモンは champions 図鑑 (pokedex 36)。覚える技は Pokémon Showdown の champions mod（learnset_override_url）を優先し、それに無いポケモンは PokeAPI の champions の技データ、それも無いポケモンは SV の技で補い、SV にも居ないポケモン（ガラルのバリヤード等）は剣盾 → USUM の順に古いゲームの技で補う。使用率は HOME に無いので SV のものを並び順に使う。",
       "ev_system": "Points",
       "command_prefix": "pokech",
       "gimmick": "None"

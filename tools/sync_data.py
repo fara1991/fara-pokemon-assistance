@@ -31,6 +31,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS = Path(__file__).resolve().parent
+sys.path.insert(0, str(TOOLS))
+import champions_learnsets  # noqa: E402  Showdown の champions mod から覚える技を読む
 OUT_ROOT = ROOT / "src" / "FaraPokemonBattleAssistant.Web" / "wwwroot" / "api" / "game"
 POKEAPI_CSV = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/"
 SPRITE_URL = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{id}.png"
@@ -400,6 +402,7 @@ class Builder:
         historical = bool(ds.get("historical"))
         max_order = max(self.vg_order.get(v, 0) for v in vgs)
 
+        extra_move_ids: set[str] = set()
         learnset: dict[str, set[str]] = defaultdict(set)
         for vg in vgs:
             for pid, moves in self.learnsets_by_vg.get(vg, {}).items():
@@ -455,6 +458,16 @@ class Builder:
                     if pid in self.pokemon and pid not in learnset:
                         learnset[pid] = set(moves)
                         provisional.add(pid)
+        if ds.get("learnset_override_url"):
+            # Showdown のチャンピオンズ用データがあるポケモンは、PokeAPI（SV で補ったもの）ではなくそちらの技にする
+            show = champions_learnsets.load_showdown(ds["learnset_override_url"], Path(self.api.cache_dir) / "champions_learnsets.ts")
+            move_id_by_identifier = {r["identifier"].replace("-", ""): mid for mid, r in self.moves.items()}
+            overrides = champions_learnsets.resolve(show, self.pokemon, learnset.keys(), move_id_by_identifier)
+            # 置き換える前の技（SV で補ったもの）も moves.csv には残す（誰も覚えなくなっても、技のデータは今までどおり引ける）
+            extra_move_ids = {m for pid in overrides for m in learnset[pid]}
+            for pid, moves in overrides.items():
+                learnset[pid] = moves
+            print(f"{ds['key']}: Showdown の champions データで {len(overrides)} 匹の技を置き換え")
         default_of_species = {p["species_id"]: pid for pid, p in self.pokemon.items() if p["is_default"] == "1"}
         if historical:
             # ぬしポケモン・おきがえピカチュウなど、対戦で使えないフォルムは入れない
@@ -522,7 +535,7 @@ class Builder:
         write_csv(out_dir / "species_map.csv", ["FormId", "SpeciesId"], species_rows)
 
         kept = {row[0] for row in pokemon_rows}
-        move_ids = sorted({m for pid in kept for m in learnset[pid]}, key=int)
+        move_ids = sorted({m for pid in kept for m in learnset[pid]} | extra_move_ids, key=int)
         move_rows = []
         for mid in move_ids:
             m = self.move_for(mid, max_order, generation) if historical else self.moves.get(mid)

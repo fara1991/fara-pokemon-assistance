@@ -304,7 +304,7 @@ else if (data is not null && dataSet is not null)
             q.Defender.Pokemon.Name, r.DefenderHP, StartHp(r, q),
             r.MinDamage, r.MaxDamage, r.TypeEffectiveness == 0.0,
             r.Converted?.Name ?? q.Move.Name, r.MoveType, r.RangeText,
-            r.KnockOut.ToString(), r.KnockOut.IsGuaranteed, r.EffectivenessText);
+            r.KnockOut.ToString(), r.KnockOut.IsGuaranteed, r.EffectivenessText) { Weather = s.Weather, Terrain = s.Terrain };
     }
 
     [SupplyParameterFromQuery(Name = "attacker")] public int? AttackerQuery { get; set; }

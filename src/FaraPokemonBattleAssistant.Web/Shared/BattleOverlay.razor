@@ -2,12 +2,21 @@
    自分側（攻撃側／ポケモン1／登録するポケモン）の枠は左下、相手側（防御側／ポケモン2）の枠は右上。ページの入力欄は隠れる（入力した内容は残る）。
    オン・オフはサイドバーのスイッチ（Components/BattleViewSwitch.razor） *@
 @inject BattleStage Stage
+@inject AppState App
 @using FaraPokemonBattleAssistant.Core.Roster
 @implements IDisposable
 
 @if (Stage.BattleActive && Stage.Scene is { } scene)
 {
     <div class="battle-ui" role="region" aria-label="対戦画面">
+        @if (scene.Weather != Weather.None || scene.Terrain != Terrain.None)
+        {
+            @* 入力している天候・フィールド（背景のフィールドにも見た目で出る） *@
+            <div class="bv-conditions">
+                @if (scene.Weather != Weather.None) { <span class="badge bv-cond bv-cond-weather">@FieldNames.Japanese(scene.Weather, App.DataSet?.Generation ?? 9)</span> }
+                @if (scene.Terrain != Terrain.None) { <span class="badge bv-cond bv-cond-terrain">@FieldNames.Japanese(scene.Terrain)</span> }
+            </div>
+        }
         @switch (scene)
         {
             case DamageScene d:
@@ -94,7 +103,7 @@
                     if (i < r.Moves.Count)
                     {
                         var m = r.Moves[i];
-                        <div class="bv-move" role="listitem"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span></div>
+                        <div class="bv-move" role="listitem"><TypeIcon Type="@m.Type" Small="true" /><span class="bv-move-name">@m.Name</span><span class="bv-move-power" title="威力">@(m.Power > 0 ? m.Power.ToString() : "-")</span></div>
                     }
                     else
                     {

@@ -3009,9 +3009,9 @@ html.vt-nav .sidebar {
 @media (min-width: 768px) {
     .bv-msg { align-self: center; width: min(44rem, 100%); }
 }
-/* ポケモン登録: 左下に自分側、右下に技 4 つ（2×2） */
+/* ポケモン登録: 左下に自分側、右下に技 4 つ（縦 1 列・4 行。右端に威力） */
 .bv-bottom-moves { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 0.75rem; }
-.bv-moves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; width: min(25rem, 58%); }
+.bv-moves { display: grid; grid-template-columns: 1fr; gap: 0.4rem; width: min(19rem, 58%); }
 .bv-move {
     display: flex; align-items: center; gap: 0.4rem; min-width: 0;
     padding: 0.55rem 0.7rem; border: 1px solid var(--app-card-border); border-radius: 0.7rem;
@@ -3019,16 +3019,66 @@ html.vt-nav .sidebar {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18); color: var(--bs-body-color); font-weight: 700;
 }
 .bv-move span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bv-move-power { margin-left: auto; padding-left: 0.4rem; flex-shrink: 0; font-weight: 400; color: var(--app-muted); font-variant-numeric: tabular-nums; }
 .bv-move-empty { justify-content: center; color: var(--app-muted); font-weight: 400; }
 @media (max-width: 575.98px) {
-    /* 狭い画面では、技を右下に 1 列に並べる（技名を切らずに読める） */
-    .bv-moves { grid-template-columns: 1fr; width: 58%; gap: 0.35rem; }
+    .bv-moves { width: 58%; gap: 0.35rem; }
     .bv-move { padding: 0.4rem 0.55rem; font-size: 0.85rem; }
     .bv-bottom-moves .bv-box { width: 38%; padding: 0.45rem 0.55rem; }
     .bv-bottom-moves .bv-name { font-size: 0.85rem; }
 }
 
+/* 天候・フィールドの表示（左上の札） */
+.bv-conditions { position: absolute; top: var(--bv-gap); left: var(--bv-gap); display: flex; flex-wrap: wrap; gap: 0.35rem; max-width: 46%; }
+.bv-cond { padding: 0.4rem 0.65rem; font-size: 0.8rem; font-weight: 700; color: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18); }
+.bv-cond-weather { background: #4f7cd6; }
+.bv-cond-terrain { background: #5aa05a; }
+
+/* 背景に出す天候（.wx-layer）とフィールド（床の色）。対戦画面のときだけ */
+.wx-layer { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.6s; }
+.bg-scene.wx-rain .wx-layer, .bg-scene.wx-sun .wx-layer, .bg-scene.wx-sand .wx-layer, .bg-scene.wx-snow .wx-layer { opacity: 1; }
+.bg-scene.wx-rain .wx-layer {
+    background:
+        repeating-linear-gradient(105deg, transparent 0 13px, rgba(170, 200, 255, 0.5) 13px 14px),
+        linear-gradient(180deg, rgba(40, 70, 140, 0.3), rgba(40, 70, 140, 0.12));
+    background-size: 120px 160px, 100% 100%;
+    animation: wx-rain-fall 0.5s linear infinite;
+}
+@keyframes wx-rain-fall { to { background-position: -40px 160px, 0 0; } }
+.bg-scene.wx-sun .wx-layer {
+    background:
+        radial-gradient(circle at 82% 8%, rgba(255, 214, 90, 0.75) 0, rgba(255, 190, 60, 0.35) 18%, transparent 46%),
+        linear-gradient(180deg, rgba(255, 170, 60, 0.18), rgba(255, 200, 100, 0.06));
+}
+.bg-scene.wx-sand .wx-layer {
+    background:
+        repeating-linear-gradient(8deg, transparent 0 22px, rgba(255, 230, 170, 0.35) 22px 24px),
+        linear-gradient(180deg, rgba(190, 140, 70, 0.36), rgba(190, 140, 70, 0.2));
+    background-size: 220px 60px, 100% 100%;
+    animation: wx-sand-blow 1.6s linear infinite;
+}
+@keyframes wx-sand-blow { to { background-position: 220px 0, 0 0; } }
+.bg-scene.wx-snow .wx-layer {
+    background:
+        radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 2px, transparent 3px) 0 0 / 70px 70px,
+        radial-gradient(circle, rgba(255, 255, 255, 0.7) 0 1.5px, transparent 2.5px) 30px 20px / 110px 110px,
+        linear-gradient(180deg, rgba(200, 225, 255, 0.28), rgba(200, 225, 255, 0.1));
+    animation: wx-snow-fall 6s linear infinite;
+}
+@keyframes wx-snow-fall { to { background-position: -20px 70px, 10px 130px, 0 0; } }
+
+.bg-scene.tr-electric { --field-line: rgba(245, 190, 20, 0.85); --field-fill: rgba(250, 210, 40, 0.28); --field-band: rgba(250, 210, 40, 0.16); --field-pad: rgba(245, 190, 20, 0.7); --field-pad-fill: rgba(250, 210, 40, 0.2); }
+.bg-scene.tr-grassy { --field-line: rgba(50, 160, 70, 0.85); --field-fill: rgba(70, 190, 90, 0.3); --field-band: rgba(70, 190, 90, 0.17); --field-pad: rgba(50, 160, 70, 0.7); --field-pad-fill: rgba(70, 190, 90, 0.2); }
+.bg-scene.tr-psychic { --field-line: rgba(220, 70, 180, 0.85); --field-fill: rgba(235, 90, 200, 0.28); --field-band: rgba(235, 90, 200, 0.16); --field-pad: rgba(220, 70, 180, 0.7); --field-pad-fill: rgba(235, 90, 200, 0.2); }
+.bg-scene.tr-misty { --field-line: rgba(240, 130, 190, 0.85); --field-fill: rgba(255, 170, 215, 0.3); --field-band: rgba(255, 170, 215, 0.18); --field-pad: rgba(240, 130, 190, 0.7); --field-pad-fill: rgba(255, 170, 215, 0.22); }
+.bg-scene.tr-misty .field-floor::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, rgba(255, 200, 230, 0.45), transparent 70%); }
+@media (prefers-reduced-motion: reduce) {
+    .wx-layer { animation: none !important; }
+}
+
 /* ポケモン登録: 技の 4 枠と、登録一覧の技 */
+.move-pick-summary { list-style: none; padding: 0; }
+.move-pick-summary li { display: flex; align-items: center; gap: 0.4rem; padding: 0.1rem 0; }
 .move-pick-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
 .reg-move { display: inline-flex; align-items: center; gap: 0.2rem; margin-right: 0.6rem; }
 
