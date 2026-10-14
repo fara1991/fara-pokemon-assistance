@@ -8,8 +8,8 @@
 <PageTitle>チャットコマンド | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>チャットコマンドを試す <Help Title="チャットコマンド">Twitch のチャットに打つのと同じ文字列を入力すると、ボットが返す 1 行がそのまま表示されます。接頭辞（!@(App.CommandPrefix)）は左のメニューで選んだゲームに合わせて変わります。</Help></h3>
-    <p class="mb-1">Twitch の配信チャットでボット（<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a>）に打つ <code>!@(App.CommandPrefix)</code> のコマンドを、ブラウザで組み立てて試せるページです。配信中に打つ前に結果を確かめたり、使えるコマンドを調べたりするときに使います。</p>
+    <h3>チャットコマンドを試す <Help Title="チャットコマンド">Twitch のチャットに打つのと同じ文字列を入力すると、配信用BOTが返す 1 行がそのまま表示されます。接頭辞（!@(App.CommandPrefix)）は左のメニューで選んだゲームに合わせて変わります。</Help></h3>
+    <p class="mb-1">Twitch の配信チャットで配信用BOT（<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a>）に打つ <code>!@(App.CommandPrefix)</code> のコマンドを、ブラウザで組み立てて試せるページです。配信中に打つ前に結果を確かめたり、使えるコマンドを調べたりするときに使います。</p>
     <p class="text-muted mb-0">下の選択欄を変えるとコマンドに反映され、コマンドを書き換えると選択欄にも反映されます。</p>
     <p class="text-muted small mb-0 mt-1">H: HP / A: こうげき / B: ぼうぎょ / C: とくこう / D: とくぼう / S: すばやさ（<a href="battle-terms">用語・略語</a>）</p>
 </div>
@@ -184,7 +184,7 @@ else if (data is not null)
 @* 計算に対応していないゲームでは案内だけを出し、入力欄・コマンド一覧は出さない *@
 @if (App.DataSet is not { CalcSupported: false })
 {
-<label class="form-label" for="cmd-input">コマンド <Help Title="コマンド欄">Enter か「実行」でボットと同じ結果が返ります。接頭辞を省略すると選択中のゲーム（!@(App.CommandPrefix)）として実行します。オプション（努力値・性格・持ち物・急所など）は末尾に続けて書けます。</Help></label>
+<label class="form-label" for="cmd-input">コマンド <Help Title="コマンド欄">Enter か「実行」で配信用BOTと同じ結果が返ります。接頭辞を省略すると選択中のゲーム（!@(App.CommandPrefix)）として実行します。オプション（努力値・性格・持ち物・急所など）は末尾に続けて書けます。</Help></label>
 <div class="input-group mb-2">
     <input id="cmd-input" class="form-control" placeholder="!@(App.CommandPrefix) dmg ガブリアス じしん リザードン" value="@s.Input" @oninput="OnInput" @onkeydown="OnKeyDown" />
     <button class="btn btn-primary" @onclick="Run" disabled="@running">実行</button>
@@ -192,7 +192,7 @@ else if (data is not null)
 
 @if (!string.IsNullOrEmpty(s.Output))
 {
-    <div class="form-label mb-1 chat-reply-title">ボットの返信 <span class="fw-normal text-muted small">チャットにボットが返す文です</span></div>
+    <div class="form-label mb-1 chat-reply-title">配信用BOTの返信 <span class="fw-normal text-muted small">チャットに配信用BOTが返す文です</span></div>
     <div class="alert @(s.Success ? "alert-success" : "alert-warning") chat-output">@s.Output</div>
 }
 

@@ -9,8 +9,8 @@
 <PageTitle>データ共有 | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>データ共有 <Help Title="データ共有">登録したポケモンとチームを、別のブラウザ・端末やボットと共有するための設定です。使わないときは、登録データはこのブラウザだけに保存されます。</Help></h3>
-    <p class="text-muted mb-0">アクセスキーを作ると、<a href="my-pokemon">ポケモン登録</a>と<a href="my-team">チーム登録</a>のデータがクラウドに保存され、同じアクセスキーを入れた別のブラウザ・端末やボットから読み書きできます。</p>
+    <h3>データ共有 <Help Title="データ共有">登録したポケモンとチームを、別のブラウザ・端末や配信用BOTと共有するための設定です。使わないときは、登録データはこのブラウザだけに保存されます。</Help></h3>
+    <p class="text-muted mb-0">アクセスキーを作ると、<a href="my-pokemon">ポケモン登録</a>と<a href="my-team">チーム登録</a>のデータがクラウドに保存され、同じアクセスキーを入れた別のブラウザ・端末や配信用BOTから読み書きできます。</p>
 </div>
 
 @* PC: 見出しは固定にして、カードの中だけがスクロールする *@
@@ -23,7 +23,7 @@
     <div class="card-body">
         @if (!Sync.IsSyncing)
         {
-            <Notice Class="mb-2">今はこのブラウザだけに保存しています。データ共有を始めると、別のブラウザ・端末やボットと同じ登録データを読み書きできます。</Notice>
+            <Notice Class="mb-2">今はこのブラウザだけに保存しています。データ共有を始めると、別のブラウザ・端末や配信用BOTと同じ登録データを読み書きできます。</Notice>
             <div class="d-flex flex-wrap gap-2 align-items-start">
                 <button class="btn btn-primary btn-sm" disabled="@syncBusy" @onclick="StartSyncAsync">データ共有を始める（新しいアクセスキーを作る）</button>
                 <div class="input-group input-group-sm sync-join">
@@ -88,7 +88,7 @@
             </table>
         </div>
         <p class="small text-muted mb-2">本文はゲームごと（<code>"dataSets": {"Champions": {...}}</code>）です。<code>PUT</code> には読み取ったときの <code>revision</code> を <code>baseRevision</code> として付けます。その間に他の場所で更新されていたら <code>409</code> になるので、読み直してからやり直してください（<code>revision</code> はポケモンとチームで共通です）。詳しくは <a href="https://github.com/fara1991/fara-pokemon-battle-assistant#登録データの共有-api" target="_blank" rel="noopener noreferrer">README</a> を見てください。</p>
-        <p class="small text-muted mb-2">使い方の一例が、チャットのボットです。<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a>（Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けると、チャットの <code>add -p</code> / <code>use -t</code> などと、このサイトが同じデータを読み書きするようになります。</p>
+        <p class="small text-muted mb-2">使い方の一例が、チャットの配信用BOTです。<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a>（Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けると、チャットの <code>add -p</code> / <code>use -t</code> などと、このサイトが同じデータを読み書きするようになります。</p>
         <p class="small text-muted mb-2">データ共有中はクラウドのデータだけを使い、このブラウザには保存しません（コピーを取り合うのではなく、全員が同じデータを使います）。アクセスキーを作り直したら、API を使うほかのツールや端末にも新しいアクセスキーを入れ直してください（古いキーは使えなくなります）。</p>
         <p class="small text-muted mb-0">ポケモン・技・持ち物などのゲームデータ（このサイトが使っている CSV）は、アクセスキーなしで <code>/api/game/</code> から読めます（<a href="api/game/datasets.csv" target="_blank" rel="noopener noreferrer"><code>/api/game/datasets.csv</code></a> がゲームの一覧、<code>/api/game/ゲームのキー/pokemon.csv</code> などがその中身）。</p>
     </div>
@@ -152,7 +152,7 @@
         await Sync.StartNewAsync();
         showKey = false;
         Show("データ共有を始めました。" + (hadData ? "このブラウザの登録データをクラウドに保存しました。" : "") +
-             "別の端末やボットで使うときは、アクセスキーを「コピー」して貼り付けてください", false);
+             "別の端末や配信用BOTで使うときは、アクセスキーを「コピー」して貼り付けてください", false);
     });
 
     private async Task JoinSyncAsync()
@@ -179,14 +179,14 @@
 
     private async Task RotateKeyAsync()
     {
-        if (!await ConfirmAsync("新しいアクセスキーを作り、データを移します。今のアクセスキーは使えなくなるので、ボットや他の端末には新しいアクセスキーを入れ直してください。よろしいですか？"))
+        if (!await ConfirmAsync("新しいアクセスキーを作り、データを移します。今のアクセスキーは使えなくなるので、配信用BOTや他の端末には新しいアクセスキーを入れ直してください。よろしいですか？"))
             return;
         await RunSyncAsync(async () =>
         {
             var deletedOld = await Sync.RotateAsync();
             showKey = false;
             Show(deletedOld
-                ? "アクセスキーを作り直しました。ボットや他の端末には新しいアクセスキーを入れ直してください"
+                ? "アクセスキーを作り直しました。配信用BOTや他の端末には新しいアクセスキーを入れ直してください"
                 : "アクセスキーを作り直しました（古いアクセスキーのデータを消せませんでした。古いアクセスキーは控えずに破棄してください）", !deletedOld);
         });
     }
