@@ -2360,6 +2360,22 @@ button.compact-cell {
 .estimate-steps { padding-left: 1.2rem; margin-bottom: 0.75rem; color: var(--app-muted); }
 .estimate-unknown { padding: 0.7rem 0.9rem; border: 2px dashed var(--app-card-border); border-radius: 0.7rem; background: color-mix(in srgb, var(--bs-primary) 6%, transparent); }
 
+/* ダメージ計算: 相手のポイントの推定結果（実数値の範囲と、性格補正ごとのポイントの帯） */
+.estimate-stat { font-size: 1rem; }
+.estimate-stat strong { font-size: 1.5rem; margin-left: 0.4rem; font-variant-numeric: tabular-nums; }
+.estimate-bands { display: grid; gap: 0.6rem; }
+.estimate-band { padding: 0.5rem 0.7rem; border: 1px solid var(--app-card-border); border-radius: 0.6rem; background: color-mix(in srgb, var(--bs-body-bg) 60%, transparent); }
+.estimate-band-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.estimate-band-label { font-weight: 700; }
+.estimate-band-label small { font-weight: 400; color: var(--app-muted); }
+.estimate-band-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.estimate-bar { position: relative; height: 0.8rem; margin-top: 0.35rem; border-radius: 999px; background: var(--app-range-empty); overflow: hidden; }
+.estimate-bar-fill { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--bs-primary); }
+.estimate-band[data-mod="up"] .estimate-bar-fill { background: var(--app-dmg); }
+.estimate-band[data-mod="down"] .estimate-bar-fill { background: #3b82f6; }
+.estimate-band[data-mod="none"] .estimate-bar-fill { background: var(--app-hp); }
+.estimate-band-stat { margin-top: 0.2rem; }
+
 /* ダメージ計算: 結果の「通常」「急所」の札 */
 .result-kind { display: inline-block; min-width: 2.6rem; margin-right: 0.45rem; padding: 0.05rem 0.4rem; border-radius: 0.4rem; background: rgba(120, 120, 160, 0.2); font-size: 0.78rem; font-weight: 700; text-align: center; vertical-align: 0.1em; }
 .result-main-crit .result-kind { background: rgba(229, 72, 77, 0.22); }
