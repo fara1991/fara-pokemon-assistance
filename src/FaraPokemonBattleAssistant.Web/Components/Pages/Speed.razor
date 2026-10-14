@@ -77,7 +77,7 @@ else if (data is not null && dataSet is not null)
             @if (s.Builds.Any(x => x is not null))
             {
                 <div class="card result-card result-sticky">
-                    <div class="card-header"><h5>結果</h5></div>
+                    <div class="card-header card-header-switch"><h5>結果</h5>@if (both) { <BattleViewSwitch InputId="battle-view-card" /> }</div>
                     <div class="card-body">
                         @if (s.Builds[0] is { } a && s.Builds[1] is { } b)
                         {
@@ -139,6 +139,7 @@ else if (data is not null && dataSet is not null)
                             <strong>@Verdict(ba, bb, speeds[0]!.Value, speeds[1]!.Value)</strong>
                             <span class="text-muted">（S@(speeds[0]) vs S@(speeds[1])）</span>
                         </div>
+                        <BattleViewSwitch InputId="battle-view-bar" Class="result-bar-switch" />
                     </div>
                 }
             }
@@ -244,7 +245,31 @@ else if (data is not null && dataSet is not null)
     }
 
     // 選んでいるポケモン1（手前）・ポケモン2（奥）を、背景のバトルフィールドに立たせる
-    protected override void OnAfterRender(bool firstRender) => Stage.Show(s.DataSetKey, s.Builds[0]?.Pokemon, s.Builds[1]?.Pokemon);
+    protected override void OnAfterRender(bool firstRender)
+    {
+        Stage.Show(s.DataSetKey, s.Builds[0]?.Pokemon, s.Builds[1]?.Pokemon);
+        Stage.SetScene(this, BuildScene());
+    }
+
+    public override void Dispose()
+    {
+        Stage.ClearScene(this);
+        base.Dispose();
+    }
+
+    /// <summary>「対戦画面で表示」に出す内容（2 体の S と先に動く方）。2 体そろっていないときは null。</summary>
+    private SpeedScene? BuildScene()
+    {
+        if (dataSet is null || s.Builds[0] is not { } a || s.Builds[1] is not { } b) return null;
+        var speedA = SpeedCalculator.Effective(a, s.Weather, s.Terrain, s.Tailwind[0], dataSet.Generation).Item1;
+        var speedB = SpeedCalculator.Effective(b, s.Weather, s.Terrain, s.Tailwind[1], dataSet.Generation).Item1;
+        // 棒の長さの基準は、結果の棒（race-bar）と同じ
+        var axis = Math.Max(300, (int)Math.Ceiling(Math.Max(speedA, speedB) * 1.1 / 50.0) * 50);
+        return new SpeedScene(
+            a.Pokemon.Name, speedA, b.Pokemon.Name, speedB, axis,
+            speedA != speedB && MovesFirst(speedA, speedB), speedA != speedB && MovesFirst(speedB, speedA),
+            Verdict(a, b, speedA, speedB));
+    }
 
     private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;
     private static int Clamp(object? value, int max) => Math.Clamp(int.TryParse(value?.ToString(), out var v) ? v : 0, 0, max);

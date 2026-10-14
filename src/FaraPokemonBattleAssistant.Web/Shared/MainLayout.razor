@@ -1,9 +1,14 @@
 @inherits LayoutComponentBase
+@inject BattleStage Stage
+@implements IDisposable
 
 @* 背景のバトルフィールド（Shared/BattleStageBackground.razor） *@
 <BattleStageBackground />
 
-<div class="page">
+@* 対戦画面（結果をフィールドの上に重ねて出す。Shared/BattleOverlay.razor）。出している間は main（入力欄）を隠す *@
+<BattleOverlay />
+
+<div class="page @(Stage.BattleActive ? "battle-active" : "")">
     <div class="sidebar">
         <NavMenu />
     </div>
@@ -16,3 +21,11 @@
 </div>
 
 <Toasts />
+
+@code {
+    protected override void OnInitialized() => Stage.Changed += OnStageChanged;
+
+    private void OnStageChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Stage.Changed -= OnStageChanged;
+}

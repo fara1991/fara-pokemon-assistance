@@ -22,6 +22,43 @@ public sealed class BattleStage
 
     public event Action? Changed;
 
+    /// <summary>「対戦画面で表示」のスイッチ。オンで結果（Scene）があるとき、背景のフィールドを止めて結果を重ねて出す。</summary>
+    public bool BattleView { get; private set; }
+
+    /// <summary>今開いているページが出している結果。結果がないページ・まだ結果が出ていないときは null。</summary>
+    public BattleScene? Scene { get; private set; }
+
+    private object? sceneOwner;
+
+    /// <summary>対戦画面を出している状態か（スイッチがオンで、出す結果がある）。</summary>
+    public bool BattleActive => BattleView && Scene is not null;
+
+    public void SetBattleView(bool on)
+    {
+        if (BattleView == on) return;
+        BattleView = on;
+        Changed?.Invoke();
+    }
+
+    /// <summary>ページが結果を出す。同じ内容なら何もしない（描画のたびに呼んでよい）。</summary>
+    public void SetScene(object owner, BattleScene? scene)
+    {
+        if (scene is null) { ClearScene(owner); return; }
+        if (ReferenceEquals(sceneOwner, owner) && Equals(Scene, scene)) return;
+        sceneOwner = owner;
+        Scene = scene;
+        Changed?.Invoke();
+    }
+
+    /// <summary>ページが閉じたとき・結果がなくなったときに消す。別のページが出した結果は消さない。</summary>
+    public void ClearScene(object owner)
+    {
+        if (!ReferenceEquals(sceneOwner, owner)) return;
+        sceneOwner = null;
+        Scene = null;
+        Changed?.Invoke();
+    }
+
     /// <summary>そのデータセットで、まだ 2 体が決まっていなければランダムに決める。</summary>
     public void EnsureDefaults(string dataSetKey, PokemonDataSet data)
     {
