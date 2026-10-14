@@ -831,7 +831,7 @@ else if (data is not null && dataSet is not null)
         }
         <hr />
         <p class="mb-1 text-muted small">チャットでの表示</p>
-        <div class="alert alert-light border chat-output mb-0">@DamageCommand.Format(lastRequest, result, data!.Info)@if (crit is not null && critRequest is not null) { <br />@DamageCommand.Format(critRequest, crit, data!.Info) }</div>
+        <div class="alert alert-light border chat-output mb-0">@(crit is null ? DamageCommand.Format(lastRequest, result, data!.Info) : DamageCommand.FormatBoth(lastRequest, result, crit, data!.Info))</div>
     };
 
     private static string Inv(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
