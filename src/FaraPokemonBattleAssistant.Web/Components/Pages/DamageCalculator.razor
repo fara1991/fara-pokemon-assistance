@@ -184,9 +184,14 @@ else if (data is not null && dataSet is not null)
                             <li>防御側は、相手のポケモンと特性を選ぶ（@(EvRules.Label(dataSet.EvSystem))・性格は不明のまま）</li>
                             <li>実際に受けた（与えた）ダメージを入れる（入れると、自動で推定します）</li>
                         </ol>
+                        @* ラベルを「量」「割合」で切り替える。入力欄は数値だけ *@
                         <div class="input-group">
-                            <span class="input-group-text">受けたダメージ</span>
-                            <input class="form-control" placeholder="数値または割合（例: 93 / 45%）" value="@s.ObservedDamageText" @oninput="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
+                            <select class="form-select estimate-kind" aria-label="受けたダメージの種類" @onchange="@(e => s.ObservedIsPercent = e.Value?.ToString() == "percent")">
+                                <option value="amount" selected="@(!s.ObservedIsPercent)">受けたダメージ量</option>
+                                <option value="percent" selected="@(s.ObservedIsPercent)">受けたダメージ割合</option>
+                            </select>
+                            <input class="form-control" inputmode="decimal" placeholder="@(s.ObservedIsPercent ? "数値（例: 45）" : "数値（例: 93）")" value="@s.ObservedDamageText" @oninput="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
+                            @if (s.ObservedIsPercent) { <span class="input-group-text">%</span> }
                         </div>
                         <div class="form-check form-switch mt-2">
                             <input class="form-check-input" type="checkbox" role="switch" id="estimate-crit" checked="@s.EstimateCritical" @onchange="@(e => s.EstimateCritical = e.Value is true)" />
@@ -280,6 +285,8 @@ else if (data is not null && dataSet is not null)
         public Weather Weather { get; set; }
         public Terrain Terrain { get; set; }
         public string ObservedDamageText { get; set; } = "";
+        /// <summary>受けたダメージの入力が、ダメージ量（false）か、最大 HP に対する割合（true）か。</summary>
+        public bool ObservedIsPercent { get; set; }
         public string EstimateText { get; set; } = "";
         /// <summary>推定の結果（画面に表で出す）と、そのときの条件の表示用の名前。</summary>
         public EvEstimator.Estimate? Estimate { get; set; }
@@ -516,9 +523,9 @@ else if (data is not null && dataSet is not null)
     {
         if (!s.EstimateMode) return;
         var key = s.Attacker is null || s.Defender is null || s.Move is null || data is null
-            ? "incomplete:" + s.ObservedDamageText.Trim()
+            ? "incomplete:" + s.ObservedDamageText.Trim() + s.ObservedIsPercent
             : string.Join(";", App.DataSetKey, BuildKey(s.Attacker), BuildKey(s.Defender), s.Move.Id,
-                s.Weather, s.Terrain, App.Format, s.Reflect, s.LightScreen, UseZMove, s.EstimateCritical, s.ObservedDamageText.Trim());
+                s.Weather, s.Terrain, App.Format, s.Reflect, s.LightScreen, UseZMove, s.EstimateCritical, s.ObservedIsPercent, s.ObservedDamageText.Trim());
         if (key == estimateKey) return;
         estimateKey = key;
         EstimateEvs();
@@ -533,8 +540,14 @@ else if (data is not null && dataSet is not null)
         if (data is null || s.Attacker is null || s.Defender is null || s.Move is null) return;
         var text = s.ObservedDamageText.Trim();
         if (text.Length == 0) return;
-        var asPercent = text.EndsWith('%') || text.EndsWith('％');
-        if (!double.TryParse(text.TrimEnd('%', '％'), out var observed) || observed <= 0) { s.EstimateText = "受けたダメージは、数値（例: 93）または割合（例: 45%）で入力してください。"; return; }
+        var asPercent = s.ObservedIsPercent;
+        // 入力欄は数値だけ（% を付けて打っても読めるようにしておく）
+        if (!double.TryParse(text.TrimEnd('%', '％'), out var observed) || observed <= 0)
+        {
+            s.EstimateText = asPercent ? "受けたダメージ割合は、数値（例: 45）で入力してください。" : "受けたダメージ量は、数値（例: 93）で入力してください。";
+            return;
+        }
+        if (asPercent && observed > 100) { s.EstimateText = "受けたダメージ割合は、100 以下の数値で入力してください。"; return; }
         var request = new DamageRequest
         {
             Attacker = s.Attacker,

@@ -98,7 +98,13 @@
             window.addEventListener("resize", function () { window.faraPlaceStage(); });
             // フィールドは回り続けるので、毎フレーム合わせ直す（視差効果を減らす設定では回らないので、描き直しと画面の大きさが変わったときだけ）
             if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-                (function follow() { window.faraPlaceStage(); requestAnimationFrame(follow); })();
+                // 対戦画面ではコートが止まっているので、毎フレームは合わせない（0.5 秒ごと。画面の大きさ・スクロールは別のイベントで合わせる）
+                var lastPlaced = 0;
+                (function follow(t) {
+                    var battle = !!document.querySelector(".bg-scene.battle");
+                    if (!battle || t - lastPlaced > 500) { window.faraPlaceStage(); lastPlaced = t; }
+                    requestAnimationFrame(follow);
+                })(0);
             }
 
             // 背景の天候（雨・砂嵐・雪）とフィールド（エレキ・グラス・サイコ・ミスト）の動き。細かい粒・光・輪・もやをキャンバスに描く。
@@ -107,7 +113,20 @@
             (function () {
                 var kind = "", tkind = "", strong = false, parts = [], tparts = [], spawnT = 0, raf = 0, last = 0, W = 0, H = 0, canvas = null, ctx = null;
                 var reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+                // スマホ（タッチ操作）では、粒を減らし、30 fps にし、光のにじみ（shadowBlur）・やわらかいもやの毎回の作り直しをやめて軽くする
+                var touch = window.matchMedia("(pointer: coarse)").matches;
+                var lastDraw = 0, mistSprite = null;
                 function rnd(a, b) { return a + Math.random() * (b - a); }
+                function mistImage(c) {
+                    // もやの 1 つぶんを、先に小さな画像に描いておき、毎フレームは貼るだけにする
+                    if (mistSprite && mistSprite.c === c) return mistSprite.cv;
+                    var cv = document.createElement("canvas"); cv.width = cv.height = 128;
+                    var g = cv.getContext("2d"), grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+                    grad.addColorStop(0, "rgba(" + c + ",1)"); grad.addColorStop(1, "rgba(" + c + ",0)");
+                    g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+                    mistSprite = { c: c, cv: cv };
+                    return cv;
+                }
                 function plane() {
                     var el = document.querySelector(".field-plane");
                     if (!el) return { x: 0, y: H * 0.34, w: W, h: H * 0.66 };
@@ -116,6 +135,7 @@
                 }
                 function make() {
                     var area = W * H, k = strong ? 1 : 0.5, n;
+                    if (touch) area *= 0.6;   // 粒を減らす（面積を小さく見積もる）
                     parts = [];
                     if (kind) {
                         if (kind === "rain") n = area / (strong ? 16000 : 30000);
@@ -133,7 +153,7 @@
                     tparts = [];
                     if (tkind === "misty") {
                         // もや: コートの手前（下寄り）を、ゆっくり横に流れるやわらかい塊
-                        var a = plane(), m = strong ? 8 : 4;
+                        var a = plane(), m = touch ? (strong ? 4 : 2) : (strong ? 8 : 4);
                         for (var j = 0; j < m; j++) tparts.push({ t: "mist", x: rnd(a.x - 60, a.x + a.w + 60), y: a.y + a.h * rnd(0.5, 1.05), r: rnd(110, 220), vx: rnd(10, 26) * (Math.random() < 0.5 ? -1 : 1), a: rnd(0.28, 0.42) * (0.6 + 0.4 * k) });
                     }
                 }
@@ -164,11 +184,10 @@
                             q.x += q.vx * dt;
                             var a = plane();
                             if (q.x > a.x + a.w + 120) q.x = a.x - 120; else if (q.x < a.x - 120) q.x = a.x + a.w + 120;
-                            var g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.r);
                             var c = light ? "212,120,196" : "255,215,240";
-                            g.addColorStop(0, "rgba(" + c + "," + Math.min(0.9, q.a * (light ? 0.95 : 0.8)) + ")");
-                            g.addColorStop(1, "rgba(" + c + ",0)");
-                            ctx.fillStyle = g; ctx.fillRect(q.x - q.r, q.y - q.r, q.r * 2, q.r * 2);
+                            ctx.globalAlpha = Math.min(0.9, q.a * (light ? 0.95 : 0.8));
+                            ctx.drawImage(mistImage(c), q.x - q.r, q.y - q.r, q.r * 2, q.r * 2);
+                            ctx.globalAlpha = 1;
                             continue;
                         }
                         q.age += dt;
@@ -178,7 +197,8 @@
                             var al = (1 - f) * 0.95 * k;
                             ctx.save();
                             ctx.strokeStyle = "rgba(" + (light ? "235,170,0" : "255,235,90") + "," + al + ")";
-                            ctx.lineWidth = 3; ctx.shadowColor = "rgba(255,220,60," + al + ")"; ctx.shadowBlur = 12;
+                            ctx.lineWidth = 3;
+                            if (!touch) { ctx.shadowColor = "rgba(255,220,60," + al + ")"; ctx.shadowBlur = 12; }
                             ctx.beginPath(); ctx.moveTo(q.pts[0][0], q.pts[0][1]);
                             for (var j = 1; j < q.pts.length; j++) ctx.lineTo(q.pts[j][0], q.pts[j][1]);
                             ctx.stroke(); ctx.restore();
@@ -222,10 +242,12 @@
                     if (tkind) { spawn(dt); drawTerrain(dt, light); }
                 }
                 function frame(t) {
+                    raf = requestAnimationFrame(frame);
+                    if (touch && t - lastDraw < 33) return;   // スマホは 30 fps
+                    lastDraw = t;
                     var dt = Math.min(0.05, (t - last) / 1000 || 0.016);
                     last = t;
                     draw(dt);
-                    raf = requestAnimationFrame(frame);
                 }
                 function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; if (ctx) ctx.clearRect(0, 0, W, H); parts = []; tparts = []; }
                 function size() {
