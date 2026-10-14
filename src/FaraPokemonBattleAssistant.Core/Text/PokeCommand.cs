@@ -508,7 +508,7 @@ public sealed class PokeCommand
         var (mySpeed, myNotes) = SpeedCalculator.Effective(mine, weather, terrain, generation: ds.Generation);
         var oppBuild = provider(oppMatch.Value!, false);
         var scarf = data.Items.FirstOrDefault(i => i.Id == 264);
-        var reference = SpeedCalculator.OpponentReference(oppMatch.Value!, ds.EvSystem, scarf, opponentParalyzed, ds.Generation);
+        var reference = SpeedCalculator.OpponentReference(oppMatch.Value!, ds.EvSystem, oppMatch.Value!.IsMega ? null : scarf, opponentParalyzed, ds.Generation);
         string text;
         if (oppBuild is not null)
         {

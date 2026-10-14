@@ -119,7 +119,7 @@ else if (data is not null && dataSet is not null)
                         }
                         @* 振り方例: 2 体のどちらかをタブで切り替えて、狭い幅に収める *@
                         <div class="speed-ref-tabs" role="tablist">
-                            <span class="small fw-bold me-1">振り方例 <Help Title="S の振り方例">相手の振り方が分からないときの目安です。無振り・準速（性格補正なし・最大振り）・最速（性格補正あり・最大振り）・@(Scarf is not null ? "スカーフ最速・" : "")最遅（性格補正下降・個体値 0）の S を出します。いまの天候・フィールド・ランク・まひ・おいかぜで S が変わるときは「今の条件」の列に、選んでいる特性が条件次第で S を上げるとき（ようりょくそ・かるわざなど）はその条件の列にも出します。右端は、もう 1 体の今の S と比べた先手・後手です（トリックルームがオンのときは遅い方が先）。</Help></span>
+                            <span class="small fw-bold me-1">振り方例 <Help Title="S の振り方例">相手の振り方が分からないときの目安です。無振り・準速（性格補正なし・最大振り）・最速（性格補正あり・最大振り）・@(Scarf is not null ? "スカーフ最速（メガシンカ後のポケモンはメガストーンを持つので出しません）・" : "")最遅（性格補正下降・個体値 0）の S を出します。いまの天候・フィールド・ランク・まひ・おいかぜで S が変わるときは「今の条件」の列に、選んでいる特性が条件次第で S を上げるとき（ようりょくそ・かるわざなど）はその条件の列にも出します。右端は、もう 1 体の今の S と比べた先手・後手です（トリックルームがオンのときは遅い方が先）。</Help></span>
                             @for (var i = 0; i < 2; i++)
                             {
                                 var side = i;
@@ -415,7 +415,7 @@ else if (data is not null && dataSet is not null)
     private RenderFragment RenderReference(PokemonBuild build, bool tailwind, int? opponentSpeed, string? opponentName) => __builder =>
     {
         // 振り方だけを置き換えて、結果の素早さと同じ計算（持ち物・特性・ランク・まひ・おいかぜ・天候・フィールド）をする
-        var rows = SpeedCalculator.ReferenceRows(build, data!.Natures, Scarf, s.Weather, s.Terrain, tailwind, dataSet!.Generation);
+        var rows = SpeedCalculator.ReferenceRows(build, data!.Natures, build.Pokemon.IsMega ? null : Scarf, s.Weather, s.Terrain, tailwind, dataSet!.Generation);
         var (_, currentLabels) = SpeedCalculator.Effective(build, s.Weather, s.Terrain, tailwind, dataSet!.Generation);
         var hasCurrent = rows.Any(r => r.Current != r.Base) || currentLabels.Count > 0;
         var potential = SpeedCalculator.PotentialFactor(build, s.Weather, s.Terrain);
