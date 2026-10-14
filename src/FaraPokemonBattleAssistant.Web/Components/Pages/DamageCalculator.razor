@@ -287,6 +287,7 @@ else if (data is not null && dataSet is not null)
     {
         Stage.Show(s.DataSetKey, s.Attacker?.Pokemon, s.Defender?.Pokemon);
         Stage.SetScene(this, BuildScene());
+        Stage.SetConditions(this, s.Weather, s.Terrain);
     }
 
     public override void Dispose()
@@ -304,7 +305,7 @@ else if (data is not null && dataSet is not null)
             q.Defender.Pokemon.Name, r.DefenderHP, StartHp(r, q),
             r.MinDamage, r.MaxDamage, r.TypeEffectiveness == 0.0,
             r.Converted?.Name ?? q.Move.Name, r.MoveType, r.RangeText,
-            r.KnockOut.ToString(), r.KnockOut.IsGuaranteed, r.EffectivenessText) { Weather = s.Weather, Terrain = s.Terrain };
+            r.KnockOut.ToString(), r.KnockOut.IsGuaranteed, r.EffectivenessText);
     }
 
     [SupplyParameterFromQuery(Name = "attacker")] public int? AttackerQuery { get; set; }
@@ -725,7 +726,7 @@ else if (data is not null && dataSet is not null)
             <div class="form-group build-wide">
                 <label>残り HP <Help Title="残り HP">@(isAttacker ? "もうか・しんりょく・げきりゅう・むしのしらせは HP が 1/3 以下で対応タイプの技が 1.5 倍になります。" : "確定数を今の HP から数えます。マルチスケイル・ファントムガードは HP 満タンのときだけ効きます。")スライダーと % は割合、右の欄は実数値（例: 133 / 135）で指定できます。どちらを変えても、もう一方に反映されます。</Help></label>
                 <div class="hp-editor">
-                    <input type="range" class="form-range" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @oninput="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
+                    <input type="range" class="form-range hp-range" min="1" max="100" value="@build.HpPercent" style="--hp:@(build.HpPercent)%" data-level="@(build.HpPercent > 50 ? "high" : build.HpPercent > 20 ? "mid" : "low")" aria-label="残り HP（%）" @oninput="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
                     <div class="input-group input-group-sm hp-input">
                         <input type="number" class="form-control" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
                         <span class="input-group-text">%</span>

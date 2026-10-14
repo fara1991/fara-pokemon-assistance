@@ -49,15 +49,20 @@
     <div class="field-beam field-beam-1"></div>
     <div class="field-beam field-beam-2"></div>
     @* 天候（雨・晴れ・砂嵐・雪）。対戦画面で、入力している天候を見た目で出す *@
-    <div class="wx-layer"></div>
+    <div class="wx-layer"><canvas class="wx-canvas"></canvas></div>
 </div>
 
 @code {
-    /// <summary>対戦画面で出している結果の天候・フィールドに合わせた class（app.css の「対戦画面」の節）。</summary>
-    private string ConditionClass => Stage.BattleActive && Stage.Scene is { } scene
-        ? $"{scene.Weather switch { Weather.Sun => "wx-sun", Weather.Rain => "wx-rain", Weather.Sand => "wx-sand", Weather.Snow => "wx-snow", _ => "" }} " +
-          $"{scene.Terrain switch { Terrain.Electric => "tr-electric", Terrain.Grassy => "tr-grassy", Terrain.Psychic => "tr-psychic", Terrain.Misty => "tr-misty", _ => "" }}"
-        : "";
+    /// <summary>
+    /// 開いているページで入力している天候・フィールドに合わせた class（app.css の「天候・フィールド」の節）。
+    /// 対戦画面のときは濃く、そうでないときは控えめに出す（CSS 側で .battle の有無で変える）。
+    /// </summary>
+    private string ConditionClass =>
+        $"{Stage.Weather switch { Weather.Sun => "wx-sun", Weather.Rain => "wx-rain", Weather.Sand => "wx-sand", Weather.Snow => "wx-snow", _ => "" }} " +
+        $"{Stage.Terrain switch { Terrain.Electric => "tr-electric", Terrain.Grassy => "tr-grassy", Terrain.Psychic => "tr-psychic", Terrain.Misty => "tr-misty", _ => "" }}";
+
+    /// <summary>雨・砂嵐・雪の粒（index.html の faraWeather）。種類と、対戦画面かどうか（濃さ）を渡す。</summary>
+    private string ParticleKind => Stage.Weather switch { Weather.Rain => "rain", Weather.Sand => "sand", Weather.Snow => "snow", _ => "" };
 
     protected override async Task OnInitializedAsync()
     {
@@ -88,7 +93,11 @@
     // ポケモンの画像を足場の位置に合わせる（画面の大きさが変わったときは index.html 側で合わせ直す）
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        try { await JS.InvokeVoidAsync("faraPlaceStage"); }
+        try
+        {
+            await JS.InvokeVoidAsync("faraPlaceStage");
+            await JS.InvokeVoidAsync("faraWeather", ParticleKind, Stage.BattleActive);
+        }
         catch { /* 背景だけの飾りなので、失敗しても何もしない */ }
     }
 

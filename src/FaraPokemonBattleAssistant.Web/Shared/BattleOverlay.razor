@@ -9,12 +9,12 @@
 @if (Stage.BattleActive && Stage.Scene is { } scene)
 {
     <div class="battle-ui" role="region" aria-label="対戦画面">
-        @if (scene.Weather != Weather.None || scene.Terrain != Terrain.None)
+        @if (Stage.Weather != Weather.None || Stage.Terrain != Terrain.None)
         {
             @* 入力している天候・フィールド（背景のフィールドにも見た目で出る） *@
             <div class="bv-conditions">
-                @if (scene.Weather != Weather.None) { <span class="badge bv-cond bv-cond-weather">@FieldNames.Japanese(scene.Weather, App.DataSet?.Generation ?? 9)</span> }
-                @if (scene.Terrain != Terrain.None) { <span class="badge bv-cond bv-cond-terrain">@FieldNames.Japanese(scene.Terrain)</span> }
+                @if (Stage.Weather != Weather.None) { <span class="badge bv-cond bv-cond-weather">@FieldNames.Japanese(Stage.Weather, App.DataSet?.Generation ?? 9)</span> }
+                @if (Stage.Terrain != Terrain.None) { <span class="badge bv-cond bv-cond-terrain">@FieldNames.Japanese(Stage.Terrain)</span> }
             </div>
         }
         @switch (scene)

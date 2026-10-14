@@ -72,7 +72,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                         }
                         else
                         {
-                            <select class="form-select" value="@(s.NewAbility?.Id.ToString() ?? "")" disabled="@(s.NewPokemon is null)" @onchange="@(e => s.NewAbility = data.FindAbility(ParseId(e.Value)))">
+                            <select class="form-select" value="@(s.NewAbility?.Id.ToString() ?? "")" disabled="@(s.NewPokemon is null)" @onchange="@(e => OnAbilityChanged(data.FindAbility(ParseId(e.Value))))">
                                 @if (s.NewPokemon is not null)
                                 {
                                     @foreach (var a in data.AbilitiesOf(s.NewPokemon))
@@ -228,6 +228,7 @@ else if (data is not null && roster is not null && dataSet is not null)
     {
         Stage.ShowOnly(App.DataSetKey, s.NewPokemon, null);
         Stage.SetScene(this, BuildScene());
+        Stage.SetConditions(this, s.NewWeather, s.NewTerrain);
     }
 
     public override void Dispose()
@@ -240,7 +241,7 @@ else if (data is not null && roster is not null && dataSet is not null)
     {
         if (dataSet is null || s.NewPokemon is null) return null;
         var moves = s.NewMoves.OfType<Move>().Select(m => new MoveSlot(m.Name, m.Type, m.Power)).ToList();
-        return new RegisterScene(s.NewPokemon.Name, StatCalculator.CalculateAll(NewBuild()).HP, moves) { Weather = s.NewWeather, Terrain = s.NewTerrain };
+        return new RegisterScene(s.NewPokemon.Name, StatCalculator.CalculateAll(NewBuild()).HP, moves);
     }
 
     private static string MoveInfo(Move m) => $"{(m.Category switch { MoveCategory.Physical => "物理", MoveCategory.Special => "特殊", _ => "変化" })} {(m.Power > 0 ? m.Power.ToString() : "-")}";
@@ -291,7 +292,22 @@ else if (data is not null && roster is not null && dataSet is not null)
     {
         s.NewPokemon = data?.FindPokemon(ParseId(value));
         s.NewMoves = new Move?[RegisteredPokemon.MaxMoves];
-        s.NewAbility = s.NewPokemon is null || data is null ? null : AbilityEffects.ChooseDefault(data.AbilitiesOf(s.NewPokemon), null);
+        OnAbilityChanged(s.NewPokemon is null || data is null ? null : AbilityEffects.ChooseDefault(data.AbilitiesOf(s.NewPokemon), null));
+    }
+
+    /// <summary>
+    /// 特性を変える。特性が場に出す天候・フィールド（ひでり・サイコメイカーなど）は、ダメージ計算機と同じように天候・フィールドの欄に入れる
+    /// （技の並び順に効く。前の特性が入れた分は外す。自分で選んだ天候・フィールドは、まだ選んでいなければ上書きしない）。
+    /// </summary>
+    private void OnAbilityChanged(Ability? next)
+    {
+        var previous = s.NewAbility?.Identifier;
+        if (FaraPokemonBattleAssistant.Core.Battle.FieldEffects.WeatherFromAbility(previous) is { } pw && s.NewWeather == pw) s.NewWeather = Weather.None;
+        if (FaraPokemonBattleAssistant.Core.Battle.FieldEffects.TerrainFromAbility(previous) is { } pt && s.NewTerrain == pt) s.NewTerrain = Terrain.None;
+        s.NewAbility = next;
+        var id = next?.Identifier;
+        if (s.NewWeather == Weather.None && FaraPokemonBattleAssistant.Core.Battle.FieldEffects.WeatherFromAbility(id) is { } w) s.NewWeather = w;
+        if (s.NewTerrain == Terrain.None && FaraPokemonBattleAssistant.Core.Battle.FieldEffects.TerrainFromAbility(id) is { } t) s.NewTerrain = t;
     }
 
     private PokemonBuild NewBuild() => new(s.NewPokemon!, dataSet!.EvSystem) { EVs = s.NewEvs, Nature = s.NewNature, Ability = s.NewAbility };
@@ -306,7 +322,7 @@ else if (data is not null && roster is not null && dataSet is not null)
             Show($"#{entry.Id} {entry.PokemonName} を登録しました", false);
             // 続けて別のポケモンを登録しやすいよう、選択中のポケモンと特性は空に戻す（振り分けは 0 に戻す。性格は残す）
             s.NewPokemon = null;
-            s.NewAbility = null;
+            OnAbilityChanged(null);
             s.NewEvs = new StatSet();
             s.NewMoves = new Move?[RegisteredPokemon.MaxMoves];
         });
