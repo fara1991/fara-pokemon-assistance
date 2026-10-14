@@ -74,14 +74,22 @@
             // 背景のバトルフィールド：ポケモンの画像を、画面に描かれた足場の真ん中に足元を合わせて置く。
             // 大きさは足場の幅に比例させるので、奥の足場のポケモンは遠近で小さくなる
             window.faraPlaceStage = function () {
-                [["foe", "field-pad-foe"], ["mine", "field-pad-mine"]].forEach(function (p) {
-                    var pad = document.querySelector("." + p[1]), img = document.querySelector(".field-mon-" + p[0]);
-                    if (!pad || !img) return;
-                    var r = pad.getBoundingClientRect(), w = r.width * 1.3;
+                var sides = ["foe", "mine"].map(function (name) {
+                    var pad = document.querySelector(".field-pad-" + name);
+                    return { img: document.querySelector(".field-mon-" + name), r: pad ? pad.getBoundingClientRect() : null };
+                });
+                sides.forEach(function (s, i) {
+                    if (!s.img || !s.r) return;
+                    var r = s.r, w = r.width * 1.3, cx = r.left + r.width / 2;
+                    var other = sides[1 - i].r;
+                    // 2 体を向き合わせる。画像はもともと左向きなので、相手より左にいるときだけ左右反転して右を向かせる
+                    var faceRight = other ? cx < other.left + other.width / 2 : i === 1;
+                    var img = s.img;
+                    img.style.transform = faceRight ? "scaleX(-1)" : "none";
                     // フィールドが回って手前に来た足場のポケモンほど、前に重ねる
                     img.style.zIndex = String(Math.round(r.top + r.height / 2));
                     img.style.width = w + "px";
-                    img.style.left = (r.left + r.width / 2 - w / 2) + "px";
+                    img.style.left = (cx - w / 2) + "px";
                     img.style.top = (r.top + r.height / 2 - w * 0.92) + "px";
                     img.style.visibility = "visible";
                 });
