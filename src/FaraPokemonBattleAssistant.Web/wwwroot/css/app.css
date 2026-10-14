@@ -2895,15 +2895,15 @@ html.vt-nav .sidebar {
     /* PC では左のサイドバー（230px）を除いた範囲の真ん中にコートを置く */
     --stage-shift: 115px;
     /* コートの大きさの単位。横長の画面では高さも見て、下が切れないようにする */
-    --u: min(1.3vw, 1.8vh);
+    --u: min(1.5vw, 2.1vh);
 }
 
 .bg-layer { position: absolute; }
 
-.field-sky { position: absolute; inset: 0 0 60% 0; background: linear-gradient(180deg, var(--field-sky), transparent); }
-.field-horizon { position: absolute; left: 0; right: 0; top: 40%; height: 2px; background: linear-gradient(90deg, transparent, var(--field-pad), transparent); box-shadow: 0 0 24px 6px var(--field-beam); }
+.field-sky { position: absolute; inset: 0 0 66% 0; background: linear-gradient(180deg, var(--field-sky), transparent); }
+.field-horizon { position: absolute; left: 0; right: 0; top: 34%; height: 2px; background: linear-gradient(90deg, transparent, var(--field-pad), transparent); box-shadow: 0 0 24px 6px var(--field-beam); }
 .field-stands {
-    position: absolute; left: 0; right: 0; top: 22%; height: 18%;
+    position: absolute; left: 0; right: 0; top: 16%; height: 18%;
     background: repeating-linear-gradient(180deg, var(--field-stand) 0 3px, transparent 3px 14px);
     mask-image: linear-gradient(180deg, transparent, #000 60%);
     -webkit-mask-image: linear-gradient(180deg, transparent, #000 60%);
@@ -2911,10 +2911,10 @@ html.vt-nav .sidebar {
 .field-flash { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 4px rgba(255, 255, 255, 0.7); opacity: 0; animation: field-flash 7s ease-out infinite; }
 @keyframes field-flash { 0%, 90%, 100% { opacity: 0; } 92% { opacity: 0.9; } }
 
-.field-floor { position: absolute; left: 0; right: 0; top: 40%; bottom: 0; perspective: 900px; perspective-origin: 50% -20%; background: linear-gradient(180deg, var(--field-fill), transparent 120%); }
+.field-floor { position: absolute; left: 0; right: 0; top: 34%; bottom: 0; perspective: 900px; perspective-origin: 50% -20%; background: linear-gradient(180deg, var(--field-fill), transparent 120%); }
 /* コートの面（真上から見た長方形）。奥へ倒してから、床の上で時計回りに回す */
 /* 床の上でゆっくり 1 周回り続ける（2 分で 1 周）。回っても地平線を越えにくいよう、中心は床の真ん中あたり */
-.field-plane { position: absolute; left: calc(50% + var(--stage-shift)); top: 45%; width: calc(30 * var(--u)); height: calc(49 * var(--u)); margin: calc(-24.5 * var(--u)) 0 0 calc(-15 * var(--u)); transform: rotateX(62deg) rotateZ(60deg); animation: field-spin 120s linear infinite; }
+.field-plane { position: absolute; left: calc(50% + var(--stage-shift)); top: 40%; width: calc(30 * var(--u)); height: calc(49 * var(--u)); margin: calc(-24.5 * var(--u)) 0 0 calc(-15 * var(--u)); transform: rotateX(62deg) rotateZ(60deg); animation: field-spin 120s linear infinite; }
 @keyframes field-spin { from { transform: rotateX(62deg) rotateZ(60deg); } to { transform: rotateX(62deg) rotateZ(420deg); } }
 @keyframes field-spin-tall { from { transform: rotateX(66deg) rotateZ(48deg); } to { transform: rotateX(66deg) rotateZ(408deg); } }
 .field-court { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -2953,6 +2953,7 @@ html.vt-nav .sidebar {
 
 /* 縦長の画面：地平線を上げ、コートと足場を画面幅に合わせて大きくする */
 @media (max-aspect-ratio: 1/1) {
+    .bg-scene { --u: min(1.3vw, 1.8vh); }
     .field-sky { inset: 0 0 66% 0; }
     .field-stands { top: 20%; height: 14%; }
     .field-horizon, .field-floor { top: 34%; }
