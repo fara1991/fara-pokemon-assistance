@@ -192,6 +192,12 @@ else if (data is not null && dataSet is not null)
                             <input class="form-check-input" type="checkbox" role="switch" id="estimate-crit" checked="@s.EstimateCritical" @onchange="@(e => s.EstimateCritical = e.Value is true)" />
                             <label class="form-check-label" for="estimate-crit">受けたダメージは急所に当たったとき <Help Title="急所">オンにすると、急所（ダメージ 1.5 倍。スナイパーは 2.25 倍。攻撃側のマイナスランクと防御側のプラスランクを無視）のときのダメージとして推定します。</Help></label>
                         </div>
+                        @if (s.Estimate is { } estimate)
+                        {
+                            <div class="mt-3">@RenderEstimateResult(estimate)</div>
+                            <hr />
+                            <p class="mb-1 text-muted small">チャットでの表示</p>
+                        }
                         @if (!string.IsNullOrEmpty(s.EstimateText))
                         {
                             <div class="alert alert-light border chat-output mt-2 mb-0">@s.EstimateText</div>
@@ -270,6 +276,9 @@ else if (data is not null && dataSet is not null)
         public Terrain Terrain { get; set; }
         public string ObservedDamageText { get; set; } = "";
         public string EstimateText { get; set; } = "";
+        /// <summary>推定の結果（画面に表で出す）と、そのときの条件の表示用の名前。</summary>
+        public EvEstimator.Estimate? Estimate { get; set; }
+        public string EstimateCaption { get; set; } = "";
         /// <summary>通常（急所なし）の結果と、そのときの条件。</summary>
         public DamageResult? Result { get; set; }
         public DamageRequest? LastRequest { get; set; }
@@ -362,6 +371,7 @@ else if (data is not null && dataSet is not null)
                 s.Result = null;
                 s.LastRequest = null;
                 s.EstimateText = "";
+                s.Estimate = null;
             }
             s.Format = App.Format;
             // そのゲームに無いフィールド（第 5 世代まで・サイコフィールドは第 6 世代まで）は外す
@@ -487,6 +497,7 @@ else if (data is not null && dataSet is not null)
     private void EstimateEvs()
     {
         s.EstimateText = "";
+        s.Estimate = null;
         if (data is null || s.Attacker is null || s.Defender is null || s.Move is null) { s.EstimateText = "ポケモンと技を選択してください。"; return; }
         var text = s.ObservedDamageText.Trim();
         var asPercent = text.EndsWith('%') || text.EndsWith('％');
@@ -507,7 +518,62 @@ else if (data is not null && dataSet is not null)
         request.Defender.Item = null;
         var estimate = new EvEstimator(data.TypeChart, data.Info.Generation).Run(request, observed, asPercent);
         s.EstimateText = EvEstimator.Format(estimate, s.Defender.Pokemon, s.Move, data.Info.EvSystem) + "（相手は持ち物なし想定）";
+        s.Estimate = estimate;
+        s.EstimateCaption = $"{s.Attacker.Pokemon.Name} の {s.Move.Name} → {s.Defender.Pokemon.Name}{(s.EstimateCritical ? "（急所）" : "")}";
     }
+
+    /// <summary>
+    /// 推定の結果。計算結果のように、相手の防御実数値の範囲と、性格補正ごとのポイントの範囲（0〜最大のどこか）を出す。
+    /// 文字だけのチャット表示は、その下に添える。
+    /// </summary>
+    private RenderFragment RenderEstimateResult(EvEstimator.Estimate e) => __builder =>
+    {
+        var system = data!.Info.EvSystem;
+        var unit = system == EvSystem.Points ? "pt" : "";
+        var max = EvRules.MaxPerStat(system);
+        var letter = StatNames.Letter(e.DefenseStat);
+        var observed = e.ObservedAsPercent ? $"{e.ObservedDamage}%" : $"{e.ObservedDamage}";
+        <div class="estimate-result">
+            <p class="estimate-caption small text-muted mb-1">@s.EstimateCaption　受けたダメージ <strong>@observed</strong></p>
+            @if (!e.HasResult)
+            {
+                <div class="alert alert-warning mb-0">そのダメージになる @letter（@StatNames.Japanese(e.DefenseStat)）の振り方は見つかりませんでした。持ち物・特性・ランク・天候・フィールドが違うか、ダメージの入力を見直してください（相手は持ち物なしで計算しています）。</div>
+            }
+            else
+            {
+                <p class="estimate-stat mb-2">
+                    相手の @letter（@StatNames.Japanese(e.DefenseStat)）実数値
+                    <strong>@(e.MinDefenseStat == e.MaxDefenseStat ? $"{e.MinDefenseStat}" : $"{e.MinDefenseStat}〜{e.MaxDefenseStat}")</strong>
+                </p>
+                <p class="small text-muted mb-1">性格補正ごとの @(EvRules.Label(system))（0〜@(max)@unit のうち、帯の部分）</p>
+                <div class="estimate-bands">
+                    @foreach (var b in e.Bands)
+                    {
+                        var left = b.MinEv * 100.0 / max;
+                        var width = Math.Max(2.0, (b.MaxEv - b.MinEv) * 100.0 / max);
+                        <div class="estimate-band" data-mod="@(b.Modifier > 1 ? "up" : b.Modifier < 1 ? "down" : "none")">
+                            <div class="estimate-band-head">
+                                <span class="estimate-band-label">@b.Label<small>（×@b.Modifier.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)）</small></span>
+                                <span class="estimate-band-value">@letter @(b.MinEv == b.MaxEv ? $"{b.MinEv}{unit}" : $"{b.MinEv}〜{b.MaxEv}{unit}")</span>
+                            </div>
+                            <div class="estimate-bar" role="img" aria-label="@b.Label: @letter @b.MinEv から @b.MaxEv @unit（最大 @max）">
+                                <div class="estimate-bar-fill" style="left:@Pct(left);width:@Pct(Math.Min(width, 100 - left))"></div>
+                            </div>
+                            @if (b.MinStat > 0)
+                            {
+                                <div class="estimate-band-stat small text-muted">実数値 @(b.MinStat == b.MaxStat ? $"{b.MinStat}" : $"{b.MinStat}〜{b.MaxStat}")</div>
+                            }
+                        </div>
+                    }
+                </div>
+                @if (e.HpEvRange is { } hp)
+                {
+                    <p class="small mt-2 mb-0">H（HP）の @(EvRules.Label(system)): <strong>@(hp.MinEv == hp.MaxEv ? $"{hp.MinEv}{unit}" : $"{hp.MinEv}〜{hp.MaxEv}{unit}")</strong>（% で入力したときの推定）</p>
+                }
+                <p class="small text-muted mt-2 mb-0">相手は持ち物なしとして計算しています。持ち物・特性・ランクが違うと結果が変わります。</p>
+            }
+        </div>
+    };
 
     /// <summary>特性が場に出す天候・フィールドを、まだ選んでいなければ既定値にする（ひでり・サイコメイカーなど）。</summary>
     private void ApplyFieldFromAbility(PokemonBuild build)

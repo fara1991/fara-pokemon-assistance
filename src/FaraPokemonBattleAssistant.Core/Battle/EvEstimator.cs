@@ -15,7 +15,8 @@ public sealed class EvEstimator
         _generation = generation;
     }
 
-    public sealed record NatureBand(double Modifier, string Label, int MinEv, int MaxEv);
+    /// <param name="MinStat">この補正で <paramref name="MinEv"/> を振ったときの防御実数値（画面の表示用。計算していなければ 0）。</param>
+    public sealed record NatureBand(double Modifier, string Label, int MinEv, int MaxEv, int MinStat = 0, int MaxStat = 0);
 
     public sealed class Estimate
     {
@@ -55,6 +56,7 @@ public sealed class EvEstimator
         foreach (var (mod, label) in natures)
         {
             int? lo = null, hi = null;
+            int loStat = 0, hiStat = 0;
             foreach (var ev in evValues)
             {
                 var defender = template.Clone();
@@ -86,12 +88,15 @@ public sealed class EvEstimator
                 }
                 if (matched)
                 {
+                    var statValue = StatCalculator.Calculate(defender, defStat);
+                    if (lo is null) loStat = statValue;
                     lo ??= ev;
                     hi = ev;
+                    hiStat = statValue;
                 }
             }
             if (lo is not null)
-                bands.Add(new NatureBand(mod, label, lo.Value, hi!.Value));
+                bands.Add(new NatureBand(mod, label, lo.Value, hi!.Value, loStat, hiStat));
         }
 
         return new Estimate
