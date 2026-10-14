@@ -24,6 +24,7 @@
     </script>
 </head>
 <body>
+    <button type="button" id="scroll-top" class="scroll-top" aria-label="いちばん上へ" title="いちばん上へ">↑</button>
     <div id="app">
         <div class="loading-screen">
             <div class="spinner-border text-primary" role="status"></div>
@@ -256,6 +257,21 @@
                 window.visualViewport.addEventListener("resize", function () { window.faraPlaceStage(); });
                 window.visualViewport.addEventListener("scroll", function () { window.faraPlaceStage(); });
             }
+
+            // スマホ: スクロールしたら、右下に「いちばん上へ」ボタンを出す（結果のバーがあるときはその上。対戦画面では出さない）
+            (function () {
+                var btn = document.getElementById("scroll-top");
+                if (!btn) return;
+                var reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+                function update() {
+                    btn.classList.toggle("show", window.scrollY > 400 && !document.querySelector(".battle-ui"));
+                    btn.classList.toggle("above-bar", !!document.querySelector(".result-bar"));
+                }
+                btn.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: reduce.matches ? "auto" : "smooth" }); });
+                window.addEventListener("scroll", update, { passive: true });
+                setInterval(update, 500);   // 画面の切り替え（対戦画面・結果のバー）に合わせる
+                update();
+            })();
 
             window.faraPlaceNote = function (id) {
                 var el = document.getElementById(id);
