@@ -188,7 +188,7 @@ else if (data is not null && dataSet is not null)
                         </ol>
                         <div class="input-group">
                             <span class="input-group-text">受けたダメージ</span>
-                            <input class="form-control" inputmode="decimal" placeholder="93 または 45%" value="@s.ObservedDamageText" @oninput="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
+                            <input class="form-control" inputmode="decimal" placeholder="数値または割合（例: 93 / 45%）" value="@s.ObservedDamageText" @oninput="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
                         </div>
                         <div class="form-check form-switch mt-2">
                             <input class="form-check-input" type="checkbox" role="switch" id="estimate-crit" checked="@s.EstimateCritical" @onchange="@(e => s.EstimateCritical = e.Value is true)" />
@@ -533,7 +533,7 @@ else if (data is not null && dataSet is not null)
         var text = s.ObservedDamageText.Trim();
         if (text.Length == 0) return;
         var asPercent = text.EndsWith('%') || text.EndsWith('％');
-        if (!double.TryParse(text.TrimEnd('%', '％'), out var observed) || observed <= 0) { s.EstimateText = "受けたダメージを 93 または 45% の形で入力してください。"; return; }
+        if (!double.TryParse(text.TrimEnd('%', '％'), out var observed) || observed <= 0) { s.EstimateText = "受けたダメージは、数値（例: 93）または割合（例: 45%）で入力してください。"; return; }
         var request = new DamageRequest
         {
             Attacker = s.Attacker,
