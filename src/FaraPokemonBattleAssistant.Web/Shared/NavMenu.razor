@@ -31,6 +31,8 @@
         <button type="button" class="btn btn-sm btn-outline-light w-100 mt-2" @onclick="App.ToggleThemeAsync">
             @(App.Theme == "dark" ? "☀ ライトモード" : "🌙 ダークモード")
         </button>
+        @* 対戦画面（背景のフィールドに結果を重ねて出す）。ダメージ計算機・素早さ比較・ポケモン登録で使え、全ページ共通のスイッチ *@
+        <BattleViewSwitch InputId="side-battle-view" Class="side-battle mt-2" OnChanged="CollapseNavMenu" />
     </div>
     <nav class="flex-column side-nav" @onclick="CollapseNavMenu">
         @* 選択中の印。項目の間を滑って動く（位置は wwwroot/js/motion.js が決める） *@

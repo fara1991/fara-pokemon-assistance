@@ -171,7 +171,7 @@ else if (data is not null && dataSet is not null)
             @if (s.Result is not null && s.LastRequest is not null)
             {
                 <div class="card result-card result-sticky">
-                    <div class="card-header card-header-switch"><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージ、オボンのみ等の回復きのみ、たべのこし・くろいヘドロ、グラスフィールドの回復、半減きのみ（1 発目のみ）、マルチスケイル（満タン時の 1 発目のみ）も確定数に含めています。入力を変えると自動で計算し直します。</Help></h5><BattleViewSwitch InputId="battle-view-card" /></div>
+                    <div class="card-header"><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージ、オボンのみ等の回復きのみ、たべのこし・くろいヘドロ、グラスフィールドの回復、半減きのみ（1 発目のみ）、マルチスケイル（満タン時の 1 発目のみ）も確定数に含めています。入力を変えると自動で計算し直します。</Help></h5></div>
                     <div class="card-body">@RenderResultBody(s.Result, s.LastRequest)</div>
                 </div>
                 @* 狭い画面では、結果の要点を画面の下に出したままにする（押すと詳細を開く） *@
@@ -186,7 +186,6 @@ else if (data is not null && dataSet is not null)
                         <span class="badge @(s.Result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@s.Result.KnockOut</span>
                         <span class="result-bar-toggle" aria-hidden="true">@(resultBarOpen ? "▾ 閉じる" : "▴ 詳細")</span>
                     </button>
-                    <BattleViewSwitch InputId="battle-view-bar" Class="result-bar-switch" />
                 </div>
             }
             else

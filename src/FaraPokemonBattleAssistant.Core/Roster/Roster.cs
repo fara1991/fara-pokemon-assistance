@@ -93,6 +93,11 @@ public sealed class RegisteredPokemon
     /// </summary>
     public int? ItemId { get; set; }
     public string? TeraType { get; set; }
+    /// <summary>登録時に選んだ技（技の Id。0〜<see cref="MaxMoves"/> 個）。選ばなかった古い登録では空。</summary>
+    public List<int> MoveIds { get; set; } = new();
+
+    /// <summary>登録できる技の数。</summary>
+    public const int MaxMoves = 4;
 
     [JsonIgnore]
     public StatSet EVs
@@ -270,8 +275,13 @@ public sealed class RosterRepository
 
     // ---- 登録ポケモン
 
-    public async Task<RegisteredPokemon> AddPokemonAsync(string dataSetKey, Pokemon pokemon, StatSet evs, Nature nature, Ability? ability, CancellationToken ct = default)
+    public async Task<RegisteredPokemon> AddPokemonAsync(string dataSetKey, Pokemon pokemon, StatSet evs, Nature nature, Ability? ability, CancellationToken ct = default) =>
+        await AddPokemonAsync(dataSetKey, pokemon, evs, nature, ability, null, ct).ConfigureAwait(false);
+
+    /// <param name="moveIds">登録する技の Id（重複と 5 個目以降は無視する）。</param>
+    public async Task<RegisteredPokemon> AddPokemonAsync(string dataSetKey, Pokemon pokemon, StatSet evs, Nature nature, Ability? ability, IEnumerable<int>? moveIds, CancellationToken ct = default)
     {
+        var moves = (moveIds ?? Array.Empty<int>()).Where(id => id > 0).Distinct().Take(RegisteredPokemon.MaxMoves).ToList();
         return await MutateAsync(dataSetKey, RosterPart.Pokemon, roster =>
         {
             var entry = new RegisteredPokemon
@@ -282,6 +292,7 @@ public sealed class RosterRepository
                 EVs = evs,
                 Nature = nature.Name,
                 AbilityId = ability?.Id,
+                MoveIds = moves,
             };
             roster.Pokemon.Add(entry);
             return (entry, true);

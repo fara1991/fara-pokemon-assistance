@@ -1,14 +1,13 @@
 @* 対戦画面。背景のバトルフィールド（BattleStageBackground）を止めて向きを固定し、その上に結果を重ねて出す。
-   自分側（攻撃側／ポケモン1）の枠は左下、相手側（防御側／ポケモン2）の枠は右上。ページの入力欄は隠れる（入力した内容は残る） *@
+   自分側（攻撃側／ポケモン1／登録するポケモン）の枠は左下、相手側（防御側／ポケモン2）の枠は右上。ページの入力欄は隠れる（入力した内容は残る）。
+   オン・オフはサイドバーのスイッチ（Components/BattleViewSwitch.razor） *@
 @inject BattleStage Stage
+@using FaraPokemonBattleAssistant.Core.Roster
 @implements IDisposable
 
 @if (Stage.BattleActive && Stage.Scene is { } scene)
 {
     <div class="battle-ui" role="region" aria-label="対戦画面">
-        <div class="bv-controls">
-            <button type="button" class="btn btn-sm btn-light bv-back" @onclick="() => Stage.SetBattleView(false)">← 入力に戻る</button>
-        </div>
         @switch (scene)
         {
             case DamageScene d:
@@ -16,6 +15,9 @@
                 break;
             case SpeedScene sp:
                 @RenderSpeed(sp)
+                break;
+            case RegisterScene r:
+                @RenderRegister(r)
                 break;
         }
     </div>
@@ -70,6 +72,36 @@
                 }
             </div>
         </div>
+        </div>
+    };
+
+    /// <summary>ポケモン登録：左下に登録するポケモン、右上に相手（背景に立っている方）、右下に選んだ技 4 つ。</summary>
+    private RenderFragment RenderRegister(RegisterScene r) => __builder =>
+    {
+        <div class="bv-box bv-foe">
+            <div class="bv-name">@(Stage.Foe?.Name ?? "")</div>
+            <div class="hp-calc-bar bv-bar"><div class="hp-calc-fill" data-level="high" style="left:0%;width:100%"></div></div>
+        </div>
+        <div class="bv-bottom bv-bottom-moves">
+            <div class="bv-box bv-mine">
+                <div class="bv-name">@r.MineName</div>
+                <div class="hp-calc-bar bv-bar"><div class="hp-calc-fill" data-level="high" style="left:0%;width:100%"></div></div>
+                <div class="bv-hp">@r.MaxHp / @r.MaxHp</div>
+            </div>
+            <div class="bv-moves" role="list" aria-label="選んだ技">
+                @for (var i = 0; i < RegisteredPokemon.MaxMoves; i++)
+                {
+                    if (i < r.Moves.Count)
+                    {
+                        var m = r.Moves[i];
+                        <div class="bv-move" role="listitem"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span></div>
+                    }
+                    else
+                    {
+                        <div class="bv-move bv-move-empty" role="listitem">ー</div>
+                    }
+                }
+            </div>
         </div>
     };
 
