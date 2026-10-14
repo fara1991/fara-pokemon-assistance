@@ -26,6 +26,8 @@ from collections import defaultdict
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent
+sys.path.insert(0, str(TOOLS))
+import champions_learnsets  # noqa: E402
 ROOT = TOOLS.parent
 DATA = ROOT / "src" / "FaraPokemonBattleAssistant.Web" / "wwwroot" / "api" / "game"
 POKEAPI_CSV = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/"
@@ -93,7 +95,16 @@ def main() -> int:
                     tier_moves[pid] |= moves
             fallback_tiers.append(tier_moves)
 
+        overrides: dict[str, set[str]] = {}
+        if ds.get("learnset_override_url"):
+            # Showdown の champions mod の技（sync_data.py と同じ読み方）。あるポケモンはこれが期待値
+            show = champions_learnsets.load_showdown(ds["learnset_override_url"], cache / "champions_learnsets.ts")
+            by_ident = {r["identifier"].replace("-", ""): r["id"] for r in table(cache, "moves")}
+            overrides = champions_learnsets.resolve(show, poke, [r["Id"] for r in pokemon_rows], by_ident)
+
         def expected(pid: str) -> tuple[set[str], str]:
+            if pid in overrides:
+                return overrides[pid], "showdown-champions"
             if own.get(pid):
                 return own[pid], "own"
             tiers_data = fallback_tiers
