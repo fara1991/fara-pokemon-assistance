@@ -228,7 +228,28 @@ else if (data is not null && roster is not null && dataSet is not null)
         return new RegisterScene(s.NewPokemon.Name, StatCalculator.CalculateAll(NewBuild()).HP, moves);
     }
 
-    private static string MoveInfo(Move m) => $"{(m.Category switch { MoveCategory.Physical => "物理", MoveCategory.Special => "特殊", _ => "変化" })} {(m.Power > 0 ? m.Power.ToString() : "-")}";
+    private static readonly Pokemon NeutralTarget = new() { Name = "（相手なし）" };
+
+    /// <summary>
+    /// 分類と威力。特性が天候・フィールドを出すとき（サイコメイカー・ひでりなど）に、その補正がかかる技は
+    /// 「威力 補正前（補正後）」で出す（例: 80（120））。
+    /// </summary>
+    private string MoveInfo(Move m)
+    {
+        var category = m.Category switch { MoveCategory.Physical => "物理", MoveCategory.Special => "特殊", _ => "変化" };
+        if (m.Power <= 0) return $"{category} -";
+        var power = m.Power.ToString();
+        var id = s.NewAbility?.Identifier;
+        var makesField = FaraPokemonBattleAssistant.Core.Battle.FieldEffects.WeatherFromAbility(id) is not null
+            || FaraPokemonBattleAssistant.Core.Battle.FieldEffects.TerrainFromAbility(id) is not null;
+        if (makesField && s.NewPokemon is not null && dataSet is not null)
+        {
+            var field = FaraPokemonBattleAssistant.Core.Battle.SelfFieldEffects.For(m, m.Type, s.NewPokemon, s.NewAbility, NeutralTarget, null, dataSet.Generation);
+            if (!field.Fails && Math.Abs(field.PowerFactor - 1.0) > 0.001)
+                power += $"（{Math.Round(m.Power * field.PowerFactor)}）";
+        }
+        return $"{category} {power}";
+    }
 
     private IReadOnlyList<Move> sortedMoves = Array.Empty<Move>();
     private string sortedMovesKey = "";

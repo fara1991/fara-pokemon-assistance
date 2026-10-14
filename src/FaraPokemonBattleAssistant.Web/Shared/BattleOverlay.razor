@@ -6,8 +6,9 @@
 @using FaraPokemonBattleAssistant.Core.Roster
 @implements IDisposable
 
-@if (Stage.BattleActive && Stage.Scene is { } scene)
+@if (Stage.BattleActive)
 {
+    var scene = Stage.Scene ?? NoResultScene;
     <div class="battle-ui" role="region" aria-label="対戦画面">
         @if (Stage.Weather != Weather.None || Stage.Terrain != Terrain.None)
         {
@@ -39,6 +40,9 @@
 }
 
 @code {
+    /// <summary>結果を出さないページ（ホーム・タイプ相性表など）で、スイッチがオンのときの案内。</summary>
+    private static readonly WaitingScene NoResultScene = new("対戦画面です。結果は、ダメージ計算機・素早さ比較・ポケモン登録のページで出ます。オフにすると、このページの内容が見えます。");
+
     protected override void OnInitialized() => Stage.Changed += OnStageChanged;
 
     private void OnStageChanged() => InvokeAsync(StateHasChanged);
