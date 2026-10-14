@@ -3263,6 +3263,7 @@ html.vt-nav .sidebar {
 .bv-kind-none { background: rgba(34, 160, 107, 0.25); }
 .bv-kind-up, .bv-kind-down, .bv-kind-none { min-width: 8.2rem; text-align: left; }
 .bv-msg-sub { color: var(--app-muted); }
+.bv-nowrap { white-space: nowrap; }
 .bv-unknown { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .bv-first { color: var(--app-win); }
 
