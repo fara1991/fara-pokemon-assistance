@@ -118,7 +118,7 @@
                 <div class="bv-hp">@e.AttackerHp / @e.AttackerMaxHp</div>
             </div>
             <div class="bv-msg">
-                <div class="bv-msg-move"><strong>@e.AttackerName</strong> の <TypeIcon Type="@e.MoveType" Small="true" /> <strong>@e.MoveName</strong>！　受けたダメージ <strong>@e.Observed</strong></div>
+                <div class="bv-msg-move"><strong>@e.AttackerName</strong> の <TypeIcon Type="@e.MoveType" Small="true" /> <strong>@e.MoveName</strong>！ <span class="bv-nowrap">受けたダメージ <strong>@e.Observed</strong></span></div>
                 @if (e.Bands.Count == 0)
                 {
                     <div class="bv-msg-dmg"><span class="text-muted small">そのダメージになる振り方は見つかりませんでした（持ち物・特性・ランクが違う可能性）</span></div>

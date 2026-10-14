@@ -187,8 +187,8 @@ else if (data is not null && dataSet is not null)
                         @* ラベルを「量」「割合」で切り替える。入力欄は数値だけ *@
                         <div class="input-group">
                             <select class="form-select estimate-kind" aria-label="受けたダメージの種類" @onchange="@(e => s.ObservedIsPercent = e.Value?.ToString() == "percent")">
-                                <option value="amount" selected="@(!s.ObservedIsPercent)">受けたダメージ量</option>
-                                <option value="percent" selected="@(s.ObservedIsPercent)">受けたダメージ割合</option>
+                                <option value="amount" selected="@(!s.ObservedIsPercent)">ダメージ量</option>
+                                <option value="percent" selected="@(s.ObservedIsPercent)">ダメージ割合</option>
                             </select>
                             <input class="form-control" inputmode="decimal" placeholder="@(s.ObservedIsPercent ? "数値（例: 45）" : "数値（例: 93）")" value="@s.ObservedDamageText" @oninput="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
                             @if (s.ObservedIsPercent) { <span class="input-group-text">%</span> }

@@ -714,13 +714,18 @@ body {
 .hp-range { --hp: 100%; --hp-color: var(--app-hp); --hp-empty: var(--app-range-empty); background: transparent; height: 1.5rem; }
 .hp-range[data-level="mid"] { --hp-color: var(--app-hp-mid); }
 .hp-range[data-level="low"] { --hp-color: var(--app-hp-low); }
+/* 塗りは「空の色の上に、残り HP の分だけ色を重ねる」描き方にする（色の境目のにじみで、右端に同じ色が残って見えないように） */
 .hp-range::-webkit-slider-runnable-track {
     box-sizing: border-box; height: 0.75rem; border-radius: 999px; border: 1px solid var(--app-card-border);
-    background: linear-gradient(90deg, var(--hp-color) var(--hp), var(--hp-empty) var(--hp));
+    background-color: var(--hp-empty);
+    background-image: linear-gradient(var(--hp-color), var(--hp-color));
+    background-repeat: no-repeat; background-position: left center; background-size: var(--hp) 100%;
 }
 .hp-range::-moz-range-track {
     box-sizing: border-box; height: 0.75rem; border-radius: 999px; border: 1px solid var(--app-card-border);
-    background: linear-gradient(90deg, var(--hp-color) var(--hp), var(--hp-empty) var(--hp));
+    background-color: var(--hp-empty);
+    background-image: linear-gradient(var(--hp-color), var(--hp-color));
+    background-repeat: no-repeat; background-position: left center; background-size: var(--hp) 100%;
 }
 .hp-range::-webkit-slider-thumb {
     box-sizing: border-box; width: 1.2rem; height: 1.2rem; margin-top: -0.26rem; border: 3px solid var(--hp-color); background: #fff;
@@ -3195,8 +3200,8 @@ html.vt-nav .sidebar {
     .bv-moves { width: min(13rem, 45%); gap: 0.25rem; }
     .bv-move { padding: 0.22rem 0.45rem; font-size: 0.78rem; }
     /* コートは枠のあいだの真ん中に、小さめに置く */
-    .bg-scene.battle { --u: min(1.2vw, 1.5vh); }
-    .bg-scene.battle .field-plane { top: 32%; left: calc(50% + var(--stage-shift) - 80px); }
+    .bg-scene.battle { --u: min(1.7vw, 2.3vh); }
+    .bg-scene.battle .field-plane { top: 46%; left: 50%; }
 }
 
 /* 天候・フィールドの表示（左上の札） */
@@ -3258,6 +3263,7 @@ html.vt-nav .sidebar {
 .bv-kind-none { background: rgba(34, 160, 107, 0.25); }
 .bv-kind-up, .bv-kind-down, .bv-kind-none { min-width: 8.2rem; text-align: left; }
 .bv-msg-sub { color: var(--app-muted); }
+.bv-nowrap { white-space: nowrap; }
 .bv-unknown { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .bv-first { color: var(--app-win); }
 
