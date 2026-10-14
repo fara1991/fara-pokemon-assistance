@@ -6,7 +6,7 @@
 @inject IJSRuntime JS
 @implements IDisposable
 
-<div class="bg-scene" aria-hidden="true">
+<div class="bg-scene @(Stage.BattleActive ? "battle" : "")" aria-hidden="true">
     <div class="bg-layer bg-blob blob-1"><span></span></div>
     <div class="bg-layer bg-blob blob-2"><span></span></div>
     <div class="bg-layer bg-blob blob-3"><span></span></div>

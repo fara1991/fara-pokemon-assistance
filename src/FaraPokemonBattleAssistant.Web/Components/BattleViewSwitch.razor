@@ -1,0 +1,13 @@
+@* 「対戦画面で表示」のスイッチ。オンにすると、背景のフィールドを止めて、結果をフィールドの上に重ねて出す（Shared/BattleOverlay.razor）。
+   オン・オフは BattleStage が持つので、ダメージ計算機と素早さ比較で共通 *@
+@inject BattleStage Stage
+
+<div class="form-check form-switch battle-switch @Class">
+    <input class="form-check-input" type="checkbox" role="switch" id="@InputId" checked="@Stage.BattleView" @onchange="@(e => Stage.SetBattleView(e.Value is true))" />
+    <label class="form-check-label" for="@InputId">対戦画面で表示</label>
+</div>
+
+@code {
+    [Parameter] public string InputId { get; set; } = "battle-view";
+    [Parameter] public string? Class { get; set; }
+}

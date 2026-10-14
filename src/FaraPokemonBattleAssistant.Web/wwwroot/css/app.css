@@ -2964,6 +2964,59 @@ html.vt-nav .sidebar {
     .field-beam { width: 160px; }
 }
 
+/* ---- 対戦画面（「対戦画面で表示」をオンにしたとき。Shared/BattleOverlay.razor）----
+   フィールドの回転を止めて、自分側を左下・相手側を右上に固定する（回転の最初の向きと同じ）。
+   結果は、その上に重ねた枠（左下＝自分側、右上＝相手側、下＝技とダメージ）に出す。入力欄は隠す（入力した内容は残る） */
+.bg-scene.battle { --field-mon-opacity: 1; }
+.bg-scene.battle .field-plane { animation: none; }
+.page.battle-active main { visibility: hidden; }
+
+.card-header-switch { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.card-header-switch h5 { margin-bottom: 0; }
+.battle-switch { margin: 0; white-space: nowrap; font-size: 0.85rem; }
+.result-bar-switch { padding: 0.15rem 1rem 0.4rem 2.7rem; }
+
+.battle-ui {
+    position: fixed;
+    inset: 3.6rem 0 0 0;
+    z-index: 1020;
+    pointer-events: none;
+    --bv-gap: 0.75rem;
+}
+.battle-ui > * { pointer-events: auto; }
+@media (min-width: 768px) {
+    .battle-ui { inset: 0 0 0 230px; --bv-gap: 1.25rem; }
+}
+
+.bv-controls { position: absolute; top: var(--bv-gap); left: var(--bv-gap); }
+
+.bv-box,
+.bv-msg {
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.8rem;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    color: var(--bs-body-color);
+}
+.bv-box { width: min(19rem, 46%); }
+.bv-foe { position: absolute; top: var(--bv-gap); right: var(--bv-gap); }
+/* 左下の自分側の枠と、下の技・ダメージの枠は、縦に並べる（技の枠が 2〜3 行に増えても重ならない） */
+.bv-bottom { position: absolute; left: var(--bv-gap); right: var(--bv-gap); bottom: var(--bv-gap); display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem; }
+.bv-name { font-weight: 700; margin-bottom: 0.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bv-bar { height: 0.9rem; }
+.hp-calc-bar.bv-bar > div { transition: width 0.6s ease, left 0.6s ease, background-color 0.5s 0.3s; }
+.bv-hp { margin-top: 0.25rem; text-align: right; font-size: 0.82rem; color: var(--app-muted); font-variant-numeric: tabular-nums; }
+.bv-msg { align-self: stretch; }
+@media (min-width: 768px) {
+    .bv-msg { align-self: center; width: min(44rem, 100%); }
+}
+.bv-msg-move { font-size: 1.05rem; }
+.bv-msg-dmg { margin-top: 0.2rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; }
+.bv-msg-range { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
 /* 光のぼかし（fara-labs.com と同じ紫・ピンク・青） */
 .bg-blob span {
     display: block;
