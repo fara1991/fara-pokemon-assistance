@@ -3203,6 +3203,12 @@ html.vt-nav .sidebar {
     .bg-scene.battle { --u: min(1.7vw, 2.3vh); }
     .bg-scene.battle .field-plane { top: 46%; left: 50%; }
 }
+/* 幅 768px 以上の横向き（サイドバーが出る）: 枠の外の、見えている範囲の中央にコートを置き、技・ダメージの枠を広めにして確定数が折り返さないようにする */
+@media (orientation: landscape) and (max-height: 560px) and (min-width: 768px) {
+    .bg-scene.battle .field-plane { left: calc(50% + var(--stage-shift)); }
+    .bv-bottom .bv-msg { width: min(30rem, 66%); }
+    .bv-box { width: min(14rem, 28%); }
+}
 
 /* 天候・フィールドの表示（左上の札） */
 .bv-conditions { position: absolute; top: var(--bv-gap); left: var(--bv-gap); display: flex; flex-wrap: wrap; gap: 0.35rem; max-width: 46%; }
