@@ -3172,6 +3172,33 @@ html.vt-nav .sidebar {
     }
 }
 
+/* 横向きのスマホ（高さが低い）: 枠を小さくし、自分の枠は左下、技・ダメージの枠は右下に並べて、真ん中のコートとポケモンを見えるようにする */
+@media (orientation: landscape) and (max-height: 560px) {
+    .battle-ui { --bv-gap: 0.4rem; }
+    .bv-box { width: min(14rem, 30%); padding: 0.3rem 0.55rem; }
+    .bv-name { font-size: 0.82rem; margin-bottom: 0.15rem; }
+    .bv-bar { height: 0.55rem; }
+    .bv-hp { margin-top: 0.1rem; font-size: 0.68rem; }
+    .bv-unknown { font-size: 0.95rem; }
+    .bv-bottom { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 0.5rem; }
+    .bv-bottom .bv-mine { flex: 0 0 auto; }
+    .bv-bottom .bv-msg { align-self: flex-end; width: min(24rem, 52%); padding: 0.3rem 0.6rem; min-width: 0; }
+    .bv-msg-move { font-size: 0.82rem; }
+    .bv-msg-dmg { margin-top: 0.1rem; gap: 0.15rem 0.35rem; }
+    .bv-msg-range { font-size: 0.9rem; }
+    .bv-msg-kind { min-width: 2.2rem; font-size: 0.68rem; padding: 0.02rem 0.3rem; }
+    .bv-kind-up, .bv-kind-down, .bv-kind-none { min-width: 6.2rem; }
+    .bv-msg .badge { font-size: 0.62rem; padding: 0.2em 0.4em; }
+    .bv-msg-sub { font-size: 0.68rem; }
+    .bv-conditions { max-width: 40%; }
+    .bv-cond { padding: 0.25rem 0.45rem; font-size: 0.68rem; }
+    .bv-moves { width: min(13rem, 45%); gap: 0.25rem; }
+    .bv-move { padding: 0.22rem 0.45rem; font-size: 0.78rem; }
+    /* コートは枠のあいだの真ん中に、小さめに置く */
+    .bg-scene.battle { --u: min(1.2vw, 1.5vh); }
+    .bg-scene.battle .field-plane { top: 32%; left: calc(50% + var(--stage-shift) - 80px); }
+}
+
 /* 天候・フィールドの表示（左上の札） */
 .bv-conditions { position: absolute; top: var(--bv-gap); left: var(--bv-gap); display: flex; flex-wrap: wrap; gap: 0.35rem; max-width: 46%; }
 .bv-cond { padding: 0.4rem 0.65rem; font-size: 0.8rem; font-weight: 700; color: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18); }
