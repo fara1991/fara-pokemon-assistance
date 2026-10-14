@@ -29,7 +29,16 @@
 else if (data is not null && dataSet is not null)
 {
     UpdateResult();
-    <div class="calc-grid pane-fill @(s.Result is not null ? "has-result-bar" : "")">
+    @* 計算（振り方が決まっている）と、推定（相手の振り方が分からない）の切り替え。攻撃側・防御側・技・場の入力は共通 *@
+    <div class="calc-mode" role="group" aria-label="ダメージ計算の使い方">
+        <button type="button" class="calc-mode-btn @(!s.EstimateMode ? "active" : "")" aria-pressed="@(!s.EstimateMode ? "true" : "false")" @onclick="() => s.EstimateMode = false">
+            <strong>計算</strong><small>両方の振り方が決まっている → ダメージを出す</small>
+        </button>
+        <button type="button" class="calc-mode-btn @(s.EstimateMode ? "active" : "")" aria-pressed="@(s.EstimateMode ? "true" : "false")" @onclick="() => s.EstimateMode = true">
+            <strong>相手の振り方を推定</strong><small>受けたダメージ → 相手の@(EvRules.Label(dataSet.EvSystem))・性格を逆算</small>
+        </button>
+    </div>
+    <div class="calc-grid pane-fill @(s.Result is not null && !s.EstimateMode ? "has-result-bar" : "")">
         <div class="calc-col">
             <div class="card">
                 <div class="card-header"><h5>攻撃側</h5></div>
@@ -164,7 +173,33 @@ else if (data is not null && dataSet is not null)
                 </div>
             </div>
 
-            @if (s.Result is not null && s.LastRequest is not null)
+            @if (s.EstimateMode)
+            {
+                <div class="card result-card estimate-card result-sticky">
+                    <div class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定 <Help Title="相手の振り方を推定">攻撃側に自分の構成、防御側に相手のポケモン（特性・持ち物が分かれば、それも）を選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</Help></h5></div>
+                    <div class="card-body">
+                        <ol class="estimate-steps small">
+                            <li>攻撃側に、自分の構成（@(EvRules.Label(dataSet.EvSystem))・性格・持ち物・特性）と技を入れる</li>
+                            <li>防御側は、相手のポケモンと特性を選ぶ（@(EvRules.Label(dataSet.EvSystem))・性格は不明のまま）</li>
+                            <li>実際に受けた（与えた）ダメージを入れて「推定」</li>
+                        </ol>
+                        <div class="input-group">
+                            <span class="input-group-text">受けたダメージ</span>
+                            <input class="form-control" placeholder="93 または 45%" value="@s.ObservedDamageText" @onchange="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
+                            <button class="btn btn-outline-primary" @onclick="EstimateEvs">推定</button>
+                        </div>
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" role="switch" id="estimate-crit" checked="@s.EstimateCritical" @onchange="@(e => s.EstimateCritical = e.Value is true)" />
+                            <label class="form-check-label" for="estimate-crit">受けたダメージは急所に当たったとき <Help Title="急所">オンにすると、急所（ダメージ 1.5 倍。スナイパーは 2.25 倍。攻撃側のマイナスランクと防御側のプラスランクを無視）のときのダメージとして推定します。</Help></label>
+                        </div>
+                        @if (!string.IsNullOrEmpty(s.EstimateText))
+                        {
+                            <div class="alert alert-light border chat-output mt-2 mb-0">@s.EstimateText</div>
+                        }
+                    </div>
+                </div>
+            }
+            else if (s.Result is not null && s.LastRequest is not null)
             {
                 <div class="card result-card result-sticky">
                     <div class="card-header"><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージ、オボンのみ等の回復きのみ、たべのこし・くろいヘドロ、グラスフィールドの回復、半減きのみ（1 発目のみ）、マルチスケイル（満タン時の 1 発目のみ）も確定数に含めています。入力を変えると自動で計算し直します。</Help></h5></div>
@@ -205,29 +240,6 @@ else if (data is not null && dataSet is not null)
                 </div>
             }
 
-            @if (s.Attacker is not null && s.Defender is not null)
-            {
-                @* あまり使わないので、普段は閉じておく（推定結果があるときは開いたまま） *@
-                <details class="card collapsible-card" open="@(!string.IsNullOrEmpty(s.EstimateText))">
-                    <summary class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定（calc）</h5></summary>
-                    <div class="card-body">
-                        <p class="small text-muted mb-2">攻撃側に自分の構成、防御側に相手のポケモンを選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</p>
-                        <div class="input-group">
-                            <span class="input-group-text">受けたダメージ</span>
-                            <input class="form-control" placeholder="93 または 45%" value="@s.ObservedDamageText" @onchange="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
-                            <button class="btn btn-outline-primary" @onclick="EstimateEvs">推定</button>
-                        </div>
-                        <div class="form-check form-switch mt-2">
-                            <input class="form-check-input" type="checkbox" role="switch" id="estimate-crit" checked="@s.EstimateCritical" @onchange="@(e => s.EstimateCritical = e.Value is true)" />
-                            <label class="form-check-label" for="estimate-crit">受けたダメージは急所に当たったとき <Help Title="急所">オンにすると、急所（ダメージ 1.5 倍。スナイパーは 2.25 倍。攻撃側のマイナスランクと防御側のプラスランクを無視）のときのダメージとして推定します。</Help></label>
-                        </div>
-                        @if (!string.IsNullOrEmpty(s.EstimateText))
-                        {
-                            <div class="alert alert-light border chat-output mt-2 mb-0">@s.EstimateText</div>
-                        }
-                    </div>
-                </details>
-            }
         </div>
         </div>
     </div>
@@ -243,6 +255,8 @@ else if (data is not null && dataSet is not null)
         public Move? Move { get; set; }
         /// <summary>相手の努力値の推定で、受けたダメージを急所のときのものとして扱う。</summary>
         public bool EstimateCritical { get; set; }
+        /// <summary>「相手のポイントを推定」の画面にしているか（オフは、振り方が決まっている計算）。</summary>
+        public bool EstimateMode { get; set; }
         /// <summary>Z 技として使う（第 7 世代）。</summary>
         public bool IsZMove { get; set; }
         /// <summary>「登録から選ぶ」のスイッチ（攻撃側・防御側）と、選んでいる登録の Key。</summary>
@@ -308,7 +322,7 @@ else if (data is not null && dataSet is not null)
     /// <summary>「対戦画面で表示」に出す内容（選んでいる技 1 つ分の結果）。結果が出ていないときは null。</summary>
     private DamageScene? BuildScene()
     {
-        if (s.Result is not { } r || s.LastRequest is not { } q) return null;
+        if (s.EstimateMode || s.Result is not { } r || s.LastRequest is not { } q) return null;
         return new DamageScene(
             q.Attacker.Pokemon.Name, q.Attacker.CurrentHp, q.Attacker.MaxHp,
             q.Defender.Pokemon.Name, r.DefenderHP, StartHp(r, q),
@@ -621,11 +635,22 @@ else if (data is not null && dataSet is not null)
         var evStats = EvStats(isAttacker);
         var boostStats = BoostStats(isAttacker);
         var side = isAttacker ? "atk" : "def";
+        var unknown = !isAttacker && s.EstimateMode;   // 推定では、相手のポイント・性格は求める側（不明）
+        if (unknown)
+        {
+            <div class="estimate-unknown mb-3">
+                <strong>@(EvRules.Label(build.EvSystem))・性格は不明</strong>
+                <div class="small text-muted">右の「推定」で、受けたダメージから求めます。</div>
+            </div>
+        }
+        else
+        {
         <div class="form-group mb-3">
             <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります（片方だけ押したときは、もう片方を技の分類に合わせて補います）。名前で探すこともできます。上がる能力は 1.1 倍、下がる能力は 0.9 倍。実数値の赤が上昇、青が下降です。</Help></label>
             <NaturePicker Natures="data.Natures" Value="build.Nature" ValueChanged="@(n => build.Nature = n)"
                 Physical="@(s.Move is null || s.Move.AttackStatUsed == Stat.Attack)" />
         </div>
+        }
         @* PC では 2 列に並べて、ページをスクロールせずに見えるようにする *@
         <div class="build-grid">
             <div class="form-group mb-3">
@@ -683,7 +708,7 @@ else if (data is not null && dataSet is not null)
                     <label class="form-check-label" for="dmax-@side">ダイマックス <Help Title="ダイマックス">HP が 2 倍になり、技はダイマックス技の威力（威力 90〜150、かくとう・どくは 70〜100）になります。</Help></label>
                 </div>
             }
-            @if (evStats.Count > 0)
+            @if (evStats.Count > 0 && !unknown)
             {
                 <div class="form-group @(evStats.Count > 1 ? "build-wide" : "")">
                     <label>@EvRules.Label(build.EvSystem) <Help Title="@EvRules.Label(build.EvSystem)">@(build.EvSystem == EvSystem.Points ? "チャンピオンズは 1 ポイントで実数値が 1 上がります（各 0〜32、合計 66）。" : "各 0〜252、合計 510。4 ごとに実数値が 1 上がります。")選んだ技に関係する能力だけを表示しています。ボタンで 0 と最大を入れられます（合計の上限を超えるときは、入る分だけ）。</Help></label>

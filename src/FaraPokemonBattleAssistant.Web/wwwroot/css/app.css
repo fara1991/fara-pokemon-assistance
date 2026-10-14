@@ -2347,6 +2347,19 @@ button.compact-cell {
     display: inline-block;
 }
 
+/* ダメージ計算: 「計算」と「相手の振り方を推定」の切り替え */
+.calc-mode { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+.calc-mode-btn {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem; flex: 1 1 14rem; max-width: 26rem;
+    padding: 0.5rem 0.9rem; border: 1px solid var(--app-card-border); border-radius: 0.7rem;
+    background: var(--glass); color: var(--bs-body-color); text-align: left; cursor: pointer;
+}
+.calc-mode-btn small { color: var(--app-muted); font-size: 0.75rem; }
+.calc-mode-btn.active { border-color: var(--bs-primary); box-shadow: inset 0 0 0 1px var(--bs-primary); background: color-mix(in srgb, var(--bs-primary) 14%, var(--glass)); }
+.calc-mode-btn:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+.estimate-steps { padding-left: 1.2rem; margin-bottom: 0.75rem; color: var(--app-muted); }
+.estimate-unknown { padding: 0.7rem 0.9rem; border: 2px dashed var(--app-card-border); border-radius: 0.7rem; background: color-mix(in srgb, var(--bs-primary) 6%, transparent); }
+
 /* ダメージ計算: 結果の「通常」「急所」の札 */
 .result-kind { display: inline-block; min-width: 2.6rem; margin-right: 0.45rem; padding: 0.05rem 0.4rem; border-radius: 0.4rem; background: rgba(120, 120, 160, 0.2); font-size: 0.78rem; font-weight: 700; text-align: center; vertical-align: 0.1em; }
 .result-main-crit .result-kind { background: rgba(229, 72, 77, 0.22); }
