@@ -72,8 +72,8 @@ public sealed class BattleStage
         Changed?.Invoke();
     }
 
-    /// <summary>対戦画面を出している状態か（スイッチがオンで、出す結果がある）。</summary>
-    public bool BattleActive => BattleView && Scene is not null;
+    /// <summary>対戦画面を出している状態か（スイッチがオンなら、どのページでも出す。結果が無いページ・まだ結果が無いときは案内だけを出す）。</summary>
+    public bool BattleActive => BattleView;
 
     public void SetBattleView(bool on)
     {

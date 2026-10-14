@@ -919,10 +919,6 @@ else if (data is not null && dataSet is not null)
             <span class="result-kind">通常</span>
             <strong><span data-count="@Inv(result.MinPercent)" data-count-dec="1">@($"{result.MinPercent:0.0}")</span>〜<span data-count="@Inv(result.MaxPercent)" data-count-dec="1">@($"{result.MaxPercent:0.0}")</span>% (<span data-count="@result.MinDamage">@result.MinDamage</span>〜<span data-count="@result.MaxDamage">@result.MaxDamage</span>)</strong>
             <span class="ms-2 badge @(result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")" data-pop="@result.KnockOut">@result.KnockOut</span>
-            @if (result.TypeEffectiveness != 1.0)
-            {
-                <span class="ms-2 badge bg-secondary" data-pop="@result.EffectivenessText">@result.EffectivenessText</span>
-            }
         </p>
         @if (crit is not null)
         {
