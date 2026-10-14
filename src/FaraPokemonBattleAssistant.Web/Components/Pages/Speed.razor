@@ -267,7 +267,7 @@ else if (data is not null && dataSet is not null)
         return new SpeedScene(
             a.Pokemon.Name, speedA, b.Pokemon.Name, speedB, axis,
             speedA != speedB && MovesFirst(speedA, speedB), speedA != speedB && MovesFirst(speedB, speedA),
-            Verdict(a, b, speedA, speedB));
+            Verdict(a, b, speedA, speedB)) { Weather = s.Weather, Terrain = s.Terrain };
     }
 
     private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;

@@ -6,7 +6,7 @@
 @inject IJSRuntime JS
 @implements IDisposable
 
-<div class="bg-scene @(Stage.BattleActive ? "battle" : "")" aria-hidden="true">
+<div class="bg-scene @(Stage.BattleActive ? "battle" : "") @ConditionClass" aria-hidden="true">
     <div class="bg-layer bg-blob blob-1"><span></span></div>
     <div class="bg-layer bg-blob blob-2"><span></span></div>
     <div class="bg-layer bg-blob blob-3"><span></span></div>
@@ -48,9 +48,17 @@
     <div class="field-horizon"></div>
     <div class="field-beam field-beam-1"></div>
     <div class="field-beam field-beam-2"></div>
+    @* 天候（雨・晴れ・砂嵐・雪）。対戦画面で、入力している天候を見た目で出す *@
+    <div class="wx-layer"></div>
 </div>
 
 @code {
+    /// <summary>対戦画面で出している結果の天候・フィールドに合わせた class（app.css の「対戦画面」の節）。</summary>
+    private string ConditionClass => Stage.BattleActive && Stage.Scene is { } scene
+        ? $"{scene.Weather switch { Weather.Sun => "wx-sun", Weather.Rain => "wx-rain", Weather.Sand => "wx-sand", Weather.Snow => "wx-snow", _ => "" }} " +
+          $"{scene.Terrain switch { Terrain.Electric => "tr-electric", Terrain.Grassy => "tr-grassy", Terrain.Psychic => "tr-psychic", Terrain.Misty => "tr-misty", _ => "" }}"
+        : "";
+
     protected override async Task OnInitializedAsync()
     {
         Stage.Changed += OnStageChanged;

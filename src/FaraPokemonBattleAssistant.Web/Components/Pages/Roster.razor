@@ -84,7 +84,24 @@ else if (data is not null && roster is not null && dataSet is not null)
                         }
                     </div>
                     <div class="form-group mb-3">
-                        <label>技（4 つまで） <Help Title="技">登録するポケモンが覚える技から、4 つまで選べます（選ばなくても登録できます）。同じ技は 1 つだけです。左のメニューの「対戦画面で表示」をオンにすると、選んだ技が対戦画面の右下に出ます。</Help></label>
+                        <label>技（4 つまで） <Help Title="技">登録するポケモンが覚える技から、4 つまで選べます（選ばなくても登録できます）。同じ技は 1 つだけです。候補は、いま入力している努力値・性格・特性で、タイプなし・種族値すべて 100 の相手に与える最大ダメージの多い順（火力の高い順）に並びます（下の天候・フィールドも反映）。同じダメージなら、技の並び順どおりです。左のメニューの「対戦画面で表示」をオンにすると、選んだ技が威力つきで対戦画面の右下に出ます。</Help></label>
+                        <div class="row g-2 mb-2">
+                            <div class="@(dataSet.HasTerrain ? "col-6" : "col-12")">
+                                <label class="form-label small mb-1" for="reg-weather">天候</label>
+                                <select id="reg-weather" class="form-select form-select-sm" value="@s.NewWeather" @onchange="@(e => s.NewWeather = ParseEnum(e.Value, Weather.None))">
+                                    @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w, dataSet.Generation)</option> }
+                                </select>
+                            </div>
+                            @if (dataSet.HasTerrain)
+                            {
+                                <div class="col-6">
+                                    <label class="form-label small mb-1" for="reg-terrain">フィールド</label>
+                                    <select id="reg-terrain" class="form-select form-select-sm" value="@s.NewTerrain" @onchange="@(e => s.NewTerrain = ParseEnum(e.Value, Terrain.None))">
+                                        @foreach (var t in Enum.GetValues<Terrain>().Where(t => t != Terrain.Psychic || dataSet.HasPsychicTerrain)) { <option value="@t">@FieldNames.Japanese(t)</option> }
+                                    </select>
+                                </div>
+                            }
+                        </div>
                         <div class="move-pick-grid">
                             @for (var i = 0; i < RegisteredPokemon.MaxMoves; i++)
                             {
@@ -99,10 +116,20 @@ else if (data is not null && roster is not null && dataSet is not null)
                                     Dropdown="true"
                                     EmptyOption="なし"
                                     Placeholder="@($"技 {slot + 1}")">
-                                    <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto">@(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
+                                    <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto">@MoveInfo(m)</span></ItemTemplate>
                                 </SearchableSelect>
                             }
                         </div>
+                        @if (s.NewMoves.Any(m => m is not null))
+                        {
+                            @* 選んだ技の分類と威力 *@
+                            <ul class="move-pick-summary small mt-2 mb-0">
+                                @foreach (var m in s.NewMoves.OfType<Move>())
+                                {
+                                    <li><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto">@MoveInfo(m)</span></li>
+                                }
+                            </ul>
+                        }
                     </div>
                     @if (s.NewPokemon is not null)
                     {
@@ -163,6 +190,9 @@ else if (data is not null && roster is not null && dataSet is not null)
         public Ability? NewAbility { get; set; }
         /// <summary>選んでいる技（4 つの枠。空の枠は null）。</summary>
         public Move?[] NewMoves { get; set; } = new Move?[RegisteredPokemon.MaxMoves];
+        /// <summary>技の並び順（火力）と、対戦画面の背景に使う天候・フィールド。</summary>
+        public Weather NewWeather { get; set; }
+        public Terrain NewTerrain { get; set; }
     }
 
     private State s = new();
@@ -186,6 +216,8 @@ else if (data is not null && roster is not null && dataSet is not null)
             s.NewNature = data.FindNature("まじめ");
             s.NewAbility = null;
             s.NewMoves = new Move?[RegisteredPokemon.MaxMoves];
+            s.NewWeather = Weather.None;
+            s.NewTerrain = Terrain.None;
         }
         s.NewNature ??= data.FindNature("まじめ");
     }
@@ -207,16 +239,48 @@ else if (data is not null && roster is not null && dataSet is not null)
     private RegisterScene? BuildScene()
     {
         if (dataSet is null || s.NewPokemon is null) return null;
-        var moves = s.NewMoves.OfType<Move>().Select(m => new MoveSlot(m.Name, m.Type)).ToList();
-        return new RegisterScene(s.NewPokemon.Name, StatCalculator.CalculateAll(NewBuild()).HP, moves);
+        var moves = s.NewMoves.OfType<Move>().Select(m => new MoveSlot(m.Name, m.Type, m.Power)).ToList();
+        return new RegisterScene(s.NewPokemon.Name, StatCalculator.CalculateAll(NewBuild()).HP, moves) { Weather = s.NewWeather, Terrain = s.NewTerrain };
     }
+
+    private static string MoveInfo(Move m) => $"{(m.Category switch { MoveCategory.Physical => "物理", MoveCategory.Special => "特殊", _ => "変化" })} {(m.Power > 0 ? m.Power.ToString() : "-")}";
+
+    private IReadOnlyList<Move> sortedMoves = Array.Empty<Move>();
+    private string sortedMovesKey = "";
+
+    /// <summary>
+    /// 登録するポケモンが覚える技を、いま入力している構成（努力値・性格・特性）・天候・フィールドで、
+    /// タイプなし・種族値すべて 100 の相手に与える最大ダメージの多い順に並べる（ダメージ計算機の技の並びと同じ計算）。
+    /// 描画のたびに計算しないよう、条件が変わったときだけ並べ直す。
+    /// </summary>
+    private IReadOnlyList<Move> SortedLearnableMoves()
+    {
+        if (data is null || dataSet is null || s.NewPokemon is null) return Array.Empty<Move>();
+        var learnable = data.LearnableMoves(s.NewPokemon.Id);
+        var attacker = NewBuild();
+        var key = string.Join(";", App.DataSetKey, s.NewPokemon.Id, FormatStats(StatCalculator.CalculateAll(attacker)), attacker.Nature?.Name, attacker.Ability?.Id,
+            s.NewWeather, s.NewTerrain, App.Format, learnable.Count);
+        if (key != sortedMovesKey)
+        {
+            sortedMovesKey = key;
+            sortedMoves = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation).SortByDamage(new DamageRequest
+            {
+                Attacker = attacker, Move = learnable.FirstOrDefault() ?? new Move(),
+                Defender = FaraPokemonBattleAssistant.Core.Battle.DamageCalculator.NeutralDefender(attacker.EvSystem),
+                Format = App.Format, Weather = s.NewWeather, Terrain = s.NewTerrain,
+            }, learnable);
+        }
+        return sortedMoves;
+    }
+
+    private static T ParseEnum<T>(object? value, T fallback) where T : struct => Enum.TryParse<T>(value?.ToString(), out var v) ? v : fallback;
 
     /// <summary>その枠で選べる技。登録するポケモンが覚える技から、ほかの枠で選んだ技を除く。</summary>
     private IReadOnlyList<Move> MoveChoices(int slot)
     {
         if (data is null || s.NewPokemon is null) return Array.Empty<Move>();
         var taken = s.NewMoves.Where((m, i) => i != slot && m is not null).Select(m => m!.Id).ToHashSet();
-        return data.LearnableMoves(s.NewPokemon.Id).Where(m => !taken.Contains(m.Id)).ToList();
+        return SortedLearnableMoves().Where(m => !taken.Contains(m.Id)).ToList();
     }
 
     private void OnMoveChanged(int slot, string value) => s.NewMoves[slot] = data?.FindMove(ParseId(value));
