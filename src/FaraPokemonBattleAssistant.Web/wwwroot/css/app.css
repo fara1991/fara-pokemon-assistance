@@ -3072,10 +3072,15 @@ html.vt-nav .sidebar {
     .bg-scene.battle .field-horizon, .bg-scene.battle .field-floor { top: 20%; }
     /* コートが、上の相手の枠と、下の自分の枠・技の枠に隠れない位置にする（枠のあいだの真ん中） */
     .bg-scene.battle .field-plane { top: 28%; }
+    /* 対戦画面は、コートを大きめに出す（画面の左右は少し切れてよい） */
+    .bg-scene.battle { --u: min(1.55vw, 2.1vh); }
 }
 /* 画面の高さが低いとき（ブラウザのバーが出ている iPhone など）は、枠のあいだに収まるようコートを小さくする */
 @media (max-aspect-ratio: 1/1) and (max-height: 700px) {
-    .bg-scene.battle { --u: min(1.3vw, 0.52vh); }
+    .bg-scene.battle { --u: min(1.55vw, 0.62vh); }
+}
+@media (max-aspect-ratio: 1/1) and (max-height: 660px) {
+    .bg-scene.battle { --u: min(1.55vw, 0.5vh); }
 }
 .page.battle-active main { visibility: hidden; }
 
