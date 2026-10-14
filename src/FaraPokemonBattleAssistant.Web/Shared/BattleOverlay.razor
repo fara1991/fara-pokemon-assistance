@@ -31,6 +31,9 @@
             case EstimateScene es:
                 @RenderEstimate(es)
                 break;
+            case WaitingScene w:
+                <div class="bv-bottom"><div class="bv-msg"><div class="bv-msg-move">@w.Hint</div></div></div>
+                break;
         }
     </div>
 }
@@ -80,10 +83,6 @@
                 <span class="bv-msg-kind">通常</span>
                 <span class="bv-msg-range">@d.RangeText</span>
                 <span class="badge @(d.KnockOutGuaranteed ? "bg-danger" : "bg-warning text-dark")">@d.KnockOut</span>
-                @if (d.Effectiveness != "等倍")
-                {
-                    <span class="badge bg-secondary">@d.Effectiveness</span>
-                }
             </div>
             @if (d.CritRangeText is not null)
             {
@@ -155,7 +154,7 @@
                     if (i < r.Moves.Count)
                     {
                         var m = r.Moves[i];
-                        <div class="bv-move" role="listitem"><TypeIcon Type="@m.Type" Small="true" /><span class="bv-move-name">@m.Name</span><span class="bv-move-power" title="威力">@(m.Power > 0 ? m.Power.ToString() : "-")</span></div>
+                        <div class="bv-move" role="listitem"><TypeIcon Type="@m.Type" Small="true" /><span class="bv-move-name">@m.Name</span></div>
                     }
                     else
                     {
@@ -169,17 +168,15 @@
     /// <summary>素早さ比較：それぞれの枠に S と棒、下に先に動く方。</summary>
     private RenderFragment RenderSpeed(SpeedScene sp) => __builder =>
     {
-        string W(int speed) => Pct(speed * 100.0 / sp.Axis);
+        @* S の数値だけを出す（棒は HP のように見えるので出さない）。先に動く方の数値は緑 *@
         <div class="bv-box bv-foe">
             <div class="bv-name">@sp.FoeName</div>
-            <div class="race-track bv-bar"><div class="race-bar @(sp.FoeFirst ? "first" : "")" style="width:@W(sp.FoeSpeed)"></div></div>
-            <div class="bv-hp">S @sp.FoeSpeed</div>
+            <div class="bv-unknown @(sp.FoeFirst ? "bv-first" : "")">S @sp.FoeSpeed</div>
         </div>
         <div class="bv-bottom">
         <div class="bv-box bv-mine">
             <div class="bv-name">@sp.MineName</div>
-            <div class="race-track bv-bar"><div class="race-bar @(sp.MineFirst ? "first" : "")" style="width:@W(sp.MineSpeed)"></div></div>
-            <div class="bv-hp">S @sp.MineSpeed</div>
+            <div class="bv-unknown @(sp.MineFirst ? "bv-first" : "")">S @sp.MineSpeed</div>
         </div>
         <div class="bv-msg">
             <div class="bv-msg-move"><strong>@sp.Verdict</strong></div>

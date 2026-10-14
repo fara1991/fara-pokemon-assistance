@@ -21,6 +21,8 @@ public sealed class DamageCalculator
     private const int MoveIdMagnitude = 222;
     private const int MoveIdBulldoze = 523;
     private const int MoveIdExpandingForce = 797;
+    private const int MoveIdFutureSight = 248;
+    private const int MoveIdDoomDesire = 353;
     private const int MoveIdMistyExplosion = 802;
     private const int MoveIdRisingVoltage = 804;
     private const int MoveIdPsyblade = 875;
@@ -553,6 +555,8 @@ public sealed class DamageCalculator
         moves
             .Select(m => (Move: m, Damage: m.IsDamaging ? Calculate(template.With(move: m)).MaxDamage : -1))
             .OrderByDescending(x => x.Damage)
+            // 同じダメージなら、遅れて当たる技（みらいよち・はめつのねがい）は後ろにする
+            .ThenBy(x => x.Move.Id is MoveIdFutureSight or MoveIdDoomDesire ? 1 : 0)
             .Select(x => x.Move)
             .ToList();
 

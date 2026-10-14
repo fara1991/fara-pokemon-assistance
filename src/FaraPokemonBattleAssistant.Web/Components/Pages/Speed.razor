@@ -13,8 +13,6 @@
     <p class="text-muted mb-0">使用チームに同じポケモンがいれば、その構成が入ります。「登録から選ぶ」で、登録したポケモンを呼び出すこともできます。</p>
 </div>
 
-<BattleViewHint>ポケモン 1・2 を選ぶと、結果を対戦画面で出します。</BattleViewHint>
-
 @if (!string.IsNullOrEmpty(rosterError))
 {
     <div class="alert alert-warning">@rosterError</div>
@@ -260,9 +258,10 @@ else if (data is not null && dataSet is not null)
     }
 
     /// <summary>「対戦画面で表示」に出す内容（2 体の S と先に動く方）。2 体そろっていないときは null。</summary>
-    private SpeedScene? BuildScene()
+    private BattleScene? BuildScene()
     {
-        if (dataSet is null || s.Builds[0] is not { } a || s.Builds[1] is not { } b) return null;
+        if (dataSet is null or { CalcSupported: false }) return null;   // 読み込み前・未対応のゲームは、対戦画面にしない
+        if (s.Builds[0] is not { } a || s.Builds[1] is not { } b) return new WaitingScene("ポケモン 1・2 を選ぶと、ここに結果が出ます。");
         var speedA = SpeedCalculator.Effective(a, s.Weather, s.Terrain, s.Tailwind[0], dataSet.Generation).Item1;
         var speedB = SpeedCalculator.Effective(b, s.Weather, s.Terrain, s.Tailwind[1], dataSet.Generation).Item1;
         // 棒の長さの基準は、結果の棒（race-bar）と同じ

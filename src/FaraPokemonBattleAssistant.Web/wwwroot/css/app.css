@@ -3065,9 +3065,12 @@ html.vt-nav .sidebar {
    結果は、その上に重ねた枠（左下＝自分側、右上＝相手側、下＝技とダメージ）に出す。入力欄は隠す（入力した内容は残る） */
 .bg-scene.battle { --field-mon-opacity: 1; }
 .bg-scene.battle .field-plane { animation: none; }
-/* 縦長の画面（スマホ）では、対戦画面のフィールドを少し上に寄せる */
+/* 縦長の画面（スマホ）では、対戦画面のフィールドと、観客席・地平線を上に詰める */
 @media (max-aspect-ratio: 1/1) {
-    .bg-scene.battle .field-plane { top: 40%; }
+    .bg-scene.battle .field-sky { inset: 0 0 80% 0; }
+    .bg-scene.battle .field-stands { top: 8%; height: 12%; }
+    .bg-scene.battle .field-horizon, .bg-scene.battle .field-floor { top: 20%; }
+    .bg-scene.battle .field-plane { top: 46%; }
 }
 .page.battle-active main { visibility: hidden; }
 
@@ -3210,6 +3213,7 @@ html.vt-nav .sidebar {
 .bv-kind-up, .bv-kind-down, .bv-kind-none { min-width: 8.2rem; text-align: left; }
 .bv-msg-sub { color: var(--app-muted); }
 .bv-unknown { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bv-first { color: var(--app-win); }
 
 /* 光のぼかし（fara-labs.com と同じ紫・ピンク・青） */
 .bg-blob span {
