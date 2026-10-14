@@ -22,7 +22,10 @@ public sealed record DamageScene(
     string RangeText,
     string KnockOut,
     bool KnockOutGuaranteed,
-    string Effectiveness) : BattleScene;
+    string Effectiveness,
+    string? CritRangeText,
+    string? CritKnockOut,
+    bool CritKnockOutGuaranteed) : BattleScene;
 
 /// <summary>ポケモン登録で選んでいる技 1 つ。</summary>
 public sealed record MoveSlot(string Name, string Type, int Power);

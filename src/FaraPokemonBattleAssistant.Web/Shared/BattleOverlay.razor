@@ -72,7 +72,9 @@
         </div>
         <div class="bv-msg">
             <div class="bv-msg-move"><strong>@d.AttackerName</strong> の <TypeIcon Type="@d.MoveType" Small="true" /> <strong>@d.MoveName</strong>！</div>
+            @* 急所なし・ありを並べて出す *@
             <div class="bv-msg-dmg">
+                <span class="bv-msg-kind">通常</span>
                 <span class="bv-msg-range">@d.RangeText</span>
                 <span class="badge @(d.KnockOutGuaranteed ? "bg-danger" : "bg-warning text-dark")">@d.KnockOut</span>
                 @if (d.Effectiveness != "等倍")
@@ -80,6 +82,14 @@
                     <span class="badge bg-secondary">@d.Effectiveness</span>
                 }
             </div>
+            @if (d.CritRangeText is not null)
+            {
+                <div class="bv-msg-dmg">
+                    <span class="bv-msg-kind bv-msg-kind-crit">急所</span>
+                    <span class="bv-msg-range">@d.CritRangeText</span>
+                    <span class="badge @(d.CritKnockOutGuaranteed ? "bg-danger" : "bg-warning text-dark")">@d.CritKnockOut</span>
+                </div>
+            }
         </div>
         </div>
     };
