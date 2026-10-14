@@ -2347,6 +2347,12 @@ button.compact-cell {
     display: inline-block;
 }
 
+/* ダメージ計算: 結果の「通常」「急所」の札 */
+.result-kind { display: inline-block; min-width: 2.6rem; margin-right: 0.45rem; padding: 0.05rem 0.4rem; border-radius: 0.4rem; background: rgba(120, 120, 160, 0.2); font-size: 0.78rem; font-weight: 700; text-align: center; vertical-align: 0.1em; }
+.result-main-crit .result-kind { background: rgba(229, 72, 77, 0.22); }
+.hp-calc-name .result-kind { min-width: 0; margin-right: 0.3rem; }
+.result-bar-crit { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.88rem; }
+
 /* ダメージ計算: 防御側の HP バー */
 .hp-calc {
     margin: 0.6rem 0 0.4rem;
@@ -3122,6 +3128,8 @@ html.vt-nav .sidebar {
 .bv-msg-move { font-size: 1.05rem; }
 .bv-msg-dmg { margin-top: 0.2rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; }
 .bv-msg-range { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bv-msg-kind { min-width: 2.6rem; padding: 0.05rem 0.4rem; border-radius: 0.4rem; background: rgba(120, 120, 160, 0.25); font-size: 0.78rem; font-weight: 700; text-align: center; }
+.bv-msg-kind-crit { background: rgba(229, 72, 77, 0.25); }
 
 /* 光のぼかし（fara-labs.com と同じ紫・ピンク・青） */
 .bg-blob span {

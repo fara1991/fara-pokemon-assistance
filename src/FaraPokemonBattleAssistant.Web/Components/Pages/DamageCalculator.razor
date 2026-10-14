@@ -160,10 +160,6 @@ else if (data is not null && dataSet is not null)
                             <input class="form-check-input" type="checkbox" role="switch" id="light-screen" checked="@s.LightScreen" @onchange="@(e => s.LightScreen = e.Value is true)" />
                             <label class="form-check-label" for="light-screen">ひかりのかべ <Help Title="ひかりのかべ">防御側の場のひかりのかべ。特殊技のダメージが 0.5 倍（ダブルは約 0.67 倍）になります。</Help></label>
                         </div>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="crit" checked="@s.IsCritical" @onchange="@(e => s.IsCritical = e.Value is true)" />
-                            <label class="form-check-label" for="crit">急所 <Help Title="急所">ダメージ 1.5 倍（スナイパーは 2.25 倍）。攻撃側のマイナスランクと防御側のプラスランクを無視します。</Help></label>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -172,18 +168,22 @@ else if (data is not null && dataSet is not null)
             {
                 <div class="card result-card result-sticky">
                     <div class="card-header"><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージ、オボンのみ等の回復きのみ、たべのこし・くろいヘドロ、グラスフィールドの回復、半減きのみ（1 発目のみ）、マルチスケイル（満タン時の 1 発目のみ）も確定数に含めています。入力を変えると自動で計算し直します。</Help></h5></div>
-                    <div class="card-body">@RenderResultBody(s.Result, s.LastRequest)</div>
+                    <div class="card-body">@RenderResultBody(s.Result, s.LastRequest, s.ResultCrit, s.LastRequestCrit)</div>
                 </div>
                 @* 狭い画面では、結果の要点を画面の下に出したままにする（押すと詳細を開く） *@
                 <div class="result-bar @(resultBarOpen ? "open" : "")">
                     @if (resultBarOpen)
                     {
-                        <div class="result-bar-detail" data-motion-static>@RenderResultBody(s.Result, s.LastRequest)</div>
+                        <div class="result-bar-detail" data-motion-static>@RenderResultBody(s.Result, s.LastRequest, s.ResultCrit, s.LastRequestCrit)</div>
                     }
                     <button type="button" class="result-bar-summary" aria-expanded="@(resultBarOpen ? "true" : "false")" @onclick="() => resultBarOpen = !resultBarOpen">
                         <TypeIcon Type="@s.Result.MoveType" Small="true" />
                         <strong>@s.Result.RangeText</strong>
                         <span class="badge @(s.Result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@s.Result.KnockOut</span>
+                        @if (s.ResultCrit is { } cr)
+                        {
+                            <span class="result-bar-crit">急所 <strong>@($"{cr.MinPercent:0.0}〜{cr.MaxPercent:0.0}%")</strong> <span class="badge @(cr.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@cr.KnockOut</span></span>
+                        }
                         <span class="result-bar-toggle" aria-hidden="true">@(resultBarOpen ? "▾ 閉じる" : "▴ 詳細")</span>
                     </button>
                 </div>
@@ -217,6 +217,10 @@ else if (data is not null && dataSet is not null)
                             <input class="form-control" placeholder="93 または 45%" value="@s.ObservedDamageText" @onchange="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
                             <button class="btn btn-outline-primary" @onclick="EstimateEvs">推定</button>
                         </div>
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" role="switch" id="estimate-crit" checked="@s.EstimateCritical" @onchange="@(e => s.EstimateCritical = e.Value is true)" />
+                            <label class="form-check-label" for="estimate-crit">受けたダメージは急所に当たったとき <Help Title="急所">オンにすると、急所（ダメージ 1.5 倍。スナイパーは 2.25 倍。攻撃側のマイナスランクと防御側のプラスランクを無視）のときのダメージとして推定します。</Help></label>
+                        </div>
                         @if (!string.IsNullOrEmpty(s.EstimateText))
                         {
                             <div class="alert alert-light border chat-output mt-2 mb-0">@s.EstimateText</div>
@@ -237,7 +241,8 @@ else if (data is not null && dataSet is not null)
         public PokemonBuild? Attacker { get; set; }
         public PokemonBuild? Defender { get; set; }
         public Move? Move { get; set; }
-        public bool IsCritical { get; set; }
+        /// <summary>相手の努力値の推定で、受けたダメージを急所のときのものとして扱う。</summary>
+        public bool EstimateCritical { get; set; }
         /// <summary>Z 技として使う（第 7 世代）。</summary>
         public bool IsZMove { get; set; }
         /// <summary>「登録から選ぶ」のスイッチ（攻撃側・防御側）と、選んでいる登録の Key。</summary>
@@ -251,8 +256,12 @@ else if (data is not null && dataSet is not null)
         public Terrain Terrain { get; set; }
         public string ObservedDamageText { get; set; } = "";
         public string EstimateText { get; set; } = "";
+        /// <summary>通常（急所なし）の結果と、そのときの条件。</summary>
         public DamageResult? Result { get; set; }
         public DamageRequest? LastRequest { get; set; }
+        /// <summary>急所に当たったときの結果と条件（通常と並べて出す）。</summary>
+        public DamageResult? ResultCrit { get; set; }
+        public DamageRequest? LastRequestCrit { get; set; }
     }
 
     private State s = new();
@@ -305,7 +314,8 @@ else if (data is not null && dataSet is not null)
             q.Defender.Pokemon.Name, r.DefenderHP, StartHp(r, q),
             r.MinDamage, r.MaxDamage, r.TypeEffectiveness == 0.0,
             r.Converted?.Name ?? q.Move.Name, r.MoveType, r.RangeText,
-            r.KnockOut.ToString(), r.KnockOut.IsGuaranteed, r.EffectivenessText);
+            r.KnockOut.ToString(), r.KnockOut.IsGuaranteed, r.EffectivenessText,
+            s.ResultCrit?.RangeText, s.ResultCrit?.KnockOut.ToString(), s.ResultCrit?.KnockOut.IsGuaranteed ?? false);
     }
 
     [SupplyParameterFromQuery(Name = "attacker")] public int? AttackerQuery { get; set; }
@@ -473,7 +483,7 @@ else if (data is not null && dataSet is not null)
             Move = s.Move,
             Defender = s.Defender.Clone(),
             Format = App.Format,
-            IsCritical = s.IsCritical,
+            IsCritical = s.EstimateCritical,
             IsZMove = UseZMove,
             Weather = s.Weather,
             Terrain = s.Terrain,
@@ -535,7 +545,7 @@ else if (data is not null && dataSet is not null)
         {
             if (data is null || s.Attacker is null) return attackerMoves;
             var defender = s.Defender ?? FaraPokemonBattleAssistant.Core.Battle.DamageCalculator.NeutralDefender(s.Attacker.EvSystem);
-            var key = string.Join(";", BuildKey(s.Attacker), BuildKey(defender), s.Weather, s.Terrain, App.Format, s.IsCritical, s.Reflect, s.LightScreen, UseZMove,
+            var key = string.Join(";", BuildKey(s.Attacker), BuildKey(defender), s.Weather, s.Terrain, App.Format, s.Reflect, s.LightScreen, UseZMove,
                 attackerMoves.Count, attackerMoves.FirstOrDefault()?.Id);
             if (key != sortedMovesKey)
             {
@@ -543,7 +553,7 @@ else if (data is not null && dataSet is not null)
                 sortedMoves = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation).SortByDamage(new DamageRequest
                 {
                     Attacker = s.Attacker, Move = attackerMoves.FirstOrDefault() ?? new Move(), Defender = defender,
-                    Format = App.Format, IsCritical = s.IsCritical, Weather = s.Weather, Terrain = s.Terrain, Reflect = s.Reflect, LightScreen = s.LightScreen, IsZMove = UseZMove,
+                    Format = App.Format, Weather = s.Weather, Terrain = s.Terrain, Reflect = s.Reflect, LightScreen = s.LightScreen, IsZMove = UseZMove,
                 }, attackerMoves);
             }
             return sortedMoves;
@@ -750,7 +760,7 @@ else if (data is not null && dataSet is not null)
     };
 
     /// <summary>計算結果の中身（結果カードと、狭い画面の下のバーで使う）。</summary>
-    private RenderFragment RenderResultBody(DamageResult result, DamageRequest lastRequest) => __builder =>
+    private RenderFragment RenderResultBody(DamageResult result, DamageRequest lastRequest, DamageResult? crit, DamageRequest? critRequest) => __builder =>
     {
         @* 入力欄に画像が出ているので、ここは 1 行の文字だけにする *@
         <p class="result-matchup mb-1">
@@ -759,7 +769,9 @@ else if (data is not null && dataSet is not null)
             <strong data-swap="@lastRequest.Defender.Pokemon.Name">@lastRequest.Defender.Pokemon.Name</strong>
         </p>
         @* 数字は data-count の span に分ける（見た目の文字は RangeText と同じ。入力を変えると前の結果から数え上げる） *@
-        <p class="result-main mb-2">
+        @* 急所なし・ありを並べて出す。上が通常、下が急所 *@
+        <p class="result-main result-main-row mb-1">
+            <span class="result-kind">通常</span>
             <strong><span data-count="@Inv(result.MinPercent)" data-count-dec="1">@($"{result.MinPercent:0.0}")</span>〜<span data-count="@Inv(result.MaxPercent)" data-count-dec="1">@($"{result.MaxPercent:0.0}")</span>% (<span data-count="@result.MinDamage">@result.MinDamage</span>〜<span data-count="@result.MaxDamage">@result.MaxDamage</span>)</strong>
             <span class="ms-2 badge @(result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")" data-pop="@result.KnockOut">@result.KnockOut</span>
             @if (result.TypeEffectiveness != 1.0)
@@ -767,20 +779,34 @@ else if (data is not null && dataSet is not null)
                 <span class="ms-2 badge bg-secondary" data-pop="@result.EffectivenessText">@result.EffectivenessText</span>
             }
         </p>
-        @RenderHpBar(result, lastRequest)
+        @if (crit is not null)
+        {
+            <p class="result-main result-main-row result-main-crit mb-2">
+                <span class="result-kind">急所</span>
+                <strong>@($"{crit.MinPercent:0.0}〜{crit.MaxPercent:0.0}% ({crit.MinDamage}〜{crit.MaxDamage})")</strong>
+                <span class="ms-2 badge @(crit.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@crit.KnockOut</span>
+            </p>
+        }
+        @RenderHpBar(result, lastRequest, "通常")
+        @if (crit is not null && critRequest is not null) { @RenderHpBar(crit, critRequest, "急所", showLegend: false) }
         <p class="mb-1"><strong>防御側 HP:</strong> @result.DefenderHP　<strong>こうげき実数値:</strong> @result.AttackStat　<strong>ぼうぎょ実数値:</strong> @result.DefenseStat　<strong>威力:</strong> @result.BasePower（@TypeNames.ToJapanese(result.MoveType)）</p>
         @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
         {
             <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data!.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>
         }
-        @RenderRolls(result, lastRequest)
+        @RenderRolls(result, lastRequest, crit is null ? "" : "通常")
+        @if (crit is not null && critRequest is not null) { @RenderRolls(crit, critRequest, "急所") }
         @if (result.Modifiers.Count > 0)
         {
-            <p class="mb-1"><strong>補正:</strong> @string.Join("、", result.Modifiers)</p>
+            <p class="mb-1"><strong>補正@(crit is null ? "" : "（通常）"):</strong> @string.Join("、", result.Modifiers)</p>
+        }
+        @if (crit is not null && crit.Modifiers.Count > 0)
+        {
+            <p class="mb-1"><strong>補正（急所）:</strong> @string.Join("、", crit.Modifiers)</p>
         }
         <hr />
         <p class="mb-1 text-muted small">チャットでの表示</p>
-        <div class="alert alert-light border chat-output mb-0">@DamageCommand.Format(lastRequest, result, data!.Info)</div>
+        <div class="alert alert-light border chat-output mb-0">@DamageCommand.Format(lastRequest, result, data!.Info)@if (crit is not null && critRequest is not null) { <br />@DamageCommand.Format(critRequest, crit, data!.Info) }</div>
     };
 
     private static string Inv(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
@@ -795,7 +821,7 @@ else if (data is not null && dataSet is not null)
     /// 防御側の HP バー。必ず残る HP（最大ダメージ後）・乱数で減る幅・必ず減る HP（最小ダメージ分）の 3 つを、
     /// 今の HP を起点に最大 HP に対する割合で描く。動き（前の結果からの伸び縮み・ポケモンを変えたときは満タンから）は wwwroot/js/motion.js が付ける。
     /// </summary>
-    private RenderFragment RenderHpBar(DamageResult result, DamageRequest lastRequest) => __builder =>
+    private RenderFragment RenderHpBar(DamageResult result, DamageRequest lastRequest, string kind = "", bool showLegend = true) => __builder =>
     {
         var maxHp = result.DefenderHP;
         var start = StartHp(result, lastRequest);
@@ -808,7 +834,7 @@ else if (data is not null && dataSet is not null)
         var name = lastRequest.Defender.Pokemon.Name;
         <div class="hp-calc" data-hp-calc data-hp-key="@name" data-hp-immune="@(immune ? "1" : "0")" data-hp-start="@Pct(P(start))">
             <div class="hp-calc-line">
-                <span class="hp-calc-name" data-swap="@name"><PokemonIcon Pokemon="lastRequest.Defender.Pokemon" Small="true" /> @name の HP@(start < maxHp ? $"（現在 {start}）" : "")</span>
+                <span class="hp-calc-name" data-swap="@name"><PokemonIcon Pokemon="lastRequest.Defender.Pokemon" Small="true" />@if (kind != "") { <span class="result-kind">@kind</span> } @name の HP@(start < maxHp ? $"（現在 {start}）" : "")</span>
                 <span class="hp-calc-left">@(immune ? $"{start} / {maxHp}（減らない）" : $"残り {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)} / {maxHp}")</span>
             </div>
             <div class="hp-calc-bar" role="img" aria-label="@(immune ? $"{name} の HP は減りません" : $"{name} の HP は残り {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)}（最大 {maxHp}）")">
@@ -816,11 +842,14 @@ else if (data is not null && dataSet is not null)
                 <div class="hp-calc-fill" data-hp-part="fill" data-level="@level" style="left:0%;width:@Pct(keep)"></div>
                 <div class="hp-calc-range" data-hp-part="range" style="left:@Pct(keep);width:@Pct(P(maxD - minD));@(immune ? "display:none" : "")"></div>
             </div>
-            <div class="hp-calc-legend">
-                <span><i class="hp-key-keep"></i>必ず残る HP</span>
-                <span><i class="hp-key-gone"></i>必ず減る HP</span>
-                <span><i class="hp-key-range"></i>乱数で減る幅</span>
-            </div>
+            @if (showLegend)
+            {
+                <div class="hp-calc-legend">
+                    <span><i class="hp-key-keep"></i>必ず残る HP</span>
+                    <span><i class="hp-key-gone"></i>必ず減る HP</span>
+                    <span><i class="hp-key-range"></i>乱数で減る幅</span>
+                </div>
+            }
         </div>
     };
 
@@ -828,7 +857,7 @@ else if (data is not null && dataSet is not null)
     /// 乱数 16 通りのダメージを 8 列×2 行のマスで並べ、防御側の今の HP 以上（1 発で倒せる値）を赤枠にする。
     /// 計算結果（Rolls・確定数）は変えず、並べ方と説明だけを付ける。
     /// </summary>
-    private RenderFragment RenderRolls(DamageResult result, DamageRequest lastRequest) => __builder =>
+    private RenderFragment RenderRolls(DamageResult result, DamageRequest lastRequest, string kind = "") => __builder =>
     {
         var hp = StartHp(result, lastRequest);
         var name = lastRequest.Defender.Pokemon.Name;
@@ -840,7 +869,7 @@ else if (data is not null && dataSet is not null)
             : ko > 0 ? $"赤い数字は、{name} の{hpText} 以上（1 発で倒せる）。16 通り中 {ko} 通りなので、1 発で倒せる確率は {ko * 100.0 / result.Rolls.Length:0.0}% です。"
             : $"{name} の{hpText}。どの乱数でも 1 発では倒せません。";
         <div class="rolls-block">
-            <p class="rolls-title">乱数 16 通りのダメージ <small>技のダメージは毎回この 16 通りのどれかになります</small></p>
+            <p class="rolls-title">@(kind == "" ? "" : $"{kind}: ")乱数 16 通りのダメージ <small>技のダメージは毎回この 16 通りのどれかになります</small></p>
             <div class="rolls" data-rolls="@($"{string.Join(",", result.Rolls)};{hp}")">
                 @for (var i = 0; i < result.Rolls.Length; i++)
                 {
@@ -889,10 +918,12 @@ else if (data is not null && dataSet is not null)
             errorMessage = "";
             s.Result = null;
             s.LastRequest = null;
+            s.ResultCrit = null;
+            s.LastRequestCrit = null;
             return;
         }
         var key = string.Join(";", App.DataSetKey, BuildKey(s.Attacker), BuildKey(s.Defender), s.Move.Id,
-            s.Weather, s.Terrain, App.Format, s.IsCritical, s.Reflect, s.LightScreen, UseZMove);
+            s.Weather, s.Terrain, App.Format, s.Reflect, s.LightScreen, UseZMove);
         if (key == resultKey) return;
         resultKey = key;
         Calculate();
@@ -903,6 +934,8 @@ else if (data is not null && dataSet is not null)
         errorMessage = "";
         s.Result = null;
         s.LastRequest = null;
+        s.ResultCrit = null;
+        s.LastRequestCrit = null;
         if (data is null || s.Attacker is null || s.Defender is null || s.Move is null) return;
         if (!s.Move.IsDamaging)
         {
@@ -919,14 +952,18 @@ else if (data is not null && dataSet is not null)
                 Move = s.Move,
                 Defender = s.Defender,
                 Format = App.Format,
-                IsCritical = s.IsCritical,
+                IsCritical = false,
                 IsZMove = UseZMove,
                 Weather = s.Weather,
                 Terrain = s.Terrain,
                 Reflect = s.Reflect,
                 LightScreen = s.LightScreen,
             };
-            s.Result = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation).Calculate(s.LastRequest);
+            // 急所なし・ありの両方を計算して並べて出す
+            var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation);
+            s.Result = calc.Calculate(s.LastRequest);
+            s.LastRequestCrit = s.LastRequest.With(isCritical: true);
+            s.ResultCrit = calc.Calculate(s.LastRequestCrit);
         }
         catch (Exception ex)
         {
