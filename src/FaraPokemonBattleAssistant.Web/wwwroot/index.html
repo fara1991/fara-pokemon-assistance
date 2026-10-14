@@ -100,25 +100,97 @@
                 (function follow() { window.faraPlaceStage(); requestAnimationFrame(follow); })();
             }
 
-            // 背景の天候（雨・砂嵐・雪）。細かい粒をキャンバスに描く（縞模様ではなく、まばらな雨粒・砂粒・雪の粒）。
-            // kind: "rain" | "sand" | "snow" | ""（なし）、strong: 対戦画面のとき true（粒を多く・濃く）。同じ指定なら何もしない
+            // 背景の天候（雨・砂嵐・雪）とフィールド（エレキ・グラス・サイコ・ミスト）の動き。細かい粒・光・輪・もやをキャンバスに描く。
+            // weather: "rain" | "sand" | "snow" | ""、strong: 対戦画面のとき true（多く・濃く）、terrain: "electric" | "grassy" | "psychic" | "misty" | ""。
+            // 同じ指定なら何もしない。フィールドの動きは、コート（.field-plane）の範囲に出す
             (function () {
-                var kind = "", strong = false, parts = [], raf = 0, last = 0, W = 0, H = 0, canvas = null, ctx = null;
+                var kind = "", tkind = "", strong = false, parts = [], tparts = [], spawnT = 0, raf = 0, last = 0, W = 0, H = 0, canvas = null, ctx = null;
                 var reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
                 function rnd(a, b) { return a + Math.random() * (b - a); }
+                function plane() {
+                    var el = document.querySelector(".field-plane");
+                    if (!el) return { x: 0, y: H * 0.34, w: W, h: H * 0.66 };
+                    var r = el.getBoundingClientRect();
+                    return { x: r.left, y: r.top, w: r.width, h: r.height };
+                }
                 function make() {
                     var area = W * H, k = strong ? 1 : 0.5, n;
                     parts = [];
-                    if (kind === "rain") n = area / (strong ? 16000 : 30000);
-                    else if (kind === "sand") n = area / (strong ? 8000 : 16000);
-                    else n = area / (strong ? 11000 : 22000);
-                    n = Math.min(Math.round(n), 140);
-                    for (var i = 0; i < n; i++) {
-                        var p = { x: rnd(0, W), y: rnd(0, H), a: rnd(0.35, 0.8) * (0.6 + 0.4 * k) };
-                        if (kind === "rain") { p.len = rnd(9, 20); p.vy = rnd(650, 950); p.vx = -p.vy * 0.12; }
-                        else if (kind === "sand") { p.s = rnd(1.4, 3); p.vx = rnd(260, 520); p.vy = rnd(-18, 30); }
-                        else { p.r = rnd(1.2, 3); p.vy = rnd(24, 60); p.vx = rnd(-12, 12); p.ph = rnd(0, 6.28); }
-                        parts.push(p);
+                    if (kind) {
+                        if (kind === "rain") n = area / (strong ? 16000 : 30000);
+                        else if (kind === "sand") n = area / (strong ? 8000 : 16000);
+                        else n = area / (strong ? 11000 : 22000);
+                        n = Math.min(Math.round(n), 140);
+                        for (var i = 0; i < n; i++) {
+                            var p = { x: rnd(0, W), y: rnd(0, H), a: rnd(0.35, 0.8) * (0.6 + 0.4 * k) };
+                            if (kind === "rain") { p.len = rnd(9, 20); p.vy = rnd(650, 950); p.vx = -p.vy * 0.12; }
+                            else if (kind === "sand") { p.s = rnd(1.4, 3); p.vx = rnd(260, 520); p.vy = rnd(-18, 30); }
+                            else { p.r = rnd(1.2, 3); p.vy = rnd(24, 60); p.vx = rnd(-12, 12); p.ph = rnd(0, 6.28); }
+                            parts.push(p);
+                        }
+                    }
+                    tparts = [];
+                    if (tkind === "misty") {
+                        // もや: コートの手前（下寄り）を、ゆっくり横に流れるやわらかい塊
+                        var a = plane(), m = strong ? 8 : 4;
+                        for (var j = 0; j < m; j++) tparts.push({ t: "mist", x: rnd(a.x - 60, a.x + a.w + 60), y: a.y + a.h * rnd(0.5, 1.05), r: rnd(110, 220), vx: rnd(10, 26) * (Math.random() < 0.5 ? -1 : 1), a: rnd(0.28, 0.42) * (0.6 + 0.4 * k) });
+                    }
+                }
+                function spawn(dt) {
+                    if (!tkind || tkind === "misty") return;
+                    spawnT -= dt;
+                    if (spawnT > 0) return;
+                    var a = plane(), k = strong ? 1 : 0.5;
+                    var x = a.x + rnd(0.1, 0.9) * a.w, y = a.y + rnd(0.1, 0.9) * a.h;
+                    if (tkind === "electric") {
+                        spawnT = rnd(0.15, 0.45) / k;
+                        var pts = [[x, y]], px = x, py = y;
+                        for (var i = 0; i < 7; i++) { px += rnd(-16, 16); py += rnd(10, 20); pts.push([px, py]); }
+                        tparts.push({ t: "bolt", pts: pts, age: 0, life: 0.28 });
+                    } else if (tkind === "grassy") {
+                        spawnT = rnd(0.08, 0.22) / k;
+                        tparts.push({ t: "leaf", x: x, y: y, vx: rnd(-14, 14), vy: rnd(-50, -26), rot: rnd(0, 6.28), sz: rnd(6, 11), age: 0, life: rnd(1.8, 3) });
+                    } else if (tkind === "psychic") {
+                        spawnT = rnd(0.45, 0.9) / k;
+                        tparts.push({ t: "ring", x: x, y: y, age: 0, life: 1.8 });
+                    }
+                }
+                function drawTerrain(dt, light) {
+                    var k = strong ? 1 : 0.65;
+                    for (var i = tparts.length - 1; i >= 0; i--) {
+                        var q = tparts[i];
+                        if (q.t === "mist") {
+                            q.x += q.vx * dt;
+                            var a = plane();
+                            if (q.x > a.x + a.w + 120) q.x = a.x - 120; else if (q.x < a.x - 120) q.x = a.x + a.w + 120;
+                            var g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.r);
+                            var c = light ? "212,120,196" : "255,215,240";
+                            g.addColorStop(0, "rgba(" + c + "," + Math.min(0.9, q.a * (light ? 0.95 : 0.8)) + ")");
+                            g.addColorStop(1, "rgba(" + c + ",0)");
+                            ctx.fillStyle = g; ctx.fillRect(q.x - q.r, q.y - q.r, q.r * 2, q.r * 2);
+                            continue;
+                        }
+                        q.age += dt;
+                        if (q.age >= q.life) { tparts.splice(i, 1); continue; }
+                        var f = q.age / q.life;
+                        if (q.t === "bolt") {
+                            var al = (1 - f) * 0.95 * k;
+                            ctx.save();
+                            ctx.strokeStyle = "rgba(" + (light ? "235,170,0" : "255,235,90") + "," + al + ")";
+                            ctx.lineWidth = 3; ctx.shadowColor = "rgba(255,220,60," + al + ")"; ctx.shadowBlur = 12;
+                            ctx.beginPath(); ctx.moveTo(q.pts[0][0], q.pts[0][1]);
+                            for (var j = 1; j < q.pts.length; j++) ctx.lineTo(q.pts[j][0], q.pts[j][1]);
+                            ctx.stroke(); ctx.restore();
+                        } else if (q.t === "leaf") {
+                            q.x += (q.vx + Math.sin(q.age * 3 + q.rot) * 14) * dt; q.y += q.vy * dt; q.rot += dt * 1.5;
+                            ctx.fillStyle = "rgba(" + (light ? "40,150,60" : "110,220,120") + "," + Math.min(1, Math.sin(Math.PI * f) * 1.1) * k + ")";
+                            ctx.beginPath(); ctx.ellipse(q.x, q.y, q.sz, q.sz * 0.5, q.rot, 0, 6.2832); ctx.fill();
+                        } else if (q.t === "ring") {
+                            var r = 14 + f * 110;
+                            ctx.strokeStyle = "rgba(" + (light ? "200,50,170" : "240,120,220") + "," + (1 - f) * 0.95 * k + ")";
+                            ctx.lineWidth = 3;
+                            ctx.beginPath(); ctx.ellipse(q.x, q.y, r, r * 0.45, 0, 0, 6.2832); ctx.stroke();
+                        }
                     }
                 }
                 function draw(dt) {
@@ -146,6 +218,7 @@
                             ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
                         }
                     }
+                    if (tkind) { spawn(dt); drawTerrain(dt, light); }
                 }
                 function frame(t) {
                     var dt = Math.min(0.05, (t - last) / 1000 || 0.016);
@@ -153,20 +226,20 @@
                     draw(dt);
                     raf = requestAnimationFrame(frame);
                 }
-                function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; if (ctx) ctx.clearRect(0, 0, W, H); parts = []; }
+                function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; if (ctx) ctx.clearRect(0, 0, W, H); parts = []; tparts = []; }
                 function size() {
                     if (!canvas) return;
                     W = canvas.width = canvas.clientWidth;
                     H = canvas.height = canvas.clientHeight;
                 }
-                window.faraWeather = function (nextKind, nextStrong) {
-                    nextKind = nextKind || ""; nextStrong = !!nextStrong;
-                    if (nextKind === kind && nextStrong === strong && (kind === "" || raf || reduce.matches)) return;
-                    kind = nextKind; strong = nextStrong;
+                window.faraWeather = function (nextKind, nextStrong, nextTerrain) {
+                    nextKind = nextKind || ""; nextStrong = !!nextStrong; nextTerrain = nextTerrain || "";
+                    if (nextKind === kind && nextStrong === strong && nextTerrain === tkind && (!(kind || tkind) || raf || reduce.matches)) return;
+                    kind = nextKind; strong = nextStrong; tkind = nextTerrain;
                     stop();
-                    if (!kind) return;
+                    if (!kind && !tkind) return;
                     canvas = document.querySelector(".wx-canvas");
-                    if (!canvas) { kind = ""; return; }
+                    if (!canvas) { kind = ""; tkind = ""; return; }
                     ctx = canvas.getContext("2d");
                     size();
                     make();
@@ -174,8 +247,15 @@
                     last = performance.now();
                     raf = requestAnimationFrame(frame);
                 };
-                window.addEventListener("resize", function () { if (kind) { size(); make(); if (reduce.matches) draw(0); } });
+                window.addEventListener("resize", function () { if (kind || tkind) { size(); make(); if (reduce.matches) draw(0); } });
             })();
+
+            // スマホでスクロールしたとき（アドレスバーの出し入れ・キーボードで表示領域が変わるときも）、ポケモンの位置を合わせ直す
+            window.addEventListener("scroll", function () { window.faraPlaceStage(); }, { passive: true });
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener("resize", function () { window.faraPlaceStage(); });
+                window.visualViewport.addEventListener("scroll", function () { window.faraPlaceStage(); });
+            }
 
             window.faraPlaceNote = function (id) {
                 var el = document.getElementById(id);

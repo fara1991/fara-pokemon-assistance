@@ -64,6 +64,9 @@
     /// <summary>雨・砂嵐・雪の粒（index.html の faraWeather）。種類と、対戦画面かどうか（濃さ）を渡す。</summary>
     private string ParticleKind => Stage.Weather switch { Weather.Rain => "rain", Weather.Sand => "sand", Weather.Snow => "snow", _ => "" };
 
+    /// <summary>フィールドの動き（雷光・葉・輪・もや）の種類（index.html の faraWeather）。</summary>
+    private string TerrainKind => Stage.Terrain switch { Terrain.Electric => "electric", Terrain.Grassy => "grassy", Terrain.Psychic => "psychic", Terrain.Misty => "misty", _ => "" };
+
     protected override async Task OnInitializedAsync()
     {
         Stage.Changed += OnStageChanged;
@@ -96,7 +99,7 @@
         try
         {
             await JS.InvokeVoidAsync("faraPlaceStage");
-            await JS.InvokeVoidAsync("faraWeather", ParticleKind, Stage.BattleActive);
+            await JS.InvokeVoidAsync("faraWeather", ParticleKind, Stage.BattleActive, TerrainKind);
         }
         catch { /* 背景だけの飾りなので、失敗しても何もしない */ }
     }

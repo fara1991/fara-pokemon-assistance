@@ -2980,7 +2980,7 @@ html.vt-nav .sidebar {
 
 /* ポケモン：床とは別の平らな画像。足場の位置を JS（index.html の faraPlaceStage）で測って、足場の真ん中に足元を合わせる。
    床の傾きを打ち消して立たせる作り（preserve-3d）は、iPhone のブラウザで床に寝てつぶれるため使わない */
-.field-mon { position: absolute; left: 0; top: 0; visibility: hidden; image-rendering: pixelated; opacity: var(--field-mon-opacity); animation: field-mon-idle 2.6s ease-in-out infinite; }
+.field-mon { position: fixed; left: 0; top: 0; visibility: hidden; image-rendering: pixelated; opacity: var(--field-mon-opacity); animation: field-mon-idle 2.6s ease-in-out infinite; }
 /* 向き（左右反転）は faraPlaceStage が、2 体が向き合うように毎フレーム決める */
 .field-mon-mine { animation-delay: -1.3s; }
 @keyframes field-mon-idle { 50% { translate: 0 -4%; } }
@@ -3102,7 +3102,8 @@ html.vt-nav .sidebar {
    雨・砂嵐・雪の粒は index.html の faraWeather がキャンバス（.wx-canvas）に描く。ここは色の味付けと、床の色 */
 .wx-layer { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.6s; --wx-tint: transparent; background: var(--wx-tint); }
 .wx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.bg-scene.wx-rain .wx-layer, .bg-scene.wx-sun .wx-layer, .bg-scene.wx-sand .wx-layer, .bg-scene.wx-snow .wx-layer { opacity: 1; }
+.bg-scene.wx-rain .wx-layer, .bg-scene.wx-sun .wx-layer, .bg-scene.wx-sand .wx-layer, .bg-scene.wx-snow .wx-layer,
+.bg-scene.tr-electric .wx-layer, .bg-scene.tr-grassy .wx-layer, .bg-scene.tr-psychic .wx-layer, .bg-scene.tr-misty .wx-layer { opacity: 1; }
 .bg-scene.wx-rain .wx-layer { --wx-tint: linear-gradient(180deg, rgba(50, 85, 160, 0.1), rgba(50, 85, 160, 0.04)); }
 .bg-scene.wx-rain.battle .wx-layer { --wx-tint: linear-gradient(180deg, rgba(50, 85, 160, 0.2), rgba(50, 85, 160, 0.08)); }
 .bg-scene.wx-sand .wx-layer { --wx-tint: linear-gradient(180deg, rgba(190, 145, 80, 0.1), rgba(190, 145, 80, 0.05)); }
@@ -3129,8 +3130,8 @@ html.vt-nav .sidebar {
 .bg-scene.tr-grassy.battle { --field-line: rgba(50, 160, 70, 0.85); --field-fill: rgba(70, 190, 90, 0.3); --field-band: rgba(70, 190, 90, 0.17); --field-pad: rgba(50, 160, 70, 0.7); --field-pad-fill: rgba(70, 190, 90, 0.2); }
 .bg-scene.tr-psychic.battle { --field-line: rgba(220, 70, 180, 0.85); --field-fill: rgba(235, 90, 200, 0.28); --field-band: rgba(235, 90, 200, 0.16); --field-pad: rgba(220, 70, 180, 0.7); --field-pad-fill: rgba(235, 90, 200, 0.2); }
 .bg-scene.tr-misty.battle { --field-line: rgba(240, 130, 190, 0.85); --field-fill: rgba(255, 170, 215, 0.3); --field-band: rgba(255, 170, 215, 0.18); --field-pad: rgba(240, 130, 190, 0.7); --field-pad-fill: rgba(255, 170, 215, 0.22); }
-.bg-scene.tr-misty .field-floor::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, rgba(255, 200, 230, 0.16), transparent 70%); }
-.bg-scene.tr-misty.battle .field-floor::after { background: radial-gradient(ellipse at 50% 60%, rgba(255, 200, 230, 0.45), transparent 70%); }
+.bg-scene.tr-misty .field-floor::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 75%, rgba(255, 200, 230, 0.1), transparent 70%); }
+.bg-scene.tr-misty.battle .field-floor::after { background: radial-gradient(ellipse at 50% 75%, rgba(255, 200, 230, 0.2), transparent 70%); }
 
 /* ポケモン登録: 技の 4 枠と、登録一覧の技 */
 .move-pick-summary { list-style: none; padding: 0; }
