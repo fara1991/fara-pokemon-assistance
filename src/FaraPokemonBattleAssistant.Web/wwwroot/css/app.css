@@ -2376,6 +2376,31 @@ button.compact-cell {
 .estimate-band[data-mod="none"] .estimate-bar-fill { background: var(--app-hp); }
 .estimate-band-stat { margin-top: 0.2rem; }
 
+/* ダメージ計算: 乱数 16 通りの折りたたみ（閉じていても最小〜最大を 1 行で出す） */
+.rolls-details { margin: 0.7rem 0 0.4rem; border: 1px solid var(--app-card-border); border-radius: 0.6rem; }
+.rolls-details > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.7rem; padding: 0.5rem 0.8rem; cursor: pointer; list-style: none; font-weight: 700; }
+.rolls-details > summary::-webkit-details-marker { display: none; }
+.rolls-details > summary::before { content: "▸"; margin-right: -0.3rem; color: var(--app-muted); }
+.rolls-details[open] > summary::before { content: "▾"; }
+.rolls-details > summary small { font-weight: 400; font-variant-numeric: tabular-nums; }
+.rolls-details > summary:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+.rolls-details > .rolls-block { margin: 0; padding: 0 0.8rem 0.6rem; }
+
+/* スマホ: 右下の「いちばん上へ」ボタン（index.html の #scroll-top。スクロールすると出る） */
+.scroll-top { display: none; }
+@media (max-width: 767.98px) {
+    .scroll-top {
+        position: fixed; right: 0.9rem; bottom: 1rem; z-index: 1035; width: 2.9rem; height: 2.9rem; padding: 0;
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid var(--app-card-border); border-radius: 50%; background: var(--bs-primary); color: #fff;
+        font-size: 1.3rem; line-height: 1; box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
+        opacity: 0; pointer-events: none; transform: translateY(0.5rem); transition: opacity 0.2s, transform 0.2s;
+    }
+    .scroll-top.show { opacity: 0.92; pointer-events: auto; transform: none; }
+    /* 画面の下に結果のバーが出ているときは、その上に出す */
+    .scroll-top.above-bar { bottom: 4.8rem; }
+}
+
 /* ダメージ計算: 結果の「通常」「急所」の札 */
 .result-kind { display: inline-block; min-width: 2.6rem; margin-right: 0.45rem; padding: 0.05rem 0.4rem; border-radius: 0.4rem; background: rgba(120, 120, 160, 0.2); font-size: 0.78rem; font-weight: 700; text-align: center; vertical-align: 0.1em; }
 .result-main-crit .result-kind { background: rgba(229, 72, 77, 0.22); }

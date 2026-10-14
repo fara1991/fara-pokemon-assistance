@@ -913,8 +913,15 @@ else if (data is not null && dataSet is not null)
         {
             <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data!.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>
         }
-        @RenderRolls(result, lastRequest, crit is null ? "" : "通常")
-        @if (crit is not null && critRequest is not null) { @RenderRolls(crit, critRequest, "急所") }
+        @* 乱数 16 通りの表は、普段は閉じておく（閉じていても、最小〜最大は 1 行で見える）。開くと、1 発で倒せる値の赤枠も見える *@
+        <details class="rolls-details">
+            <summary>
+                <span>乱数 16 通りを見る</span>
+                <small class="text-muted">通常 @(result.MinDamage)〜@(result.MaxDamage)@(crit is null ? "" : $" / 急所 {crit.MinDamage}〜{crit.MaxDamage}")</small>
+            </summary>
+            @RenderRolls(result, lastRequest, crit is null ? "" : "通常")
+            @if (crit is not null && critRequest is not null) { @RenderRolls(crit, critRequest, "急所") }
+        </details>
         @if (result.Modifiers.Count > 0)
         {
             <p class="mb-1"><strong>補正@(crit is null ? "" : "（通常）"):</strong> @string.Join("、", result.Modifiers)</p>
