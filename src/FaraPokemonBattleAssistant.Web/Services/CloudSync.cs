@@ -106,7 +106,7 @@ public sealed class CloudSync : IRosterStore
         {
             await save();
             // 競合して読み直したあとの保存なら、そのことを知らせる
-            LastNotice = _conflicted ? "他の場所（ボットや別の端末）で更新されていたので、最新の内容を読み込み直してから保存しました" : null;
+            LastNotice = _conflicted ? "他の場所（配信用BOTや別の端末）で更新されていたので、最新の内容を読み込み直してから保存しました" : null;
             _conflicted = false;
             RecordSuccess();
         }
@@ -214,7 +214,7 @@ public sealed class CloudSync : IRosterStore
     /// <summary>登録データの読み書きで出た例外を、画面に出す文に直す。</summary>
     public static string Describe(Exception ex) => ex switch
     {
-        RosterConflictException => "他の場所（ボットや別の端末）で同時に更新されたため保存できませんでした。最新の内容を読み込み直したので、もう一度操作してください",
+        RosterConflictException => "他の場所（配信用BOTや別の端末）で同時に更新されたため保存できませんでした。最新の内容を読み込み直したので、もう一度操作してください",
         RosterUnavailableException u => u.Message,
         HttpRequestException => "クラウドに接続できませんでした",
         _ => ex.Message,
