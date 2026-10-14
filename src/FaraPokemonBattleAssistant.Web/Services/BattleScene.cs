@@ -6,6 +6,12 @@ namespace FaraPokemonBattleAssistant.Web.Services;
 /// </summary>
 public abstract record BattleScene;
 
+/// <summary>
+/// まだ出す結果が無いとき（ポケモンを選んでいない・まだ推定していない）の対戦画面。フィールドと背景のポケモンだけを出し、下の枠に案内を出す。
+/// 「対戦画面で表示」をオンにしたら、結果が無くても対戦画面にするためのもの。
+/// </summary>
+public sealed record WaitingScene(string Hint) : BattleScene;
+
 /// <summary>ダメージ計算機の結果（選んでいる技 1 つ分）。攻撃側が自分側、防御側が相手側。</summary>
 public sealed record DamageScene(
     string AttackerName,

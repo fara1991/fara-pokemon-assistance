@@ -13,8 +13,6 @@
     <p class="text-muted mb-0">登録したポケモンは「登録から選ぶ」で、攻撃側・防御側のどちらにも呼び出せます。入力した内容は別のページへ移動しても残ります。</p>
 </div>
 
-<BattleViewHint>@(s.EstimateMode ? "推定を実行すると、結果を対戦画面で出します。" : "攻撃側・防御側のポケモンと技を選ぶと、結果を対戦画面で出します。")</BattleViewHint>
-
 @if (!string.IsNullOrEmpty(loadError))
 {
     <div class="alert alert-danger">@loadError</div>
@@ -340,8 +338,11 @@ else if (data is not null && dataSet is not null)
     /// <summary>「対戦画面で表示」に出す内容（選んでいる技 1 つ分の結果）。結果が出ていないときは null。</summary>
     private BattleScene? BuildScene()
     {
-        if (s.EstimateMode) return s.EstimateScene;   // 推定では、推定した結果があるときだけ（入力のあいだは入力欄を出す）
-        if (s.Result is not { } r || s.LastRequest is not { } q) return null;
+        if (data is null || dataSet is null or { CalcSupported: false }) return null;   // 読み込み前・未対応のゲームは、対戦画面にしない
+        // 結果がまだ無くても対戦画面にする（フィールドと、案内だけを出す）
+        if (s.EstimateMode) return (BattleScene?)s.EstimateScene ?? new WaitingScene("攻撃側・防御側のポケモンと技を選び、受けたダメージを入れると、ここに推定結果が出ます。");
+        if (s.Result is not { } r || s.LastRequest is not { } q)
+            return new WaitingScene(string.IsNullOrEmpty(errorMessage) ? "攻撃側・防御側のポケモンと技を選ぶと、ここに結果が出ます。" : errorMessage);
         return new DamageScene(
             q.Attacker.Pokemon.Name, q.Attacker.CurrentHp, q.Attacker.MaxHp,
             q.Defender.Pokemon.Name, r.DefenderHP, StartHp(r, q),
