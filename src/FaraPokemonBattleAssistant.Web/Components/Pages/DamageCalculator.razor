@@ -13,6 +13,8 @@
     <p class="text-muted mb-0">登録したポケモンは「登録から選ぶ」で、攻撃側・防御側のどちらにも呼び出せます。入力した内容は別のページへ移動しても残ります。</p>
 </div>
 
+<BattleViewHint>@(s.EstimateMode ? "推定を実行すると、結果を対戦画面で出します。" : "攻撃側・防御側のポケモンと技を選ぶと、結果を対戦画面で出します。")</BattleViewHint>
+
 @if (!string.IsNullOrEmpty(loadError))
 {
     <div class="alert alert-danger">@loadError</div>
