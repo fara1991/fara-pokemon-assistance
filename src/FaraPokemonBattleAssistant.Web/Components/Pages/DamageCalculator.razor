@@ -278,6 +278,8 @@ else if (data is not null && dataSet is not null)
         public string EstimateText { get; set; } = "";
         /// <summary>推定の結果（画面に表で出す）と、そのときの条件の表示用の名前。</summary>
         public EvEstimator.Estimate? Estimate { get; set; }
+        /// <summary>推定の結果を対戦画面に出す内容（推定を実行した時点のもの）。</summary>
+        public EstimateScene? EstimateScene { get; set; }
         public string EstimateCaption { get; set; } = "";
         /// <summary>通常（急所なし）の結果と、そのときの条件。</summary>
         public DamageResult? Result { get; set; }
@@ -329,9 +331,10 @@ else if (data is not null && dataSet is not null)
     }
 
     /// <summary>「対戦画面で表示」に出す内容（選んでいる技 1 つ分の結果）。結果が出ていないときは null。</summary>
-    private DamageScene? BuildScene()
+    private BattleScene? BuildScene()
     {
-        if (s.EstimateMode || s.Result is not { } r || s.LastRequest is not { } q) return null;
+        if (s.EstimateMode) return s.EstimateScene;   // 推定では、推定した結果があるときだけ（入力のあいだは入力欄を出す）
+        if (s.Result is not { } r || s.LastRequest is not { } q) return null;
         return new DamageScene(
             q.Attacker.Pokemon.Name, q.Attacker.CurrentHp, q.Attacker.MaxHp,
             q.Defender.Pokemon.Name, r.DefenderHP, StartHp(r, q),
@@ -372,6 +375,7 @@ else if (data is not null && dataSet is not null)
                 s.LastRequest = null;
                 s.EstimateText = "";
                 s.Estimate = null;
+                s.EstimateScene = null;
             }
             s.Format = App.Format;
             // そのゲームに無いフィールド（第 5 世代まで・サイコフィールドは第 6 世代まで）は外す
@@ -498,6 +502,7 @@ else if (data is not null && dataSet is not null)
     {
         s.EstimateText = "";
         s.Estimate = null;
+        s.EstimateScene = null;
         if (data is null || s.Attacker is null || s.Defender is null || s.Move is null) { s.EstimateText = "ポケモンと技を選択してください。"; return; }
         var text = s.ObservedDamageText.Trim();
         var asPercent = text.EndsWith('%') || text.EndsWith('％');
@@ -520,6 +525,27 @@ else if (data is not null && dataSet is not null)
         s.EstimateText = EvEstimator.Format(estimate, s.Defender.Pokemon, s.Move, data.Info.EvSystem) + "（相手は持ち物なし想定）";
         s.Estimate = estimate;
         s.EstimateCaption = $"{s.Attacker.Pokemon.Name} の {s.Move.Name} → {s.Defender.Pokemon.Name}{(s.EstimateCritical ? "（急所）" : "")}";
+        s.EstimateScene = BuildEstimateScene(estimate);
+    }
+
+    /// <summary>推定の結果を、対戦画面に出す内容にする（推定を実行した時点の攻撃側・防御側・技）。</summary>
+    private EstimateScene BuildEstimateScene(EvEstimator.Estimate e)
+    {
+        var system = data!.Info.EvSystem;
+        var unit = system == EvSystem.Points ? "pt" : "";
+        var letter = StatNames.Letter(e.DefenseStat);
+        string Range(int a, int b) => a == b ? $"{a}" : $"{a}〜{b}";
+        var bands = e.Bands.Select(b => new EstimateBandLine(
+            $"{b.Label}（×{b.Modifier.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}）",
+            b.Modifier > 1 ? "up" : b.Modifier < 1 ? "down" : "none",
+            $"{letter} {Range(b.MinEv, b.MaxEv)}{unit}",
+            b.MinStat > 0 ? $"実数値 {Range(b.MinStat, b.MaxStat)}" : "")).ToList();
+        return new EstimateScene(
+            s.Attacker!.Pokemon.Name, s.Attacker.CurrentHp, s.Attacker.MaxHp,
+            s.Defender!.Pokemon.Name, s.Move!.Name, s.Move.Type,
+            e.ObservedAsPercent ? $"{e.ObservedDamage}%" : $"{e.ObservedDamage}",
+            letter, e.HasResult ? Range(e.MinDefenseStat, e.MaxDefenseStat) : null, bands,
+            e.HpEvRange is { } hp ? $"H {Range(hp.MinEv, hp.MaxEv)}{unit}" : null);
     }
 
     /// <summary>

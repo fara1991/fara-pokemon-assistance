@@ -40,6 +40,35 @@ public sealed record RegisterScene(string MineName, int MaxHp, IReadOnlyList<Mov
     public override int GetHashCode() => HashCode.Combine(MineName, MaxHp, Moves.Count);
 }
 
+/// <summary>推定の結果 1 行（性格補正ごと）。<paramref name="Mod"/> は "up" / "none" / "down"。</summary>
+public sealed record EstimateBandLine(string Label, string Mod, string Text, string StatText);
+
+/// <summary>
+/// 「相手の振り方を推定」の結果。攻撃側が自分側（左下）、相手が右上（ポイント・性格は不明）で、技と受けたダメージ・推定した実数値とポイントの範囲を出す。
+/// 推定を実行した時点の内容（入力を変えても、もう一度推定するまで変わらない）。
+/// </summary>
+public sealed record EstimateScene(
+    string AttackerName,
+    int AttackerHp,
+    int AttackerMaxHp,
+    string DefenderName,
+    string MoveName,
+    string MoveType,
+    string Observed,
+    string StatLetter,
+    string? StatRange,
+    IReadOnlyList<EstimateBandLine> Bands,
+    string? HpText) : BattleScene
+{
+    // 行の一覧は参照ではなく中身で比べる（同じ内容なら描き直さない）
+    public bool Equals(EstimateScene? other) =>
+        other is not null && AttackerName == other.AttackerName && AttackerHp == other.AttackerHp && AttackerMaxHp == other.AttackerMaxHp
+        && DefenderName == other.DefenderName && MoveName == other.MoveName && MoveType == other.MoveType && Observed == other.Observed
+        && StatLetter == other.StatLetter && StatRange == other.StatRange && HpText == other.HpText && Bands.SequenceEqual(other.Bands);
+
+    public override int GetHashCode() => HashCode.Combine(AttackerName, DefenderName, MoveName, Observed, StatRange, Bands.Count);
+}
+
 /// <summary>素早さ比較の結果。ポケモン1が自分側、ポケモン2が相手側。</summary>
 public sealed record SpeedScene(
     string MineName,

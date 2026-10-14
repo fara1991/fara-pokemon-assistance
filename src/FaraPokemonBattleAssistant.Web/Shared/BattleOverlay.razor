@@ -28,6 +28,9 @@
             case RegisterScene r:
                 @RenderRegister(r)
                 break;
+            case EstimateScene es:
+                @RenderEstimate(es)
+                break;
         }
     </div>
 }
@@ -91,6 +94,45 @@
                 </div>
             }
         </div>
+        </div>
+    };
+
+    /// <summary>
+    /// 相手の振り方の推定：左下に攻撃側、右上に相手（ポイント・性格は不明で、推定した実数値の範囲）、下に技と受けたダメージ、
+    /// 性格補正ごとのポイントの範囲。
+    /// </summary>
+    private RenderFragment RenderEstimate(EstimateScene e) => __builder =>
+    {
+        <div class="bv-box bv-foe">
+            <div class="bv-name">@e.DefenderName</div>
+            <div class="bv-unknown">@(e.StatRange is null ? "推定できませんでした" : $"{e.StatLetter} 実数値 {e.StatRange}")</div>
+            <div class="bv-hp">ポイント・性格は不明（推定）</div>
+        </div>
+        <div class="bv-bottom">
+            <div class="bv-box bv-mine">
+                <div class="bv-name">@e.AttackerName</div>
+                <div class="hp-calc-bar bv-bar"><div class="hp-calc-fill" data-level="high" style="left:0%;width:@Pct(e.AttackerHp * 100.0 / Math.Max(1, e.AttackerMaxHp))"></div></div>
+                <div class="bv-hp">@e.AttackerHp / @e.AttackerMaxHp</div>
+            </div>
+            <div class="bv-msg">
+                <div class="bv-msg-move"><strong>@e.AttackerName</strong> の <TypeIcon Type="@e.MoveType" Small="true" /> <strong>@e.MoveName</strong>！　受けたダメージ <strong>@e.Observed</strong></div>
+                @if (e.Bands.Count == 0)
+                {
+                    <div class="bv-msg-dmg"><span class="text-muted small">そのダメージになる振り方は見つかりませんでした（持ち物・特性・ランクが違う可能性）</span></div>
+                }
+                @foreach (var b in e.Bands)
+                {
+                    <div class="bv-msg-dmg">
+                        <span class="bv-msg-kind bv-kind-@b.Mod">@b.Label</span>
+                        <span class="bv-msg-range">@b.Text</span>
+                        @if (b.StatText != "") { <small class="bv-msg-sub">@b.StatText</small> }
+                    </div>
+                }
+                @if (e.HpText is not null)
+                {
+                    <div class="bv-msg-dmg"><span class="bv-msg-kind">HP</span><span class="bv-msg-range">@e.HpText</span></div>
+                }
+            </div>
         </div>
     };
 

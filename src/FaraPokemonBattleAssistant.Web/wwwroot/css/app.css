@@ -3160,6 +3160,13 @@ html.vt-nav .sidebar {
 .bv-msg-range { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .bv-msg-kind { min-width: 2.6rem; padding: 0.05rem 0.4rem; border-radius: 0.4rem; background: rgba(120, 120, 160, 0.25); font-size: 0.78rem; font-weight: 700; text-align: center; }
 .bv-msg-kind-crit { background: rgba(229, 72, 77, 0.25); }
+/* 相手の振り方の推定（対戦画面）: 性格補正ごとの札と、相手の枠の実数値 */
+.bv-kind-up { background: rgba(229, 72, 77, 0.25); }
+.bv-kind-down { background: rgba(59, 130, 246, 0.25); }
+.bv-kind-none { background: rgba(34, 160, 107, 0.25); }
+.bv-kind-up, .bv-kind-down, .bv-kind-none { min-width: 8.2rem; text-align: left; }
+.bv-msg-sub { color: var(--app-muted); }
+.bv-unknown { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* 光のぼかし（fara-labs.com と同じ紫・ピンク・青） */
 .bg-blob span {
