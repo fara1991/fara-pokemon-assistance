@@ -5,7 +5,6 @@
 @inject RosterRepository Repo
 @inject NavigationManager Nav
 @inject BattleStage Stage
-@inject FoeBook Foes
 
 <PageTitle>ダメージ計算機 | Pokémon Battle Assistant</PageTitle>
 
@@ -129,18 +128,22 @@ else if (data is not null && dataSet is not null)
                     @if (s.Defender is not null)
                     {
                         <div class="poke-summary mb-2"><PokemonLabel Build="s.Defender" /> <span class="small text-muted text-nowrap">種族値 @FormatStats(s.Defender.Pokemon.BaseStats)</span></div>
-                        @if (!s.EstimateMode && Foes.Get(App.DataSetKey, s.Defender.Pokemon.Id) is { } foe)
+                        @if (!s.EstimateMode && RivalFor(s.Defender.Pokemon) is { } rival)
                         {
-                            @* 推定などで分かっている相手の振り方（範囲でもよい）。試合ごとに相手が変わるので、解除できる *@
+                            @* 対戦中の相手として登録している、分かっている振り方（範囲でもよい）。試合ごとに相手が変わるので、外せる *@
+                            var foe = FoeOf(rival);
                             <div class="alert alert-info py-2 small mb-2">
-                                <div><strong>分かっている振り方</strong>: @foe.Summary</div>
+                                <div><strong>対戦中の相手として登録済み</strong>: @RivalSummary(rival)</div>
                                 <div class="d-flex flex-wrap gap-1 mt-1">
-                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyFoe(foe.Low)">@(StatNames.Letter(foe.DefenseStat))最小で計算</button>
-                                    @if (foe.IsRange)
+                                    @if (foe is not null)
                                     {
-                                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyFoe(foe.High)">@(StatNames.Letter(foe.DefenseStat))最大で計算</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyFoe(foe.Low)">@(StatNames.Letter(foe.DefenseStat))最小で計算</button>
+                                        @if (foe.IsRange)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyFoe(foe.High)">@(StatNames.Letter(foe.DefenseStat))最大で計算</button>
+                                        }
                                     }
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => Foes.Remove(App.DataSetKey, s.Defender.Pokemon.Id)">登録を解除</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => RemoveRivalAsync(rival)">対戦中の相手から外す</button>
                                 </div>
                             </div>
                         }
@@ -393,6 +396,7 @@ else if (data is not null && dataSet is not null)
             data = await Catalog.GetDataSetAsync(App.DataSetKey);
             usage = await data.GetUsageAsync(App.Format);
             (rosterGroups, rosterError) = await RosterReading.ChoiceGroupsAsync(Repo, App.DataSetKey, data);
+            await RefreshRivalsAsync();
             pokemonList = usage.IsEmpty
                 ? data.Pokemon
                 : data.Pokemon.OrderBy(p => usage.RankOf(p.Id)).ToList();
@@ -661,15 +665,19 @@ else if (data is not null && dataSet is not null)
                 }
                 @if (s.Defender is not null)
                 {
-                    var registered = Foes.Get(App.DataSetKey, s.Defender.Pokemon.Id);
+                    var registered = RivalFor(s.Defender.Pokemon);
                     <div class="mt-2">
-                        <button type="button" class="btn btn-sm btn-primary" @onclick="() => RegisterFoe(e)">この推定を相手の情報として登録</button>
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="() => RegisterRivalAsync(e)">@(registered is null ? "この推定を相手ポケモンに登録" : "この推定で絞り込む")</button>
                         @if (registered is not null)
                         {
-                            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" @onclick="() => Foes.Remove(App.DataSetKey, s.Defender.Pokemon.Id)">登録を解除</button>
-                            <span class="small text-success ms-1">登録済み（範囲のままで、今後のダメージ計算に使います）</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" @onclick="() => RemoveRivalAsync(registered)">対戦中の相手から外す</button>
+                            <div class="small text-success mt-1">登録済み: @RivalSummary(registered)</div>
                         }
-                        <div class="small text-muted mt-1">範囲のままでも登録できます。計算の画面とチャットの dmg で、防御側に使います（アプリを閉じるまで。試合ごとに解除できます）。</div>
+                        @if (!string.IsNullOrEmpty(rivalMessage))
+                        {
+                            <div class="small @(rivalMessageIsError ? "text-danger" : "text-success") mt-1">@rivalMessage</div>
+                        }
+                        <div class="small text-muted mt-1">範囲のままでも登録できます。同じ相手を続けて推定すると、前の推定と重なる範囲に絞り込みます。登録した相手は、計算の画面とチャットの dmg で防御側に使われ、配信用BOTとも共有されます。試合が終わったら「相手ポケモン」のページ（チャットは clear -r）で履歴に移します。</div>
                     </div>
                 }
                 <p class="small text-muted mt-2 mb-0">相手は持ち物なしとして計算しています。持ち物・特性・ランクが違うと結果が変わります。</p>
@@ -677,19 +685,117 @@ else if (data is not null && dataSet is not null)
         </div>
     };
 
-    /// <summary>この推定（範囲でもよい）を、相手の情報として登録する。</summary>
-    private void RegisterFoe(EvEstimator.Estimate e)
+    // ---- 相手ポケモン（対戦中の相手。クラウドに保存し、配信用BOTとも共有する）
+
+    private List<RivalPokemon> rivals = new();
+    private string rivalMessage = "";
+    private bool rivalMessageIsError;
+
+    /// <summary>対戦中の相手を読み直す（読めないときは空のまま）。</summary>
+    private async Task RefreshRivalsAsync()
     {
-        if (data is null || s.Defender is null) return;
-        if (KnownFoe.FromEstimate(App.DataSetKey, e, s.Defender.Pokemon, data.Info.EvSystem, data.Natures) is { } foe) Foes.Set(foe);
+        try
+        {
+            rivals = (await Repo.GetAsync()).For(App.DataSetKey).Rivals.Select(r => r.Clone()).ToList();
+        }
+        catch
+        {
+            rivals = new();
+        }
     }
 
-    /// <summary>分かっている相手の情報（耐久が最も低い／高い想定）を、防御側に入れて計算する。</summary>
+    private RivalPokemon? RivalFor(Pokemon pokemon) => rivals.FirstOrDefault(r => r.PokemonId == pokemon.Id);
+
+    /// <summary>登録した相手から、いま選んでいる技の防御（B か D）で計算するときの構成。</summary>
+    private KnownFoe? FoeOf(RivalPokemon rival)
+    {
+        if (data is null || s.Defender is null) return null;
+        var ability = rival.AbilityId is { } id ? data.FindAbility(id) : null;
+        return KnownFoe.FromRival(rival, s.Defender.Pokemon, data.Info.EvSystem, data.Natures, s.Move?.DefenseStatUsed ?? Stat.Defense, ability);
+    }
+
+    private string RivalSummary(RivalPokemon rival)
+    {
+        if (data is null) return "";
+        var unit = data.Info.EvSystem == EvSystem.Points ? "pt" : "";
+        var parts = new List<string>();
+        if (rival.HP is { } h) parts.Add($"H{h}");
+        if (rival.Defense is { } b) parts.Add($"B{b}");
+        if (rival.SpDefense is { } d) parts.Add($"D{d}");
+        if (rival.Nature is { } n) parts.Add(n);
+        if (rival.AbilityId is { } a && data.FindAbility(a) is { } ability) parts.Add(ability.Name);
+        foreach (var scan in rival.Scans)
+        {
+            var letter = scan.Defense == nameof(Stat.Defense) ? "B" : "D";
+            var bands = string.Join(" / ", scan.Bands.OrderByDescending(x => x.Modifier).Select(x =>
+                $"{(x.Modifier > 1 ? "上昇" : x.Modifier < 1 ? "下降" : "補正なし")} {(x.MinEv == x.MaxEv ? x.MinEv.ToString() : $"{x.MinEv}〜{x.MaxEv}")}{unit}"));
+            parts.Add($"推定{letter}: {bands}（{scan.Count}回）");
+        }
+        return parts.Count == 0 ? "名前だけ" : string.Join("　", parts);
+    }
+
+    /// <summary>この推定（範囲でもよい）を、対戦中の相手に反映する。同じ相手の前の推定があれば、重なる範囲に絞り込む。</summary>
+    private async Task RegisterRivalAsync(EvEstimator.Estimate e)
+    {
+        if (data is null || s.Defender is null || s.Attacker is null || s.Move is null) return;
+        var pokemon = s.Defender.Pokemon;
+        var note = $"{s.Attacker.Pokemon.Name} {s.Move.Name} {(e.ObservedAsPercent ? $"{e.ObservedDamage}%" : e.ObservedDamage.ToString())}";
+        (bool Applied, string? Problem) applied = (false, null);
+        string? tooMany = null;
+        try
+        {
+            await Repo.ChangeRivalsAsync(App.DataSetKey, roster =>
+            {
+                tooMany = null;
+                var rival = roster.Rivals.FirstOrDefault(r => r.PokemonId == pokemon.Id);
+                var created = rival is null;
+                if (rival is null)
+                {
+                    if (roster.Rivals.Count >= PokeCommand.MaxRivals) { tooMany = $"対戦中の相手が {PokeCommand.MaxRivals} 体います。「相手ポケモン」のページで試合を終えてください"; return (0, false); }
+                    rival = new RivalPokemon { Id = roster.NextRivalId++, PokemonId = pokemon.Id, PokemonName = pokemon.Name };
+                    roster.Rivals.Add(rival);
+                }
+                var working = rival.Clone();
+                applied = RivalScanning.Apply(working, e, note, DateTimeOffset.Now);
+                if (!applied.Applied) return (0, created);
+                roster.Rivals[roster.Rivals.IndexOf(rival)] = working;
+                return (0, true);
+            });
+        }
+        catch (Exception ex)
+        {
+            rivalMessage = $"保存できませんでした: {ex.Message}";
+            rivalMessageIsError = true;
+            return;
+        }
+        await RefreshRivalsAsync();
+        rivalMessage = tooMany ?? applied.Problem ?? (rivals.Count(r => r.PokemonId == pokemon.Id) > 0 ? $"{pokemon.Name}を対戦中の相手に反映しました" : "");
+        rivalMessageIsError = tooMany is not null || applied.Problem is not null;
+    }
+
+    private async Task RemoveRivalAsync(RivalPokemon rival)
+    {
+        try
+        {
+            await Repo.ChangeRivalsAsync(App.DataSetKey, roster => { var n = roster.Rivals.RemoveAll(r => r.Id == rival.Id); return (n > 0, n > 0); });
+        }
+        catch (Exception ex)
+        {
+            rivalMessage = $"外せませんでした: {ex.Message}";
+            rivalMessageIsError = true;
+            return;
+        }
+        rivalMessage = "";
+        await RefreshRivalsAsync();
+    }
+
+    /// <summary>分かっている相手の構成（耐久が最も低い／高い想定）を、防御側に入れて計算する。</summary>
     private void ApplyFoe(PokemonBuild build)
     {
         if (s.Defender is null) return;
         s.Defender.EVs = build.EVs.Clone();
         s.Defender.Nature = build.Nature;
+        if (build.Ability is not null) s.Defender.Ability = build.Ability;
         resultKey = "";
         UpdateResult();
     }

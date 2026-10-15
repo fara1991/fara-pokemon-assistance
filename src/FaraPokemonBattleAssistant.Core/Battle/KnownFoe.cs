@@ -1,119 +1,141 @@
-using System.Collections.Concurrent;
 using FaraPokemonBattleAssistant.Core.Models;
+using FaraPokemonBattleAssistant.Core.Roster;
 
 namespace FaraPokemonBattleAssistant.Core.Battle;
 
 /// <summary>
-/// 推定などで分かった「相手の振り方」の情報（範囲でもよい）。この後のダメージ計算で、防御側にこの情報を使う。
+/// 相手ポケモン（<see cref="RivalPokemon"/>）の分かっている振り方から作る、ダメージ計算用の防御側の構成。
 /// 範囲のときは、耐久が最も低い想定（<see cref="Low"/>）と最も高い想定（<see cref="High"/>）の 2 つで計算する。
+/// 分かっていない部分は、ダメージ計算の既定（HP と受ける側の防御に全振り）にする。
 /// </summary>
 public sealed class KnownFoe
 {
-    public string DataSetKey { get; init; } = "";
     public required Pokemon Pokemon { get; init; }
     public required Stat DefenseStat { get; init; }
     /// <summary>耐久が最も低い想定の構成（ダメージが最大になる側）。</summary>
     public required PokemonBuild Low { get; init; }
     /// <summary>耐久が最も高い想定の構成（ダメージが最小になる側）。</summary>
     public required PokemonBuild High { get; init; }
-    /// <summary>画面・チャット用の説明（例: <c>補正なし:B0〜6pt / 上昇補正:B0pt H4〜8pt</c>）。</summary>
-    public string Summary { get; init; } = "";
 
     /// <summary>振り方が 1 つに決まっていない（範囲）か。</summary>
     public bool IsRange => Low.EVs.ToShortString() != High.EVs.ToShortString() || Low.Nature?.Id != High.Nature?.Id;
 
-    /// <summary>特性ごとに推定が分かれたとき、まとめて 1 つにする（耐久が最も低い想定と最も高い想定を、すべての中から選ぶ）。</summary>
-    public static KnownFoe? Merge(IReadOnlyList<KnownFoe> foes)
+    /// <summary>
+    /// 相手ポケモンから、<paramref name="defense"/>（その技が使う防御。B か D）で計算するときの構成を作る。
+    /// 防御・HP・性格・特性のどれも分かっていなければ null（既定の構成で計算する）。
+    /// </summary>
+    public static KnownFoe? FromRival(RivalPokemon rival, Pokemon pokemon, EvSystem system, IReadOnlyList<Nature> natures, Stat defense, Ability? ability)
     {
-        if (foes.Count == 0) return null;
-        if (foes.Count == 1) return foes[0];
-        var stat = foes[0].DefenseStat;
-        return new KnownFoe
-        {
-            DataSetKey = foes[0].DataSetKey,
-            Pokemon = foes[0].Pokemon,
-            DefenseStat = stat,
-            Low = foes.Select(f => f.Low).OrderBy(b => StatCalculator.Calculate(b, stat)).First(),
-            High = foes.Select(f => f.High).OrderByDescending(b => StatCalculator.Calculate(b, stat)).First(),
-            Summary = string.Join(" ｜ ", foes.Select(f => f.Summary).Distinct()),
-        };
-    }
+        var exactDefense = defense == Stat.Defense ? rival.Defense : rival.SpDefense;
+        var scan = rival.Scans.FirstOrDefault(s => s.Defense == defense.ToString());
+        var exactNature = rival.Nature is null ? null : natures.FirstOrDefault(n => n.Name == rival.Nature);
+        (int Min, int Max)? hp = rival.HP is { } exactHp ? (exactHp, exactHp) : ScanHp(rival);
+        if (exactDefense is null && scan is null && hp is null && exactNature is null && ability is null) return null;
 
-    /// <summary>推定の結果から作る。結果が無ければ null。</summary>
-    public static KnownFoe? FromEstimate(string dataSetKey, EvEstimator.Estimate e, Pokemon pokemon, EvSystem system, IReadOnlyList<Nature> natures)
-    {
-        if (!e.HasResult) return null;
-        // 実数値が分かるときは実数値で、分からないときは補正と振り方の順で、いちばん低い帯・高い帯を選ぶ
-        var hasStats = e.Bands.All(b => b.MinStat > 0);
-        var lowBand = (hasStats ? e.Bands.OrderBy(b => b.MinStat) : e.Bands.OrderBy(b => b.Modifier).ThenBy(b => b.MinEv)).First();
-        var highBand = (hasStats ? e.Bands.OrderByDescending(b => b.MaxStat) : e.Bands.OrderByDescending(b => b.Modifier).ThenByDescending(b => b.MaxEv)).First();
+        var full = EvRules.Full(system);
+        // 分かっている防御のポイントの帯（性格補正ごと）。分からなければ帯なし（既定の全振り）
+        var bands = new List<(double Modifier, int MinEv, int MaxEv)>();
+        if (exactDefense is { } ev) bands.Add((exactNature?.Modifier(defense) ?? 1.0, ev, ev));
+        else if (scan is not null)
+        {
+            var scanBands = scan.Bands.Select(b => (b.Modifier, b.MinEv, b.MaxEv)).ToList();
+            // 性格が分かっているときは、その補正の帯だけ
+            if (exactNature is not null && scanBands.Any(b => b.Modifier == exactNature.Modifier(defense)))
+                scanBands = scanBands.Where(b => b.Modifier == exactNature.Modifier(defense)).ToList();
+            bands.AddRange(scanBands);
+        }
 
         Nature? NatureFor(double modifier) =>
-            modifier > 1.0 ? NatureSelection.WithIncreased(natures, null, e.DefenseStat)
-            : modifier < 1.0 ? NatureSelection.WithDecreased(natures, null, e.DefenseStat)
-            : NatureSelection.Neutral(natures);
+            exactNature ?? (modifier > 1.0 ? NatureSelection.WithIncreased(natures, null, defense)
+                : modifier < 1.0 ? NatureSelection.WithDecreased(natures, null, defense)
+                : NatureSelection.Neutral(natures));
 
-        PokemonBuild Make(EvEstimator.NatureBand band, int ev, int hp)
+        PokemonBuild Make(double modifier, int defenseEv, int hpEv)
         {
-            var build = new PokemonBuild(pokemon, system) { Nature = NatureFor(band.Modifier) };
-            build.EVs[Stat.HP] = hp;
-            build.EVs[e.DefenseStat] = ev;
+            var build = new PokemonBuild(pokemon, system) { Nature = NatureFor(modifier), Ability = ability };
+            build.EVs[Stat.HP] = hpEv;
+            build.EVs[defense] = defenseEv;
             return build;
         }
 
-        var low = Make(lowBand, lowBand.MinEv, e.HpEvRange?.MinEv ?? 0);
-        var high = Make(highBand, highBand.MaxEv, e.HpEvRange?.MaxEv ?? 0);
+        if (bands.Count == 0)
+        {
+            if (exactNature is null && hp is null && ability is null) return null;
+            return new KnownFoe { Pokemon = pokemon, DefenseStat = defense, Low = Make(1.0, full, hp?.Min ?? full), High = Make(1.0, full, hp?.Max ?? full) };
+        }
 
-        var unit = system == EvSystem.Points ? "pt" : "";
-        var letter = StatNames.Letter(e.DefenseStat);
-        var bands = string.Join(" / ", e.Bands.Select(b => b.MinEv == b.MaxEv ? $"{b.Label}:{letter}{b.MinEv}{unit}" : $"{b.Label}:{letter}{b.MinEv}〜{b.MaxEv}{unit}"));
-        var hpText = e.HpEvRange is { } h ? (h.MinEv == h.MaxEv ? $" H{h.MinEv}{unit}" : $" H{h.MinEv}〜{h.MaxEv}{unit}") : "";
+        // 耐久が最も低い帯（最小のポイント）と、最も高い帯（最大のポイント）を、実数値で選ぶ
+        int StatAt(double modifier, int ev) => StatCalculator.Calculate(Make(modifier, ev, 0), defense);
+        var lowBand = bands.OrderBy(b => StatAt(b.Modifier, b.MinEv)).First();
+        var highBand = bands.OrderByDescending(b => StatAt(b.Modifier, b.MaxEv)).First();
         return new KnownFoe
         {
-            DataSetKey = dataSetKey,
             Pokemon = pokemon,
-            DefenseStat = e.DefenseStat,
-            Low = low,
-            High = high,
-            Summary = bands + hpText,
+            DefenseStat = defense,
+            Low = Make(lowBand.Modifier, lowBand.MinEv, hp?.Min ?? full),
+            High = Make(highBand.Modifier, highBand.MaxEv, hp?.Max ?? full),
         };
+    }
+
+    /// <summary>推定（scan）で分かった HP のポイントの範囲（複数の推定は重なる部分）。無ければ null。</summary>
+    private static (int Min, int Max)? ScanHp(RivalPokemon rival)
+    {
+        int? min = null, max = null;
+        foreach (var s in rival.Scans)
+        {
+            if (s.HpMin is not { } lo || s.HpMax is not { } hi) continue;
+            min = min is null ? lo : Math.Max(min.Value, lo);
+            max = max is null ? hi : Math.Min(max.Value, hi);
+        }
+        return min is { } a && max is { } b && a <= b ? (a, b) : null;
     }
 }
 
-/// <summary>相手の情報の置き場（アプリを開いている間だけ。試合ごとに相手が変わるので、保存はしない）。</summary>
-public sealed class FoeBook
+/// <summary>相手ポケモンの推定（scan）の結果を反映する処理。</summary>
+public static class RivalScanning
 {
-    private readonly ConcurrentDictionary<string, KnownFoe> _foes = new();
-
-    /// <summary>登録・解除があったとき。</summary>
-    public event Action? Changed;
-
-    private static string Key(string dataSetKey, int pokemonId) => $"{dataSetKey}:{pokemonId}";
-
-    public void Set(KnownFoe foe)
+    /// <summary>
+    /// 推定の結果 <paramref name="estimate"/> を相手に反映する。同じ防御（B か D）の前の推定があれば、重なる範囲に狭める。
+    /// 前の推定と重ならない（矛盾する）ときは反映せず、false と理由を返す。
+    /// </summary>
+    public static (bool Applied, string? Problem) Apply(RivalPokemon rival, EvEstimator.Estimate estimate, string note, DateTimeOffset now)
     {
-        _foes[Key(foe.DataSetKey, foe.Pokemon.Id)] = foe;
-        Changed?.Invoke();
+        if (!estimate.HasResult) return (false, "そのダメージになる振り方が見つかりません");
+        var defense = estimate.DefenseStat.ToString();
+        var newBands = estimate.Bands.Select(b => new RivalBand { Modifier = b.Modifier, MinEv = b.MinEv, MaxEv = b.MaxEv }).ToList();
+        int? hpMin = estimate.HpEvRange?.MinEv, hpMax = estimate.HpEvRange?.MaxEv;
+
+        var scan = rival.Scans.FirstOrDefault(s => s.Defense == defense);
+        if (scan is null)
+        {
+            rival.Scans.Add(new RivalScan { Defense = defense, Bands = newBands, HpMin = hpMin, HpMax = hpMax, Count = 1, Notes = { note } });
+        }
+        else
+        {
+            // 前の推定と重なる部分だけを残す（性格補正ごと）
+            var narrowed = new List<RivalBand>();
+            foreach (var band in newBands)
+            {
+                var old = scan.Bands.FirstOrDefault(o => o.Modifier == band.Modifier);
+                if (old is null) continue;
+                var lo = Math.Max(old.MinEv, band.MinEv);
+                var hi = Math.Min(old.MaxEv, band.MaxEv);
+                if (lo <= hi) narrowed.Add(new RivalBand { Modifier = band.Modifier, MinEv = lo, MaxEv = hi });
+            }
+            if (narrowed.Count == 0) return (false, "前の推定と矛盾します（重なる振り方がありません）。前の推定を残しました");
+            if (hpMin is { } a && hpMax is { } b)
+            {
+                var lo = scan.HpMin is { } oldMin ? Math.Max(oldMin, a) : a;
+                var hi = scan.HpMax is { } oldMax ? Math.Min(oldMax, b) : b;
+                if (lo > hi) return (false, "前の推定と矛盾します（HP が重なりません）。前の推定を残しました");
+                scan.HpMin = lo;
+                scan.HpMax = hi;
+            }
+            scan.Bands = narrowed;
+            scan.Count++;
+            scan.Notes.Add(note);
+        }
+        rival.Updated = now.ToString("o");
+        return (true, null);
     }
-
-    public KnownFoe? Get(string dataSetKey, int pokemonId) => _foes.TryGetValue(Key(dataSetKey, pokemonId), out var foe) ? foe : null;
-
-    public bool Remove(string dataSetKey, int pokemonId)
-    {
-        var removed = _foes.TryRemove(Key(dataSetKey, pokemonId), out _);
-        if (removed) Changed?.Invoke();
-        return removed;
-    }
-
-    /// <summary>そのデータセットの登録をすべて解除し、解除した数を返す。</summary>
-    public int Clear(string dataSetKey)
-    {
-        var keys = _foes.Where(kv => kv.Value.DataSetKey == dataSetKey).Select(kv => kv.Key).ToList();
-        foreach (var key in keys) _foes.TryRemove(key, out _);
-        if (keys.Count > 0) Changed?.Invoke();
-        return keys.Count;
-    }
-
-    public IReadOnlyList<KnownFoe> List(string dataSetKey) =>
-        _foes.Values.Where(f => f.DataSetKey == dataSetKey).OrderBy(f => f.Pokemon.Id).ToList();
 }

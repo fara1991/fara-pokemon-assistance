@@ -157,30 +157,31 @@ public sealed class RivalPokemon
     /// <summary>分かっている性格の名前（不明なら null）。</summary>
     public string? Nature { get; set; }
     public int? AbilityId { get; set; }
-    public RivalScan? Scan { get; set; }
+    /// <summary>ダメージからの推定（scan）。防御（B・D）ごとに 1 つ。</summary>
+    public List<RivalScan> Scans { get; set; } = new();
     /// <summary>最後に更新した日時（ISO 8601）。</summary>
     public string Updated { get; set; } = "";
 
     /// <summary>ポイントも性格も特性も推定も何も分かっていない（名前だけ）か。</summary>
     [JsonIgnore]
     public bool IsNameOnly => HP is null && Attack is null && Defense is null && SpAttack is null && SpDefense is null && Speed is null
-                              && Nature is null && AbilityId is null && Scan is null;
+                              && Nature is null && AbilityId is null && Scans.Count == 0;
 
     /// <summary>推定（scan）をしたことがあるか。</summary>
     [JsonIgnore]
-    public bool IsScanned => Scan is not null;
+    public bool IsScanned => Scans.Count > 0;
 
     public RivalPokemon Clone() => new()
     {
         Id = Id, PokemonId = PokemonId, PokemonName = PokemonName,
         HP = HP, Attack = Attack, Defense = Defense, SpAttack = SpAttack, SpDefense = SpDefense, Speed = Speed,
         Nature = Nature, AbilityId = AbilityId, Updated = Updated,
-        Scan = Scan is null ? null : new RivalScan
+        Scans = Scans.Select(scan => new RivalScan
         {
-            Defense = Scan.Defense, HpMin = Scan.HpMin, HpMax = Scan.HpMax, Count = Scan.Count,
-            Bands = Scan.Bands.Select(b => new RivalBand { Modifier = b.Modifier, MinEv = b.MinEv, MaxEv = b.MaxEv }).ToList(),
-            Notes = Scan.Notes.ToList(),
-        },
+            Defense = scan.Defense, HpMin = scan.HpMin, HpMax = scan.HpMax, Count = scan.Count,
+            Bands = scan.Bands.Select(b => new RivalBand { Modifier = b.Modifier, MinEv = b.MinEv, MaxEv = b.MaxEv }).ToList(),
+            Notes = scan.Notes.ToList(),
+        }).ToList(),
     };
 }
 

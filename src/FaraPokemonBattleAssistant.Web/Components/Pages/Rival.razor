@@ -1,0 +1,268 @@
+@page "/my-rival"
+@inherits RosterPageBase
+@using FaraPokemonBattleAssistant.Core.Roster
+@using FaraPokemonBattleAssistant.Core.Text
+
+<PageTitle>相手ポケモン | Pokémon Battle Assistant</PageTitle>
+
+<div class="page-header">
+    <h3>相手ポケモン <Help Title="相手ポケモン">対戦中の相手のポケモンを登録します。同じポケモンは 1 体だけです。名前だけ登録しておき、ダメージ計算機の「相手の振り方を推定」やチャットの scan で分かった範囲を絞り込んでいきます（振り方の一部が分かれば、ここで直接入れることもできます）。登録した相手は、ダメージ計算機とチャットの dmg で防御側に使われます。試合が終わったら「試合を終える」で、何か分かっている相手を履歴に移して、対戦中の相手を空にします。</Help></h3>
+    <p class="text-muted mb-0">対戦中の相手と、終わった試合の履歴です。データは配信用BOTとも共有されます（<a href="data-share">データ共有</a>）。</p>
+    <RegistrationStorageNote />
+</div>
+
+@if (dataSet is { CalcSupported: false })
+{
+    <CalcUnsupported DataSet="dataSet" Feature="相手ポケモン" />
+}
+else if (data is not null && roster is not null && dataSet is not null)
+{
+    <div class="reg-layout pane-fill">
+        <div class="reg-col">
+            <div class="card mb-3">
+                <div class="card-header"><h5>対戦中の相手（@roster.Rivals.Count / @PokeCommand.MaxRivals）</h5></div>
+                <div class="card-body">
+                    <div class="form-group mb-2">
+                        <label>ポケモンを追加（名前だけ）</label>
+                        <SearchableSelect TItem="Pokemon"
+                            Items="data.Pokemon"
+                            DisplayText="@(p => p.Name)"
+                            ValueSelector="@(p => p.Id.ToString())"
+                            SelectedValue="@newPokemonId"
+                            SelectedValueChanged="@OnNewPokemonChanged"
+                            Placeholder="ポケモン名を入力..." />
+                    </div>
+                    <button class="btn btn-primary mb-3" @onclick="AddRivalAsync" disabled="@(newPokemon is null || roster.Rivals.Count >= PokeCommand.MaxRivals)">対戦中の相手に追加</button>
+
+                    @if (roster.Rivals.Count == 0)
+                    {
+                        <Notice Empty="true" Class="mb-0">対戦中の相手はいません。名前を追加するか、ダメージ計算機の「相手の振り方を推定」から登録してください。</Notice>
+                    }
+                    else
+                    {
+                        <ul class="list-group mb-3">
+                            @foreach (var rival in roster.Rivals)
+                            {
+                                var pokemon = data.FindPokemon(rival.PokemonId);
+                                <li class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div class="min-w-0">
+                                            <PokemonLabel Pokemon="pokemon" Small="true" />
+                                            <div class="small text-muted">@PokeCommand.DescribeRival(rival, data, dataSet.EvSystem, withName: false, withNotes: true)</div>
+                                        </div>
+                                        <div class="d-flex flex-shrink-0 gap-1">
+                                            <button class="btn btn-outline-primary btn-sm" @onclick="() => StartEdit(rival)">@(editingId == rival.Id ? "編集中" : "編集")</button>
+                                            <button class="btn btn-outline-secondary btn-sm" @onclick="() => RemoveRivalAsync(rival)">外す</button>
+                                        </div>
+                                    </div>
+                                    @if (editingId == rival.Id && pokemon is not null)
+                                    {
+                                        <div class="mt-2">
+                                            <div class="small text-muted mb-1">分かっている部分だけ入力してください（空欄は不明のまま）。性格も、分かっていれば選びます。</div>
+                                            <div class="row g-2">
+                                                @foreach (var stat in EditStats)
+                                                {
+                                                    var st = stat;
+                                                    <div class="col-4 col-md-2">
+                                                        <label class="form-label small mb-0">@StatNames.Letter(st)</label>
+                                                        <input class="form-control form-control-sm" inputmode="numeric" placeholder="不明" value="@editEvs[st]" @oninput="@(e => editEvs[st] = e.Value?.ToString() ?? "")" />
+                                                    </div>
+                                                }
+                                            </div>
+                                            <div class="row g-2 mt-1">
+                                                <div class="col-6">
+                                                    <label class="form-label small mb-0">性格</label>
+                                                    <select class="form-select form-select-sm" @bind="editNature">
+                                                        <option value="">不明</option>
+                                                        @foreach (var n in data.Natures)
+                                                        {
+                                                            <option value="@n.Name">@n.Describe()</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label small mb-0">特性</label>
+                                                    <select class="form-select form-select-sm" @bind="editAbility">
+                                                        <option value="">不明</option>
+                                                        @foreach (var a in data.AbilitiesOf(pokemon))
+                                                        {
+                                                            <option value="@a.Id">@a.Name</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex gap-2 mt-2">
+                                                <button class="btn btn-success btn-sm" @onclick="() => SaveEditAsync(rival)">保存</button>
+                                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => editingId = null">取り消し</button>
+                                            </div>
+                                        </div>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+
+                    <div class="border-top pt-3">
+                        <label class="form-label">試合を終える <Help Title="試合を終える">何か分かっている相手（推定・ポイント・性格・特性）を履歴に移して、対戦中の相手を空にします。名前だけの相手は履歴に移しません。メモ（相手の名前など）を付けておくと、あとで探しやすくなります。</Help></label>
+                        <div class="input-group">
+                            <input class="form-control" placeholder="メモ（任意。例: ○○さん戦）" maxlength="60" @bind="memo" @bind:event="oninput" />
+                            <button class="btn btn-warning" @onclick="EndMatchAsync" disabled="@(roster.Rivals.Count == 0)">試合を終える（履歴へ）</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="reg-col">
+            <div class="card mb-3">
+                <div class="card-header"><h5>試合の履歴（@roster.History.Count 件）</h5></div>
+                <div class="card-body">
+                    @if (roster.History.Count == 0)
+                    {
+                        <Notice Empty="true" Class="mb-0">履歴はまだありません。「試合を終える」を押すと、そのとき分かっていた相手が履歴に残ります。</Notice>
+                    }
+                    else
+                    {
+                        <ul class="list-group">
+                            @foreach (var match in roster.History.OrderByDescending(m => m.Id))
+                            {
+                                <li class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div class="min-w-0">
+                                            <strong>#@match.Id</strong> <span class="small text-muted">@DateText(match.Date)</span>
+                                            @if (match.Memo.Length > 0) { <span class="ms-1">「@match.Memo」</span> }
+                                        </div>
+                                        <button class="btn btn-outline-secondary btn-sm flex-shrink-0" @onclick="() => RemoveMatchAsync(match)">削除</button>
+                                    </div>
+                                    @foreach (var foe in match.Foes)
+                                    {
+                                        <div class="small mt-1"><PokemonLabel Pokemon="data.FindPokemon(foe.PokemonId)" Small="true" /> <span class="text-muted">@PokeCommand.DescribeRival(foe, data, dataSet.EvSystem, withName: false, withNotes: true)</span></div>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <p class="text-muted">読み込み中...</p>
+}
+
+@code {
+    protected override string StateKey => "my-rival";
+
+    private static readonly Stat[] EditStats = { Stat.HP, Stat.Attack, Stat.Defense, Stat.SpAttack, Stat.SpDefense, Stat.Speed };
+
+    private string newPokemonId = "";
+    private Pokemon? newPokemon;
+    private string memo = "";
+    private int? editingId;
+    private readonly Dictionary<Stat, string> editEvs = EditStats.ToDictionary(x => x, _ => "");
+    private string editNature = "";
+    private string editAbility = "";
+
+    private void OnNewPokemonChanged(string value)
+    {
+        newPokemonId = value;
+        newPokemon = data?.FindPokemon(ParseId(value));
+    }
+
+    private static string DateText(string iso) => DateTimeOffset.TryParse(iso, out var d) ? d.ToLocalTime().ToString("M/d HH:mm") : iso;
+
+    private async Task AddRivalAsync()
+    {
+        if (newPokemon is null) return;
+        var pokemon = newPokemon;
+        var added = false;
+        await MutateAsync(async () =>
+        {
+            added = await Repo.ChangeRivalsAsync(App.DataSetKey, r =>
+            {
+                if (r.Rivals.Any(x => x.PokemonId == pokemon.Id) || r.Rivals.Count >= PokeCommand.MaxRivals) return (false, false);
+                r.Rivals.Add(new RivalPokemon { Id = r.NextRivalId++, PokemonId = pokemon.Id, PokemonName = pokemon.Name, Updated = DateTimeOffset.Now.ToString("o") });
+                return (true, true);
+            });
+        });
+        Show(added ? $"{pokemon.Name}を対戦中の相手に追加しました" : $"{pokemon.Name}は追加できませんでした（すでにいるか、{PokeCommand.MaxRivals} 体います）", !added);
+        if (added) { newPokemon = null; newPokemonId = ""; }
+    }
+
+    private async Task RemoveRivalAsync(RivalPokemon rival)
+    {
+        await MutateAsync(async () => await Repo.ChangeRivalsAsync(App.DataSetKey, r => { var n = r.Rivals.RemoveAll(x => x.Id == rival.Id); return (n > 0, n > 0); }));
+        if (editingId == rival.Id) editingId = null;
+        Show($"{rival.PokemonName}を対戦中の相手から外しました（履歴には残しません）", false);
+    }
+
+    private void StartEdit(RivalPokemon rival)
+    {
+        editingId = rival.Id;
+        editEvs[Stat.HP] = rival.HP?.ToString() ?? "";
+        editEvs[Stat.Attack] = rival.Attack?.ToString() ?? "";
+        editEvs[Stat.Defense] = rival.Defense?.ToString() ?? "";
+        editEvs[Stat.SpAttack] = rival.SpAttack?.ToString() ?? "";
+        editEvs[Stat.SpDefense] = rival.SpDefense?.ToString() ?? "";
+        editEvs[Stat.Speed] = rival.Speed?.ToString() ?? "";
+        editNature = rival.Nature ?? "";
+        editAbility = rival.AbilityId?.ToString() ?? "";
+    }
+
+    private async Task SaveEditAsync(RivalPokemon rival)
+    {
+        if (dataSet is null) return;
+        var values = new Dictionary<Stat, int?>();
+        foreach (var stat in EditStats)
+        {
+            var text = editEvs[stat].Trim();
+            if (text.Length == 0) { values[stat] = null; continue; }
+            if (!int.TryParse(text, out var v) || v < 0 || v > EvRules.MaxPerStat(dataSet.EvSystem))
+            {
+                Show($"{StatNames.Letter(stat)}は 0〜{EvRules.MaxPerStat(dataSet.EvSystem)} の数字か空欄にしてください", true);
+                return;
+            }
+            values[stat] = v;
+        }
+        if (values.Values.Sum(v => v ?? 0) > EvRules.MaxTotal(dataSet.EvSystem))
+        {
+            Show($"{EvRules.Label(dataSet.EvSystem)}の合計は {EvRules.MaxTotal(dataSet.EvSystem)} までにしてください", true);
+            return;
+        }
+        int? abilityId = int.TryParse(editAbility, out var aid) ? aid : null;
+        var nature = editNature.Length > 0 ? editNature : null;
+        await MutateAsync(async () => await Repo.ChangeRivalsAsync(App.DataSetKey, r =>
+        {
+            var target = r.Rivals.FirstOrDefault(x => x.Id == rival.Id);
+            if (target is null) return (false, false);
+            target.HP = values[Stat.HP]; target.Attack = values[Stat.Attack]; target.Defense = values[Stat.Defense];
+            target.SpAttack = values[Stat.SpAttack]; target.SpDefense = values[Stat.SpDefense]; target.Speed = values[Stat.Speed];
+            target.Nature = nature;
+            target.AbilityId = abilityId;
+            target.Updated = DateTimeOffset.Now.ToString("o");
+            return (true, true);
+        }));
+        editingId = null;
+        Show($"{rival.PokemonName}を更新しました", false);
+    }
+
+    private async Task EndMatchAsync()
+    {
+        EndMatchResult? ended = null;
+        await MutateAsync(async () => ended = await Repo.EndMatchAsync(App.DataSetKey, memo, DateTimeOffset.Now));
+        editingId = null;
+        if (ended is null) return;
+        memo = "";
+        Show(ended.Match is null
+            ? (ended.Dropped == 0 ? "対戦中の相手はいません" : $"名前だけの {ended.Dropped} 体は履歴に移さず、空にしました")
+            : $"履歴 #{ended.Match.Id} に {ended.Moved} 体を移しました" + (ended.Dropped > 0 ? $"（名前だけの {ended.Dropped} 体は移していません）" : ""), false);
+    }
+
+    private async Task RemoveMatchAsync(RivalMatch match)
+    {
+        await MutateAsync(async () => await Repo.ChangeRivalsAsync(App.DataSetKey, r => { var n = r.History.RemoveAll(x => x.Id == match.Id); return (n > 0, n > 0); }));
+        Show($"履歴 #{match.Id} を削除しました", false);
+    }
+}

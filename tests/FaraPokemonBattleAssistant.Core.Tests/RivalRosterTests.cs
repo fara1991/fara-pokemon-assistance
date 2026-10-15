@@ -25,7 +25,7 @@ public class RivalRosterTests
         {
             roster.Rivals.Add(Rival(roster.NextRivalId++, "名前だけ"));
             roster.Rivals.Add(Rival(roster.NextRivalId++, "ポイントだけ", r => r.SpDefense = 32));
-            roster.Rivals.Add(Rival(roster.NextRivalId++, "推定した", r => r.Scan = new RivalScan { Defense = "SpDefense", Count = 1 }));
+            roster.Rivals.Add(Rival(roster.NextRivalId++, "推定した", r => r.Scans.Add(new RivalScan { Defense = "SpDefense", Count = 1 })));
             roster.Rivals.Add(Rival(roster.NextRivalId++, "特性だけ", r => r.AbilityId = 5));
             return (0, true);
         });
@@ -64,7 +64,7 @@ public class RivalRosterTests
             {
                 r.SpDefense = 32;
                 r.Nature = "おだやか";
-                r.Scan = new RivalScan { Defense = "SpDefense", Count = 2, Bands = { new RivalBand { Modifier = 1.0, MinEv = 17, MaxEv = 32 } }, Notes = { "イエッサン(♂) ワイドフォース 40" } };
+                r.Scans.Add(new RivalScan { Defense = "SpDefense", Count = 2, Bands = { new RivalBand { Modifier = 1.0, MinEv = 17, MaxEv = 32 } }, Notes = { "イエッサン(♂) ワイドフォース 40" } });
             }));
             return (0, true);
         });
@@ -78,14 +78,14 @@ public class RivalRosterTests
         Assert.Equal("ハバタクカミ", saved.Rivals.Single().PokemonName);
         Assert.Equal(3, saved.NextRivalId);
         Assert.Equal("カイリュー", saved.History.Single().Foes.Single().PokemonName);
-        Assert.Equal("イエッサン(♂) ワイドフォース 40", saved.History.Single().Foes.Single().Scan!.Notes.Single());
+        Assert.Equal("イエッサン(♂) ワイドフォース 40", saved.History.Single().Foes.Single().Scans.Single().Notes.Single());
 
         // 別の読み込み（別の端末・ボット）でも同じ内容が読める
         var other = new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
         var loaded = (await other.GetAsync()).For(Ds);
         Assert.Equal(32, loaded.Rivals.Single().Speed);
         Assert.Equal("1 試合目", loaded.History.Single().Memo);
-        Assert.Equal(1.0, loaded.History.Single().Foes.Single().Scan!.Bands.Single().Modifier);
+        Assert.Equal(1.0, loaded.History.Single().Foes.Single().Scans.Single().Bands.Single().Modifier);
     }
 
     [Fact]
