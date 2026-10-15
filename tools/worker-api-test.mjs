@@ -178,6 +178,41 @@ try {
   const bothT = await req("GET", T, key);
   check("書かなかったゲームのチームは変わらない", bothT.json?.dataSets?.Champions?.teams?.length === 2 && same(bothT.json?.dataSets?.Gen9?.teams, []), bothT.text);
 
+  // 相手ポケモン（/api/my/rival）: 対戦中の相手と試合の履歴
+  const rkey = newKey();
+  const R = "/api/my/rival";
+  check("キーなしの my-rival は 401", (await req("GET", R)).status === 401);
+  const emptyR = await req("GET", R, rkey);
+  check("空の GET my-rival は 200 / revision 0 / dataSets {}", emptyR.status === 200 && emptyR.json?.revision === 0 && same(emptyR.json?.dataSets, {}), emptyR.text);
+  const rival = (id, name, extra = {}) => ({ Id: id, PokemonId: 445, PokemonName: name, ...extra });
+  const match = (id, foes) => ({ Id: id, Date: "2026-10-16T10:00:00+09:00", Memo: "テスト戦", Foes: foes });
+  const rivals1 = [rival(1, "カイリュー", { SpDefense: 32 }), rival(2, "ハバタクカミ")];
+  const putR1 = await req("PUT", R, rkey, { baseRevision: 0, dataSets: { Champions: { rivals: rivals1, history: [] } } });
+  check("PUT my-rival は 200 / revision 1", putR1.status === 200 && putR1.json?.revision === 1, putR1.text);
+  const gotR = await req("GET", R, rkey);
+  check("GET my-rival で保存した内容と nextId が返る",
+    gotR.json?.revision === 1 && same(gotR.json?.dataSets?.Champions?.rivals, rivals1) && gotR.json?.dataSets?.Champions?.nextId === 3 && gotR.json?.dataSets?.Champions?.nextMatchId === 1, gotR.text);
+  const history1 = [match(1, [rivals1[0]])];
+  const putR2 = await req("PUT", R, rkey, { baseRevision: 1, dataSets: { Champions: { rivals: [], nextId: 3, history: history1 } } });
+  check("試合を終えて履歴に移す PUT は 200 / revision 2", putR2.status === 200 && putR2.json?.revision === 2, putR2.text);
+  const gotR2 = await req("GET", R, rkey);
+  check("履歴が保存され、相手は空になり、ID は使い回さない（nextId 3・nextMatchId 2）",
+    same(gotR2.json?.dataSets?.Champions?.history, history1) && gotR2.json?.dataSets?.Champions?.rivals?.length === 0 && gotR2.json?.dataSets?.Champions?.nextId === 3 && gotR2.json?.dataSets?.Champions?.nextMatchId === 2, gotR2.text);
+  check("my-pokemon の revision も 2（登録データ全体で 1 つ）", (await req("GET", P, rkey)).json?.revision === 2);
+  const staleR = await req("PUT", R, rkey, { baseRevision: 1, dataSets: { Champions: { rivals: [], history: [] } } });
+  check("古い baseRevision の PUT my-rival は 409 で現在の内容を返す", staleR.status === 409 && staleR.json?.revision === 2 && same(staleR.json?.dataSets?.Champions?.history, history1), staleR.text);
+  const badR = (name, value) => req("PUT", R, rkey, { baseRevision: 2, dataSets: { Champions: value } }).then((r) => check(`${name} は 400`, r.status === 400, r.text));
+  await badR("rivals が配列でない", { rivals: {}, history: [] });
+  await badR("history が配列でない", { rivals: [], history: {} });
+  await badR("Id の無い相手", { rivals: [{ PokemonName: "x" }], history: [] });
+  await badR("同じ Id の相手", { rivals: [rival(1, "a"), rival(1, "b")], history: [] });
+  await badR("Foes が配列でない履歴", { rivals: [], history: [{ Id: 1, Foes: {} }] });
+  await badR("同じ Id の履歴", { rivals: [], history: [match(1, []), match(1, [])] });
+  check("不正な PUT では my-rival の内容が変わらない", (await req("GET", R, rkey)).json?.revision === 2);
+  check("my-pokemon の PUT は相手ポケモンを消さない", (await req("PUT", P, rkey, { baseRevision: 2, dataSets: { Champions: { pokemon: [mon(1, "ガブリアス")] } } })).status === 200
+    && same((await req("GET", R, rkey)).json?.dataSets?.Champions?.history, history1));
+  check("DELETE /api/my/rival は 405", (await req("DELETE", R, rkey)).status === 405);
+
   // その他のパス・メソッド
   check("POST は 405", (await req("POST", P, key, {})).status === 405);
   check("DELETE /api/my/pokemon は 405", (await req("DELETE", P, key)).status === 405);
@@ -214,6 +249,7 @@ try {
   check("DELETE /api/my/access-key は 204", del.status === 204);
   check("DELETE 後の GET my-pokemon は 410", (await req("GET", P, key)).status === 410);
   check("DELETE 後の GET my-team は 410", (await req("GET", T, key)).status === 410);
+  check("DELETE 後の GET my-rival は 410", (await req("GET", R, key)).status === 410);
   check("DELETE 後の PUT my-pokemon は 410", (await req("PUT", P, key, { baseRevision: 0, dataSets: { Champions: { pokemon: [] } } })).status === 410);
   check("DELETE 後の PUT my-team は 410", (await req("PUT", T, key, { baseRevision: 0, dataSets: { Champions: { teams: [], activeTeam: null } } })).status === 410);
   check("DELETE はもう一度呼んでも 204", (await req("DELETE", K, key)).status === 204);

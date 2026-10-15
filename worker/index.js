@@ -14,9 +14,13 @@
 //   PUT    /api/my/team    ← {"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}}}
 //                           → 200 {"revision": n+1} / 409 {"revision": 現在, "dataSets": 現在}
 //          書いたゲームのチームと使用中チームだけを置き換える。登録に無いポケモン・7 体以上・使用中のチームが無いなどは 400。
+//   GET    /api/my/rival   → 200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "rivals": [...], "nextMatchId": n, "history": [...]}, ...}}
+//   PUT    /api/my/rival   ← {"baseRevision": n, "dataSets": {"Champions": {"rivals": [...], "nextId"?: n, "history": [...], "nextMatchId"?: n}}}
+//                           → 200 {"revision": n+1} / 409 {"revision": 現在, "dataSets": 現在}
+//          対戦中の相手ポケモン（rivals）と、終わった試合の記録（history。1 試合に相手ポケモンの配列 Foes）を、書いたゲームの分だけ置き換える。
 //   DELETE /api/my/access-key  → 204（アクセスキーの作り直しで、古いキーを使えなくしてその置き場を消す。以後そのキーは 410）
 //
-// revision は登録データ全体で 1 つ（どちらの PUT でも増える）。
+// revision は登録データ全体で 1 つ（どの PUT でも増える）。
 // 認証は "Authorization: Bearer <アクセスキー>"。アクセスキーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもの。
 // サーバーはキーそのものを保存しない。SHA-256(キー) の 16 進を Durable Object の名前にして、キーごとに 1 つの置き場を持つ。
 // キーはログ・エラーメッセージ・URL に出さない（このファイルでは console.* を使わない）。
@@ -27,6 +31,7 @@ import { DurableObject } from "cloudflare:workers";
 const ROUTES = {
   "/api/my/pokemon": ["GET", "PUT"],
   "/api/my/team": ["GET", "PUT"],
+  "/api/my/rival": ["GET", "PUT"],
   "/api/my/access-key": ["DELETE"],
 };
 const KEY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -179,6 +184,30 @@ function validatePokemons(key, value) {
   return { pokemon, nextId: nextId ?? null };
 }
 
+/** my-rival の 1 ゲーム分を検証して {rivals, nextId, history, nextMatchId} を返す。 */
+function validateRivals(key, value) {
+  const { rivals, nextId, history, nextMatchId } = value;
+  if (!Array.isArray(rivals)) invalid("invalid_rivals", `${key}.rivals は配列にしてください`);
+  if (!Array.isArray(history)) invalid("invalid_history", `${key}.history は配列にしてください`);
+  for (const [name, v] of [["nextId", nextId], ["nextMatchId", nextMatchId]]) {
+    if (v !== undefined && v !== null && !isId(v)) invalid("invalid_next_id", `${key}.${name} は 1 以上の整数にしてください`);
+  }
+  const ids = new Set();
+  for (const r of rivals) {
+    if (!isPlainObject(r) || !isId(r.Id)) invalid("invalid_rival", `${key}.rivals の要素は Id（1 以上の整数）を持つオブジェクトにしてください`);
+    if (ids.has(r.Id)) invalid("duplicate_rival", `${key}.rivals に同じ Id（${r.Id}）が 2 つあります`);
+    ids.add(r.Id);
+  }
+  const matchIds = new Set();
+  for (const m of history) {
+    if (!isPlainObject(m) || !isId(m.Id)) invalid("invalid_history", `${key}.history の要素は Id（1 以上の整数）を持つオブジェクトにしてください`);
+    if (matchIds.has(m.Id)) invalid("duplicate_match", `${key}.history に同じ Id（${m.Id}）が 2 つあります`);
+    matchIds.add(m.Id);
+    if (!Array.isArray(m.Foes)) invalid("invalid_history", `${key}.history の Id ${m.Id} の Foes は配列にしてください`);
+  }
+  return { rivals, nextId: nextId ?? null, history, nextMatchId: nextMatchId ?? null };
+}
+
 /** my-team の 1 ゲーム分を、そのゲームの登録ポケモン（ID の集合）と突き合わせて検証する。 */
 function validateTeams(key, value, pokemonIds) {
   const { teams, activeTeam } = value;
@@ -246,7 +275,7 @@ async function handleApi(request, env, url) {
   const stub = env.ROSTER.get(env.ROSTER.idFromName(await sha256Hex(key)));
 
   if (url.pathname === "/api/my/access-key") return stub.retire();
-  const resource = url.pathname === "/api/my/pokemon" ? "pokemon" : "teams";
+  const resource = url.pathname === "/api/my/pokemon" ? "pokemon" : url.pathname === "/api/my/rival" ? "rival" : "teams";
   if (method === "GET") return stub.getResource(resource);
 
   let bytes;
@@ -261,6 +290,11 @@ async function handleApi(request, env, url) {
     const values = {};
     for (const [k, v] of Object.entries(dataSets)) values[k] = validatePokemons(k, v);
     return stub.putPokemons(baseRevision, values);
+  }
+  if (resource === "rival") {
+    const values = {};
+    for (const [k, v] of Object.entries(dataSets)) values[k] = validateRivals(k, v);
+    return stub.putRivals(baseRevision, values);
   }
   // チームは登録ポケモンとの突き合わせが要るので、Durable Object の中で検証する
   return stub.putTeams(baseRevision, dataSets);
@@ -277,6 +311,10 @@ function normalizeDataSet(d) {
   const r = isPlainObject(d) ? d : {};
   if (!Array.isArray(r.Pokemon)) r.Pokemon = [];
   if (!Array.isArray(r.Teams)) r.Teams = [];
+  if (!Array.isArray(r.Rivals)) r.Rivals = [];
+  if (!Array.isArray(r.History)) r.History = [];
+  if (!isId(r.NextRivalId)) r.NextRivalId = 1;
+  if (!isId(r.NextMatchId)) r.NextMatchId = 1;
   if (!isId(r.NextId)) r.NextId = 1;
   if (r.ActiveTeam === undefined) r.ActiveTeam = null;
   return r;
@@ -315,7 +353,9 @@ export class RosterSlot extends DurableObject {
       const d = normalizeDataSet(v);
       dataSets[k] = resource === "pokemon"
         ? { nextId: d.NextId, pokemon: d.Pokemon }
-        : { teams: d.Teams, activeTeam: d.ActiveTeam };
+        : resource === "rival"
+          ? { nextId: d.NextRivalId, rivals: d.Rivals, nextMatchId: d.NextMatchId, history: d.History }
+          : { teams: d.Teams, activeTeam: d.ActiveTeam };
     }
     return { revision, dataSets };
   }
@@ -356,6 +396,23 @@ export class RosterSlot extends DurableObject {
       }
       d.Teams = teams;
       if (d.ActiveTeam !== null && !teams.some((t) => t.Number === d.ActiveTeam)) d.ActiveTeam = null;
+    }
+    return this.#save(s.revision, s.roster);
+  }
+
+  /** 対戦中の相手ポケモンと試合の履歴を置き換える（ID は使い回さない）。 */
+  async putRivals(baseRevision, values) {
+    const s = await this.#read();
+    if (s.deleted) return this.#gone();
+    if (baseRevision !== s.revision) return json(409, this.#view("rival", s.revision, s.roster));
+    for (const [requested, { rivals, nextId, history, nextMatchId }] of Object.entries(values)) {
+      const key = findDataSetKey(s.roster, requested);
+      const d = normalizeDataSet(s.roster.DataSets[key]);
+      s.roster.DataSets[key] = d;
+      d.Rivals = rivals;
+      d.History = history;
+      d.NextRivalId = Math.max(d.NextRivalId, nextId ?? 1, rivals.reduce((m, r) => Math.max(m, r.Id), 0) + 1);
+      d.NextMatchId = Math.max(d.NextMatchId, nextMatchId ?? 1, history.reduce((m, h) => Math.max(m, h.Id), 0) + 1);
     }
     return this.#save(s.revision, s.roster);
   }

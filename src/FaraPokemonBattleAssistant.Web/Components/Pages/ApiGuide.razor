@@ -22,6 +22,8 @@
                     <tr><td><code>GET /api/my/pokemon</code></td><td>登録したポケモン（ゲームごと）を読み取ります</td></tr>
                     <tr><td><code>PUT /api/my/pokemon</code></td><td>ポケモンを保存します。消したポケモンはチームからも外れ、0 体になったチームは消えます</td></tr>
                     <tr><td><code>GET /api/my/team</code></td><td>チームと使用中のチームを読み取ります</td></tr>
+                    <tr><td><code>GET /api/my/rival</code></td><td>対戦中の相手ポケモンと、終わった試合の履歴を読み取ります</td></tr>
+                    <tr><td><code>PUT /api/my/rival</code></td><td>相手ポケモンと履歴を保存します（書いたゲームの分だけ置き換え）</td></tr>
                     <tr><td><code>PUT /api/my/team</code></td><td>チームと使用中のチームを保存します（登録に無いポケモン・7 体以上は受け付けません）</td></tr>
                     <tr><td><code>DELETE /api/my/access-key</code></td><td>このアクセスキーを使えなくし、データを消します（アクセスキーの作り直し用）</td></tr>
                 </tbody>
