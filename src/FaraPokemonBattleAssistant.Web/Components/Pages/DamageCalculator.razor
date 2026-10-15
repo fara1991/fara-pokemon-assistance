@@ -200,9 +200,6 @@ else if (data is not null && dataSet is not null)
                         @if (s.Estimate is { } estimate)
                         {
                             <div class="mt-3">@RenderEstimateResult(estimate)</div>
-                            <hr />
-                            <p class="mb-1 text-muted small">チャットでの表示</p>
-                            <div class="alert alert-light border chat-output mt-2 mb-0">@s.EstimateText</div>
                         }
                         else if (!string.IsNullOrEmpty(s.EstimateText))
                         {
@@ -959,9 +956,6 @@ else if (data is not null && dataSet is not null)
         {
             <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data!.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>
         }
-        <hr />
-        <p class="mb-1 text-muted small">チャットでの表示</p>
-        <div class="alert alert-light border chat-output mb-0">@(crit is null ? DamageCommand.Format(lastRequest, result, data!.Info) : DamageCommand.FormatBoth(lastRequest, result, crit, data!.Info))</div>
     };
 
     /// <summary>2〜5 回当たる連続技の回数表示（ダメージは 1 回あたり。急所は 1 回ごとに判定されるため）。</summary>
