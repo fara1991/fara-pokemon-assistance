@@ -355,53 +355,58 @@ public sealed class PokeCommand
         // 登録の構成は攻撃側だけに使う（防御側は相手なので、使用率の既定値で計算する）
         Func<Pokemon, bool, PokemonBuild?> attackerOnly = (p, isAttacker) => isAttacker ? provider(p, true) : null;
 
-        var normal = await _damage.ExecuteAsync(text, new DamageCommandOptions { DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, MaxLength = int.MaxValue }, ct).ConfigureAwait(false);
-        if (!normal.Success) return normal;
-        var crit = await _damage.ExecuteAsync(text, new DamageCommandOptions { DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, IsCritical = true, MaxLength = int.MaxValue }, ct).ConfigureAwait(false);
-
-        // 連続技は、1 回ごとに急所判定があり威力も変わるので、急所なしで「当たった回数ごと」の合計だけを短く出す
-        if (MoveEffects.HitsTwoToFive(normal.Request!.Move) || MoveEffects.IsEscalating(normal.Request.Move))
+        // 防御側は相手なので、既定は HP と受ける側の防御（物理技なら B、特殊技なら D）に全振りで計算する
+        DamageCommandOptions Opts(int? hitCount = null) => new()
         {
-            var counts = MoveEffects.IsEscalating(normal.Request.Move) ? new[] { 1, 2, 3 }
-                : normal.Request.Attacker.Ability?.Identifier == "skill-link" ? new[] { 5 } : new[] { 1, 2, 3, 4, 5 };
-            // 急所は、オプション（「急所」）を付けたときだけ。付けると、全部の回が急所の結果になる
-            var resultLabel = normal.Request.IsCritical ? "急所の結果" : "結果";
+            DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, MaxLength = int.MaxValue,
+            DefaultDefenderHpEv = 252, DefaultDefenderDefenseEv = 252, HitCount = hitCount,
+        };
+        var normal = await _damage.ExecuteAsync(text, Opts(), ct).ConfigureAwait(false);
+        if (!normal.Success || normal.Request is null || normal.Damage is null) return normal;
+        var request = normal.Request;
+
+        // 連続技は、当たった回数ごと（そこまでの合計）を出す。おやこあいは 1 回目・2 回目（合計）
+        // 急所は、オプション「急所」を付けたときだけ（付けると、すべて急所のダメージ）
+        int[]? counts = null;
+        if (MoveEffects.IsEscalating(request.Move)) counts = new[] { 1, 2, 3 };
+        else if (MoveEffects.HitsTwoToFive(request.Move)) counts = request.Attacker.Ability?.Identifier == "skill-link" ? new[] { 5 } : new[] { 1, 2, 3, 4, 5 };
+        else if (normal.Damage.ParentalBond) counts = new[] { 1, 2 };
+
+        var label = request.IsCritical ? "結果（急所）" : "結果";
+        var last = normal.Damage;
+        string body;
+        if (counts is null)
+        {
+            body = $"{label} {normal.Damage.RangeText} {normal.Damage.KnockOut}";
+        }
+        else
+        {
             var parts = new List<string>();
-            DamageResult? last = null;
             foreach (var n in counts)
             {
-                var r = await _damage.ExecuteAsync(text, new DamageCommandOptions { DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, IsCritical = normal.Request.IsCritical, HitCount = n, MaxLength = int.MaxValue }, ct).ConfigureAwait(false);
-                if (!r.Success || r.Damage is null) { parts.Clear(); break; }
+                var r = await _damage.ExecuteAsync(text, Opts(n), ct).ConfigureAwait(false);
+                if (!r.Success || r.Damage is null) return r;
                 last = r.Damage;
-                parts.Add($"{n}回: {r.Damage.RangeText} {r.Damage.KnockOut}");
+                parts.Add($"{n}回{(counts.Length == 1 ? "（スキルリンク）" : "目")}: {r.Damage.RangeText} {r.Damage.KnockOut}");
             }
-            if (parts.Count > 0)
-                return new DamageCommandResult
-                {
-                    Success = true,
-                    Message = DamageCommand.Header(normal.Request, last!) + "\n" + resultLabel + " " + string.Join(" ｜", parts),
-                    Request = normal.Request,
-                    Damage = last,
-                };
+            body = label + " " + string.Join(" | ", parts);
         }
 
-        var message = normal.Message;
-        var critText = crit.Success && crit.Damage is not null && crit.Damage.MaxDamage > 0
-            ? $" ｜急所: {crit.Damage.RangeText} {crit.Damage.KnockOut}{DamageCommand.ParentalText(crit.Damage)}"
-            : "";
-        message += critText;
-
-        // 相手（防御側）の特性が不明なら、特性でダメージが変わる場合に特性ごとの結果を添える
-        var request = normal.Request!;
-        if (!MentionsAbility(args, data, request.Defender.Pokemon))
+        // 連続技でないときは、特性でダメージが変わる場合の結果を添える（相手の特性が不明なら特性別、攻撃側は HP・状態・天候による変化）
+        if (counts is null)
         {
-            var variants = AbilityVariants(data, request, normal.Damage!);
-            if (variants.Count > 0)
-                message += " ｜特性別: " + string.Join(" / ", variants);
+            if (!MentionsAbility(args, data, request.Defender.Pokemon))
+            {
+                var variants = AbilityVariants(data, request, normal.Damage);
+                if (variants.Count > 0)
+                    body += " ｜特性別: " + string.Join(" / ", variants);
+            }
+            if (AttackerAbilityVariants(data, request, normal.Damage) is { } attackerVariants) body += attackerVariants;
         }
-        // 攻撃側の特性が、状態（HP・状態異常・天候）でダメージを変えるとき（もうか・こんじょう・サンパワーなど）は、その結果も出す
-        if (AttackerAbilityVariants(data, request, normal.Damage!) is { } attackerVariants) message += attackerVariants;
-        return new DamageCommandResult { Success = true, Message = message, Request = request, Damage = normal.Damage };
+        // 無視したオプションなどの注意（※…）は、最後に添える
+        var noteAt = normal.Message.IndexOf(" ※", StringComparison.Ordinal);
+        if (noteAt >= 0) body += normal.Message[noteAt..];
+        return new DamageCommandResult { Success = true, Message = DamageCommand.Header(request, last) + "\n" + body, Request = request, Damage = last };
     }
 
     /// <summary>

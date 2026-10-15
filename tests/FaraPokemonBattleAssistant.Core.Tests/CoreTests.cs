@@ -508,7 +508,8 @@ public class PokeCommandTests
         var dmg = await cmd.ExecuteAsync("!pokech dmg ガブリアス ドラゴンクロー+1 リザードン");
         Assert.True(dmg.Success, dmg.Message);
         Assert.Contains("こだわりスカーフ", dmg.Message);   // 使用チームの持ち物が表示される
-        Assert.Contains("急所", dmg.Message);
+        Assert.Contains("結果 ", dmg.Message);
+        Assert.DoesNotContain("急所", dmg.Message);   // 急所はオプションを付けたときだけ
         Assert.Equal(1, dmg.Request!.Attacker.Boosts.Attack);
         Assert.Equal(32, dmg.Request.Attacker.EVs.Attack);  // 登録した振り
         Assert.Equal(EvSystem.Points, dmg.Request.Attacker.EvSystem);
