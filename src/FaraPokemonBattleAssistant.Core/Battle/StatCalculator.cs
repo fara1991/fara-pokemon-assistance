@@ -25,10 +25,11 @@ public static class StatCalculator
         var nature = build.Nature?.Modifier(stat) ?? 1.0;
         if (build.EvSystem == EvSystem.Points)
         {
-            // チャンピオンズ: 努力値 0 の実数値に、振ったポイント数をそのまま足す（性格補正は足す前に掛かる）
+            // チャンピオンズ: 努力値 0 の実数値に、振ったポイント数をそのまま足し、そのあとで性格補正を掛ける
+            // （HP 以外: (種族値 + ポイント + 20) × 性格補正。端数は切り捨て）
             if (stat == Stat.HP)
                 return Hp(b, iv, 0, build.Level) + ev;
-            return Other(b, iv, 0, build.Level, nature) + ev;
+            return (int)Math.Floor((Other(b, iv, 0, build.Level, 1.0) + ev) * nature + 1e-9);
         }
         if (stat == Stat.HP)
             return Hp(b, iv, ev, build.Level);
@@ -41,7 +42,9 @@ public static class StatCalculator
         var b = build.Pokemon.BaseStats[stat];
         var iv = build.IVs[stat];
         if (build.EvSystem == EvSystem.Points)
-            return (stat == Stat.HP ? Hp(b, iv, 0, build.Level) : Other(b, iv, 0, build.Level, natureModifier)) + ev;
+            return stat == Stat.HP
+                ? Hp(b, iv, 0, build.Level) + ev
+                : (int)Math.Floor((Other(b, iv, 0, build.Level, 1.0) + ev) * natureModifier + 1e-9);
         return stat == Stat.HP ? Hp(b, iv, ev, build.Level) : Other(b, iv, ev, build.Level, natureModifier);
     }
 

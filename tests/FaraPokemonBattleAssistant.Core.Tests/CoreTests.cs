@@ -373,10 +373,17 @@ public class EvSystemTests
         Assert.Equal(StatCalculator.Calculate(zero, Stat.HP) + 32, StatCalculator.Calculate(full, Stat.HP));
         Assert.Equal(StatCalculator.Calculate(zero, Stat.Attack) + 32, StatCalculator.Calculate(full, Stat.Attack));
         Assert.Equal(StatCalculator.Calculate(zero, Stat.Speed) + 2, StatCalculator.Calculate(full, Stat.Speed));
-        // 性格補正はポイントを足す前に掛かる
+        // 性格補正はポイントを足したあとに掛かる（(種族値 + ポイント + 20) × 性格補正、端数は切り捨て）
         var adamant = new PokemonBuild(garchomp, EvSystem.Points) { EVs = new StatSet(0, 32, 0, 0, 0, 0), Nature = new Nature { Name = "いじっぱり", IncreasedStat = Stat.Attack, DecreasedStat = Stat.SpAttack } };
         Assert.Equal((int)Math.Floor((2 * 130 + 31) * 50 / 100 * 1.0 + 5) , StatCalculator.Other(130, 31, 0, 50, 1.0));
-        Assert.Equal((int)Math.Floor(StatCalculator.Other(130, 31, 0, 50, 1.0) * 1.1) + 32, StatCalculator.Calculate(adamant, Stat.Attack));
+        Assert.Equal((int)Math.Floor((StatCalculator.Other(130, 31, 0, 50, 1.0) + 32) * 1.1), StatCalculator.Calculate(adamant, Stat.Attack));
+        // バシャーモ A32・A↑: (120 + 32 + 20) × 1.1 = 189
+        var blaziken = new PokemonBuild(new Pokemon { Id = 257, Name = "バシャーモ", BaseStats = new StatSet(80, 120, 70, 110, 70, 80) }, EvSystem.Points)
+        {
+            EVs = new StatSet(0, 32, 0, 0, 0, 0),
+            Nature = new Nature { Name = "いじっぱり", IncreasedStat = Stat.Attack, DecreasedStat = Stat.SpAttack },
+        };
+        Assert.Equal(189, StatCalculator.Calculate(blaziken, Stat.Attack));
     }
 
     [Fact]
