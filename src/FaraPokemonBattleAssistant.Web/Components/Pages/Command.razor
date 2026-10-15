@@ -26,7 +26,7 @@ else if (data is not null)
         <div class="card-body py-2">
             <div class="cmd-build">
                 <div class="cmd-f-kind">
-                    <label class="form-label" for="cmd-kind">種類 <Help Title="種類">実行したいコマンドの種類です。選ぶと、そのコマンドに必要な入力欄だけが出て、下のコマンド欄に文字列を組み立てます。dmg はダメージと確定数、calc は受けたダメージから相手の努力値を推定します。</Help></label>
+                    <label class="form-label" for="cmd-kind">種類 <Help Title="種類">実行したいコマンドの種類です。選ぶと、そのコマンドに必要な入力欄だけが出て、下のコマンド欄に文字列を組み立てます。dmg はダメージと確定数、scan は受けたダメージから相手の振り方を推定して相手ポケモンに登録します。</Help></label>
                     <select id="cmd-kind" class="form-select" value="@s.Kind" @onchange="@(e => { s.Kind = e.Value?.ToString() ?? "dmg"; BuildText(); })">
                         @foreach (var group in KindGroups())
                         {
@@ -43,7 +43,7 @@ else if (data is not null)
                 @if (Has(Field.Subject))
                 {
                     <div class="cmd-f-poke">
-                        <label class="form-label">@(s.Kind == "add -m" ? "ポケモン" : "ポケモン名（任意）")</label>
+                        <label class="form-label">@SubjectLabel</label>
                         <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
                             SelectedValue="@(s.Subject?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { s.Subject = data.FindPokemon(ParseId(v)); BuildText(); })" Placeholder="例: ガブリアス">
                             <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /></ItemTemplate>
@@ -53,7 +53,7 @@ else if (data is not null)
                 @if (Has(Field.Evs))
                 {
                     <div class="cmd-f-evs">
-                        <label class="form-label">@(EvRules.Label(App.DataSet?.EvSystem ?? EvSystem.Classic))（H A B C D S）</label>
+                        <label class="form-label">@(EvRules.Label(App.DataSet?.EvSystem ?? EvSystem.Classic))（H A B C D S）@(s.Kind == "add -m" ? "" : "（分かる能力だけ）")</label>
                         <div class="cmd-evs">
                             @for (var i = 0; i < 6; i++)
                             {
@@ -68,9 +68,9 @@ else if (data is not null)
                 @if (Has(Field.Nature))
                 {
                     <div class="cmd-f-nature">
-                        <label class="form-label" for="cmd-nature">性格</label>
+                        <label class="form-label" for="cmd-nature">@(s.Kind == "add -m" ? "性格" : "性格（任意）")</label>
                         <select id="cmd-nature" class="form-select" value="@s.NatureName" @onchange="@(e => { s.NatureName = e.Value?.ToString() ?? ""; BuildText(); })">
-                            <option value="">選ぶ</option>
+                            <option value="">@(s.Kind == "add -m" ? "選ぶ" : "指定しない")</option>
                             @foreach (var n in data.Natures) { <option value="@n.Name">@n.Describe()</option> }
                         </select>
                     </div>
@@ -91,7 +91,14 @@ else if (data is not null)
                 @if (Has(Field.EntryId))
                 {
                     <div class="cmd-f-num">
-                        <label class="form-label" for="cmd-entry">登録 ID <Help Title="登録 ID">登録したポケモンの番号です。「ポケモン登録」ページか ls -m コマンドで分かります。</Help></label>
+                        @if (s.Kind is "detail -h" or "rm -h")
+                        {
+                            <label class="form-label" for="cmd-entry">履歴 ID <Help Title="履歴 ID">試合の履歴の番号です。ls -h コマンドか「相手ポケモン」ページの履歴で分かります。</Help></label>
+                        }
+                        else
+                        {
+                            <label class="form-label" for="cmd-entry">@(s.Kind == "set -m" ? "登録 ID（任意）" : "登録 ID") <Help Title="登録 ID">登録したポケモンの番号です。「ポケモン登録」ページか ls -m コマンドで分かります。@(s.Kind == "set -m" ? "set -m は名前でも指定できます。同じポケモンを複数登録しているときだけ、登録 ID を入れてください。" : "")</Help></label>
+                        }
                         <input id="cmd-entry" class="form-control" inputmode="numeric" placeholder="例: 1" value="@s.EntryId" @onchange="@(e => { s.EntryId = e.Value?.ToString()?.Trim() ?? ""; BuildText(); })" />
                     </div>
                 }
@@ -164,6 +171,13 @@ else if (data is not null)
                     <div class="cmd-f-damage">
                         <label class="form-label" for="cmd-damage">受けたダメージ <Help Title="受けたダメージ">実数（93）か割合（45%）で入力します。割合のときは HP の振りも推定します。</Help></label>
                         <input id="cmd-damage" class="form-control" placeholder="例: 93 / 45%" value="@s.Damage" @onchange="@(e => { s.Damage = e.Value?.ToString() ?? ""; BuildText(); })" />
+                    </div>
+                }
+                @if (Has(Field.Memo))
+                {
+                    <div class="cmd-f-opt">
+                        <label class="form-label" for="cmd-memo">メモ（任意） <Help Title="メモ">試合の履歴に残すメモです（例: 相手の名前）。</Help></label>
+                        <input id="cmd-memo" class="form-control" placeholder="例: 〇〇さん戦" value="@s.Memo" @onchange="@(e => { s.Memo = e.Value?.ToString() ?? ""; BuildText(); })" />
                     </div>
                 }
                 @if (Has(Field.Options))
@@ -331,6 +345,7 @@ else if (data is not null)
         public string EntryId { get; set; } = "";
         public string TeamNo { get; set; } = "";
         public string ItemName { get; set; } = "";
+        public string Memo { get; set; } = "";
         public List<string> Extras { get; set; } = new();
         public string Input { get; set; } = "";
         public string Output { get; set; } = "";
@@ -411,7 +426,15 @@ else if (data is not null)
 
     // ---- 種類ごとの入力欄 ----
 
-    private enum Field { Subject, Evs, Nature, Ability, EntryId, TeamNo, TeamItem, Attacker, Move, Defender, Weather, Terrain, Damage, Options }
+    private enum Field { Subject, Evs, Nature, Ability, EntryId, TeamNo, TeamItem, Attacker, Move, Defender, Weather, Terrain, Damage, Options, Memo }
+
+    /// <summary>ポケモンの欄の見出し（必須か任意か）。</summary>
+    private string SubjectLabel => s.Kind switch
+    {
+        "add -m" or "add -r" or "set -r" or "detail -r" or "rm -r" => "ポケモン",
+        "set -m" => "ポケモン（名前で指定）",
+        _ => "ポケモン名（任意）",
+    };
 
     private sealed record KindDef(string Key, string Label, string Group, Field[] Fields);
 
@@ -424,6 +447,7 @@ else if (data is not null)
             new("add -m", "add -m（登録）", "自分のポケモン", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability }),
             new("ls -m", "ls -m（一覧）", "自分のポケモン", new[] { Field.Subject }),
             new("detail -m", "detail -m（詳細）", "自分のポケモン", new[] { Field.EntryId }),
+            new("set -m", "set -m（更新）", "自分のポケモン", new[] { Field.Subject, Field.EntryId, Field.Evs, Field.Nature, Field.Ability }),
             new("rm -m", "rm -m（削除）", "自分のポケモン", new[] { Field.EntryId }),
             new("add -t", "add -t（追加）", "チーム", new[] { Field.TeamNo, Field.EntryId, Field.TeamItem }),
             new("rm -t", "rm -t（外す・削除）", "チーム", new[] { Field.TeamNo, Field.Subject }),
@@ -431,6 +455,15 @@ else if (data is not null)
             new("unuse -t", "unuse -t（解除）", "チーム", Array.Empty<Field>()),
             new("ls -t", "ls -t（一覧）", "チーム", Array.Empty<Field>()),
             new("detail -t", "detail -t（詳細）", "チーム", new[] { Field.TeamNo }),
+            new("add -r", "add -r（登録）", "相手", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability }),
+            new("set -r", "set -r（更新）", "相手", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability }),
+            new("ls -r", "ls -r（一覧）", "相手", Array.Empty<Field>()),
+            new("detail -r", "detail -r（詳細）", "相手", new[] { Field.Subject }),
+            new("rm -r", "rm -r（外す）", "相手", new[] { Field.Subject }),
+            new("clear -r", "clear -r（試合終了・履歴へ）", "相手", new[] { Field.Memo }),
+            new("ls -h", "ls -h（一覧）", "履歴", new[] { Field.Subject }),
+            new("detail -h", "detail -h（詳細）", "履歴", new[] { Field.EntryId }),
+            new("rm -h", "rm -h（削除）", "履歴", new[] { Field.EntryId }),
             new("dmg", "dmg（ダメージ）", "対戦", new[] { Field.Attacker, Field.Move, Field.Defender, Field.Weather, Field.Terrain }),
             new("scan", $"scan（{ev}推定・相手に登録）", "対戦", new[] { Field.Attacker, Field.Move, Field.Defender, Field.Weather, Field.Terrain, Field.Damage }),
             new("faster", "faster（素早さ比較）", "対戦", new[] { Field.Attacker, Field.Defender, Field.Weather, Field.Options }),
@@ -461,11 +494,33 @@ else if (data is not null)
                 if (!string.IsNullOrEmpty(s.AbilityName)) parts.Add(s.AbilityName);
                 break;
             case "ls -m":
+            case "ls -h":
                 if (s.Subject is not null) parts.Add(s.Subject.Name);
                 break;
             case "detail -m":
             case "rm -m":
                 parts.Add(Or(s.EntryId, "登録ID"));
+                break;
+            case "detail -h":
+            case "rm -h":
+                parts.Add(Or(s.EntryId, "履歴ID"));
+                break;
+            case "set -m":
+                // 登録 ID があればそれ、なければ名前で指定する
+                parts.Add(!string.IsNullOrWhiteSpace(s.EntryId) ? s.EntryId.Trim() : s.Subject?.Name ?? "登録IDか名前");
+                AddSpecParts(parts);
+                break;
+            case "add -r":
+            case "set -r":
+                parts.Add(s.Subject?.Name ?? "名前");
+                AddSpecParts(parts);
+                break;
+            case "detail -r":
+            case "rm -r":
+                parts.Add(s.Subject?.Name ?? "名前");
+                break;
+            case "clear -r":
+                if (!string.IsNullOrWhiteSpace(s.Memo)) parts.Add(s.Memo.Trim());
                 break;
             case "add -t":
                 parts.Add(Or(s.TeamNo, "チーム番号"));
@@ -500,6 +555,44 @@ else if (data is not null)
         s.Input = string.Join(" ", parts);
     }
 
+    /// <summary>set・add -r 用: 入っている能力だけ「H32 D10」の形で付け、性格・特性は選んでいれば付ける。</summary>
+    private void AddSpecParts(List<string> parts)
+    {
+        for (var i = 0; i < 6; i++)
+            if (!string.IsNullOrWhiteSpace(s.Evs[i])) parts.Add(StatNames.Letter((Stat)i) + s.Evs[i].Trim());
+        if (!string.IsNullOrEmpty(s.NatureName)) parts.Add(s.NatureName);
+        if (!string.IsNullOrEmpty(s.AbilityName)) parts.Add(s.AbilityName);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex EvPairToken = new(@"([HABCDS])(\d{1,3})");
+
+    /// <summary>set・add -r 用: 「H32 D10」・6 つの数字の並び・性格・特性を読み取って欄に入れる。</summary>
+    private void ParseSpecTokens(List<string> tokens)
+    {
+        for (var i = 0; i < 6; i++) s.Evs[i] = "";
+        s.NatureName = "";
+        s.AbilityName = "";
+        var numbers = tokens.TakeWhile(t => int.TryParse(t, out _)).Take(6).ToList();
+        if (numbers.Count == 6)
+        {
+            for (var i = 0; i < 6; i++) s.Evs[i] = numbers[i];
+            tokens = tokens.Skip(6).ToList();
+        }
+        foreach (var token in tokens)
+        {
+            var upper = token.ToUpperInvariant();
+            var pairs = EvPairToken.Matches(upper);
+            if (pairs.Count > 0 && string.Concat(pairs.Select(x => x.Value)) == upper)
+            {
+                foreach (System.Text.RegularExpressions.Match x in pairs)
+                    if (StatNames.Parse(x.Groups[1].Value) is { } stat) s.Evs[(int)stat] = x.Groups[2].Value;
+                continue;
+            }
+            if (data!.FindNature(token) is { } n) { s.NatureName = n.Name; continue; }
+            if (s.Subject is not null && data.AbilitiesOf(s.Subject).FirstOrDefault(a => a.Name == token) is { } ab) s.AbilityName = ab.Name;
+        }
+    }
+
     private void OnInput(ChangeEventArgs e)
     {
         s.Input = e.Value?.ToString() ?? "";
@@ -514,7 +607,9 @@ else if (data is not null)
         var first = tokens[0].ToLowerInvariant();
         var second = tokens.Count > 1 ? tokens[1].ToLowerInvariant() : "";
         if ((second is "-t" or "--team") && first is "add" or "rm" or "use" or "unuse" or "ls" or "detail") { consumed = 2; return first + " -t"; }
-        if ((second is "-m" or "--my") && first is "add" or "rm" or "ls" or "detail") { consumed = 2; return first + " -m"; }
+        if ((second is "-m" or "--my") && first is "add" or "set" or "rm" or "ls" or "detail") { consumed = 2; return first + " -m"; }
+        if ((second is "-r" or "--rival") && first is "add" or "set" or "rm" or "ls" or "detail" or "clear") { consumed = 2; return first + " -r"; }
+        if ((second is "-h" or "--history") && first is "rm" or "ls" or "detail") { consumed = 2; return first + " -h"; }
         if (first is "help" or "dmg" or "scan" or "faster") { consumed = 1; return first; }
         return null;
     }
@@ -545,7 +640,29 @@ else if (data is not null)
                 s.AbilityName = tokens.Count > 8 ? tokens[8] : "";
                 return;
             case "ls -m":
+            case "ls -h":
+            case "detail -r":
+            case "rm -r":
                 s.Subject = PokemonAt(0);
+                return;
+            case "set -m":
+                if (tokens.Count > 0 && int.TryParse(tokens[0].TrimStart('#'), out _)) { s.EntryId = tokens[0].TrimStart('#'); s.Subject = null; }
+                else { s.EntryId = ""; s.Subject = PokemonAt(0); }
+                ParseSpecTokens(tokens.Skip(1).ToList());
+                return;
+            case "add -r":
+            case "set -r":
+                s.Subject = PokemonAt(0);
+                ParseSpecTokens(tokens.Skip(1).ToList());
+                return;
+            case "detail -h":
+            case "rm -h":
+                s.EntryId = NumberOrEmpty(tokens, 0);
+                return;
+            case "clear -r":
+                s.Memo = string.Join(" ", tokens);
+                return;
+            case "ls -r":
                 return;
             case "detail -m":
             case "rm -m":
@@ -619,7 +736,7 @@ else if (data is not null)
     {
         var tokens = text.Split(new[] { ' ', '　', '\t' }, StringSplitOptions.RemoveEmptyEntries);
         var i = tokens.Length > 0 && tokens[0].StartsWith('!') ? 1 : 0;
-        return i < tokens.Length && tokens[i].ToLowerInvariant() is "add" or "rm" or "use" or "unuse";
+        return i < tokens.Length && tokens[i].ToLowerInvariant() is "add" or "set" or "rm" or "use" or "unuse" or "clear";
     }
 
     /// <summary>例をコマンド欄に入れるだけ。実行は「実行」を押したときだけ。</summary>
