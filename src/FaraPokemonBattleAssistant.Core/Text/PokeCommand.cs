@@ -367,6 +367,8 @@ public sealed class PokeCommand
         if (first.Failure is not null) return first.Failure;
 
         var foe = _foes.Get(ds.Key, first.Request!.Defender.Pokemon.Id);
+        // 分かっている振り方は、その技が使う防御（B か D）が同じときだけ使う
+        if (foe is not null && foe.DefenseStat != first.Request.Move.DefenseStatUsed) foe = null;
         if (foe is null || !foe.IsRange)
             return new DamageCommandResult { Success = true, Message = DamageCommand.Header(first.Request, first.Last!) + "\n" + first.Body + first.Note, Request = first.Request, Damage = first.Last };
 
@@ -389,9 +391,10 @@ public sealed class PokeCommand
         Func<Pokemon, bool, PokemonBuild?> provider, bool useHigh, CancellationToken ct)
     {
         // 登録の構成は攻撃側だけに使う（防御側は相手なので、分かっている相手の情報があればそれ、なければ使用率の既定値で計算する）
-        PokemonBuild? FoeBuild(Pokemon p) => _foes.Get(ds.Key, p.Id) is { } known ? (useHigh ? known.High : known.Low).Clone() : null;
+        var ignoreFoe = false;
+        PokemonBuild? FoeBuild(Pokemon p) => !ignoreFoe && _foes.Get(ds.Key, p.Id) is { } known ? (useHigh ? known.High : known.Low).Clone() : null;
         Func<Pokemon, bool, PokemonBuild?> withFoe = (p, isAttacker) => isAttacker ? provider(p, true) : FoeBuild(p);
-        var scenarioLabel = _foes.List(ds.Key).Count == 0 ? null : (string?)(useHigh ? "防御最大想定" : "防御最小想定");
+        string? scenarioLabel = null;
 
         // 防御側は相手なので、既定は HP と受ける側の防御（物理技なら B、特殊技なら D）に全振りで計算する
         DamageCommandOptions Opts(int? hitCount = null) => new()
@@ -401,9 +404,18 @@ public sealed class PokeCommand
         };
         var normal = await _damage.ExecuteAsync(text, Opts(), ct).ConfigureAwait(false);
         if (!normal.Success || normal.Request is null || normal.Damage is null) return (normal, null, null, "", "");
+        var known = _foes.Get(ds.Key, normal.Request.Defender.Pokemon.Id);
+        // その技が使う防御（B か D）と、分かっている振り方の防御が違うときは、相手の情報を使わず、既定（全振り）で計算し直す
+        if (known is not null && known.DefenseStat != normal.Request.Move.DefenseStatUsed)
+        {
+            ignoreFoe = true;
+            known = null;
+            normal = await _damage.ExecuteAsync(text, Opts(), ct).ConfigureAwait(false);
+            if (!normal.Success || normal.Request is null || normal.Damage is null) return (normal, null, null, "", "");
+        }
         var request = normal.Request;
-        var known = _foes.Get(ds.Key, request.Defender.Pokemon.Id);
-        if (known is null || !known.IsRange) scenarioLabel = null;
+        // 範囲のときは、使った防御の文字（B / D）で「B最小想定」「B最大想定」と出す
+        if (known is not null && known.IsRange) scenarioLabel = $"{StatNames.Letter(known.DefenseStat)}{(useHigh ? "最大" : "最小")}想定";
 
         // 連続技は、当たった回数ごと（そこまでの合計）を出す。おやこあいは 1 回目・2 回目（合計）
         // 急所は、オプション「急所」を付けたときだけ（付けると、すべて急所のダメージ）

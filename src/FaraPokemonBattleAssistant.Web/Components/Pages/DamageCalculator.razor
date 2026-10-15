@@ -135,10 +135,10 @@ else if (data is not null && dataSet is not null)
                             <div class="alert alert-info py-2 small mb-2">
                                 <div><strong>分かっている振り方</strong>: @foe.Summary</div>
                                 <div class="d-flex flex-wrap gap-1 mt-1">
-                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyFoe(foe.Low)">防御最小で計算</button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyFoe(foe.Low)">@(StatNames.Letter(foe.DefenseStat))最小で計算</button>
                                     @if (foe.IsRange)
                                     {
-                                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyFoe(foe.High)">防御最大で計算</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyFoe(foe.High)">@(StatNames.Letter(foe.DefenseStat))最大で計算</button>
                                     }
                                     <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => Foes.Remove(App.DataSetKey, s.Defender.Pokemon.Id)">登録を解除</button>
                                 </div>
