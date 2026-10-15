@@ -270,13 +270,24 @@ public sealed partial class PokeCommand
 
     // ------------------------------------------------------------------ 自分のポケモンの更新
 
-    /// <summary>set -m 登録ID [振り方] [性格] [特性] : 登録済みの自分のポケモンの、指定した項目だけ更新。</summary>
+    /// <summary>set -m 登録ID または名前 [振り方] [性格] [特性] : 登録済みの自分のポケモンの、指定した項目だけ更新。</summary>
     private async Task<DamageCommandResult> SetMyAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("更新は配信者・モデレーターのみ行えます");
-        if (args.Count < 2 || !int.TryParse(args[0].TrimStart('#'), out var id))
-            return Fail($"書式: !{ds.CommandPrefix} set -m 登録ID [H32 A10 …] [性格 / B↑A↓] [特性]");
+        if (args.Count < 2)
+            return Fail($"書式: !{ds.CommandPrefix} set -m 登録IDか名前 [H32 A10 …] [性格 / B↑A↓] [特性]");
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
+        // 登録ID（#1 / 1）のほか、名前でも指定できる（同じポケモンが複数登録されていれば、登録IDを案内する）
+        if (!int.TryParse(args[0].TrimStart('#'), out var id))
+        {
+            var match = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
+            if (!match.IsResolved) return Fail($"ポケモン「{args[0]}」が見つかりません");
+            var same = roster.Pokemon.Where(e => e.PokemonId == match.Value!.Id).ToList();
+            if (same.Count == 0) return Fail($"{match.Value!.Name}は登録されていません");
+            if (same.Count > 1)
+                return Fail($"{match.Value!.Name}は複数登録されています（{string.Join("・", same.Select(e => $"#{e.Id}"))}）。登録IDで指定してください（例: !{ds.CommandPrefix} set -m {same[0].Id} …）");
+            id = same[0].Id;
+        }
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == id);
         if (entry is null) return Fail($"登録ID {id} はありません");
         var pokemon = data.FindPokemon(entry.PokemonId);

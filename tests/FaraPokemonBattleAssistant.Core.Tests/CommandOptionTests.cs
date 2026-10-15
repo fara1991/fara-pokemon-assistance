@@ -25,13 +25,29 @@ public class CommandOptionTests
     [Theory]
     [InlineData("!pokech add -p ガブリアス 4 32 0 0 0 30 ようき")]
     [InlineData("!pokech ls --pokemon")]
-    public async Task Removed_pokemon_option_points_to_my(string message)
+    public async Task Unknown_option_is_reported_as_missing(string message)
     {
-        // 以前の -p / --pokemon は廃止。-m / --my を案内する
+        // 以前の -p / --pokemon は、ほかの存在しないオプションと同じく「ありません」と返す（廃止の案内はしない）
         var r = await NewCommand().ExecuteAsync(message);
         Assert.False(r.Success);
-        Assert.Contains("-m", r.Message);
-        Assert.Contains("廃止", r.Message);
+        Assert.Contains("というオプションはありません", r.Message);
+        Assert.DoesNotContain("廃止", r.Message);
+    }
+
+    [Fact]
+    public async Task Set_my_accepts_a_name_or_an_id()
+    {
+        var cmd = NewCommand();
+        Assert.True((await cmd.ExecuteAsync("!pokech add -m アシレーヌ 4 0 0 32 0 30 ひかえめ")).Success);
+        var byName = await cmd.ExecuteAsync("!pokech set -m アシレーヌ B↑A↓");
+        Assert.True(byName.Success, byName.Message);
+        Assert.Contains("B↑A↓", byName.Message);
+        Assert.True((await cmd.ExecuteAsync("!pokech set -m 1 ひかえめ")).Success);
+        // 同じポケモンが複数あるときは、登録IDで指定するよう案内する
+        Assert.True((await cmd.ExecuteAsync("!pokech add -m アシレーヌ 4 0 0 32 0 30 おくびょう")).Success);
+        var ambiguous = await cmd.ExecuteAsync("!pokech set -m アシレーヌ B↑A↓");
+        Assert.False(ambiguous.Success);
+        Assert.Contains("#1・#2", ambiguous.Message);
     }
 
     [Theory]
