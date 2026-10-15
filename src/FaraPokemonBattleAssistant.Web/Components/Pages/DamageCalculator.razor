@@ -956,13 +956,16 @@ else if (data is not null && dataSet is not null)
             @RenderRolls(result, lastRequest, crit is null ? "" : "通常")
             @if (crit is not null && critRequest is not null) { @RenderRolls(crit, critRequest, "急所") }
         </details>
-        @if (result.Modifiers.Count > 0)
+        @* 補正の一覧。タイプ相性は、結果の札・数字で分かるので出さない *@
+        var normalMods = result.Modifiers.Where(m => !m.StartsWith("タイプ相性")).ToList();
+        var critMods = crit?.Modifiers.Where(m => !m.StartsWith("タイプ相性")).ToList() ?? new List<string>();
+        @if (normalMods.Count > 0)
         {
-            <p class="mb-1"><strong>補正@(crit is null ? "" : "（通常）"):</strong> @string.Join("、", result.Modifiers)</p>
+            <p class="mb-1"><strong>補正@(crit is null ? "" : "（通常）"):</strong> @string.Join("、", normalMods)</p>
         }
-        @if (crit is not null && crit.Modifiers.Count > 0)
+        @if (critMods.Count > 0)
         {
-            <p class="mb-1"><strong>補正（急所）:</strong> @string.Join("、", crit.Modifiers)</p>
+            <p class="mb-1"><strong>補正（急所）:</strong> @string.Join("、", critMods)</p>
         }
         <hr />
         <p class="mb-1 text-muted small">チャットでの表示</p>

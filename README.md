@@ -12,8 +12,8 @@ fara-pokemon-battle-assistant/
 ├── src/
 │   ├── FaraPokemonBattleAssistant.Core/   計算ロジック・CSV 読み込み・名前解決・登録/チーム・チャットコマンド（クラスライブラリ）
 │   ├── FaraPokemonBattleAssistant.Web/    Blazor WebAssembly（Cloudflare Workers に公開）
-│   │   └── wwwroot/api/game/         ★ ゲームデータ CSV。Web もボットもこのファイルを読む（公開サイトでは /api/game/... で配られる）
-│   └── FaraPokemonBattleAssistant.Cli/    コマンドをターミナルで試す / ボット組み込み前の動作確認用
+│   │   └── wwwroot/api/game/         ★ ゲームデータ CSV。Web も配信用BOTもこのファイルを読む（公開サイトでは /api/game/... で配られる）
+│   └── FaraPokemonBattleAssistant.Cli/    コマンドをターミナルで試す / 配信用BOT組み込み前の動作確認用
 ├── tests/FaraPokemonBattleAssistant.Core.Tests/
 ├── tools/
 │   ├── sync_data.py                  公開データとポケモン HOME からデータを再生成するスクリプト
@@ -27,8 +27,8 @@ fara-pokemon-battle-assistant/
     └── update-data.yml               毎週月曜にデータを再生成して develop にコミット（変更があれば deploy-develop.yml で確認用に公開。本番へは develop → master の PR で反映）
 ```
 
-サーバーは存在しません。計算は Web ではブラウザ内、ボットでは FaraBotModerator のプロセス内で行います。
-ボットは `Core` を参照し、データは公開サイト上の CSV（週 1 回自動更新）を取得してローカルにキャッシュします。
+サーバーは存在しません。計算は Web ではブラウザ内、配信用BOTでは FaraBotModerator のプロセス内で行います。
+配信用BOTは `Core` を参照し、データは公開サイト上の CSV（週 1 回自動更新）を取得してローカルにキャッシュします。
 
 ## データ
 
@@ -48,14 +48,14 @@ fara-pokemon-battle-assistant/
 - `datasets.json` の `calc: "Reference"` のゲームは参照のみです（計算機などでは案内を出します）。
 - 第3〜7世代のダメージ計算（`LegacyDamageCalculator`）は、その世代の補正の順番・丸め（第3〜4世代は補正ごとの切り捨て・タイプ一致の位置、急所 2 倍 / 1.5 倍、スキン系 1.3 倍、フィールド 1.5 倍、まひ 1/4、やけど 1/8 など）で行います。公開されているダメージ計算ツール（@smogon/calc）の結果と、`tools/calc_vectors` で作った条件（`tests/.../Data/calc_vectors.json`。第3〜7世代に加え、ソード・シールド / スカーレット・バイオレット / チャンピオンズの条件も含む）で一致を確かめています（第3世代のウェザーボールは、天候があると威力ではなくダメージが 2 倍になり、変わったタイプで物理・特殊も決まります。天候がないときはツールが特殊技として計算しますが、ゲームではノーマルタイプの物理技なので、その条件だけ比較から除いています）。ちからずく・すてみの対象の技は `move_lists.js` で作る `Data/move_lists.json` で全部の技を照合します。今のゲームの計算を意図して変えたときは `Data/calc_snapshot.txt` を作り直し、変わったケースを確認します。
 - 手動で更新する場合: `python tools/sync_data.py`（HOME を飛ばすなら `--skip-home`）。
-- 公開サイトでは `src/FaraPokemonBattleAssistant.Web/wwwroot/api/game/` がそのまま `https://pokemon.fara-labs.com/api/game/`（確認用は `https://pokemon-dev.fara-labs.com/api/game/`）で配られます（`datasets.csv`・`natures.csv`・`updated.txt`・`<ゲーム>/pokemon.csv` など。認証なしの静的ファイルで、Worker は通りません）。ボット（`HttpDataSource` + `CachingDataSource`）もこの URL から読みます。無いファイルはサイトの SPA 設定のため `404` ではなく `index.html`（`200`、`text/html`）が返るので、`HttpDataSource` は HTML を「無い」として扱います。
+- 公開サイトでは `src/FaraPokemonBattleAssistant.Web/wwwroot/api/game/` がそのまま `https://pokemon.fara-labs.com/api/game/`（確認用は `https://pokemon-dev.fara-labs.com/api/game/`）で配られます（`datasets.csv`・`natures.csv`・`updated.txt`・`<ゲーム>/pokemon.csv` など。認証なしの静的ファイルで、Worker は通りません）。配信用BOT（`HttpDataSource` + `CachingDataSource`）もこの URL から読みます。無いファイルはサイトの SPA 設定のため `404` ではなく `index.html`（`200`、`text/html`）が返るので、`HttpDataSource` は HTML を「無い」として扱います。
 
 ## チャットコマンド
 
 接頭辞でデータセットを選びます: **`!pokech`** = ポケモンチャンピオンズ、**`!pokesv`** = スカーレット・バイオレット、**`!pokess`** = ソード・シールド（`!poke` はチャンピオンズ扱い）。
 `!poke help` で使えるコマンドの一覧が返ります。登録・削除・使用チームの変更は配信者本人とモデレーターだけに許可する想定です（`PokeCommandOptions.AllowMutations`）。
-登録データはボットなら PC 上の JSON、ブラウザなら localStorage に保存され、データセットごとに独立しています。
-サイトの「データ共有」ページ（`/data-share`。ポケモン登録は `/my-pokemon`、チーム登録は `/my-team`。以前の `/data-sync`・`/sync`・`/pokemon`・`/roster`・`/team`・`/my-teams` などは新しい URL に転送）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末やボットが同じデータを読み書きできます（データ共有中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。ボット側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
+登録データは配信用BOTなら PC 上の JSON、ブラウザなら localStorage に保存され、データセットごとに独立しています。
+サイトの「データ共有」ページ（`/data-share`。ポケモン登録は `/my-pokemon`、チーム登録は `/my-team`。以前の `/data-sync`・`/sync`・`/pokemon`・`/roster`・`/team`・`/my-teams` などは新しい URL に転送）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末や配信用BOTが同じデータを読み書きできます（データ共有中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。配信用BOT側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
 
 ### 育成済みポケモンの登録（`-p` / `--pokemon`）
 
@@ -180,7 +180,7 @@ npm run test:worker                                      # データ共有 API�
 
 ### 登録データの共有 API
 
-登録ポケモン・チームを、アクセスキーで読み書きするための API です（`worker/index.js`）。サイトの「データ共有」ページの「API で使うには」にも同じ説明があります。サイトも API の使い手の 1 つで、ボット（FaraBotModerator の `RemoteRosterStore`）はその一例です。
+登録ポケモン・チームを、アクセスキーで読み書きするための API です（`worker/index.js`）。サイトの「データ共有」ページの「API で使うには」にも同じ説明があります。サイトも API の使い手の 1 つで、配信用BOT（FaraBotModerator の `RemoteRosterStore`）はその一例です。
 アクセスキーごとに SQLite ストレージの Durable Object（`RosterSlot`）を 1 つ持ち、登録データ（`RosterState` の JSON）を 1 つの文書として保存しています。API はその一部（ポケモン / チーム）を読み書きします。本番と確認用は Worker が別なので、データも別々です。
 
 登録データはゲーム（データセットのキー: `Champions`・`Gen9` など。大文字小文字は区別しない）ごとに分かれているので、本文の `dataSets` はゲームのキーごとのオブジェクトです。
@@ -200,9 +200,9 @@ npm run test:worker                                      # データ共有 API�
 - 認証は `Authorization: Bearer <アクセスキー>`。アクセスキーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもので、形式が違えば `401`。キーはクライアントが作るもので、作成・登録の API はありません（新しいキーの置き場は空で、`revision` は 0）
 - キーの作り直し・データ共有の開始では、新しいキーの空の置き場に `PUT /api/my/pokemon`（`baseRevision` 0）→ `PUT /api/my/team`（`baseRevision` 1）の順で移してから新しいキーに切り替え、古いキーには `DELETE /api/my/access-key` を呼びます。新しいキーは移し終わるまで誰も使わないので、途中の状態は見えません（途中で失敗したら新しいキーは使わずに捨てます）
 - サーバーはキーを保存せず、`SHA-256(キー)` を Durable Object の名前に使います。キーはログ・URL・エラーメッセージに出しません
-- すべての応答に `Cache-Control: no-store`。CORS ヘッダーは付けません（サイトは同じオリジン、ボットはブラウザではないため）
+- すべての応答に `Cache-Control: no-store`。CORS ヘッダーは付けません（サイトは同じオリジン、配信用BOTはブラウザではないため）
 - 以前の `/api/roster`・`/api/my-pokemon`・`/api/my-team`・`/api/access-key` はありません（`404`）。ゲームデータは API ではなく静的ファイル（`/api/game/...`。上の「データ」を参照）で、以前の `/data/...` もありません
-- 確認用サイト（Cloudflare Access の内側）では、`/api/*`（登録データの API `/api/my/*` とゲームデータ `/api/game/*`）を Access の **Bypass** にしないとボットから使えません（登録データはキーで認証するので Access は不要）
+- 確認用サイト（Cloudflare Access の内側）では、`/api/*`（登録データの API `/api/my/*` とゲームデータ `/api/game/*`）を Access の **Bypass** にしないと配信用BOTから使えません（登録データはキーで認証するので Access は不要）
 
 Cloudflare の DNS に `pokemon` / `pokemon-dev` のレコード（GitHub Pages 時代の CNAME など）が残っていると、カスタムドメインの作成で失敗します。削除してから再実行してください。
 
