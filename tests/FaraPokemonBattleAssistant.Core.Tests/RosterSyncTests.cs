@@ -529,7 +529,7 @@ public class RosterSyncTests
         var server = new FakeRosterServer { ExpectedKey = RemoteRosterStore.GenerateKey() };
         var (_, store) = NewRemote(server);
         var cmd = new FaraPokemonBattleAssistant.Core.Text.PokeCommand(TestData.Catalog(), new RosterRepository(store));
-        var result = await cmd.ExecuteAsync("!pokech ls -p");
+        var result = await cmd.ExecuteAsync("!pokech ls -m");
         Assert.False(result.Success);
         Assert.Contains("アクセスキーが正しくありません", result.Message);
         Assert.DoesNotContain(Key, result.Message);
@@ -541,7 +541,7 @@ public class RosterSyncTests
         var (server, store) = NewRemote();
         var cmd = new FaraPokemonBattleAssistant.Core.Text.PokeCommand(TestData.Catalog(), new RosterRepository(store));
         var options = new FaraPokemonBattleAssistant.Core.Text.PokeCommandOptions { AllowMutations = true };
-        Assert.True((await cmd.ExecuteAsync("!pokech add -p ガブリアス 0 32 0 0 2 32 ようき さめはだ", options)).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech add -m ガブリアス 0 32 0 0 2 32 ようき さめはだ", options)).Success);
         Assert.True((await cmd.ExecuteAsync("!pokech add -t 1 1", options)).Success);
         Assert.True((await cmd.ExecuteAsync("!pokech use -t 1", options)).Success);
         var saved = RosterRepository.Deserialize(server.RosterJson).For(Ds);

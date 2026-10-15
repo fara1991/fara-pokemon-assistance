@@ -42,8 +42,8 @@ public class ItemAvailabilityTests
     {
         var cmd = new PokeCommand(TestData.Catalog(), new RosterRepository(new MemoryRosterStore()));
         // dmg の攻撃側は登録済みのポケモンだけ使える
-        await cmd.ExecuteAsync("!pokech add -p ガブリアス 4 32 0 0 0 30 ようき");
-        await cmd.ExecuteAsync("!pokesv add -p ガブリアス 4 252 0 0 0 252 ようき");
+        await cmd.ExecuteAsync("!pokech add -m ガブリアス 4 32 0 0 0 30 ようき");
+        await cmd.ExecuteAsync("!pokesv add -m ガブリアス 4 252 0 0 0 252 ようき");
         var champions = await cmd.ExecuteAsync("!pokech dmg ガブリアス じしん リザードン こだわりハチマキ");
         Assert.True(champions.Success, champions.Message);
         Assert.Contains("ポケモンチャンピオンズにない持ち物のため無視", champions.Message);
@@ -62,7 +62,7 @@ public class ItemAvailabilityTests
     public async Task Team_item_not_in_the_game_is_rejected()
     {
         var cmd = new PokeCommand(TestData.Catalog(), new RosterRepository(new MemoryRosterStore()));
-        Assert.True((await cmd.ExecuteAsync("!pokech add -p ガブリアス 4 32 0 0 0 30 ようき")).Success);
+        Assert.True((await cmd.ExecuteAsync("!pokech add -m ガブリアス 4 32 0 0 0 30 ようき")).Success);
         var r = await cmd.ExecuteAsync("!pokech add -t 1 1 こだわりハチマキ");
         Assert.False(r.Success);
         Assert.Contains("ポケモンチャンピオンズにありません", r.Message);

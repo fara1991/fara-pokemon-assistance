@@ -57,28 +57,28 @@ fara-pokemon-battle-assistant/
 登録データは配信用BOTなら PC 上の JSON、ブラウザなら localStorage に保存され、データセットごとに独立しています。
 サイトの「データ共有」ページ（`/data-share`。ポケモン登録は `/my-pokemon`、チーム登録は `/my-team`。以前の `/data-sync`・`/sync`・`/pokemon`・`/roster`・`/team`・`/my-teams` などは新しい URL に転送）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末や配信用BOTが同じデータを読み書きできます（データ共有中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。配信用BOT側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
 
-### 育成済みポケモンの登録（`-p` / `--pokemon`）
+### 育成済みポケモンの登録（`-m` / `--my`）
 
-対象はオプションで指定します。ポケモンは `-p`（長い形は `--pokemon`）、チームは `-t`（`--team`）で、サブコマンドの直後に置きます。長い形は短い形と同じ意味です（例は下）。`add pokemon` のような単語の形は使えません（`add` だけを打つと、`-p` か `-t` を付けるよう案内します）。全角スペースや全角の英数字・記号（`ｄｍｇ`・`－ｐ`・`＋１` など）は半角として読み取ります（`PokeCommand` / `DamageCommand` の入口で `CommandText.Normalize`）。
+対象はオプションで指定します。自分のポケモンは `-m`（長い形は `--my`。以前の `-p` / `--pokemon` は廃止）、チームは `-t`（`--team`）で、サブコマンドの直後に置きます。長い形は短い形と同じ意味です（例は下）。`add pokemon` のような単語の形は使えません（`add` だけを打つと、`-m` か `-t` を付けるよう案内します）。全角スペースや全角の英数字・記号（`ｄｍｇ`・`－ｐ`・`＋１` など）は半角として読み取ります（`PokeCommand` / `DamageCommand` の入口で `CommandText.Normalize`）。
 
 例（短い形の直後に、同じ意味の長い形を並べています）:
 
 ```
-!pokech add -p ガブリアス 4 32 0 0 0 30 ようき
-!pokech add --pokemon ガブリアス 4 32 0 0 0 30 ようき
-!pokech ls -p
-!pokech ls --pokemon
-!pokech ls -p ガブリアス
+!pokech add -m ガブリアス 4 32 0 0 0 30 ようき
+!pokech add --my ガブリアス 4 32 0 0 0 30 ようき
+!pokech ls -m
+!pokech ls --my
+!pokech ls -m ガブリアス
 !pokech use -t 1
 !pokech use --team 1
 ```
 
 | コマンド | 内容 |
 |---|---|
-| `add -p 名前 H A B C D S 性格 [特性]` | 登録。チャンピオンズはポイント（各 0〜32・合計 66、1 pt = 実数値 +1）、SV/剣盾は努力値（各 0〜252・合計 510） |
-| `ls -p [名前]` | 一覧（登録 ID・ポケモン・性格）。名前を付けるとそのポケモンだけ |
-| `detail -p ID` | 詳細（性格・振り・特性・実数値・所属チーム） |
-| `rm -p ID` | 削除（チームからも外れる） |
+| `add -m 名前 H A B C D S 性格 [特性]` | 登録。チャンピオンズはポイント（各 0〜32・合計 66、1 pt = 実数値 +1）、SV/剣盾は努力値（各 0〜252・合計 510） |
+| `ls -m [名前]` | 一覧（登録 ID・ポケモン・性格）。名前を付けるとそのポケモンだけ |
+| `detail -m ID` | 詳細（性格・振り・特性・実数値・所属チーム） |
+| `rm -m ID` | 削除（チームからも外れる） |
 
 ### チーム（`-t` / `--team`）
 

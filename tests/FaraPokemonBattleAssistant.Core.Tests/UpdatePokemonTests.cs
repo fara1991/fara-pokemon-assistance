@@ -37,7 +37,7 @@ public class UpdatePokemonTests
     {
         var repo = new RosterRepository(new MemoryRosterStore());
         var cmd = new PokeCommand(TestData.Catalog(), repo);
-        await cmd.ExecuteAsync("!pokech add -p ガブリアス 4 32 0 0 0 30 ようき");
+        await cmd.ExecuteAsync("!pokech add -m ガブリアス 4 32 0 0 0 30 ようき");
         var reply = await cmd.ExecuteAsync("!pokech dmg ガブリアス じしん リザードン 防:たべのこし");
         Assert.True(reply.Success, reply.Message);
         Assert.DoesNotContain("たべのこし", reply.Message.Split("→")[1].Split(':')[0]);   // 相手の持ち物は出さない
