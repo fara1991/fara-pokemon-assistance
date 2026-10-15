@@ -82,7 +82,7 @@ else if (data is not null && dataSet is not null)
                         </SearchableSelect>
                         @if (s.Move is not null)
                         {
-                            <div class="small text-muted mt-1"><TypeIcon Type="@s.Move.Type" Small="true" /> @CategoryText(s.Move) 威力 @(s.Move.Power > 0 ? s.Move.Power.ToString() : "-")@MaxZText()@(s.Move.UsesPhysicalDefense ? "（相手の B で計算）" : "")@(s.Move.IsFixedDamage ? "（固定ダメージ技のため計算できません）" : "")</div>
+                            <div class="small text-muted mt-1"><TypeIcon Type="@s.Move.Type" Small="true" /> @CategoryText(s.Move) 威力 @(s.Move.Power > 0 ? s.Move.Power.ToString() : "-")@MaxZText()@(s.Move.UsesPhysicalDefense ? "（相手の B で計算）" : "")@(s.Move.IsFixedDamage ? "（固定ダメージ技のため計算できません）" : "")@StabText()</div>
                         }
                         @if (dataSet.HasZMove && s.Move is { IsDamaging: true })
                         {
@@ -925,6 +925,7 @@ else if (data is not null && dataSet is not null)
             <strong>@lastRequest.Attacker.Pokemon.Name</strong>
             <span class="mx-1"><TypeIcon Type="@result.MoveType" Small="true" /> @lastRequest.Move.Name@(result.Converted is { } conv ? $"（{conv.Name}）" : "") →</span>
             <strong data-swap="@lastRequest.Defender.Pokemon.Name">@lastRequest.Defender.Pokemon.Name</strong>
+            @if (result.TypeEffectiveness != 1.0) { <span class="ms-1 result-effect">（@EffectLabel(result)）</span> }
         </p>
         @* 数字は data-count の span に分ける（見た目の文字は RangeText と同じ。入力を変えると前の結果から数え上げる） *@
         @* 急所なし・ありを並べて出す。上が通常、下が急所 *@
@@ -947,30 +948,22 @@ else if (data is not null && dataSet is not null)
         {
             <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data!.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>
         }
-        @* 乱数 16 通りの表は、普段は閉じておく（閉じていても、最小〜最大は 1 行で見える）。開くと、1 発で倒せる値の赤枠も見える *@
-        <details class="rolls-details">
-            <summary>
-                <span>乱数 16 通りを見る</span>
-                <small class="text-muted">通常 @(result.MinDamage)〜@(result.MaxDamage)@(crit is null ? "" : $" / 急所 {crit.MinDamage}〜{crit.MaxDamage}")</small>
-            </summary>
-            @RenderRolls(result, lastRequest, crit is null ? "" : "通常")
-            @if (crit is not null && critRequest is not null) { @RenderRolls(crit, critRequest, "急所") }
-        </details>
-        @* 補正の一覧。タイプ相性は、結果の札・数字で分かるので出さない *@
-        var normalMods = result.Modifiers.Where(m => !m.StartsWith("タイプ相性")).ToList();
-        var critMods = crit?.Modifiers.Where(m => !m.StartsWith("タイプ相性")).ToList() ?? new List<string>();
-        @if (normalMods.Count > 0)
-        {
-            <p class="mb-1"><strong>補正@(crit is null ? "" : "（通常）"):</strong> @string.Join("、", normalMods)</p>
-        }
-        @if (critMods.Count > 0)
-        {
-            <p class="mb-1"><strong>補正（急所）:</strong> @string.Join("、", critMods)</p>
-        }
         <hr />
         <p class="mb-1 text-muted small">チャットでの表示</p>
         <div class="alert alert-light border chat-output mb-0">@(crit is null ? DamageCommand.Format(lastRequest, result, data!.Info) : DamageCommand.FormatBoth(lastRequest, result, crit, data!.Info))</div>
     };
+
+    /// <summary>いまひとつ・ばつぐん・こうかなし（倍率の数字は付けない）。</summary>
+    private static string EffectLabel(DamageResult r)
+    {
+        var t = r.EffectivenessText;
+        var i = t.IndexOf('(');
+        return i > 0 ? t[..i] : t;
+    }
+
+    /// <summary>技の下に出す「タイプ一致」の補正（結果の補正の一覧にあるものを、攻撃側の技のところに出す）。</summary>
+    private string StabText() =>
+        s.Result?.Modifiers.FirstOrDefault(m => m.StartsWith("タイプ一致")) is { } stab ? $"　{stab}" : "";
 
     private static string Inv(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
@@ -1012,33 +1005,6 @@ else if (data is not null && dataSet is not null)
                 <span><i class="hp-key-gone"></i>必ず減る HP</span>
                 <span><i class="hp-key-range"></i>乱数で減る幅</span>
             </div>
-        </div>
-    };
-
-    /// <summary>
-    /// 乱数 16 通りのダメージを 8 列×2 行のマスで並べ、防御側の今の HP 以上（1 発で倒せる値）を赤枠にする。
-    /// 計算結果（Rolls・確定数）は変えず、並べ方と説明だけを付ける。
-    /// </summary>
-    private RenderFragment RenderRolls(DamageResult result, DamageRequest lastRequest, string kind = "") => __builder =>
-    {
-        var hp = StartHp(result, lastRequest);
-        var name = lastRequest.Defender.Pokemon.Name;
-        var immune = result.TypeEffectiveness == 0.0;
-        var ko = immune ? 0 : result.Rolls.Count(r => r >= hp);
-        var hpText = hp < result.DefenderHP ? $" 現在 HP {hp}" : $" HP {hp}";
-        var caption = immune ? "効果がないので、どの乱数でもダメージは 0 です。"
-            : ko == result.Rolls.Length ? $"赤い数字は、{name} の{hpText} 以上（1 発で倒せる）。16 通りすべてで倒せるので確定 1 発です。"
-            : ko > 0 ? $"赤い数字は、{name} の{hpText} 以上（1 発で倒せる）。16 通り中 {ko} 通りなので、1 発で倒せる確率は {ko * 100.0 / result.Rolls.Length:0.0}% です。"
-            : $"{name} の{hpText}。どの乱数でも 1 発では倒せません。";
-        <div class="rolls-block">
-            <p class="rolls-title">@(kind == "" ? "" : $"{kind}: ")乱数 16 通りのダメージ <small>技のダメージは毎回この 16 通りのどれかになります</small></p>
-            <div class="rolls" data-rolls="@($"{string.Join(",", result.Rolls)};{hp}")">
-                @for (var i = 0; i < result.Rolls.Length; i++)
-                {
-                    <span style="--i:@i" class="@(!immune && result.Rolls[i] >= hp ? "ko" : "")">@result.Rolls[i]</span>
-                }
-            </div>
-            <p class="rolls-cap">@caption</p>
         </div>
     };
 
