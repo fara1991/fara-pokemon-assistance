@@ -97,19 +97,6 @@ else if (data is not null && dataSet is not null)
                                 </div>
                             </div>
                             <p class="fs-6 text-center mt-2 mb-2 @(speedA == speedB ? "text-warning" : "text-success")" data-pop="@Verdict(a, b, speedA, speedB)"><strong>@Verdict(a, b, speedA, speedB)</strong></p>
-                            @* 素早さの棒。先に動く方を緑にし、入力を変えると前の長さから伸び縮み、先手が入れ替わると行ごと入れ替わる（wwwroot/js/motion.js） *@
-                            var axis = Math.Max(300, (int)Math.Ceiling(Math.Max(speedA, speedB) * 1.1 / 50.0) * 50);
-                            var lanes = new[] { (Side: 0, Build: a, Speed: speedA), (Side: 1, Build: b, Speed: speedB) }.OrderBy(x => s.TrickRoom ? x.Speed : -x.Speed).ToList();
-                            <div class="speed-race" data-flip-group role="img" aria-label="@(s.TrickRoom ? "S の比較（長い棒ほど速い。トリックルーム中は短い方が先に動く）" : "S の比較（長い棒ほど速い）")">
-                                @foreach (var lane in lanes)
-                                {
-                                    <div class="race-lane" @key="lane.Side" data-flip-key="@lane.Side">
-                                        <div class="race-who"><PokemonIcon Pokemon="lane.Build.Pokemon" Small="true" /><span>@lane.Build.Pokemon.Name</span></div>
-                                        <div class="race-track"><div class="race-bar @(speedA != speedB && lane.Speed == lanes[0].Speed ? "first" : "")" data-bar style="width:@(Math.Min(100.0, lane.Speed * 100.0 / axis).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))%"></div></div>
-                                        <div class="race-num" data-count="@lane.Speed" data-count-from="0">@lane.Speed</div>
-                                    </div>
-                                }
-                            </div>
                         }
                         else
                         {

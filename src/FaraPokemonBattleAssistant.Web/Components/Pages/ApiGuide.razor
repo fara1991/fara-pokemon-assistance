@@ -1,0 +1,35 @@
+@page "/api-docs"
+
+<PageTitle>API | Pokémon Battle Assistant</PageTitle>
+
+<div class="page-header">
+    <h3>API <Help Title="API">登録したポケモンとチームを、このサイトの外から読み書きするための API の説明です。アクセスキーは、<a href="data-share">データ共有</a>ページで作ります。</Help></h3>
+    <p class="text-muted mb-0">自作のツールやスクリプトから、登録データを直接読み書きしたい人向けの説明です。ブラウザと配信用BOTで使うだけなら、ここは読まなくて大丈夫です。</p>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header"><h5>API で使うには <span class="badge bg-secondary ms-1">上級者向け</span></h5></div>
+    <div class="card-body">
+        <p class="small mb-2">アクセスキーを使うと、登録したポケモンとチームを、このサイトの外から API で読み書きできます。</p>
+        <ol class="mb-2 ps-3">
+            <li><a href="data-share">データ共有</a>ページで「データ共有を始める」を押して、アクセスキーを作り、「コピー」でコピーします。</li>
+            <li>リクエストの <code>Authorization: Bearer アクセスキー</code> ヘッダーに入れて、このサイトの API を呼びます。</li>
+        </ol>
+        <div class="table-responsive">
+            <table class="table table-sm small mb-2">
+                <thead><tr><th>API</th><th>内容</th></tr></thead>
+                <tbody>
+                    <tr><td><code>GET /api/my/pokemon</code></td><td>登録したポケモン（ゲームごと）を読み取ります</td></tr>
+                    <tr><td><code>PUT /api/my/pokemon</code></td><td>ポケモンを保存します。消したポケモンはチームからも外れ、0 体になったチームは消えます</td></tr>
+                    <tr><td><code>GET /api/my/team</code></td><td>チームと使用中のチームを読み取ります</td></tr>
+                    <tr><td><code>PUT /api/my/team</code></td><td>チームと使用中のチームを保存します（登録に無いポケモン・7 体以上は受け付けません）</td></tr>
+                    <tr><td><code>DELETE /api/my/access-key</code></td><td>このアクセスキーを使えなくし、データを消します（アクセスキーの作り直し用）</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted mb-2">本文はゲームごと（<code>"dataSets": {"Champions": {...}}</code>）です。<code>PUT</code> には読み取ったときの <code>revision</code> を <code>baseRevision</code> として付けます。その間に他の場所で更新されていたら <code>409</code> になるので、読み直してからやり直してください（<code>revision</code> はポケモンとチームで共通です）。詳しくは <a href="https://github.com/fara1991/fara-pokemon-battle-assistant#登録データの共有-api" target="_blank" rel="noopener noreferrer">README</a> を見てください。</p>
+        <p class="small text-muted mb-2">使い方の一例が、チャットの配信用BOTです。<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a>（Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けると、チャットの <code>add -p</code> / <code>use -t</code> などと、このサイトが同じデータを読み書きするようになります。</p>
+        <p class="small text-muted mb-2">データ共有中はクラウドのデータだけを使い、このブラウザには保存しません（コピーを取り合うのではなく、全員が同じデータを使います）。アクセスキーを作り直したら、API を使うほかのツールや端末にも新しいアクセスキーを入れ直してください（古いキーは使えなくなります）。</p>
+        <p class="small text-muted mb-0">ポケモン・技・持ち物などのゲームデータ（このサイトが使っている CSV）は、アクセスキーなしで <code>/api/game/</code> から読めます（<a href="api/game/datasets.csv" target="_blank" rel="noopener noreferrer"><code>/api/game/datasets.csv</code></a> がゲームの一覧、<code>/api/game/ゲームのキー/pokemon.csv</code> などがその中身）。</p>
+        </div>
+</div>
