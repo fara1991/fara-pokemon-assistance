@@ -144,6 +144,7 @@ public sealed class PokemonDataSet
             {
                 Id = itemTable.GetInt(row, "Id"),
                 Name = itemTable.Get(row, "Name"),
+                Identifier = itemTable.Get(row, "Identifier"),
                 Category = Enum.TryParse<ItemCategory>(itemTable.Get(row, "Category"), true, out var ic) ? ic : ItemCategory.Other,
                 Effect = itemTable.Get(row, "Effect"),
                 AttackMultiplier = itemTable.GetDouble(row, "AttackMultiplier", 1.0),

@@ -375,6 +375,8 @@ public sealed class Item
 {
     public int Id { get; init; }
     public string Name { get; init; } = "";
+    /// <summary>画像のファイル名に使う英語名（例: choice-band）。</summary>
+    public string Identifier { get; init; } = "";
     public ItemCategory Category { get; init; }
     public string Effect { get; init; } = "";
     public double AttackMultiplier { get; init; } = 1.0;
