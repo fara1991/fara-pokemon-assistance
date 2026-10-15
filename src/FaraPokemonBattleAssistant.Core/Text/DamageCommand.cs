@@ -52,7 +52,7 @@ public sealed class DamageCommandResult
 /// <item>特性名（ちからもち 等）… そのポケモンが持てる側に付く。両方持てるなら防御的な特性は防御側</item>
 /// <item><c>テラス</c>（技タイプにテラスタル）、<c>テラスほのお</c> / <c>ほのおテラス</c>、<c>防:テラスみず</c></item>
 /// <item><c>ダイマ</c>（攻撃側をダイマックス）、<c>防:ダイマ</c>（防御側: HP 2 倍）、<c>Z</c>（Z 技。第 7 世代）</item>
-/// <item><c>壁</c>（オーロラベール。物理・特殊とも半減）、<c>リフレクター</c>（物理のみ）、<c>ひかりのかべ</c>（特殊のみ）、<c>HP50%</c>（防御側の残り HP）、<c>攻:HP30%</c>（攻撃側の残り HP。もうか等）</item>
+/// <item><c>壁</c>（オーロラベール。物理・特殊とも半減）、<c>リフレクター</c>（物理のみ）、<c>ひかりのかべ</c>（特殊のみ）</item>
 /// <item>天候: <c>晴れ</c> <c>雨</c> <c>砂</c> <c>雪</c>、フィールド: <c>エレキ</c> <c>グラス</c> <c>サイコ</c> <c>ミスト</c></item>
 /// <item>状態異常: <c>やけど</c> <c>まひ</c>（既定は攻撃側）、<c>どく</c> <c>もうどく</c>（既定は防御側。確定数に定数ダメージを織り込む）</item>
 /// </list>
@@ -213,13 +213,6 @@ public sealed class DamageCommand
             if (normalized is "壁" or "かべ" or "おーろらべーる" or "screen")
             {
                 screen = true;
-                continue;
-            }
-            var hpMatch = HpToken.Match(normalized);
-            if (hpMatch.Success)
-            {
-                var pct = Math.Clamp(int.Parse(hpMatch.Groups[1].Value), 1, 100);
-                if (forcedAttacker == true) attacker.HpPercent = pct; else defender.HpPercent = pct;
                 continue;
             }
             if (StatusNames.Parse(normalized) is { } status)
@@ -460,9 +453,6 @@ public sealed class DamageCommand
         if (request.Format == BattleFormat.Doubles) tags.Add("ダブル");
         return tags.Count > 0 ? $" [{string.Join(" ", tags)}]" : "";
     }
-
-    /// <summary>「HP50%」「残りHP30%」（正規化後の小文字）。</summary>
-    private static readonly Regex HpToken = new(@"^(?:残り)?hp(\d{1,3})[%％]$", RegexOptions.Compiled);
 
     private static readonly Regex RankSuffix = new(@"^(.*?)([+-＋－][1-6])$", RegexOptions.Compiled);
 

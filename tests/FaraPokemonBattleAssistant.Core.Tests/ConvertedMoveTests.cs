@@ -81,6 +81,7 @@ public class ConvertedMoveTests
         Assert.Null(calc.Calculate(new DamageRequest { Attacker = attacker, Move = move, Defender = defender }).Converted);
 
         var cmd = new PokeCommand(TestData.Catalog(), new RosterRepository(new MemoryRosterStore()));
+        await cmd.ExecuteAsync("!pokess add -p ドサイドン 4 252 0 0 0 252 ようき");   // 攻撃側は登録済みのポケモンだけ
         var reply = await cmd.ExecuteAsync("!pokess dmg ドサイドン ウッドハンマー ギャラドス ダイマ");
         Assert.True(reply.Success, reply.Message);
         Assert.Contains("ウッドハンマー（ダイソウゲン）", reply.Message);

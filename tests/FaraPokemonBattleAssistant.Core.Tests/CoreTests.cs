@@ -587,6 +587,7 @@ public class PokeCommandTests
     public async Task Command_list_and_generic_prefix()
     {
         var cmd = NewCommand(out _);
+        await cmd.ExecuteAsync("!poke add -p ガブリアス 4 32 0 0 0 30 ようき");   // dmg の攻撃側は登録済みのポケモンだけ
         var list = await cmd.ExecuteAsync("!poke help");
         Assert.True(list.Success, list.Message);
         Assert.Contains("add -t", list.Message);
@@ -605,6 +606,7 @@ public class PokeCommandTests
     public async Task Damage_lists_ability_variants_when_they_differ()
     {
         var cmd = NewCommand(out _);
+        await cmd.ExecuteAsync("!pokesv add -p ガブリアス 4 252 0 0 0 252 ようき");
         // ドータクン: ふゆう / たいねつ / ヘヴィメタル → じしんは ふゆう で無効
         var dmg = await cmd.ExecuteAsync("!pokesv dmg ガブリアス じしん ドータクン");
         Assert.True(dmg.Success, dmg.Message);
@@ -640,6 +642,7 @@ public class PokeCommandTests
     public async Task Status_conditions_affect_damage_and_speed()
     {
         var cmd = NewCommand(out _);
+        await cmd.ExecuteAsync("!pokesv add -p ガブリアス 4 252 0 0 0 252 ようき");
         var plain = await cmd.ExecuteAsync("!pokesv dmg ガブリアス じしん ドータクン 防:たいねつ");
         var burned = await cmd.ExecuteAsync("!pokesv dmg ガブリアス じしん ドータクン 防:たいねつ やけど");
         Assert.True(burned.Success, burned.Message);
@@ -1110,14 +1113,16 @@ public class RecoveryAndFieldTests
     }
 
     [Fact]
-    public async Task Chat_tokens_for_screen_and_hp()
+    public async Task Chat_tokens_for_screen_and_the_removed_hp_option()
     {
         var command = new DamageCommand(TestData.Catalog());
         var result = await command.ExecuteAsync("ガブリアス じしん ドドゲザン 壁 HP50% 攻:HP30%", new DamageCommandOptions { DataSetKey = "Gen9" });
         Assert.True(result.Success, result.Message);
         Assert.True(result.Request!.Screen);
-        Assert.Equal(50, result.Request.Defender.HpPercent);
-        Assert.Equal(30, result.Request.Attacker.HpPercent);
+        // 残り HP のオプションは無くなった（HP50% は読まれず、無視の注意が付く）
+        Assert.Equal(100, result.Request.Defender.HpPercent);
+        Assert.Equal(100, result.Request.Attacker.HpPercent);
+        Assert.Contains("「HP50%」は無視", result.Message);
         Assert.Contains("壁", result.Message);
     }
 }

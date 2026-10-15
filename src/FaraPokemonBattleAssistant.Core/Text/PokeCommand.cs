@@ -335,10 +335,22 @@ public sealed class PokeCommand
 
     // ------------------------------------------------------------------ 計算
 
+    /// <summary>dmg・calc の攻撃側が登録済みでないときのメッセージ（登録済みなら null）。名前が決まらないときは、それぞれのコマンドの案内に任せる。</summary>
+    private static string? RegisteredOnlyError(DataSetInfo ds, PokemonDataSet data, string name, Func<Pokemon, bool, PokemonBuild?> provider, string role)
+    {
+        var match = DamageCommand.CreatePokemonResolver(data).Resolve(name);
+        if (!match.IsResolved) return null;
+        return provider(match.Value!, true) is null ? NotRegisteredMessage(ds, match.Value!.Name, role) : null;
+    }
+
+    private static string NotRegisteredMessage(DataSetInfo ds, string pokemonName, string role) =>
+        $"{role}の{pokemonName}は登録されていません。!{ds.CommandPrefix} dmg・calc・faster は、登録済みのポケモンだけ使えます（!{ds.CommandPrefix} add -p で登録してください）";
+
     private async Task<DamageCommandResult> DamageAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (args.Count < 3) return Fail($"書式: !{ds.CommandPrefix} dmg 攻撃側 技±ランク 防御側 [オプション]");
-        var provider = await _roster.ActiveTeamBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
+        var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
+        if (RegisteredOnlyError(ds, data, args[0], provider, "攻撃側") is { } notRegistered) return Fail(notRegistered);
         var text = string.Join(" ", args);
 
         var normal = await _damage.ExecuteAsync(text, new DamageCommandOptions { DataSetKey = ds.Key, Format = options.Format, BuildProvider = provider, MaxLength = int.MaxValue }, ct).ConfigureAwait(false);
@@ -404,8 +416,9 @@ public sealed class PokeCommand
         if (damageIndex < 0) return Fail("受けたダメージを数値（93）か割合（45%）で指定してください");
         args.RemoveAt(damageIndex);
 
-        var provider = await _roster.ActiveTeamBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
-        // 防御側は相手なので、使用チームの構成は攻撃側だけに適用する
+        var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
+        if (args.Count > 0 && RegisteredOnlyError(ds, data, args[0], provider, "攻撃側") is { } notRegistered) return Fail(notRegistered);
+        // 防御側は相手なので、登録の構成は攻撃側だけに適用する
         Func<Pokemon, bool, PokemonBuild?> attackerOnly = (p, isAttacker) => isAttacker ? provider(p, true) : null;
         var baseline = await _damage.ExecuteAsync(string.Join(" ", args), new DamageCommandOptions
         {
@@ -471,22 +484,13 @@ public sealed class PokeCommand
         var oppMatch = resolver.Resolve(args[1]);
         if (!oppMatch.IsResolved) return Fail(NotFound("ポケモン", args[1], oppMatch.Candidates.Select(p => p.Name)));
 
-        var provider = await _roster.ActiveTeamBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
+        var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
         var usage = await UsageOrNullAsync(data, options.Format, ct).ConfigureAwait(false);
         var warnings = new List<string>();
 
+        // 自分のポケモンは、登録済みのものに限る（特性・持ち物・努力値は登録の内容）
         var mine = provider(mineMatch.Value!, true)?.Clone();
-        if (mine is null)
-        {
-            mine = new PokemonBuild(mineMatch.Value!, ds.EvSystem)
-            {
-                Nature = usage?.TopNature(mineMatch.Value!.Id) ?? data.FindNature("まじめ"),
-                Item = usage?.TopItem(mineMatch.Value!.Id),
-                Ability = usage?.TopAbility(mineMatch.Value!) ?? data.AbilitiesOf(mineMatch.Value!).FirstOrDefault(),
-            };
-            mine.EVs[Stat.Speed] = EvRules.Full(ds.EvSystem);
-            warnings.Add($"{mine.Pokemon.Name}は使用チームにいないため S{EvRules.Full(ds.EvSystem)}・使用率1位の性格/持ち物で計算");
-        }
+        if (mine is null) return Fail(NotRegisteredMessage(ds, mineMatch.Value!.Name, "自分のポケモン"));
         var weather = Weather.None;
         var terrain = Terrain.None;
         var opponentParalyzed = false;

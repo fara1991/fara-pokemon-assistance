@@ -405,7 +405,8 @@ public sealed class RosterRepository
             EVs = entry.EVs,
             Nature = data.FindNature(entry.Nature),
             Ability = entry.AbilityId is { } aid ? data.FindAbility(aid) : data.AbilitiesOf(pokemon).FirstOrDefault(),
-            Item = item,
+            // メガシンカ後のポケモンは、メガストーンを持つ（持ち物は固定）
+            Item = pokemon.IsMega && pokemon.MegaStoneId is { } stone ? data.FindItem(stone) ?? item : item,
             TeraType = entry.TeraType,
         };
     }
@@ -467,6 +468,29 @@ public sealed class RosterRepository
         foreach (var (entry, item) in members)
         {
             if (!builds.ContainsKey(entry.PokemonId) && ToBuild(entry, data, item) is { } build)
+                builds[entry.PokemonId] = build;
+        }
+        return (pokemon, _) => builds.GetValueOrDefault(pokemon.Id);
+    }
+
+    /// <summary>
+    /// 登録済みのポケモンの構成を返す。使用チームのメンバー（チームで持たせた持ち物つき）を先にし、
+    /// 次にほかの登録（持ち物なし。メガシンカ後はメガストーン）。登録が無いポケモンは null。
+    /// チャットの dmg・calc・faster で、自分のポケモンを登録済みに限るために使う。
+    /// </summary>
+    public async Task<Func<Pokemon, bool, PokemonBuild?>> RegisteredBuildProviderAsync(string dataSetKey, PokemonDataSet data, CancellationToken ct = default)
+    {
+        var members = await ActiveTeamMembersAsync(dataSetKey, data, ct).ConfigureAwait(false);
+        var builds = new Dictionary<int, PokemonBuild>();
+        foreach (var (entry, item) in members)
+        {
+            if (!builds.ContainsKey(entry.PokemonId) && ToBuild(entry, data, item) is { } build)
+                builds[entry.PokemonId] = build;
+        }
+        var roster = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey);
+        foreach (var entry in roster.Pokemon.OrderBy(p => p.Id))
+        {
+            if (!builds.ContainsKey(entry.PokemonId) && ToBuild(entry, data) is { } build)
                 builds[entry.PokemonId] = build;
         }
         return (pokemon, _) => builds.GetValueOrDefault(pokemon.Id);
