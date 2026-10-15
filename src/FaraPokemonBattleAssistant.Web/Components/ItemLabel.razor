@@ -1,0 +1,15 @@
+@* 持ち物のアイコンと名前を 1 行で表示する。画像が無ければ名前だけ。 *@
+@if (Item is not null)
+{
+    <span class="item-label">
+        @if (!string.IsNullOrEmpty(Item.Identifier))
+        {
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/@(Item.Identifier).png" alt="" loading="lazy" class="item-icon" onerror="this.style.display='none'" />
+        }
+        <span>@Item.Name</span>
+    </span>
+}
+
+@code {
+    [Parameter] public Item? Item { get; set; }
+}

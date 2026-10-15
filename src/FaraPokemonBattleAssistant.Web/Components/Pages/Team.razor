@@ -94,7 +94,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                             var entry = roster.Pokemon.FirstOrDefault(p => p.Id == slot.EntryId);
                             var item = slot.ItemId is { } iid ? data.FindItem(iid) : null;
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div class="min-w-0"><span>#@slot.EntryId <PokemonLabel Pokemon="entry is null ? null : data.FindPokemon(entry.PokemonId)" Small="true" /> <small class="text-muted">@(entry is null ? "" : NatureText(entry.Nature)) @(entry?.EVs.ToShortString())</small> @(item is null ? "" : "@" + item.Name)</span>
+                                <div class="min-w-0"><span>#@slot.EntryId <PokemonLabel Pokemon="entry is null ? null : data.FindPokemon(entry.PokemonId)" Small="true" /> <small class="text-muted">@(entry is null ? "" : NatureText(entry.Nature)) @(entry?.EVs.ToShortString())</small> <ItemLabel Item="item" /></span>
                                     @if (entry is { MoveIds.Count: > 0 })
                                     {
                                         <div class="small reg-moves">技：@foreach (var mid in entry.MoveIds)

@@ -667,6 +667,7 @@ class Builder:
                 eff.get("AttackMultiplier", "1.0"), eff.get("DefenseMultiplier", "1.0"),
                 eff.get("SpAttackMultiplier", "1.0"), eff.get("SpDefenseMultiplier", "1.0"),
                 eff.get("DamageMultiplier", "1.0"), eff.get("TypeBoost", ""), eff.get("TypeBoostMultiplier", "1.0"),
+                self.items[iid]["identifier"],
             ])
         # メガストーン（メガシンカ後のフォルム専用。計算には影響しない）
         seen = {row[0] for row in rows}
@@ -675,10 +676,10 @@ class Builder:
                 continue
             seen.add(iid)
             holder = self.display_name(pid) or ""
-            rows.append([iid, name, "MegaStone", f"{holder}のメガシンカに必要", "1.0", "1.0", "1.0", "1.0", "1.0", "", "1.0"])
+            rows.append([iid, name, "MegaStone", f"{holder}のメガシンカに必要", "1.0", "1.0", "1.0", "1.0", "1.0", "", "1.0", self.items[iid]["identifier"]])
         write_csv(out_dir / "items.csv",
                   ["Id", "Name", "Category", "Effect", "AttackMultiplier", "DefenseMultiplier", "SpAttackMultiplier",
-                   "SpDefenseMultiplier", "DamageMultiplier", "TypeBoost", "TypeBoostMultiplier"], rows)
+                   "SpDefenseMultiplier", "DamageMultiplier", "TypeBoost", "TypeBoostMultiplier", "Identifier"], rows)
 
     def write_type_chart(self, out_dir: Path, generation: int | None = None) -> None:
         """タイプ相性。generation を渡すと、その世代の相性（type_efficacy_past）にし、まだ無いタイプ（あく・はがね・フェアリー）を除く。"""
