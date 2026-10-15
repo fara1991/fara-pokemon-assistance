@@ -28,7 +28,7 @@
             </table>
         </div>
         <p class="small text-muted mb-2">本文はゲームごと（<code>"dataSets": {"Champions": {...}}</code>）です。<code>PUT</code> には読み取ったときの <code>revision</code> を <code>baseRevision</code> として付けます。その間に他の場所で更新されていたら <code>409</code> になるので、読み直してからやり直してください（<code>revision</code> はポケモンとチームで共通です）。詳しくは <a href="https://github.com/fara1991/fara-pokemon-battle-assistant#登録データの共有-api" target="_blank" rel="noopener noreferrer">README</a> を見てください。</p>
-        <p class="small text-muted mb-2">使い方の一例が、チャットの配信用BOTです。<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a>（Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けると、チャットの <code>add -p</code> / <code>use -t</code> などと、このサイトが同じデータを読み書きするようになります。</p>
+        <p class="small text-muted mb-2">使い方の一例が、チャットの配信用BOTです。<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a>（Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けると、チャットの <code>add -m</code> / <code>use -t</code> などと、このサイトが同じデータを読み書きするようになります。</p>
         <p class="small text-muted mb-2">データ共有中はクラウドのデータだけを使い、このブラウザには保存しません（コピーを取り合うのではなく、全員が同じデータを使います）。アクセスキーを作り直したら、API を使うほかのツールや端末にも新しいアクセスキーを入れ直してください（古いキーは使えなくなります）。</p>
         <p class="small text-muted mb-0">ポケモン・技・持ち物などのゲームデータ（このサイトが使っている CSV）は、アクセスキーなしで <code>/api/game/</code> から読めます（<a href="api/game/datasets.csv" target="_blank" rel="noopener noreferrer"><code>/api/game/datasets.csv</code></a> がゲームの一覧、<code>/api/game/ゲームのキー/pokemon.csv</code> などがその中身）。</p>
         </div>

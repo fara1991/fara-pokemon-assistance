@@ -17,7 +17,7 @@ public sealed class PokeCommandOptions
 /// <summary>
 /// <c>!pokech</c> / <c>!pokesv</c> / <c>!pokess</c> で始まるコマンド群。接頭辞でデータセットが決まる。
 /// <list type="bullet">
-/// <item><c>add -p 名前 H A B C D S 性格 [特性]</c> 登録、<c>ls -p [名前]</c> 一覧、<c>detail -p ID</c> 詳細、<c>rm -p ID</c> 削除</item>
+/// <item><c>add -m 名前 H A B C D S 性格 [特性]</c> 登録、<c>ls -m [名前]</c> 一覧、<c>detail -m ID</c> 詳細、<c>rm -m ID</c> 削除</item>
 /// <item><c>add -t 番号 ID [持ち物]</c>、<c>rm -t 番号 [名前]</c>、<c>use -t 番号</c>、<c>ls -t</c>、<c>detail -t 番号</c>、<c>help</c> 一覧</item>
 /// <item><c>dmg 攻撃側 技±ランク 防御側 [オプション]</c> 通常と急所、<c>calc 攻撃側 技±ランク 防御側 受けたダメージ[%]</c> 努力値推定、<c>faster 自分 相手</c> 素早さ比較</item>
 /// </list>
@@ -48,7 +48,7 @@ public sealed class PokeCommand
     }
 
     public static string Usage(string prefix) =>
-        $"!{prefix} add -p 名前 H A B C D S 性格 | ls -p [名前] | detail -p ID | rm -p ID | add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号 | help | dmg 攻撃 技±ランク 防御 | calc 攻撃 技 防御 ダメージ | faster 自分 相手";
+        $"!{prefix} add -m 名前 H A B C D S 性格 | ls -m [名前] | detail -m ID | rm -m ID | add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号 | help | dmg 攻撃 技±ランク 防御 | calc 攻撃 技 防御 ダメージ | faster 自分 相手";
 
     /// <summary>メッセージがこのコマンド群のものかを判定し、接頭辞と残りを返す。</summary>
     public async Task<(DataSetInfo DataSet, string Arguments)?> MatchAsync(string message, CancellationToken ct = default)
@@ -76,10 +76,10 @@ public sealed class PokeCommand
     public static string CommandList(IEnumerable<DataSetInfo> dataSets)
     {
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
-        return "ポケモン: add -p 名前 H A B C D S 性格 [特性] / ls -p [名前] / detail -p ID / rm -p ID ｜ " +
+        return "ポケモン: add -m 名前 H A B C D S 性格 [特性] / ls -m [名前] / detail -m ID / rm -m ID ｜ " +
                "チーム: add -t 番号 ID [持ち物] / rm -t 番号 [名前] / use -t 番号 / unuse -t / ls -t / detail -t 番号 ｜ " +
                "計算: dmg 攻撃 技±ランク 防御 [努力値 性格 持ち物 特性 急所 やけど どく まひ 天候 …] / calc 攻撃 技 防御 ダメージ[%] / faster 自分 相手 [まひ] ｜ " +
-               $"接頭辞: {prefixes}（!poke はチャンピオンズ） ｜ -p/-t は --pokemon/--team でも可（例: use --team 1）";
+               $"接頭辞: {prefixes}（!poke はチャンピオンズ） ｜ -m/-t は --my/--team でも可（例: use --team 1）";
     }
 
     public async Task<DamageCommandResult> ExecuteAsync(string message, PokeCommandOptions? options = null, CancellationToken ct = default)
@@ -126,9 +126,12 @@ public sealed class PokeCommand
         if (tokens.Count == 0) return Fail(Usage(ds.CommandPrefix));
         var sub = tokens[0].ToLowerInvariant();
         var args = tokens.Skip(1).ToList();
-        // 対象はオプションで指定する: -p / --pokemon（ポケモン）、-t / --team（チーム）。サブコマンドの直後に置く
+        // 対象はオプションで指定する: -m / --my（自分のポケモン）、-t / --team（チーム）。サブコマンドの直後に置く
         var isTeam = args.Count > 0 && (args[0].Equals("-t", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--team", StringComparison.OrdinalIgnoreCase));
-        var isPokemon = args.Count > 0 && (args[0].Equals("-p", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--pokemon", StringComparison.OrdinalIgnoreCase));
+        var isPokemon = args.Count > 0 && (args[0].Equals("-m", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--my", StringComparison.OrdinalIgnoreCase));
+        // 以前の -p / --pokemon は廃止した（自分のポケモンは -m / --my）
+        if (args.Count > 0 && (args[0].Equals("-p", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--pokemon", StringComparison.OrdinalIgnoreCase)))
+            return Fail($"-p（--pokemon）は廃止しました。自分のポケモンは -m（--my）を使ってください（例: !{ds.CommandPrefix} {sub} -m）");
         if (isTeam || isPokemon) args.RemoveAt(0);
         // ヘルプと参照専用データセットの拒否はデータ本体を使わないので、データセットを読み込む前に返す
         if (sub is "help")
@@ -150,7 +153,7 @@ public sealed class PokeCommand
             case "unuse" or "release" or "clear" when isTeam: return await UnuseTeamAsync(ds, options, ct).ConfigureAwait(false);
             case "use" when isTeam: return await UseTeamAsync(ds, args, options, ct).ConfigureAwait(false);
             case "add" or "ls" or "detail" or "rm" or "use" or "unuse" or "release" or "clear":
-                return Fail($"「{tokens[0]}」の後に、対象を -p（ポケモン）か -t（チーム）で付けてください（例: !{ds.CommandPrefix} {sub} -p / {sub} -t。--pokemon / --team でも可）。{Usage(ds.CommandPrefix)}");
+                return Fail($"「{tokens[0]}」の後に、対象を -m（自分のポケモン）か -t（チーム）で付けてください（例: !{ds.CommandPrefix} {sub} -m / {sub} -t。--my / --team でも可）。{Usage(ds.CommandPrefix)}");
             case "foe" or "foes" or "opponent": return FoeCommand(ds, data, args);
             case "dmg" or "damage": return await DamageAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "calc" or "ev": return await CalcAsync(ds, data, args, options, ct).ConfigureAwait(false);
@@ -166,7 +169,7 @@ public sealed class PokeCommand
         if (!options.AllowMutations) return Fail("登録は配信者・モデレーターのみ行えます");
         var system = ds.EvSystem;
         if (args.Count < 8)
-            return Fail($"書式: !{ds.CommandPrefix} add -p 名前 H A B C D S 性格 [特性]（{EvRules.Label(system)}は各 0〜{EvRules.MaxPerStat(system)}、合計 {EvRules.MaxTotal(system)} まで）");
+            return Fail($"書式: !{ds.CommandPrefix} add -m 名前 H A B C D S 性格 [特性]（{EvRules.Label(system)}は各 0〜{EvRules.MaxPerStat(system)}、合計 {EvRules.MaxTotal(system)} まで）");
 
         var pokemon = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
         if (!pokemon.IsResolved) return Fail(NotFound("ポケモン", args[0], pokemon.Candidates.Select(p => p.Name)));
@@ -221,7 +224,7 @@ public sealed class PokeCommand
 
     private async Task<DamageCommandResult> MoreAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, CancellationToken ct)
     {
-        if (args.Count == 0 || !int.TryParse(args[0], out var id)) return Fail($"書式: !{ds.CommandPrefix} detail -p 登録ID");
+        if (args.Count == 0 || !int.TryParse(args[0], out var id)) return Fail($"書式: !{ds.CommandPrefix} detail -m 登録ID");
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == id);
         if (entry is null) return Fail($"登録ID {id} はありません");
@@ -235,7 +238,7 @@ public sealed class PokeCommand
     private async Task<DamageCommandResult> RemoveAsync(DataSetInfo ds, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("削除は配信者・モデレーターのみ行えます");
-        if (args.Count == 0 || !int.TryParse(args[0], out var id)) return Fail($"書式: !{ds.CommandPrefix} rm -p 登録ID");
+        if (args.Count == 0 || !int.TryParse(args[0], out var id)) return Fail($"書式: !{ds.CommandPrefix} rm -m 登録ID");
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == id);
         if (entry is null) return Fail($"登録ID {id} はありません");
@@ -353,7 +356,7 @@ public sealed class PokeCommand
     }
 
     private static string NotRegisteredMessage(DataSetInfo ds, string pokemonName, string role) =>
-        $"{role}の{pokemonName}は登録されていません。!{ds.CommandPrefix} dmg・calc・faster は、登録済みのポケモンだけ使えます（!{ds.CommandPrefix} add -p で登録してください）";
+        $"{role}の{pokemonName}は登録されていません。!{ds.CommandPrefix} dmg・calc・faster は、登録済みのポケモンだけ使えます（!{ds.CommandPrefix} add -m で登録してください）";
 
     private async Task<DamageCommandResult> DamageAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {

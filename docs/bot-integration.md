@@ -64,7 +64,7 @@ public sealed class PokemonAssistService
         var result = await _command.ExecuteAsync(message, new PokeCommandOptions
         {
             Format = Models.BattleFormat.Singles,   // ダブル配信なら Doubles
-            AllowMutations = canEdit,               // add -p / rm -p / add -t など登録系は配信者本人とモデレーターだけ
+            AllowMutations = canEdit,               // add -m / rm -m / add -t など登録系は配信者本人とモデレーターだけ
         });
         return result.Message;
     }
@@ -87,7 +87,7 @@ var roster = new RosterRepository(store);
 
 - `RemoteRosterStore(HttpClient http, string apiBaseUrl, string syncKey)`。`apiBaseUrl` は本番 `RemoteRosterStore.ProductionBaseUrl`（`https://pokemon.fara-labs.com/`）、確認用 `RemoteRosterStore.DevelopBaseUrl`（`https://pokemon-dev.fara-labs.com/`。データは本番と別）。キーの形式が違うと `ArgumentException`
 - `RosterRepository` は読み書きのたびにクラウドから読み直し（ポケモンとチームの 2 回の GET。間に更新が入って版が食い違ったら読み直す）、他の場所（サイト）の更新と競合したら読み直して最大 3 回やり直します（`RosterRepository.MaxConflictRetries`）
-- 保存は変えた部分だけです。登録・削除（`add -p` / `rm -p`）は `PUT /api/my/pokemon`、チーム・使用チームの変更（`add -t` / `rm -t` / `use -t` / `unuse -t`）は `PUT /api/my/team` を呼びます（`IRosterStore.SavePartAsync`）。ポケモンを消したときにチームから外す・0 体のチームを消す・使用中を解除する処理はサーバーが同じ処理の中で行います
+- 保存は変えた部分だけです。登録・削除（`add -m` / `rm -m`）は `PUT /api/my/pokemon`、チーム・使用チームの変更（`add -t` / `rm -t` / `use -t` / `unuse -t`）は `PUT /api/my/team` を呼びます（`IRosterStore.SavePartAsync`）。ポケモンを消したときにチームから外す・0 体のチームを消す・使用中を解除する処理はサーバーが同じ処理の中で行います
 - `IRosterStore` を包むクラスを作るときは、`SavePartAsync` も中の保存先にそのまま渡してください（`SaveAsync` は登録データ全体の保存で、クラウドではデータの移し替え用です）
 - クラウドに届かないときは `RosterUnavailableException`（`Reason`: `Network` / `Unauthorized`＝キーが正しくない / `KeyRetired`＝サイトでキーが作り直された / `TooLarge` / `Rejected` / `Server` / `InvalidResponse`）。`Message` はそのまま表示できる日本語で、キーは含みません。やり直しても競合が続くと `RosterConflictException`
 - `PokeCommand.ExecuteAsync` / `TryExecuteAsync` はこれらの例外を受け止めて「失敗しました: アクセスキーが正しくありません」のような結果を返します（チャットにそのまま返せます）
@@ -133,12 +133,12 @@ dotnet run --project src/FaraPokemonBattleAssistant.Cli -- --data https://pokemo
 - 1 メッセージ 500 文字制限に合わせて、結果は `DamageCommandOptions.MaxLength`（既定 480）で切り詰めます。
 - 連投対策（同一ユーザーのクールダウンなど）は配信用BOT側で行ってください。計算自体は数ミリ秒です。
 - `!poke help` で使えるコマンド一覧が返ります（`!poke` はチャンピオンズ扱い）。
-- 登録・チームは短い形の `-p` / `-t` が主です。長い形の `--pokemon` / `--team` も同じ意味で使えます。例（短い形の直後に同じ意味の長い形を並べています）:
+- 登録・チームは短い形の `-m` / `-t` が主です。長い形の `--my` / `--team` も同じ意味で使えます。例（短い形の直後に同じ意味の長い形を並べています）:
   ```
-  !pokech add -p ガブリアス 4 32 0 0 0 30 ようき
-  !pokech add --pokemon ガブリアス 4 32 0 0 0 30 ようき
+  !pokech add -m ガブリアス 4 32 0 0 0 30 ようき
+  !pokech add --my ガブリアス 4 32 0 0 0 30 ようき
   !pokech use -t 1
   !pokech use --team 1
   ```
-- 返信の性格は、性格名ではなく上がる・下がる能力で出ます（例: `イエッサン(C252 C↑A↓ …)`）。補正のない性格（まじめ・てれや など）は「補正無し」と出ます（例: `ガブリアス(H32 補正無し …)`、`ls -p` なら `#1 ガブリアス(補正無し)`）。入力は今までどおり性格名です。
+- 返信の性格は、性格名ではなく上がる・下がる能力で出ます（例: `イエッサン(C252 C↑A↓ …)`）。補正のない性格（まじめ・てれや など）は「補正無し」と出ます（例: `ガブリアス(H32 補正無し …)`、`ls -m` なら `#1 ガブリアス(補正無し)`）。入力は今までどおり性格名です。
 - `AllowMutations = false` のとき、`add` / `rm` / `use -t`（pokemon・team とも） は「配信者・モデレーターのみ行えます」と返し、閲覧・計算系はそのまま動きます。

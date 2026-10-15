@@ -29,14 +29,14 @@ public class NatureDescribeTests
     {
         var store = new MemoryRosterStore();
         var cmd = new PokeCommand(TestData.Catalog(), new RosterRepository(store));
-        var adamant = await cmd.ExecuteAsync("!pokech add -p ガブリアス 0 32 0 0 2 32 いじっぱり");
+        var adamant = await cmd.ExecuteAsync("!pokech add -m ガブリアス 0 32 0 0 2 32 いじっぱり");
         Assert.Contains("A↑C↓", adamant.Message);
         Assert.DoesNotContain("いじっぱり", adamant.Message);
-        var hardy = await cmd.ExecuteAsync("!pokech add -p ガブリアス 0 32 0 0 2 32 まじめ");
+        var hardy = await cmd.ExecuteAsync("!pokech add -m ガブリアス 0 32 0 0 2 32 まじめ");
         Assert.Contains("補正無し", hardy.Message);
         Assert.DoesNotContain("まじめ", hardy.Message);
         Assert.DoesNotContain("↑", hardy.Message);
-        var ls = await cmd.ExecuteAsync("!pokech ls -p");
+        var ls = await cmd.ExecuteAsync("!pokech ls -m");
         Assert.Contains("#1 ガブリアス(A↑C↓)", ls.Message);
         Assert.Contains("#2 ガブリアス(補正無し)", ls.Message);
     }
