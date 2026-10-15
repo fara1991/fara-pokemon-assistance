@@ -631,6 +631,11 @@ else if (data is not null && dataSet is not null)
                             {
                                 <div class="estimate-band-stat small text-muted">実数値 @(b.MinStat == b.MaxStat ? $"{b.MinStat}" : $"{b.MinStat}〜{b.MaxStat}")</div>
                             }
+                            @if (b.MinEv == b.MaxEv)
+                            {
+                                @* 振り方が 1 つに決まったときは、その振り方を防御側に入れて計算に切り替えられる *@
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-1" @onclick="() => ApplyEstimate(e, b)">この振り方で計算する</button>
+                            }
                         </div>
                     }
                 </div>
@@ -642,6 +647,20 @@ else if (data is not null && dataSet is not null)
             }
         </div>
     };
+
+    /// <summary>推定で決まった振り方（B/D とその性格補正、% 入力なら H）を防御側に入れて、計算に切り替える。</summary>
+    private void ApplyEstimate(EvEstimator.Estimate e, EvEstimator.NatureBand band)
+    {
+        if (data is null || s.Defender is null) return;
+        s.Defender.EVs[e.DefenseStat] = band.MinEv;
+        if (e.HpEvRange is { } hp && hp.MinEv == hp.MaxEv) s.Defender.EVs[Stat.HP] = hp.MinEv;
+        s.Defender.Nature = band.Modifier > 1.0 ? NatureSelection.WithIncreased(data.Natures, s.Defender.Nature, e.DefenseStat)
+            : band.Modifier < 1.0 ? NatureSelection.WithDecreased(data.Natures, s.Defender.Nature, e.DefenseStat)
+            : NeutralNature();
+        s.EstimateMode = false;
+        resultKey = "";
+        UpdateResult();
+    }
 
     /// <summary>特性が場に出す天候・フィールドを、まだ選んでいなければ既定値にする（ひでり・サイコメイカーなど）。</summary>
     private void ApplyFieldFromAbility(PokemonBuild build)
@@ -922,6 +941,10 @@ else if (data is not null && dataSet is not null)
     private RenderFragment RenderResultBody(DamageResult result, DamageRequest lastRequest, DamageResult? crit, DamageRequest? critRequest) => __builder =>
     {
         var perHit = PerHitResults(lastRequest, result, critRequest);
+        // 連続技・おやこあいは、HP バーで選んだ回数（未選択なら最大回数）の結果を出す
+        var sel = perHit is null ? ((int N, string Label, DamageResult Normal, DamageResult? Crit)?)null : perHit.FirstOrDefault(h => h.N == hitSel) is { Normal: not null } picked ? picked : perHit[^1];
+        var shown = sel?.Normal ?? result;
+        var shownCrit = sel is not null ? sel.Value.Crit : crit;
         @* 入力欄に画像が出ているので、ここは 1 行の文字だけにする *@
         <p class="result-matchup mb-1">
             <strong>@lastRequest.Attacker.Pokemon.Name</strong>
@@ -929,44 +952,40 @@ else if (data is not null && dataSet is not null)
             <strong data-swap="@lastRequest.Defender.Pokemon.Name">@lastRequest.Defender.Pokemon.Name</strong>
             @if (result.TypeEffectiveness != 1.0) { <span class="ms-1 result-effect">（@EffectLabel(result)）</span> }
         </p>
-        @if (perHit is not null)
+        @* 数字は data-count の span に分ける（見た目の文字は RangeText と同じ。入力を変えると前の結果から数え上げる） *@
+        @* 急所なし・ありを並べて出す。上が通常、下が急所。連続技・おやこあいは、HP バーで選んだ回数のダメージ *@
+        <p class="result-main result-main-row mb-1">
+            <span class="result-kind">@(sel is null ? "通常" : $"通常 {sel.Value.Label}")</span>
+            <strong><span data-count="@Inv(shown.MinPercent)" data-count-dec="1">@($"{shown.MinPercent:0.0}")</span>〜<span data-count="@Inv(shown.MaxPercent)" data-count-dec="1">@($"{shown.MaxPercent:0.0}")</span>% (<span data-count="@shown.MinDamage">@shown.MinDamage</span>〜<span data-count="@shown.MaxDamage">@shown.MaxDamage</span>)</strong>
+            <span class="ms-2 badge @(shown.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")" data-pop="@shown.KnockOut">@shown.KnockOut</span>
+        </p>
+        @if (shownCrit is not null)
         {
-            @* 連続技・おやこあい: 当たった回数ごとのダメージ（そこまでの合計）と、その回数で HP をどこまで減らせるか *@
-            @foreach (var h in perHit)
-            {
-                <p class="result-main result-main-row mb-1">
-                    <span class="result-kind">@h.Label</span>
-                    <strong>@($"{h.Normal.MinPercent:0.0}〜{h.Normal.MaxPercent:0.0}% ({h.Normal.MinDamage}〜{h.Normal.MaxDamage})")</strong>
-                    <span class="ms-2 badge @(h.Normal.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@h.Normal.KnockOut</span>
-                    @if (h.Crit is not null)
-                    {
-                        <span class="d-block small text-muted">急所 @($"{h.Crit.MinPercent:0.0}〜{h.Crit.MaxPercent:0.0}% ({h.Crit.MinDamage}〜{h.Crit.MaxDamage})")</span>
-                    }
-                </p>
-            }
-            @for (var k = 0; k < perHit.Count; k++)
-            {
-                @RenderHpBar(perHit[k].Normal, lastRequest, perHit[k].Label, k == 0)
-            }
-        }
-        else
-        {
-            @* 数字は data-count の span に分ける（見た目の文字は RangeText と同じ。入力を変えると前の結果から数え上げる） *@
-            @* 急所なし・ありを並べて出す。上が通常、下が急所 *@
-            <p class="result-main result-main-row mb-1">
-                <span class="result-kind">通常</span>
-                <strong><span data-count="@Inv(result.MinPercent)" data-count-dec="1">@($"{result.MinPercent:0.0}")</span>〜<span data-count="@Inv(result.MaxPercent)" data-count-dec="1">@($"{result.MaxPercent:0.0}")</span>% (<span data-count="@result.MinDamage">@result.MinDamage</span>〜<span data-count="@result.MaxDamage">@result.MaxDamage</span>)</strong>
-                <span class="ms-2 badge @(result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")" data-pop="@result.KnockOut">@result.KnockOut</span>
+            <p class="result-main result-main-row result-main-crit mb-2">
+                <span class="result-kind">急所</span>
+                <strong>@($"{shownCrit.MinPercent:0.0}〜{shownCrit.MaxPercent:0.0}% ({shownCrit.MinDamage}〜{shownCrit.MaxDamage})")</strong>
+                <span class="ms-2 badge @(shownCrit.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@shownCrit.KnockOut</span>
             </p>
-            @if (crit is not null)
-            {
-                <p class="result-main result-main-row result-main-crit mb-2">
-                    <span class="result-kind">急所</span>
-                    <strong>@($"{crit.MinPercent:0.0}〜{crit.MaxPercent:0.0}% ({crit.MinDamage}〜{crit.MaxDamage})")</strong>
-                    <span class="ms-2 badge @(crit.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@crit.KnockOut</span>
-                </p>
-            }
-            @RenderHpBar(result, lastRequest)
+        }
+        @RenderHpBar(shown, lastRequest, perHit is { Count: > 1 } ? perHit : null, sel?.N ?? 0)
+        @if (perHit is { Count: > 1 })
+        {
+            @* 回数ごとの結果は、普段は折りたたんでおく *@
+            <details class="hit-details mb-2">
+                <summary class="small">回数ごとの結果を見る</summary>
+                @foreach (var h in perHit)
+                {
+                    <p class="mb-1 small">
+                        <strong>@h.Label</strong>
+                        @($"{h.Normal.MinPercent:0.0}〜{h.Normal.MaxPercent:0.0}% ({h.Normal.MinDamage}〜{h.Normal.MaxDamage})")
+                        <span class="badge @(h.Normal.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@h.Normal.KnockOut</span>
+                        @if (h.Crit is not null)
+                        {
+                            <span class="text-muted">／ 急所 @($"{h.Crit.MinPercent:0.0}〜{h.Crit.MaxPercent:0.0}% ({h.Crit.MinDamage}〜{h.Crit.MaxDamage})")</span>
+                        }
+                    </p>
+                }
+            </details>
         }
         @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
         {
@@ -975,7 +994,7 @@ else if (data is not null && dataSet is not null)
     };
 
     /// <summary>当たった回数ごとの結果（そこまでの合計）。トリプルキック・トリプルアクセルは 1〜3 回、2〜5 回技は 1〜5 回（スキルリンクは 5 回だけ）、おやこあいは 1〜2 回。連続技でなければ null。</summary>
-    private List<(string Label, DamageResult Normal, DamageResult? Crit)>? PerHitResults(DamageRequest request, DamageResult result, DamageRequest? critRequest)
+    private List<(int N, string Label, DamageResult Normal, DamageResult? Crit)>? PerHitResults(DamageRequest request, DamageResult result, DamageRequest? critRequest)
     {
         if (data is null) return null;
         int[]? counts = null;
@@ -985,6 +1004,7 @@ else if (data is not null && dataSet is not null)
         if (counts is null) return null;
         var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation);
         return counts.Select(n => (
+            n,
             counts.Length == 1 ? $"{n}回（スキルリンク）" : $"{n}回目",
             calc.Calculate(request.With(hitCount: n)),
             critRequest is null ? null : (DamageResult?)calc.Calculate(critRequest.With(hitCount: n)))).ToList();
@@ -1014,7 +1034,7 @@ else if (data is not null && dataSet is not null)
     /// 防御側の HP バー。必ず残る HP（最大ダメージ後）・乱数で減る幅・必ず減る HP（最小ダメージ分）の 3 つを、
     /// 今の HP を起点に最大 HP に対する割合で描く。動き（前の結果からの伸び縮み・ポケモンを変えたときは満タンから）は wwwroot/js/motion.js が付ける。
     /// </summary>
-    private RenderFragment RenderHpBar(DamageResult result, DamageRequest lastRequest, string? label = null, bool showLegend = true) => __builder =>
+    private RenderFragment RenderHpBar(DamageResult result, DamageRequest lastRequest, List<(int N, string Label, DamageResult Normal, DamageResult? Crit)>? ticks = null, int selectedHit = 0) => __builder =>
     {
         // HP バーは急所なし（通常）だけを出す。急所は、上の「通常」「急所」の行で見る
         var maxHp = result.DefenderHP;
@@ -1027,9 +1047,9 @@ else if (data is not null && dataSet is not null)
         var level = keep > 50 ? "high" : keep > 20 ? "mid" : "low";
         var name = lastRequest.Defender.Pokemon.Name;
         var left = immune ? $"{start} / {maxHp}（減らない）" : $"残り {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)} / {maxHp}";
-        <div class="hp-calc" data-hp-calc data-hp-key="@(name + label)" data-hp-immune="@(immune ? "1" : "0")" data-hp-start="@Pct(P(start))">
+        <div class="hp-calc" data-hp-calc data-hp-key="@name" data-hp-immune="@(immune ? "1" : "0")" data-hp-start="@Pct(P(start))">
             <div class="hp-calc-line">
-                <span class="hp-calc-name" data-swap="@name"><PokemonIcon Pokemon="lastRequest.Defender.Pokemon" Small="true" /> @(label is null ? $"{name} の HP" : $"{label}までの HP")@(start < maxHp ? $"（現在 {start}）" : "")</span>
+                <span class="hp-calc-name" data-swap="@name"><PokemonIcon Pokemon="lastRequest.Defender.Pokemon" Small="true" /> @name の HP@(start < maxHp ? $"（現在 {start}）" : "")</span>
                 <span class="hp-calc-left">@left</span>
             </div>
             <div class="hp-calc-bar" role="img" aria-label="@(immune ? $"{name} の HP は減りません" : $"{name} の HP {left}")">
@@ -1037,14 +1057,24 @@ else if (data is not null && dataSet is not null)
                 <div class="hp-calc-fill" data-hp-part="fill" data-level="@level" style="left:0%;width:@Pct(keep)"></div>
                 <div class="hp-calc-range" data-hp-part="range" style="left:@Pct(keep);width:@Pct(P(maxD - minD));@(immune ? "display:none" : "")"></div>
             </div>
-            @if (showLegend)
+            @if (ticks is not null)
             {
-                <div class="hp-calc-legend">
-                    <span><i class="hp-key-keep"></i>必ず残る HP</span>
-                    <span><i class="hp-key-gone"></i>必ず減る HP</span>
-                    <span><i class="hp-key-range"></i>乱数で減る幅</span>
+                @* 連続技・おやこあい: 数字は「その回数当たったとき、最大ダメージで HP がここまで減る」目印。押すと、その回数の結果に切り替わる *@
+                <div class="hp-ticks" role="group" aria-label="当たった回数">
+                    @foreach (var t in ticks)
+                    {
+                        var at = P(start - Math.Min(t.Normal.MaxDamage, start));
+                        var n = t.N;
+                        <button type="button" class="hp-tick @(n == selectedHit ? "active" : "")" style="left:@Pct(at)" aria-pressed="@(n == selectedHit ? "true" : "false")" title="@t.Label まで当たったとき（最大 @t.Normal.MaxDamage ダメージ）" @onclick="() => hitSel = n">@n</button>
+                    }
                 </div>
+                <p class="hp-ticks-note small text-muted mb-1">数字 = その回数まで当たったときの目印。押すと、その回数の結果に切り替わります。</p>
             }
+            <div class="hp-calc-legend">
+                <span><i class="hp-key-keep"></i>必ず残る HP</span>
+                <span><i class="hp-key-gone"></i>必ず減る HP</span>
+                <span><i class="hp-key-range"></i>乱数で減る幅</span>
+            </div>
         </div>
     };
 
@@ -1076,6 +1106,10 @@ else if (data is not null && dataSet is not null)
         return c is null ? "" : $"（{c.Name} 威力 {c.Power}）";
     }
 
+    /// <summary>連続技・おやこあいで、HP バーで選んだ「当たった回数」（0 なら最大回数）。</summary>
+    private int hitSel;
+    private int hitSelMove;
+
     private bool UseZMove => s.IsZMove && dataSet?.HasZMove == true;
 
     private void UpdateResult()
@@ -1105,6 +1139,7 @@ else if (data is not null && dataSet is not null)
         s.ResultCrit = null;
         s.LastRequestCrit = null;
         if (data is null || s.Attacker is null || s.Defender is null || s.Move is null) return;
+        if (s.Move.Id != hitSelMove) { hitSelMove = s.Move.Id; hitSel = 0; }   // 技を変えたら、回数の選択は最大に戻す
         if (!s.Move.IsDamaging)
         {
             errorMessage = s.Move.IsFixedDamage

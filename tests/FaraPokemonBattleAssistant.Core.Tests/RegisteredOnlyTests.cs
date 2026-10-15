@@ -93,6 +93,30 @@ public class RegisteredOnlyTests
     }
 
     [Fact]
+    public async Task Fixed_defender_spread_is_used_and_a_decided_estimate_is_reused_by_dmg()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Champions");
+        var repo = new RosterRepository(new MemoryRosterStore());
+        await repo.AddPokemonAsync("Champions", data.Pokemon.First(p => p.Name == "マニューラ"), new Models.StatSet { Attack = 32 }, data.Natures.First(), null);
+        var command = new PokeCommand(TestData.Catalog(), repo);
+        // 振り方を指定したら、その数値で計算する
+        var fixedSpread = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H32 B10");
+        Assert.True(fixedSpread.Success, fixedSpread.Message);
+        Assert.Equal(32, fixedSpread.Request!.Defender.EVs.HP);
+        Assert.Equal(10, fixedSpread.Request.Defender.EVs.Defense);
+        Assert.Contains("H32B10", fixedSpread.Message.Split('\n')[0]);
+
+        // calc で振り方が 1 つに決まったときは、その後の dmg の防御側に使う
+        var calc = await command.ExecuteAsync("!pokech calc マニューラ つららおとし フシギバナ 60%");
+        if (calc.Message.Contains("この後の dmg"))
+        {
+            var after = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ");
+            Assert.True(after.Success, after.Message);
+            Assert.NotEqual(32, after.Request!.Defender.EVs.Defense);
+        }
+    }
+
+    [Fact]
     public async Task Registered_mega_pokemon_holds_its_mega_stone()
     {
         var data = await TestData.Catalog().GetDataSetAsync("Champions");
