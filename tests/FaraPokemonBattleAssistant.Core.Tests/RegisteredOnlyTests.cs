@@ -66,3 +66,38 @@ public class RegisteredOnlyTests
         Assert.DoesNotContain("ノーマルジュエル", reply.Message);
     }
 }
+
+/// <summary>攻撃側の特性が、状態（HP・状態異常・天候）でダメージを変えるときの、チャットの「発動時」の結果。</summary>
+public class AttackerAbilityVariantTests
+{
+    private static async Task<PokeCommand> CommandWith(string dataSet, string pokemonName, string abilityIdentifier, Models.StatSet evs)
+    {
+        var data = await TestData.Catalog().GetDataSetAsync(dataSet);
+        var pokemon = data.Pokemon.First(p => p.Name == pokemonName);
+        var ability = data.AbilitiesOf(pokemon).First(a => a.Identifier == abilityIdentifier);
+        var repo = new RosterRepository(new MemoryRosterStore());
+        await repo.AddPokemonAsync(dataSet, pokemon, evs, data.Natures.First(), ability);
+        return new PokeCommand(TestData.Catalog(), repo);
+    }
+
+    [Fact]
+    public async Task Guts_and_solar_power_variants_are_listed_only_when_they_change_the_damage()
+    {
+        // こんじょう: ヘラクロス（Gen9）のインファイト。状態異常の結果を出す
+        var guts = await CommandWith("Gen9", "ヘラクロス", "guts", new Models.StatSet { Attack = 252 });
+        var g = await guts.ExecuteAsync("!pokesv dmg ヘラクロス インファイト ガブリアス");
+        Assert.True(g.Success, g.Message);
+        Assert.Contains("こんじょう発動時(状態異常)", g.Message);
+        // すでに状態異常（やけど）を指定したら、こんじょうの結果は出さない
+        var burned = await guts.ExecuteAsync("!pokesv dmg ヘラクロス インファイト ガブリアス やけど");
+        Assert.DoesNotContain("こんじょう発動時", burned.Message);
+
+        // サンパワー: リザードン（Gen9）の特殊技。晴れの結果を出す（特殊技のとき）
+        var solar = await CommandWith("Gen9", "リザードン", "solar-power", new Models.StatSet { SpAttack = 252 });
+        var s = await solar.ExecuteAsync("!pokesv dmg リザードン かえんほうしゃ ガブリアス");
+        Assert.True(s.Success, s.Message);
+        Assert.Contains("サンパワー発動時(晴れ)", s.Message);
+        var physical = await solar.ExecuteAsync("!pokesv dmg リザードン ドラゴンクロー ガブリアス");
+        Assert.DoesNotContain("サンパワー発動時", physical.Message);
+    }
+}

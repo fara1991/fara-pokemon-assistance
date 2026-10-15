@@ -371,30 +371,70 @@ public sealed class PokeCommand
             if (variants.Count > 0)
                 message += " ｜特性別: " + string.Join(" / ", variants);
         }
-        // 攻撃側の特性でダメージが変わるとき（もうか・しんりょく・げきりゅう・むしのしらせは HP 1/3 以下）は、その結果も出す
-        if (PinchVariant(data, request, normal.Damage!) is { } pinch) message += pinch;
+        // 攻撃側の特性が、状態（HP・状態異常・天候）でダメージを変えるとき（もうか・こんじょう・サンパワーなど）は、その結果も出す
+        if (AttackerAbilityVariants(data, request, normal.Damage!) is { } attackerVariants) message += attackerVariants;
         return new DamageCommandResult { Success = true, Message = message, Request = request, Damage = normal.Damage };
     }
 
-    /// <summary>攻撃側が HP 1/3 以下で威力が上がる特性（もうか等）を持つとき、その状態の結果を「｜もうか発動時: …」で返す（変わらなければ null）。</summary>
-    private static string? PinchVariant(PokemonDataSet data, DamageRequest request, DamageResult baseline)
+    /// <summary>
+    /// 攻撃側の特性が、状態によってダメージを変えるとき（HP が減る・状態異常・天候）、その状態の結果を「｜〜時: …」で並べて返す。
+    /// 今の条件ですでに満たしているもの・結果が変わらないものは出さない。
+    /// </summary>
+    private static string? AttackerAbilityVariants(PokemonDataSet data, DamageRequest request, DamageResult baseline)
     {
         var ability = request.Attacker.Ability;
-        if (ability is null || request.Attacker.CurrentHp * 3 <= request.Attacker.MaxHp) return null;
-        var matches = ability.Identifier switch
+        if (ability is null) return null;
+        var calc = new DamageCalculator(data.TypeChart, data.Info.Generation);
+        var attacker = request.Attacker;
+        var candidates = new List<(string Label, DamageRequest Request)>();
+
+        DamageRequest WithHp(int percent)
         {
-            "blaze" => baseline.MoveType == "Fire",
-            "overgrow" => baseline.MoveType == "Grass",
-            "torrent" => baseline.MoveType == "Water",
-            "swarm" => baseline.MoveType == "Bug",
-            _ => false,
-        };
-        if (!matches) return null;
-        var low = request.Attacker.Clone();
-        low.HpPercent = 33;
-        var result = new DamageCalculator(data.TypeChart, data.Info.Generation).Calculate(request.With(attacker: low));
-        if (result.MaxDamage == baseline.MaxDamage) return null;
-        return $" ｜{ability.Name}発動時(HP1/3以下): {result.RangeText} {result.KnockOut}";
+            var clone = attacker.Clone();
+            clone.HpPercent = percent;
+            return request.With(attacker: clone);
+        }
+        DamageRequest WithStatus(StatusCondition status)
+        {
+            var clone = attacker.Clone();
+            clone.Status = status;
+            return request.With(attacker: clone);
+        }
+
+        switch (ability.Identifier)
+        {
+            case "blaze" or "overgrow" or "torrent" or "swarm":
+                // HP 1/3 以下で、対応するタイプの技が強くなる
+                if (attacker.CurrentHp * 3 > attacker.MaxHp) candidates.Add(($"{ability.Name}発動時(HP1/3以下)", WithHp(33)));
+                break;
+            case "defeatist":
+                if (attacker.CurrentHp * 2 > attacker.MaxHp) candidates.Add(($"{ability.Name}発動時(HP半分以下)", WithHp(50)));
+                break;
+            case "guts":
+                if (attacker.Status == StatusCondition.None) candidates.Add(($"{ability.Name}発動時(状態異常)", WithStatus(StatusCondition.Poison)));
+                break;
+            case "toxic-boost":
+                if (attacker.Status is not (StatusCondition.Poison or StatusCondition.BadlyPoisoned)) candidates.Add(($"{ability.Name}発動時(どく)", WithStatus(StatusCondition.Poison)));
+                break;
+            case "flare-boost":
+                if (attacker.Status != StatusCondition.Burn) candidates.Add(($"{ability.Name}発動時(やけど)", WithStatus(StatusCondition.Burn)));
+                break;
+            case "solar-power":
+                if (request.Weather != Weather.Sun) candidates.Add(($"{ability.Name}発動時(晴れ)", request.With(weather: Weather.Sun)));
+                break;
+            case "sand-force":
+                if (request.Weather != Weather.Sand) candidates.Add(($"{ability.Name}発動時(砂嵐)", request.With(weather: Weather.Sand)));
+                break;
+        }
+
+        var parts = new List<string>();
+        foreach (var (label, variant) in candidates)
+        {
+            var result = calc.Calculate(variant);
+            if (result.MinDamage == baseline.MinDamage && result.MaxDamage == baseline.MaxDamage) continue;
+            parts.Add($" ｜{label}: {result.RangeText} {result.KnockOut}");
+        }
+        return parts.Count == 0 ? null : string.Concat(parts);
     }
 
     /// <summary>防御側の特性候補ごとに計算し、基準と結果が違うものを「特性名: 結果」で返す。</summary>

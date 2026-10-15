@@ -177,14 +177,14 @@ public sealed class DamageRequest
     public bool HasScreenFor(bool physical) => Screen || (physical ? Reflect : LightScreen);
 
     /// <summary>技や防御側だけ差し替えた複製（場の条件はそのまま）。</summary>
-    public DamageRequest With(Move? move = null, PokemonBuild? defender = null, PokemonBuild? attacker = null, bool? isCritical = null) => new()
+    public DamageRequest With(Move? move = null, PokemonBuild? defender = null, PokemonBuild? attacker = null, bool? isCritical = null, Weather? weather = null) => new()
     {
         Attacker = attacker ?? Attacker,
         Move = move ?? Move,
         Defender = defender ?? Defender,
         Format = Format,
         IsCritical = isCritical ?? IsCritical,
-        Weather = Weather,
+        Weather = weather ?? Weather,
         Terrain = Terrain,
         Screen = Screen,
         Reflect = Reflect,
