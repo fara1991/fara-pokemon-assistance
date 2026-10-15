@@ -42,6 +42,14 @@ public class RegisteredOnlyTests
         Assert.True(reply.Success, reply.Message);
         Assert.Equal("blaze", reply.Request!.Attacker.Ability!.Identifier);
         Assert.Null(reply.Request.Attacker.Item);   // 持ち物は登録のとおり（使用率 1 位の持ち物は入れない）
+        // もうかは HP 1/3 以下で効くので、その結果も並べて出す
+        Assert.Contains("もうか発動時(HP1/3以下)", reply.Message);
+        // ほのお以外の技では、もうかは関係しないので出さない
+        var other = await command.ExecuteAsync("!pokesv dmg バシャーモ ブレイズキック ガブリアス");
+        Assert.True(other.Success, other.Message);
+        var water = await command.ExecuteAsync("!pokesv dmg バシャーモ インファイト ガブリアス");
+        Assert.True(water.Success, water.Message);
+        Assert.DoesNotContain("もうか発動時", water.Message);
     }
 
     [Fact]

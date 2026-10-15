@@ -352,10 +352,12 @@ public sealed class PokeCommand
         var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
         if (RegisteredOnlyError(ds, data, args[0], provider, "攻撃側") is { } notRegistered) return Fail(notRegistered);
         var text = string.Join(" ", args);
+        // 登録の構成は攻撃側だけに使う（防御側は相手なので、使用率の既定値で計算する）
+        Func<Pokemon, bool, PokemonBuild?> attackerOnly = (p, isAttacker) => isAttacker ? provider(p, true) : null;
 
-        var normal = await _damage.ExecuteAsync(text, new DamageCommandOptions { DataSetKey = ds.Key, Format = options.Format, BuildProvider = provider, MaxLength = int.MaxValue }, ct).ConfigureAwait(false);
+        var normal = await _damage.ExecuteAsync(text, new DamageCommandOptions { DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, MaxLength = int.MaxValue }, ct).ConfigureAwait(false);
         if (!normal.Success) return normal;
-        var crit = await _damage.ExecuteAsync(text, new DamageCommandOptions { DataSetKey = ds.Key, Format = options.Format, BuildProvider = provider, IsCritical = true, MaxLength = int.MaxValue }, ct).ConfigureAwait(false);
+        var crit = await _damage.ExecuteAsync(text, new DamageCommandOptions { DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, IsCritical = true, MaxLength = int.MaxValue }, ct).ConfigureAwait(false);
 
         var message = normal.Message;
         if (crit.Success && crit.Damage is not null && crit.Damage.MaxDamage > 0)
@@ -363,13 +365,36 @@ public sealed class PokeCommand
 
         // 相手（防御側）の特性が不明なら、特性でダメージが変わる場合に特性ごとの結果を添える
         var request = normal.Request!;
-        if (provider(request.Defender.Pokemon, false) is null && !MentionsAbility(args, data, request.Defender.Pokemon))
+        if (!MentionsAbility(args, data, request.Defender.Pokemon))
         {
             var variants = AbilityVariants(data, request, normal.Damage!);
             if (variants.Count > 0)
                 message += " ｜特性別: " + string.Join(" / ", variants);
         }
+        // 攻撃側の特性でダメージが変わるとき（もうか・しんりょく・げきりゅう・むしのしらせは HP 1/3 以下）は、その結果も出す
+        if (PinchVariant(data, request, normal.Damage!) is { } pinch) message += pinch;
         return new DamageCommandResult { Success = true, Message = message, Request = request, Damage = normal.Damage };
+    }
+
+    /// <summary>攻撃側が HP 1/3 以下で威力が上がる特性（もうか等）を持つとき、その状態の結果を「｜もうか発動時: …」で返す（変わらなければ null）。</summary>
+    private static string? PinchVariant(PokemonDataSet data, DamageRequest request, DamageResult baseline)
+    {
+        var ability = request.Attacker.Ability;
+        if (ability is null || request.Attacker.CurrentHp * 3 <= request.Attacker.MaxHp) return null;
+        var matches = ability.Identifier switch
+        {
+            "blaze" => baseline.MoveType == "Fire",
+            "overgrow" => baseline.MoveType == "Grass",
+            "torrent" => baseline.MoveType == "Water",
+            "swarm" => baseline.MoveType == "Bug",
+            _ => false,
+        };
+        if (!matches) return null;
+        var low = request.Attacker.Clone();
+        low.HpPercent = 33;
+        var result = new DamageCalculator(data.TypeChart, data.Info.Generation).Calculate(request.With(attacker: low));
+        if (result.MaxDamage == baseline.MaxDamage) return null;
+        return $" ｜{ability.Name}発動時(HP1/3以下): {result.RangeText} {result.KnockOut}";
     }
 
     /// <summary>防御側の特性候補ごとに計算し、基準と結果が違うものを「特性名: 結果」で返す。</summary>

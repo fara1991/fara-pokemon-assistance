@@ -1119,10 +1119,10 @@ public class RecoveryAndFieldTests
         var result = await command.ExecuteAsync("ガブリアス じしん ドドゲザン 壁 HP50% 攻:HP30%", new DamageCommandOptions { DataSetKey = "Gen9" });
         Assert.True(result.Success, result.Message);
         Assert.True(result.Request!.Screen);
-        // 残り HP のオプションは無くなった（HP50% は読まれず、無視の注意が付く）
+        // 残り HP のオプションは無くなった（HP50% は読まれず、無視の注意も出さない）
         Assert.Equal(100, result.Request.Defender.HpPercent);
         Assert.Equal(100, result.Request.Attacker.HpPercent);
-        Assert.Contains("「HP50%」は無視", result.Message);
+        Assert.DoesNotContain("無視", result.Message);
         Assert.Contains("壁", result.Message);
     }
 }

@@ -943,7 +943,6 @@ else if (data is not null && dataSet is not null)
             </p>
         }
         @RenderHpBar(result, lastRequest)
-        <p class="mb-1"><strong>防御側 HP:</strong> @result.DefenderHP　<strong>こうげき実数値:</strong> @result.AttackStat　<strong>ぼうぎょ実数値:</strong> @result.DefenseStat　<strong>威力:</strong> @result.BasePower（@TypeNames.ToJapanese(result.MoveType)）</p>
         @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
         {
             <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data!.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>

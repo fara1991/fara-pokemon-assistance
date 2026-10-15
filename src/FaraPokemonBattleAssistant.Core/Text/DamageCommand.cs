@@ -59,6 +59,7 @@ public sealed class DamageCommandResult
 /// </summary>
 public sealed class DamageCommand
 {
+    private static readonly Regex IgnoredHpToken = new(@"^(?:残り)?hp\d{1,3}[%％]$", RegexOptions.Compiled);
     private static readonly Regex EvToken = new(@"^(?:([HABCDShabcds])(\d{1,3}))+$", RegexOptions.Compiled);
     private static readonly Regex EvPair = new(@"([HABCDShabcds])(\d{1,3})", RegexOptions.Compiled);
     private static readonly Regex BoostToken = new(@"^([+-])([1-6])$", RegexOptions.Compiled);
@@ -215,6 +216,8 @@ public sealed class DamageCommand
                 screen = true;
                 continue;
             }
+            // 残り HP のオプション（HP50% など）は無くなった。入力されても、何も言わずに読み飛ばす
+            if (IgnoredHpToken.IsMatch(normalized)) continue;
             if (StatusNames.Parse(normalized) is { } status)
             {
                 // 既定: やけど・まひは攻撃側（自分の火力/素早さ）、どく・もうどくは防御側（定数ダメージで確定数が変わる）
