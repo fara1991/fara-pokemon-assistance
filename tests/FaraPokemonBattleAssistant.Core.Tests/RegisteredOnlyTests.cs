@@ -136,14 +136,18 @@ public class RegisteredOnlyTests
         var ranged = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ");
         Assert.True(ranged.Success, ranged.Message);
         var lines = ranged.Message.Split('\n');
-        Assert.Contains("防御最小想定", ranged.Message);
-        Assert.Contains("防御最大想定", ranged.Message);
+        Assert.Contains("B最小想定", ranged.Message);
+        Assert.Contains("B最大想定", ranged.Message);
         Assert.Equal(3, lines.Length);
+        // 特殊技（D を使う）には、B で分かった振り方は使わない
+        var special = await command.ExecuteAsync("!pokech dmg マニューラ れいとうビーム フシギバナ");
+        Assert.True(special.Success, special.Message);
+        Assert.DoesNotContain("想定", special.Message);
         Assert.Contains("フシギバナ", (await command.ExecuteAsync("!pokech foe ls")).Message);
         Assert.True((await command.ExecuteAsync("!pokech foe clear フシギバナ")).Success);
         var cleared = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ");
         Assert.Equal(2, cleared.Message.Split('\n').Length);
-        Assert.DoesNotContain("防御最大想定", cleared.Message);
+        Assert.DoesNotContain("B最大想定", cleared.Message);
     }
 
     [Fact]
