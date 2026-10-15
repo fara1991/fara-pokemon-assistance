@@ -31,7 +31,7 @@ public sealed partial class PokeCommand
 
     /// <summary>
     /// 名前と、その後ろに付く振り方（<c>H32 D10</c> または 6 つの数字）・性格（名前か <c>B↑A↓</c>）・特性を読む。
-    /// 名前が出るたびに次のポケモンの指定になる（<c>add -r カイリュー ハバタクカミ</c> のようにまとめて指定できる）。
+    /// 名前が出るたびに次のポケモンの指定になる（<c>add -r カイリュー ガブリアス</c> のようにまとめて指定できる）。
     /// </summary>
     private static (List<RivalSpec> Specs, string? Error) ParseSpecs(IReadOnlyList<string> tokens, PokemonDataSet data, EvSystem system)
     {
