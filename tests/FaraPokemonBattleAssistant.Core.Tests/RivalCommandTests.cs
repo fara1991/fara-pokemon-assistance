@@ -35,12 +35,13 @@ public class RivalCommandTests
         Assert.Equal(32, dragonite.SpDefense);
         Assert.Equal("おだやか", dragonite.Nature);
 
-        // set -r は指定した項目だけ更新（書いていない項目はそのまま）
+        // set -r のポイントは振り方全体の置き換え（書いていない能力は不明に戻す）。性格・特性は書いたものだけ
         var set = await command.ExecuteAsync("!pokech set -r カイリュー H4 マルチスケイル");
         Assert.True(set.Success, set.Message);
         dragonite = (await repo.GetAsync()).For(Ds).Rivals.Single(r => r.PokemonName == "カイリュー");
         Assert.Equal(4, dragonite.HP);
-        Assert.Equal(32, dragonite.SpDefense);
+        Assert.Null(dragonite.SpDefense);
+        Assert.Equal("おだやか", dragonite.Nature);
         Assert.NotNull(dragonite.AbilityId);
 
         // 6 つの数字でも指定できる
@@ -58,9 +59,15 @@ public class RivalCommandTests
     public async Task At_most_six_rivals_and_invalid_input_is_explained()
     {
         var (command, _) = await NewAsync();
+        // 7 体以上はエラーで、1 体も登録しない
         var seven = await command.ExecuteAsync("!pokech add -r カイリュー ミミッキュ ドドゲザン ガブリアス リザードン ピカチュウ ゲンガー");
-        Assert.True(seven.Success, seven.Message);
-        Assert.Contains("6 体います", seven.Message);
+        Assert.False(seven.Success, seven.Message);
+        Assert.Contains("6 体まで", seven.Message);
+        // 対戦中の数と合わせて 6 体を超えるときも、1 体も登録しない
+        Assert.True((await command.ExecuteAsync("!pokech add -r カイリュー ミミッキュ ドドゲザン ガブリアス")).Success);
+        var over = await command.ExecuteAsync("!pokech add -r リザードン ピカチュウ ゲンガー");
+        Assert.False(over.Success, over.Message);
+        Assert.Contains("6 体まで", over.Message);
         Assert.False((await command.ExecuteAsync("!pokech add -r H32")).Success);
         Assert.False((await command.ExecuteAsync("!pokech add -r カイリュー H99")).Success);
         Assert.False((await command.ExecuteAsync("!pokech set -r カイリュー")).Success);
@@ -180,5 +187,41 @@ public class RivalCommandTests
         var foe = await command.ExecuteAsync("!pokech foe ls");
         Assert.False(foe.Success);
         Assert.Contains("-r", foe.Message);
+    }
+
+    [Fact]
+    public async Task Rival_can_be_updated_to_its_mega_form_and_picked_rivals_go_to_history()
+    {
+        var (command, repo) = await NewAsync();
+        Assert.True((await command.ExecuteAsync("!pokech add -r リザードン D32 おだやか")).Success);
+        // メガシンカしたら、同じ相手のまま姿だけ変える（ポイント・性格はそのまま）
+        var mega = await command.ExecuteAsync("!pokech set -r メガリザードンY 選出");
+        Assert.True(mega.Success, mega.Message);
+        var rivals = (await repo.GetAsync()).For(Ds).Rivals;
+        Assert.Single(rivals);
+        Assert.Equal("メガリザードンY", rivals[0].PokemonName);
+        Assert.Equal(32, rivals[0].SpDefense);
+        Assert.Equal("おだやか", rivals[0].Nature);
+        Assert.True(rivals[0].Picked);
+
+        // 名前だけでも、選出したら試合終了で履歴に移る
+        Assert.True((await command.ExecuteAsync("!pokech add -r カイリュー ミミッキュ")).Success);
+        Assert.True((await command.ExecuteAsync("!pokech set -r カイリュー 選出")).Success);
+        var ended = await command.ExecuteAsync("!pokech clear -r");
+        Assert.True(ended.Success, ended.Message);
+        var history = (await repo.GetAsync()).For(Ds).History.Single();
+        Assert.Equal(new[] { "メガリザードンY", "カイリュー" }, history.Foes.Select(f => f.PokemonName).ToArray());
+    }
+
+    [Fact]
+    public async Task Removed_calc_and_foe_are_unknown_commands()
+    {
+        var (command, _) = await NewAsync();
+        foreach (var text in new[] { "!pokech calc マニューラ つららおとし フシギバナ 40", "!pokech foe ls" })
+        {
+            var r = await command.ExecuteAsync(text);
+            Assert.False(r.Success);
+            Assert.Contains("不明なサブコマンド", r.Message);
+        }
     }
 }

@@ -455,12 +455,12 @@ else if (data is not null)
             new("unuse -t", "unuse -t（解除）", "チーム", Array.Empty<Field>()),
             new("ls -t", "ls -t（一覧）", "チーム", Array.Empty<Field>()),
             new("detail -t", "detail -t（詳細）", "チーム", new[] { Field.TeamNo }),
-            new("add -r", "add -r（登録）", "相手", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability }),
-            new("set -r", "set -r（更新）", "相手", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability }),
-            new("ls -r", "ls -r（一覧）", "相手", Array.Empty<Field>()),
-            new("detail -r", "detail -r（詳細）", "相手", new[] { Field.Subject }),
-            new("rm -r", "rm -r（外す）", "相手", new[] { Field.Subject }),
-            new("clear -r", "clear -r（試合終了・履歴へ）", "相手", new[] { Field.Memo }),
+            new("add -r", "add -r（登録）", "相手のポケモン", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability }),
+            new("set -r", "set -r（更新）", "相手のポケモン", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability }),
+            new("ls -r", "ls -r（一覧）", "相手のポケモン", Array.Empty<Field>()),
+            new("detail -r", "detail -r（詳細）", "相手のポケモン", new[] { Field.Subject }),
+            new("rm -r", "rm -r（外す）", "相手のポケモン", new[] { Field.Subject }),
+            new("clear -r", "clear -r（試合終了・履歴へ）", "相手のポケモン", new[] { Field.Memo }),
             new("ls -h", "ls -h（一覧）", "履歴", new[] { Field.Subject }),
             new("detail -h", "detail -h（詳細）", "履歴", new[] { Field.EntryId }),
             new("rm -h", "rm -h（削除）", "履歴", new[] { Field.EntryId }),
@@ -471,7 +471,7 @@ else if (data is not null)
         };
     }
 
-    private IEnumerable<IGrouping<string, KindDef>> KindGroups() => Kinds().GroupBy(k => k.Group);
+    private IEnumerable<IGrouping<string, KindDef>> KindGroups() => Kinds().OrderBy(k => OrderOf(k.Key)).GroupBy(k => k.Group);
 
     private KindDef CurrentKind => Kinds().FirstOrDefault(k => k.Key == s.Kind) ?? Kinds().First(k => k.Key == "dmg");
 
@@ -635,9 +635,7 @@ else if (data is not null)
         {
             case "add -m":
                 s.Subject = PokemonAt(0);
-                for (var i = 0; i < 6; i++) s.Evs[i] = NumberOrEmpty(tokens, 1 + i);
-                s.NatureName = tokens.Count > 7 && data.FindNature(tokens[7]) is { } n ? n.Name : "";
-                s.AbilityName = tokens.Count > 8 ? tokens[8] : "";
+                ParseSpecTokens(tokens.Skip(1).ToList());
                 return;
             case "ls -m":
             case "ls -h":
@@ -783,7 +781,30 @@ else if (data is not null)
         }
     }
 
-    private IEnumerable<CommandRow> CommandRows()
+    /// <summary>コマンドの並び順（コマンド一覧とコマンドを作るの種類で同じ。種類ごとにまとめる）。</summary>
+    private static readonly string[] CommandOrder =
+    {
+        "add -m", "set -m", "ls -m", "detail -m", "rm -m",
+        "add -t", "rm -t", "use -t", "unuse -t", "ls -t", "detail -t",
+        "add -r", "set -r", "ls -r", "detail -r", "rm -r", "clear -r",
+        "ls -h", "detail -h", "rm -h",
+        "dmg", "scan", "faster",
+        "help",
+    };
+
+    private static int OrderOf(string key) { var i = Array.IndexOf(CommandOrder, key); return i < 0 ? CommandOrder.Length : i; }
+
+    /// <summary>書式（!pokech add -m …）から、並び順のキー（add -m / dmg）を取り出す。</summary>
+    private static string KeyOf(string syntax)
+    {
+        var tokens = syntax.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToList();
+        if (tokens.Count == 0) return "";
+        return tokens.Count > 1 && tokens[1].StartsWith('-') ? $"{tokens[0]} {tokens[1]}" : tokens[0];
+    }
+
+    private IEnumerable<CommandRow> CommandRows() => UnorderedCommandRows().OrderBy(r => OrderOf(KeyOf(r.Syntax)));
+
+    private IEnumerable<CommandRow> UnorderedCommandRows()
     {
         var p = "!" + App.CommandPrefix;
         var ds = App.DataSet;
@@ -792,7 +813,7 @@ else if (data is not null)
         var evExample = points ? "4 32 0 0 0 30" : "4 252 0 0 0 252";
         var gimmick = ds?.HasTerastal == true ? " テラスほのお" : ds?.HasDynamax == true ? " ダイマ" : "";
         // <...> は置き換える値（画面では色付きで表示）、[...] は省略できる部分
-        yield return new($"{p} add -m <名前> <H> <A> <B> <C> <D> <S> <性格> [<特性>]", "ポケモン",
+        yield return new($"{p} add -m <名前> <H> <A> <B> <C> <D> <S> <性格> [<特性>]", "自分のポケモン",
             points ? $"育成済みポケモンを登録（{evLabel}は各 0〜32、合計 66）" : $"育成済みポケモンを登録（{evLabel}は各 0〜252、合計 510）",
             new[] { $"{p} add -m ガブリアス {evExample} ようき さめはだ", $"{p} add --my ガブリアス {evExample} ようき さめはだ" });
         yield return new($"{p} ls -m [<名前>]", "自分のポケモン", "登録一覧（名前を付けるとそのポケモンだけ）", new[] { $"{p} ls -m", $"{p} ls --my", $"{p} ls -m ガブリアス" });
@@ -808,16 +829,16 @@ else if (data is not null)
             new[] { $"{p} dmg ガブリアス じしん リザードン", $"{p} dmg ガブリアス じしん+1 リザードン 晴れ 急所", $"{p} dmg ガブリアス げきりん ドドゲザン 壁", $"{p} dmg イエッサン ワイドフォース メガリザードンX サイコフィールド", $"{p} dmg ガブリアス じしん リザードン A252 いじっぱり いのちのたま{gimmick}" });
         yield return new($"{p} set -m <登録IDか名前> [<振り方>] [<性格>] [<特性>]", "自分のポケモン", "登録済みの自分のポケモンの、書いた項目だけを更新（技・チーム・持ち物はそのまま）。振り方は H32 A10 のように一部だけでよく、性格は名前か B↑A↓ で指定",
             new[] { $"{p} set -m 1 A32 S10 ようき", $"{p} set -m ガブリアス B↑A↓", $"{p} set --my 1 B↑A↓ 特性" });
-        yield return new($"{p} add -r <名前> [<名前> …] [<振り方>] [<性格>] [<特性>]", "相手", "対戦中の相手ポケモンを登録（6 体まで。同じポケモンは 1 体で、2 回目以降は更新）。名前だけでもよく、選出画面の 6 体をまとめて登録できる。振り方は H32 D10 や 6 つの数字（H A B C D S）、性格は名前か B↑A↓",
+        yield return new($"{p} add -r <名前> [<名前> …] [<振り方>] [<性格>] [<特性>]", "相手のポケモン", "対戦中の相手ポケモンを登録（6 体まで。同じポケモンは 1 体で、2 回目以降は更新）。名前だけでもよく、選出画面の 6 体をまとめて登録できる。振り方は H32 D10 や 6 つの数字（H A B C D S）、性格は名前か B↑A↓",
             new[] { $"{p} add -r カイリュー ミミッキュ ドドゲザン", $"{p} add -r カイリュー H4 D32 おだやか マルチスケイル", $"{p} add --rival カイリュー" });
-        yield return new($"{p} set -r <名前> [<振り方>] [<性格>] [<特性>]", "相手", "登録済みの相手の、書いた項目だけを更新（まだなら登録）。分かった部分から埋めていく",
+        yield return new($"{p} set -r <名前> [<振り方>] [<性格>] [<特性>]", "相手のポケモン", "登録済みの相手の、書いた項目だけを更新（まだなら登録）。分かった部分から埋めていく",
             new[] { $"{p} set -r カイリュー D32", $"{p} set --rival カイリュー B↑A↓ マルチスケイル" });
-        yield return new($"{p} scan <攻撃側> <技>[<±ランク>] <相手> <受けたダメージ> [<オプション>]", "相手", "【攻撃側は登録済みのポケモンが必須】受けた（与えた）ダメージから相手の防御の振り方と性格補正を推定し、相手ポケモンに反映する（登録していなければ自動で登録。同じ相手を続けて推定すると、前の推定と重なる範囲に絞り込む）。93 なら実数、45% なら割合（H も推定）。以降の dmg で、範囲のときは「B（特殊技なら D）最小想定」「最大想定」の 2 行を出す",
+        yield return new($"{p} scan <攻撃側> <技>[<±ランク>] <相手> <受けたダメージ> [<オプション>]", "対戦", "【攻撃側は登録済みのポケモンが必須】受けた（与えた）ダメージから相手の防御の振り方と性格補正を推定し、相手ポケモンに反映する（登録していなければ自動で登録。同じ相手を続けて推定すると、前の推定と重なる範囲に絞り込む）。93 なら実数、45% なら割合（H も推定）。以降の dmg で、範囲のときは「B（特殊技なら D）最小想定」「最大想定」の 2 行を出す",
             new[] { $"{p} scan ガブリアス じしん リザードン 93", $"{p} scan ガブリアス じしん リザードン 45% サイコフィールド" });
-        yield return new($"{p} ls -r", "相手", "対戦中の相手の一覧（分かっている振り方・推定の範囲つき）", new[] { $"{p} ls -r", $"{p} ls --rival" });
-        yield return new($"{p} detail -r <名前>", "相手", "相手 1 体の詳細（推定の根拠つき）", new[] { $"{p} detail -r カイリュー", $"{p} detail --rival カイリュー" });
-        yield return new($"{p} rm -r <名前>", "相手", "登録ミスなどの取り消し（履歴には残さない）", new[] { $"{p} rm -r カイリュー", $"{p} rm --rival カイリュー" });
-        yield return new($"{p} clear -r [<メモ>]", "相手", "試合を終える。何か分かっている相手（推定・ポイント・性格・特性）だけを履歴に移し、対戦中の相手を空にする（名前だけの相手は移さない）。メモを付けられる",
+        yield return new($"{p} ls -r", "相手のポケモン", "対戦中の相手の一覧（分かっている振り方・推定の範囲つき）", new[] { $"{p} ls -r", $"{p} ls --rival" });
+        yield return new($"{p} detail -r <名前>", "相手のポケモン", "相手 1 体の詳細（推定の根拠つき）", new[] { $"{p} detail -r カイリュー", $"{p} detail --rival カイリュー" });
+        yield return new($"{p} rm -r <名前>", "相手のポケモン", "登録ミスなどの取り消し（履歴には残さない）", new[] { $"{p} rm -r カイリュー", $"{p} rm --rival カイリュー" });
+        yield return new($"{p} clear -r [<メモ>]", "相手のポケモン", "試合を終える。何か分かっている相手（推定・ポイント・性格・特性）だけを履歴に移し、対戦中の相手を空にする（名前だけの相手は移さない）。メモを付けられる",
             new[] { $"{p} clear -r", $"{p} clear -r ○○さん戦", $"{p} clear --rival" });
         yield return new($"{p} ls -h [<名前>]", "履歴", "終わった試合の履歴（新しい順）。名前を付けると、そのポケモンがいた試合の振り方", new[] { $"{p} ls -h", $"{p} ls --history", $"{p} ls -h カイリュー" });
         yield return new($"{p} detail -h <履歴ID>", "履歴", "その試合の相手ポケモンと推定の根拠", new[] { $"{p} detail -h 1", $"{p} detail --history 1" });

@@ -159,6 +159,8 @@ public sealed class RivalPokemon
     public int? AbilityId { get; set; }
     /// <summary>ダメージからの推定（scan）。防御（B・D）ごとに 1 つ。</summary>
     public List<RivalScan> Scans { get; set; } = new();
+    /// <summary>選出された（試合に出てきた）。試合を終えるとき、名前だけでも履歴に移す。</summary>
+    public bool Picked { get; set; }
     /// <summary>最後に更新した日時（ISO 8601）。</summary>
     public string Updated { get; set; } = "";
 
@@ -175,7 +177,7 @@ public sealed class RivalPokemon
     {
         Id = Id, PokemonId = PokemonId, PokemonName = PokemonName,
         HP = HP, Attack = Attack, Defense = Defense, SpAttack = SpAttack, SpDefense = SpDefense, Speed = Speed,
-        Nature = Nature, AbilityId = AbilityId, Updated = Updated,
+        Nature = Nature, AbilityId = AbilityId, Updated = Updated, Picked = Picked,
         Scans = Scans.Select(scan => new RivalScan
         {
             Defense = scan.Defense, HpMin = scan.HpMin, HpMax = scan.HpMax, Count = scan.Count,
@@ -378,7 +380,8 @@ public sealed class RosterRepository
         {
             var total = roster.Rivals.Count;
             if (total == 0) return (new EndMatchResult(null, 0, 0), false);
-            var keep = roster.Rivals.Where(r => !r.IsNameOnly).Select(r => r.Clone()).ToList();
+            // 選出された相手と、何か分かっている相手を履歴に移す（名前だけで選出もされていない相手は移さない）
+            var keep = roster.Rivals.Where(r => r.Picked || !r.IsNameOnly).Select(r => r.Clone()).ToList();
             RivalMatch? match = null;
             if (keep.Count > 0)
             {

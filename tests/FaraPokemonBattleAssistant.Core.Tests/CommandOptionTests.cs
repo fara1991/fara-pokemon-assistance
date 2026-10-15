@@ -85,4 +85,22 @@ public class CommandOptionTests
     {
         Assert.Equal("dmg -p +1 ガブ ひらがな", CommandText.Normalize("　ｄｍｇ　－ｐ　＋１　　ガブ\tひらがな　"));
     }
+
+    [Fact]
+    public async Task Add_my_accepts_a_partial_spread_and_set_my_replaces_the_spread()
+    {
+        var cmd = NewCommand();
+        // 書いた能力だけ振る（書いていない能力は 0）
+        var add = await cmd.ExecuteAsync("!pokech add -m アシレーヌ H32B32C2 ずぶとい");
+        Assert.True(add.Success, add.Message);
+        Assert.Contains("H32B32C2", add.Message);
+        Assert.True((await cmd.ExecuteAsync("!pokech add -m フシギバナ C32 ひかえめ")).Success);
+        // ポイントを書いた set -m は振り方全体の置き換え（前の C32 は残らない）
+        var set = await cmd.ExecuteAsync("!pokech set -m 2 H32 D10 おだやか");
+        Assert.True(set.Success, set.Message);
+        Assert.Contains("H32D10", set.Message);
+        Assert.DoesNotContain("C32", set.Message);
+        // 性格がなければエラー
+        Assert.False((await cmd.ExecuteAsync("!pokech add -m アシレーヌ H32B32")).Success);
+    }
 }
