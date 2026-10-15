@@ -3423,4 +3423,4 @@ html.vt-nav .sidebar {
 
 /* 持ち物のアイコン＋名前 */
 .item-label { display: inline-flex; align-items: center; gap: 0.2rem; vertical-align: middle; }
-.item-icon { width: 1.5rem; height: 1.5rem; image-rendering: pixelated; }
+.item-icon { width: 2.25rem; height: 2.25rem; image-rendering: pixelated; }

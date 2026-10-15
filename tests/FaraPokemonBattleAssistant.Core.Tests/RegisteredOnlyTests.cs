@@ -53,6 +53,27 @@ public class RegisteredOnlyTests
     }
 
     [Fact]
+    public async Task Multi_hit_chat_reply_is_compact_and_crit_is_an_option()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Champions");
+        var weavile = data.Pokemon.First(p => p.Name == "マニューラ");
+        var repo = new RosterRepository(new MemoryRosterStore());
+        await repo.AddPokemonAsync("Champions", weavile, new Models.StatSet { Attack = 32 }, data.Natures.First(), null);
+        var command = new PokeCommand(TestData.Catalog(), repo);
+        var plain = await command.ExecuteAsync("!pokech dmg マニューラ トリプルアクセル フシギバナ");
+        Assert.True(plain.Success, plain.Message);
+        var lines = plain.Message.Split('\n');
+        Assert.Equal(2, lines.Length);
+        Assert.StartsWith("結果 1回:", lines[1]);
+        Assert.Contains("2回:", lines[1]);
+        Assert.Contains("3回:", lines[1]);
+        Assert.DoesNotContain("急所", plain.Message);
+        Assert.DoesNotContain("効果抜群", plain.Message);
+        var crit = await command.ExecuteAsync("!pokech dmg マニューラ トリプルアクセル フシギバナ 急所");
+        Assert.StartsWith("急所の結果 1回:", crit.Message.Split('\n')[1]);
+    }
+
+    [Fact]
     public async Task Registered_mega_pokemon_holds_its_mega_stone()
     {
         var data = await TestData.Catalog().GetDataSetAsync("Champions");
