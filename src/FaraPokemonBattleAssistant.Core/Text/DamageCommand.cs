@@ -453,7 +453,7 @@ public sealed class DamageCommand
         var tags = new List<string>();
         if (result.TypeEffectiveness != 1.0) tags.Add(result.EffectivenessText);
         if (request.IsZMove) tags.Add("Z技");
-        if (request.HitCountOverride is { } hitCount and > 1 && MoveEffects.HitsTwoToFive(request.Move)) tags.Add($"{hitCount}回");
+        if (request.HitCountOverride is { } hitCount and > 1 && (MoveEffects.HitsTwoToFive(request.Move) || MoveEffects.IsEscalating(request.Move))) tags.Add($"{hitCount}回");
         if (withCritical) tags.Add("急所");
         if (request.Weather != Weather.None) tags.Add(FieldNames.Japanese(request.Weather, dataSet.Generation));
         if (request.Terrain != Terrain.None) tags.Add(FieldNames.Japanese(request.Terrain));

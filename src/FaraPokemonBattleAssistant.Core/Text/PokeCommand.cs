@@ -380,6 +380,26 @@ public sealed class PokeCommand
                 hitsSuffix = normal.Request!.Attacker.Ability?.Identifier == "skill-link" ? " (1回あたり。5回攻撃 ×5)" : " (1回あたり。2〜5回攻撃 ×2〜5)";
             }
         }
+        // トリプルキック・トリプルアクセルは 1 回ごとにダメージが変わるので、当たった回数ごと（1〜3 回）の合計を出す
+        if (MoveEffects.IsEscalating(normal.Request!.Move))
+        {
+            DamageCommandOptions Hits(int n, bool critical) => new() { DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, IsCritical = critical, HitCount = n, MaxLength = int.MaxValue };
+            var byHits = new List<DamageCommandResult>();
+            var byHitsCrit = new List<DamageCommandResult>();
+            for (var n = 1; n <= 3; n++)
+            {
+                byHits.Add(await _damage.ExecuteAsync(text, Hits(n, false), ct).ConfigureAwait(false));
+                byHitsCrit.Add(await _damage.ExecuteAsync(text, Hits(n, true), ct).ConfigureAwait(false));
+            }
+            if (byHits.All(r => r.Success && r.Damage is not null))
+            {
+                message = byHits[0].Message + " ｜" + string.Join(" / ", byHits.Skip(1).Select((r, i) => $"{i + 2}回: {r.Damage!.RangeText} {r.Damage.KnockOut}"));
+                critText = byHitsCrit.All(r => r.Success && r.Damage is not null)
+                    ? " ｜急所: " + string.Join(" / ", byHitsCrit.Select((r, i) => $"{i + 1}回 {r.Damage!.RangeText}"))
+                    : "";
+                hitsSuffix = " (当たった回数までの合計)";
+            }
+        }
         message += critText;
 
         // 相手（防御側）の特性が不明なら、特性でダメージが変わる場合に特性ごとの結果を添える

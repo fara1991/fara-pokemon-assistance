@@ -965,8 +965,21 @@ else if (data is not null && dataSet is not null)
     };
 
     /// <summary>2〜5 回当たる連続技の回数表示（ダメージは 1 回あたり。急所は 1 回ごとに判定されるため）。</summary>
-    private static IEnumerable<string> MultiHitLines(DamageRequest request, DamageRequest? critRequest)
+    private IEnumerable<string> MultiHitLines(DamageRequest request, DamageRequest? critRequest)
     {
+        if (MoveEffects.IsEscalating(request.Move) && data is not null)
+        {
+            // 1 回ごとに威力が上がるので、当たった回数ごとのダメージ（そこまでの合計）を出す
+            var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation);
+            for (var n = 1; n <= 3; n++)
+            {
+                var normal = calc.Calculate(request.With(hitCount: n));
+                var text = $"{n}回当たったとき: 通常 {normal.RangeText} {normal.KnockOut}";
+                if (critRequest is not null) text += $" ／ 急所 {calc.Calculate(critRequest.With(hitCount: n)).RangeText}";
+                yield return text;
+            }
+            yield break;
+        }
         if (!MoveEffects.HitsTwoToFive(request.Move)) yield break;
         yield return request.Attacker.Ability?.Identifier == "skill-link"
             ? "1回あたりのダメージ。5回攻撃（スキルリンク） ×5"
