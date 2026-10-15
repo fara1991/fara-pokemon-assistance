@@ -64,13 +64,32 @@ public class RegisteredOnlyTests
         Assert.True(plain.Success, plain.Message);
         var lines = plain.Message.Split('\n');
         Assert.Equal(2, lines.Length);
-        Assert.StartsWith("結果 1回:", lines[1]);
-        Assert.Contains("2回:", lines[1]);
-        Assert.Contains("3回:", lines[1]);
+        Assert.StartsWith("結果 1回目:", lines[1]);
+        Assert.Contains(" | 2回目:", lines[1]);
+        Assert.Contains(" | 3回目:", lines[1]);
         Assert.DoesNotContain("急所", plain.Message);
         Assert.DoesNotContain("効果抜群", plain.Message);
+        Assert.False(plain.Message.Contains('\u3000'));   // 全角スペースは使わない
+        Assert.Contains("H32B32", lines[0]);           // 防御側は HP と B に全振り
         var crit = await command.ExecuteAsync("!pokech dmg マニューラ トリプルアクセル フシギバナ 急所");
-        Assert.StartsWith("急所の結果 1回:", crit.Message.Split('\n')[1]);
+        Assert.StartsWith("結果（急所） 1回目:", crit.Message.Split('\n')[1]);
+
+        // 連続技でなければ回数は付かず、2〜5 回技は 1〜5 回目、スキルリンクは 5 回（スキルリンク）
+        var single = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ");
+        Assert.True(single.Success, single.Message);
+        Assert.StartsWith("結果 ", single.Message.Split('\n')[1]);
+        Assert.DoesNotContain("回目", single.Message);
+
+        // おやこあい: 1 回目・2 回目だけで、タグや急所は出さない
+        var kanga = data.Pokemon.First(p => p.Name == "メガガルーラ");
+        await repo.AddPokemonAsync("Champions", kanga, new Models.StatSet { Attack = 32 }, data.Natures.First(), null);
+        var pb = await command.ExecuteAsync("!pokech dmg メガガルーラ ほのおのパンチ フシギバナ");
+        Assert.True(pb.Success, pb.Message);
+        var pbLine = pb.Message.Split('\n')[1];
+        Assert.StartsWith("結果 1回目:", pbLine);
+        Assert.Contains(" | 2回目:", pbLine);
+        Assert.DoesNotContain("急所", pb.Message);
+        Assert.DoesNotContain("[", pb.Message);
     }
 
     [Fact]

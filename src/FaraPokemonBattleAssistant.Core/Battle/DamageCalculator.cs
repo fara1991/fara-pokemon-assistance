@@ -94,7 +94,7 @@ public sealed class DamageCalculator
         var hits = maxOrZ || !move.IsDamaging ? 1 : MoveEffects.HitCount(move, request.Attacker.Ability?.Identifier);
         if (hits > 1 && request.HitCountOverride is { } overrideHits && (MoveEffects.HitsTwoToFive(move) || MoveEffects.IsEscalating(move))) hits = Math.Clamp(overrideHits, 1, hits == 3 && MoveEffects.IsEscalating(move) ? 3 : 5);
         // おやこあい: 連続技でない技が 2 回当たる（2 回目は 1/4 のダメージ。第 7 世代から。ダブルの全体技・Z 技・ダイマックス技は対象外）
-        var parental = hits == 1 && !maxOrZ && move.IsDamaging && move.Power > 0 && _legacy is null && _generation >= 7
+        var parental = hits == 1 && request.HitCountOverride != 1 && !maxOrZ && move.IsDamaging && move.Power > 0 && _legacy is null && _generation >= 7
             && request.Attacker.Ability?.Identifier == "parental-bond"
             && !(request.Format == BattleFormat.Doubles && move.Target != MoveTarget.Single);
         var first = CalculateHit(request, 1);

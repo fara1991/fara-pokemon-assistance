@@ -921,6 +921,7 @@ else if (data is not null && dataSet is not null)
     /// <summary>計算結果の中身（結果カードと、狭い画面の下のバーで使う）。</summary>
     private RenderFragment RenderResultBody(DamageResult result, DamageRequest lastRequest, DamageResult? crit, DamageRequest? critRequest) => __builder =>
     {
+        var perHit = PerHitResults(lastRequest, result, critRequest);
         @* 入力欄に画像が出ているので、ここは 1 行の文字だけにする *@
         <p class="result-matchup mb-1">
             <strong>@lastRequest.Attacker.Pokemon.Name</strong>
@@ -928,56 +929,65 @@ else if (data is not null && dataSet is not null)
             <strong data-swap="@lastRequest.Defender.Pokemon.Name">@lastRequest.Defender.Pokemon.Name</strong>
             @if (result.TypeEffectiveness != 1.0) { <span class="ms-1 result-effect">（@EffectLabel(result)）</span> }
         </p>
-        @* 数字は data-count の span に分ける（見た目の文字は RangeText と同じ。入力を変えると前の結果から数え上げる） *@
-        @* 急所なし・ありを並べて出す。上が通常、下が急所 *@
-        <p class="result-main result-main-row mb-1">
-            <span class="result-kind">通常</span>
-            <strong><span data-count="@Inv(result.MinPercent)" data-count-dec="1">@($"{result.MinPercent:0.0}")</span>〜<span data-count="@Inv(result.MaxPercent)" data-count-dec="1">@($"{result.MaxPercent:0.0}")</span>% (<span data-count="@result.MinDamage">@result.MinDamage</span>〜<span data-count="@result.MaxDamage">@result.MaxDamage</span>)</strong>
-            <span class="ms-2 badge @(result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")" data-pop="@result.KnockOut">@result.KnockOut</span>
-        </p>
-        @if (crit is not null)
+        @if (perHit is not null)
         {
-            <p class="result-main result-main-row result-main-crit mb-2">
-                <span class="result-kind">急所</span>
-                <strong>@($"{crit.MinPercent:0.0}〜{crit.MaxPercent:0.0}% ({crit.MinDamage}〜{crit.MaxDamage})")</strong>
-                <span class="ms-2 badge @(crit.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@crit.KnockOut</span>
+            @* 連続技・おやこあい: 当たった回数ごとのダメージ（そこまでの合計）と、その回数で HP をどこまで減らせるか *@
+            @foreach (var h in perHit)
+            {
+                <p class="result-main result-main-row mb-1">
+                    <span class="result-kind">@h.Label</span>
+                    <strong>@($"{h.Normal.MinPercent:0.0}〜{h.Normal.MaxPercent:0.0}% ({h.Normal.MinDamage}〜{h.Normal.MaxDamage})")</strong>
+                    <span class="ms-2 badge @(h.Normal.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@h.Normal.KnockOut</span>
+                    @if (h.Crit is not null)
+                    {
+                        <span class="d-block small text-muted">急所 @($"{h.Crit.MinPercent:0.0}〜{h.Crit.MaxPercent:0.0}% ({h.Crit.MinDamage}〜{h.Crit.MaxDamage})")</span>
+                    }
+                </p>
+            }
+            @for (var k = 0; k < perHit.Count; k++)
+            {
+                @RenderHpBar(perHit[k].Normal, lastRequest, perHit[k].Label, k == 0)
+            }
+        }
+        else
+        {
+            @* 数字は data-count の span に分ける（見た目の文字は RangeText と同じ。入力を変えると前の結果から数え上げる） *@
+            @* 急所なし・ありを並べて出す。上が通常、下が急所 *@
+            <p class="result-main result-main-row mb-1">
+                <span class="result-kind">通常</span>
+                <strong><span data-count="@Inv(result.MinPercent)" data-count-dec="1">@($"{result.MinPercent:0.0}")</span>〜<span data-count="@Inv(result.MaxPercent)" data-count-dec="1">@($"{result.MaxPercent:0.0}")</span>% (<span data-count="@result.MinDamage">@result.MinDamage</span>〜<span data-count="@result.MaxDamage">@result.MaxDamage</span>)</strong>
+                <span class="ms-2 badge @(result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")" data-pop="@result.KnockOut">@result.KnockOut</span>
             </p>
+            @if (crit is not null)
+            {
+                <p class="result-main result-main-row result-main-crit mb-2">
+                    <span class="result-kind">急所</span>
+                    <strong>@($"{crit.MinPercent:0.0}〜{crit.MaxPercent:0.0}% ({crit.MinDamage}〜{crit.MaxDamage})")</strong>
+                    <span class="ms-2 badge @(crit.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@crit.KnockOut</span>
+                </p>
+            }
+            @RenderHpBar(result, lastRequest)
         }
-        @if (result.ParentalBond && result.HitRolls is { Count: 2 } hr)
-        {
-            <p class="mb-1 small">おやこあい: 1回目 @(hr[0][0])〜@(hr[0][^1]) ・ 2回目 @(hr[1][0])〜@(hr[1][^1])（急所なし）</p>
-        }
-        @foreach (var line in MultiHitLines(lastRequest, critRequest))
-        {
-            <p class="mb-1 small">@line</p>
-        }
-        @RenderHpBar(result, lastRequest)
         @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
         {
             <p class="mb-1 text-warning">※ 「未収録」のポケモンは @data!.Info.Name に正式収録されていないため、第9世代のデータで計算しています。</p>
         }
     };
 
-    /// <summary>2〜5 回当たる連続技の回数表示（ダメージは 1 回あたり。急所は 1 回ごとに判定されるため）。</summary>
-    private IEnumerable<string> MultiHitLines(DamageRequest request, DamageRequest? critRequest)
+    /// <summary>当たった回数ごとの結果（そこまでの合計）。トリプルキック・トリプルアクセルは 1〜3 回、2〜5 回技は 1〜5 回（スキルリンクは 5 回だけ）、おやこあいは 1〜2 回。連続技でなければ null。</summary>
+    private List<(string Label, DamageResult Normal, DamageResult? Crit)>? PerHitResults(DamageRequest request, DamageResult result, DamageRequest? critRequest)
     {
-        if (MoveEffects.IsEscalating(request.Move) && data is not null)
-        {
-            // 1 回ごとに威力が上がるので、当たった回数ごとのダメージ（そこまでの合計）を出す
-            var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation);
-            for (var n = 1; n <= 3; n++)
-            {
-                var normal = calc.Calculate(request.With(hitCount: n));
-                var text = $"{n}回当たったとき: 通常 {normal.RangeText} {normal.KnockOut}";
-                if (critRequest is not null) text += $" ／ 急所 {calc.Calculate(critRequest.With(hitCount: n)).RangeText}";
-                yield return text;
-            }
-            yield break;
-        }
-        if (!MoveEffects.HitsTwoToFive(request.Move)) yield break;
-        yield return request.Attacker.Ability?.Identifier == "skill-link"
-            ? "1回あたりのダメージ。5回攻撃（スキルリンク） ×5"
-            : "1回あたりのダメージ。2〜5回攻撃 ×2〜5";
+        if (data is null) return null;
+        int[]? counts = null;
+        if (MoveEffects.IsEscalating(request.Move)) counts = new[] { 1, 2, 3 };
+        else if (MoveEffects.HitsTwoToFive(request.Move)) counts = request.Attacker.Ability?.Identifier == "skill-link" ? new[] { 5 } : new[] { 1, 2, 3, 4, 5 };
+        else if (result.ParentalBond) counts = new[] { 1, 2 };
+        if (counts is null) return null;
+        var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation);
+        return counts.Select(n => (
+            counts.Length == 1 ? $"{n}回（スキルリンク）" : $"{n}回目",
+            calc.Calculate(request.With(hitCount: n)),
+            critRequest is null ? null : (DamageResult?)calc.Calculate(critRequest.With(hitCount: n)))).ToList();
     }
 
     /// <summary>いまひとつ・ばつぐん・こうかなし（倍率の数字は付けない）。</summary>
@@ -1004,7 +1014,7 @@ else if (data is not null && dataSet is not null)
     /// 防御側の HP バー。必ず残る HP（最大ダメージ後）・乱数で減る幅・必ず減る HP（最小ダメージ分）の 3 つを、
     /// 今の HP を起点に最大 HP に対する割合で描く。動き（前の結果からの伸び縮み・ポケモンを変えたときは満タンから）は wwwroot/js/motion.js が付ける。
     /// </summary>
-    private RenderFragment RenderHpBar(DamageResult result, DamageRequest lastRequest) => __builder =>
+    private RenderFragment RenderHpBar(DamageResult result, DamageRequest lastRequest, string? label = null, bool showLegend = true) => __builder =>
     {
         // HP バーは急所なし（通常）だけを出す。急所は、上の「通常」「急所」の行で見る
         var maxHp = result.DefenderHP;
@@ -1017,9 +1027,9 @@ else if (data is not null && dataSet is not null)
         var level = keep > 50 ? "high" : keep > 20 ? "mid" : "low";
         var name = lastRequest.Defender.Pokemon.Name;
         var left = immune ? $"{start} / {maxHp}（減らない）" : $"残り {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)} / {maxHp}";
-        <div class="hp-calc" data-hp-calc data-hp-key="@name" data-hp-immune="@(immune ? "1" : "0")" data-hp-start="@Pct(P(start))">
+        <div class="hp-calc" data-hp-calc data-hp-key="@(name + label)" data-hp-immune="@(immune ? "1" : "0")" data-hp-start="@Pct(P(start))">
             <div class="hp-calc-line">
-                <span class="hp-calc-name" data-swap="@name"><PokemonIcon Pokemon="lastRequest.Defender.Pokemon" Small="true" /> @name の HP@(start < maxHp ? $"（現在 {start}）" : "")</span>
+                <span class="hp-calc-name" data-swap="@name"><PokemonIcon Pokemon="lastRequest.Defender.Pokemon" Small="true" /> @(label is null ? $"{name} の HP" : $"{label}までの HP")@(start < maxHp ? $"（現在 {start}）" : "")</span>
                 <span class="hp-calc-left">@left</span>
             </div>
             <div class="hp-calc-bar" role="img" aria-label="@(immune ? $"{name} の HP は減りません" : $"{name} の HP {left}")">
@@ -1027,11 +1037,14 @@ else if (data is not null && dataSet is not null)
                 <div class="hp-calc-fill" data-hp-part="fill" data-level="@level" style="left:0%;width:@Pct(keep)"></div>
                 <div class="hp-calc-range" data-hp-part="range" style="left:@Pct(keep);width:@Pct(P(maxD - minD));@(immune ? "display:none" : "")"></div>
             </div>
-            <div class="hp-calc-legend">
-                <span><i class="hp-key-keep"></i>必ず残る HP</span>
-                <span><i class="hp-key-gone"></i>必ず減る HP</span>
-                <span><i class="hp-key-range"></i>乱数で減る幅</span>
-            </div>
+            @if (showLegend)
+            {
+                <div class="hp-calc-legend">
+                    <span><i class="hp-key-keep"></i>必ず残る HP</span>
+                    <span><i class="hp-key-gone"></i>必ず減る HP</span>
+                    <span><i class="hp-key-range"></i>乱数で減る幅</span>
+                </div>
+            }
         </div>
     };
 
@@ -1113,7 +1126,7 @@ else if (data is not null && dataSet is not null)
                 Terrain = s.Terrain,
                 Reflect = s.Reflect,
                 LightScreen = s.LightScreen,
-                HitCountOverride = MoveEffects.HitsTwoToFive(s.Move) ? 1 : null,
+                HitCountOverride = MoveEffects.HitsTwoToFive(s.Move) ? 5 : null,
             };
             // 急所なし・ありの両方を計算して並べて出す
             var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation);
