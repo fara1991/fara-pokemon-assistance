@@ -193,6 +193,9 @@ else if (data is not null && dataSet is not null)
     protected override async Task OnAppReadyAsync()
     {
         s = PageStates.Get<State>("speed2");
+        // ダメージ計算機・素早さ比較で、天候・フィールドを引き継ぐ
+        s.Weather = Stage.SharedWeather;
+        s.Terrain = Stage.SharedTerrain;
         await LoadAsync();
         // ポケモン一覧から開いたとき（?p1=ID）は、ポケモン1 に入れてから URL を戻す
         if (P1Query is > 0 and var id)
@@ -236,6 +239,7 @@ else if (data is not null && dataSet is not null)
         Stage.Show(s.DataSetKey, s.Builds[0]?.Pokemon, s.Builds[1]?.Pokemon);
         Stage.SetScene(this, BuildScene());
         Stage.SetConditions(this, s.Weather, s.Terrain);
+        Stage.ShareField(s.Weather, s.Terrain);
     }
 
     public override void Dispose()

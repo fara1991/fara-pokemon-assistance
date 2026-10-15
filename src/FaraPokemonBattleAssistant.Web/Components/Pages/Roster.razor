@@ -31,6 +31,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                             ValueSelector="@(p => p.Id.ToString())"
                             SelectedValue="@(s.NewPokemon?.Id.ToString() ?? "")"
                             SelectedValueChanged="@OnNewPokemonChanged"
+                            Disabled="@(s.EditingId is not null)"
                             Placeholder="ポケモン名を入力...">
                             <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /></ItemTemplate>
                         </SearchableSelect>
@@ -117,7 +118,16 @@ else if (data is not null && roster is not null && dataSet is not null)
                     {
                         <div class="stats-summary mb-2">実数値：@FormatStats(StatCalculator.CalculateAll(NewBuild()))</div>
                     }
-                    <button class="btn btn-primary" @onclick="AddPokemonAsync" disabled="@(s.NewPokemon is null || s.NewNature is null)">登録</button>
+                    @* 登録 = 新しく登録する。更新・取り消し = 登録一覧で選んだポケモンを編集しているとき（登録は押せない） *@
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <button class="btn btn-primary" @onclick="AddPokemonAsync" disabled="@(s.EditingId is not null || s.NewPokemon is null || s.NewNature is null)">登録</button>
+                        <button class="btn btn-success" @onclick="UpdatePokemonAsync" disabled="@(s.EditingId is null || s.NewNature is null)">更新</button>
+                        <button class="btn btn-outline-secondary" @onclick="CancelEdit" disabled="@(s.EditingId is null)">取り消し</button>
+                        @if (s.EditingId is { } editing)
+                        {
+                            <span class="small text-muted">#@editing を編集中</span>
+                        }
+                    </div>
                 </div>
             </div>
         </div>
@@ -135,13 +145,14 @@ else if (data is not null && roster is not null && dataSet is not null)
                         @foreach (var e in roster.Pokemon)
                         {
                             var build = RosterRepository.ToBuild(e, data);
-                            <li class="list-group-item">
+                            <li class="list-group-item reg-item @(s.EditingId == e.Id ? "reg-selected" : "")" role="button" tabindex="0" aria-pressed="@(s.EditingId == e.Id ? "true" : "false")"
+                                @onclick="() => SelectEntry(e)" @onkeydown="@(k => { if (k.Key is "Enter" or " ") SelectEntry(e); })">
                                 <div class="d-flex justify-content-between align-items-start gap-2">
                                     <div class="min-w-0">
                                         <span class="text-muted small me-1">#@e.Id</span><PokemonLabel Pokemon="data.FindPokemon(e.PokemonId)" Small="true" />
                                         <small class="text-muted ms-1">@(build?.Ability?.Name)</small>
                                     </div>
-                                    <button class="btn btn-outline-danger btn-sm flex-shrink-0" @onclick="() => RemovePokemonAsync(e.Id)">削除</button>
+                                    <button class="btn btn-outline-danger btn-sm flex-shrink-0" @onclick="() => RemovePokemonAsync(e.Id)" @onclick:stopPropagation="true">削除</button>
                                 </div>
                                 <div class="small mt-1">@NatureText(e.Nature)　@EvRules.Label(dataSet.EvSystem) @e.EVs.ToShortString()</div>
                                 @if (e.MoveIds.Count > 0)
@@ -173,6 +184,8 @@ else if (data is not null && roster is not null && dataSet is not null)
         /// <summary>選んでいる技（4 つの枠。空の枠は null）。</summary>
         public Move?[] NewMoves { get; set; } = new Move?[RegisteredPokemon.MaxMoves];
         /// <summary>技の並び順（火力）と、対戦画面の背景に使う天候・フィールド。</summary>
+        /// <summary>登録一覧で選んで、編集しているポケモンの登録 ID（null なら新しく登録する）。</summary>
+        public int? EditingId { get; set; }
         public Weather NewWeather { get; set; }
         public Terrain NewTerrain { get; set; }
     }
@@ -200,6 +213,7 @@ else if (data is not null && roster is not null && dataSet is not null)
             s.NewMoves = new Move?[RegisteredPokemon.MaxMoves];
             s.NewWeather = Weather.None;
             s.NewTerrain = Terrain.None;
+            s.EditingId = null;
         }
         s.NewNature ??= data.FindNature("まじめ");
     }
@@ -329,8 +343,47 @@ else if (data is not null && roster is not null && dataSet is not null)
         });
     }
 
+    /// <summary>登録一覧のポケモンを選び、そのポイント・性格・特性・技を入力欄に入れて、編集できるようにする。</summary>
+    private void SelectEntry(RegisteredPokemon entry)
+    {
+        if (data is null) return;
+        s.EditingId = entry.Id;
+        s.NewPokemon = data.FindPokemon(entry.PokemonId);
+        s.NewEvs = entry.EVs.Clone();
+        s.NewNature = data.FindNature(entry.Nature) ?? s.NewNature;
+        OnAbilityChanged(entry.AbilityId is { } aid ? data.FindAbility(aid) : null);
+        var moves = new Move?[RegisteredPokemon.MaxMoves];
+        for (var i = 0; i < entry.MoveIds.Count && i < moves.Length; i++) moves[i] = data.FindMove(entry.MoveIds[i]);
+        s.NewMoves = moves;
+    }
+
+    private void ClearForm()
+    {
+        s.EditingId = null;
+        s.NewPokemon = null;
+        OnAbilityChanged(null);
+        s.NewEvs = new StatSet();
+        s.NewMoves = new Move?[RegisteredPokemon.MaxMoves];
+    }
+
+    private void CancelEdit() => ClearForm();
+
+    private async Task UpdatePokemonAsync()
+    {
+        if (data is null || dataSet is null || s.EditingId is not { } id || s.NewNature is null) return;
+        if (EvRules.Validate(dataSet.EvSystem, s.NewEvs) is { } error) { Show(error, true); return; }
+        await MutateAsync(async () =>
+        {
+            var entry = await Repo.UpdatePokemonAsync(App.DataSetKey, id, s.NewEvs.Clone(), s.NewNature, s.NewAbility, s.NewMoves.OfType<Move>().Select(m => m.Id).ToList());
+            if (entry is null) { Show($"#{id} は登録にありません（削除された可能性があります）", true); }
+            else Show($"#{entry.Id} {entry.PokemonName} を更新しました", false);
+            ClearForm();
+        });
+    }
+
     private async Task RemovePokemonAsync(int id)
     {
+        if (s.EditingId == id) ClearForm();
         var before = roster?.Teams.Select(t => t.Number).ToList() ?? new List<int>();
         await MutateAsync(async () =>
         {
