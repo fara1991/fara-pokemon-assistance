@@ -5,6 +5,7 @@
 @inject RosterRepository Repo
 @inject NavigationManager Nav
 @inject BattleStage Stage
+@inject FoeBook Foes
 
 <PageTitle>ダメージ計算機 | Pokémon Battle Assistant</PageTitle>
 
@@ -128,6 +129,21 @@ else if (data is not null && dataSet is not null)
                     @if (s.Defender is not null)
                     {
                         <div class="poke-summary mb-2"><PokemonLabel Build="s.Defender" /> <span class="small text-muted text-nowrap">種族値 @FormatStats(s.Defender.Pokemon.BaseStats)</span></div>
+                        @if (!s.EstimateMode && Foes.Get(App.DataSetKey, s.Defender.Pokemon.Id) is { } foe)
+                        {
+                            @* 推定などで分かっている相手の振り方（範囲でもよい）。試合ごとに相手が変わるので、解除できる *@
+                            <div class="alert alert-info py-2 small mb-2">
+                                <div><strong>分かっている振り方</strong>: @foe.Summary</div>
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyFoe(foe.Low)">防御最小で計算</button>
+                                    @if (foe.IsRange)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyFoe(foe.High)">防御最大で計算</button>
+                                    }
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => Foes.Remove(App.DataSetKey, s.Defender.Pokemon.Id)">登録を解除</button>
+                                </div>
+                            </div>
+                        }
                         @RenderBuildEditor(s.Defender, false)
                     }
                 </div>
@@ -643,10 +659,40 @@ else if (data is not null && dataSet is not null)
                 {
                     <p class="small mt-2 mb-0">H（HP）の @(EvRules.Label(system)): <strong>@(hp.MinEv == hp.MaxEv ? $"{hp.MinEv}{unit}" : $"{hp.MinEv}〜{hp.MaxEv}{unit}")</strong>（% で入力したときの推定）</p>
                 }
+                @if (s.Defender is not null)
+                {
+                    var registered = Foes.Get(App.DataSetKey, s.Defender.Pokemon.Id);
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="() => RegisterFoe(e)">この推定を相手の情報として登録</button>
+                        @if (registered is not null)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" @onclick="() => Foes.Remove(App.DataSetKey, s.Defender.Pokemon.Id)">登録を解除</button>
+                            <span class="small text-success ms-1">登録済み（範囲のままで、今後のダメージ計算に使います）</span>
+                        }
+                        <div class="small text-muted mt-1">範囲のままでも登録できます。計算の画面とチャットの dmg で、防御側に使います（アプリを閉じるまで。試合ごとに解除できます）。</div>
+                    </div>
+                }
                 <p class="small text-muted mt-2 mb-0">相手は持ち物なしとして計算しています。持ち物・特性・ランクが違うと結果が変わります。</p>
             }
         </div>
     };
+
+    /// <summary>この推定（範囲でもよい）を、相手の情報として登録する。</summary>
+    private void RegisterFoe(EvEstimator.Estimate e)
+    {
+        if (data is null || s.Defender is null) return;
+        if (KnownFoe.FromEstimate(App.DataSetKey, e, s.Defender.Pokemon, data.Info.EvSystem, data.Natures) is { } foe) Foes.Set(foe);
+    }
+
+    /// <summary>分かっている相手の情報（耐久が最も低い／高い想定）を、防御側に入れて計算する。</summary>
+    private void ApplyFoe(PokemonBuild build)
+    {
+        if (s.Defender is null) return;
+        s.Defender.EVs = build.EVs.Clone();
+        s.Defender.Nature = build.Nature;
+        resultKey = "";
+        UpdateResult();
+    }
 
     /// <summary>推定で決まった振り方（B/D とその性格補正、% 入力なら H）を防御側に入れて、計算に切り替える。</summary>
     private void ApplyEstimate(EvEstimator.Estimate e, EvEstimator.NatureBand band)

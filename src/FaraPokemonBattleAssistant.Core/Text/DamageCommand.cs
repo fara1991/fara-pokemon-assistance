@@ -62,6 +62,8 @@ public sealed class DamageCommandResult
 public sealed class DamageCommand
 {
     private static readonly Regex IgnoredHpToken = new(@"^(?:残り)?hp\d{1,3}[%％]$", RegexOptions.Compiled);
+    /// <summary>上がる能力・下がる能力での性格指定（<c>B↑A↓</c>、<c>B↑</c>、<c>A↓</c>。↑は + 、↓は - でもよい）。</summary>
+    private static readonly Regex NatureArrowToken = new(@"^(?:([ABCDSabcds])[↑＋+](?:([ABCDSabcds])[↓－\-])?|([ABCDSabcds])[↓－\-])$", RegexOptions.Compiled);
     private static readonly Regex EvToken = new(@"^(?:([HABCDShabcds])(\d{1,3}))+$", RegexOptions.Compiled);
     private static readonly Regex EvPair = new(@"([HABCDShabcds])(\d{1,3})", RegexOptions.Compiled);
     private static readonly Regex BoostToken = new(@"^([+-])([1-6])$", RegexOptions.Compiled);
@@ -300,6 +302,25 @@ public sealed class DamageCommand
                 continue;
             }
 
+            // 「B↑A↓」「B↑」「A↓」のような、上がる・下がる能力での性格指定
+            if (NatureArrowToken.Match(token) is { Success: true } arrow)
+            {
+                var up = arrow.Groups[1].Success ? StatNames.Parse(arrow.Groups[1].Value.ToUpperInvariant()) : null;
+                var downText = arrow.Groups[2].Success ? arrow.Groups[2].Value : arrow.Groups[3].Success ? arrow.Groups[3].Value : null;
+                var down = downText is not null ? StatNames.Parse(downText.ToUpperInvariant()) : null;
+                var arrowNature = up is not null && down is not null ? data.Natures.FirstOrDefault(n => n.IncreasedStat == up && n.DecreasedStat == down)
+                    : up is not null ? NatureSelection.WithIncreased(data.Natures, null, up, physical: move.Category != MoveCategory.Special)
+                    : down is not null ? NatureSelection.WithDecreased(data.Natures, null, down, physical: move.Category != MoveCategory.Special)
+                    : null;
+                if (arrowNature is not null && up != Stat.HP && down != Stat.HP)
+                {
+                    var toAttacker = forcedAttacker ?? (up ?? down) is Stat.Attack or Stat.SpAttack or Stat.Speed;
+                    if (toAttacker) { attacker.Nature = arrowNature; attackerNatureSet = true; }
+                    else { defender.Nature = arrowNature; defenderNatureSet = true; }
+                    continue;
+                }
+            }
+
             var nature = natureResolver.Resolve(token);
             if (nature.IsResolved)
             {
@@ -424,12 +445,13 @@ public sealed class DamageCommand
     }
 
     /// <summary>「攻撃側(構成) 技 → 防御側(構成)」（結果の前の部分）。ダイマックス技・Z 技に変わるときは、変換後の技名も添える（例: じしん（ライジングランドオーバー））。</summary>
-    public static string Header(DamageRequest request, DamageResult result)
+    /// <param name="defenderText">防御側の括弧の前までの表記を差し替える（相手の情報が範囲のとき。例: <c>フシギバナ(補正なし:B0〜6pt)</c>）。</param>
+    public static string Header(DamageRequest request, DamageResult result, string? defenderText = null)
     {
         var a = request.Attacker;
         var d = request.Defender;
         var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
-        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort(includeItem: false, includeAbility: false)})";
+        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {defenderText ?? $"{d.Pokemon.Name}({d.DescribeShort(includeItem: false, includeAbility: false)})"}";
     }
 
     /// <summary>おやこあいのときの、1 回目・2 回目のダメージ（例: <c> (おやこあい 1回目 20〜24・2回目 5〜6)</c>）。</summary>
