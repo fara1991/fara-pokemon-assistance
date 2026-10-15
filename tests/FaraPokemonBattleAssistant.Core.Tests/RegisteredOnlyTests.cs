@@ -117,6 +117,36 @@ public class RegisteredOnlyTests
     }
 
     [Fact]
+    public async Task Nature_can_be_given_by_arrows_and_a_range_estimate_is_kept_until_cleared()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Champions");
+        var repo = new RosterRepository(new MemoryRosterStore());
+        await repo.AddPokemonAsync("Champions", data.Pokemon.First(p => p.Name == "マニューラ"), new Models.StatSet { Attack = 32 }, data.Natures.First(), null);
+        var command = new PokeCommand(TestData.Catalog(), repo);
+
+        // ポイント振りのあとに、B↑A↓ で性格も指定できる
+        var arrows = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H32 B10 B↑A↓");
+        Assert.True(arrows.Success, arrows.Message);
+        Assert.Equal(Models.Stat.Defense, arrows.Request!.Defender.Nature!.IncreasedStat);
+        Assert.Equal(Models.Stat.Attack, arrows.Request.Defender.Nature!.DecreasedStat);
+
+        // calc の結果は、1 つに決まらなくても覚える。dmg は耐久が最も低い想定と高い想定の 2 行を出し、foe clear で解除できる
+        var calc = await command.ExecuteAsync($"!pokech calc マニューラ つららおとし フシギバナ {Math.Round((arrows.Damage!.MinPercent + arrows.Damage.MaxPercent) / 2)}%");
+        Assert.Contains("この後の dmg", calc.Message);
+        var ranged = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ");
+        Assert.True(ranged.Success, ranged.Message);
+        var lines = ranged.Message.Split('\n');
+        Assert.Contains("防御最小想定", ranged.Message);
+        Assert.Contains("防御最大想定", ranged.Message);
+        Assert.Equal(3, lines.Length);
+        Assert.Contains("フシギバナ", (await command.ExecuteAsync("!pokech foe ls")).Message);
+        Assert.True((await command.ExecuteAsync("!pokech foe clear フシギバナ")).Success);
+        var cleared = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ");
+        Assert.Equal(2, cleared.Message.Split('\n').Length);
+        Assert.DoesNotContain("防御最大想定", cleared.Message);
+    }
+
+    [Fact]
     public async Task Registered_mega_pokemon_holds_its_mega_stone()
     {
         var data = await TestData.Catalog().GetDataSetAsync("Champions");

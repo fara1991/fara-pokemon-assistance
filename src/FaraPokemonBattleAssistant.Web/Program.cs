@@ -24,7 +24,8 @@ builder.Services.AddSingleton(sp => new CloudSync(sp.GetRequiredService<IJSRunti
 builder.Services.AddSingleton<IRosterStore>(sp => sp.GetRequiredService<CloudSync>());
 builder.Services.AddSingleton(sp => new RosterRepository(sp.GetRequiredService<IRosterStore>()));
 builder.Services.AddSingleton(sp => new DamageCommand(sp.GetRequiredService<DataCatalog>()));
-builder.Services.AddSingleton(sp => new PokeCommand(sp.GetRequiredService<DataCatalog>(), sp.GetRequiredService<RosterRepository>()));
+builder.Services.AddSingleton<FaraPokemonBattleAssistant.Core.Battle.FoeBook>();
+builder.Services.AddSingleton(sp => new PokeCommand(sp.GetRequiredService<DataCatalog>(), sp.GetRequiredService<RosterRepository>(), sp.GetRequiredService<FaraPokemonBattleAssistant.Core.Battle.FoeBook>()));
 builder.Services.AddSingleton(sp => new AppState(sp.GetRequiredService<DataCatalog>(), sp.GetRequiredService<IJSRuntime>()));
 builder.Services.AddSingleton<PageStateStore>();
 builder.Services.AddSingleton<BattleStage>();
