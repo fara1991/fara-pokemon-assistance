@@ -1432,6 +1432,12 @@ public class MoveEffectTests
         // トリプルアクセルは 20・40・60
         var axel = calc.Calculate(new DamageRequest { Attacker = P(data, "ウェーニバル"), Move = M(data, "トリプルアクセル"), Defender = target });
         Assert.Equal(3, axel.Hits);
+        // 当たった回数ごとの合計（20 → 20+40 → 20+40+60）
+        var axelMove = M(data, "トリプルアクセル");
+        var byHits = Enumerable.Range(1, 3).Select(n => calc.Calculate(new DamageRequest { Attacker = P(data, "ウェーニバル"), Move = axelMove, Defender = target, HitCountOverride = n })).ToList();
+        Assert.Equal(new[] { 1, 2, 3 }, byHits.Select(r => r.Hits));
+        Assert.True(byHits[0].MaxDamage < byHits[1].MaxDamage && byHits[1].MaxDamage < byHits[2].MaxDamage);
+        Assert.Equal(axel.MaxDamage, byHits[2].MaxDamage);
     }
 
     [Fact]

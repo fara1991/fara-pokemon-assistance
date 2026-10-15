@@ -55,6 +55,9 @@ public static class MoveEffects
         return 1;
     }
 
+    /// <summary>1 回ごとに威力が上がる連続技（トリプルキック・トリプルアクセル）か。</summary>
+    public static bool IsEscalating(Move move) => move.Id is MoveIdTripleKick or MoveIdTripleAxel;
+
     /// <summary>連続技の <paramref name="hit"/> 回目の威力（トリプルキックは 10・20・30、トリプルアクセルは 20・40・60）。</summary>
     public static int PowerForHit(Move move, int hit) => move.Id switch
     {
