@@ -338,6 +338,8 @@ public sealed partial class PokeCommand
     /// </summary>
     private async Task<DamageCommandResult> ScanAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
+        // scan は相手ポケモンの登録・絞り込みを保存するので、変更系と同じく配信者・モデレーターだけ
+        if (!options.AllowMutations) return Fail("scan は相手ポケモンを登録するため、配信者・モデレーターのみ使えます");
         if (args.Count < 4) return Fail($"書式: !{ds.CommandPrefix} scan 攻撃側 技±ランク 相手 受けたダメージ（例: 93 または 45%）");
         // 数値トークンを探す（4 番目以降の最初の数値または %）
         var damageIndex = -1;
