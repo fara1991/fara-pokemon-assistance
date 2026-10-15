@@ -31,6 +31,8 @@ public sealed class PokeCommand
     private readonly DataCatalog _catalog;
     private readonly RosterRepository _roster;
     private readonly DamageCommand _damage;
+    /// <summary>calc で振り方が 1 つに決まった相手の構成（データセット:ポケモン ID）。この後の dmg で、防御側に使う（アプリを閉じるまで）。</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, PokemonBuild> _knownFoes = new();
 
     public PokeCommand(DataCatalog catalog, RosterRepository roster)
     {
@@ -352,8 +354,9 @@ public sealed class PokeCommand
         var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
         if (RegisteredOnlyError(ds, data, args[0], provider, "攻撃側") is { } notRegistered) return Fail(notRegistered);
         var text = string.Join(" ", args);
-        // 登録の構成は攻撃側だけに使う（防御側は相手なので、使用率の既定値で計算する）
-        Func<Pokemon, bool, PokemonBuild?> attackerOnly = (p, isAttacker) => isAttacker ? provider(p, true) : null;
+        // 登録の構成は攻撃側だけに使う（防御側は相手なので、calc で振り方が分かっていればそれ、なければ使用率の既定値で計算する）
+        Func<Pokemon, bool, PokemonBuild?> attackerOnly = (p, isAttacker) =>
+            isAttacker ? provider(p, true) : _knownFoes.TryGetValue($"{ds.Key}:{p.Id}", out var known) ? known.Clone() : null;
 
         // 防御側は相手なので、既定は HP と受ける側の防御（物理技なら B、特殊技なら D）に全振りで計算する
         DamageCommandOptions Opts(int? hitCount = null) => new()
@@ -550,7 +553,23 @@ public sealed class PokeCommand
             var e = results[0].Estimate;
             var text = EvEstimator.Format(e, request.Defender.Pokemon, request.Move, ds.EvSystem);
             var abilityNote = results.Count == 1 ? $"特性{results[0].Ability?.Name ?? "不明"}想定" : "特性による差なし";
-            return new DamageCommandResult { Success = e.HasResult, Message = $"{attackerText}の{text} ※相手は持ち物なし・{abilityNote}", Request = request };
+            // 振り方が 1 つに決まったときは覚えておき、この後の dmg で防御側に使う
+            var remembered = "";
+            if (e.HasResult && e.Bands.Count == 1 && e.Bands[0].MinEv == e.Bands[0].MaxEv)
+            {
+                var band = e.Bands[0];
+                var foe = new PokemonBuild(request.Defender.Pokemon, ds.EvSystem)
+                {
+                    Nature = band.Modifier > 1.0 ? NatureSelection.WithIncreased(data.Natures, null, e.DefenseStat)
+                        : band.Modifier < 1.0 ? NatureSelection.WithDecreased(data.Natures, null, e.DefenseStat)
+                        : NatureSelection.Neutral(data.Natures),
+                };
+                foe.EVs[Stat.HP] = e.HpEvRange is { } h && h.MinEv == h.MaxEv ? h.MinEv : 0;
+                foe.EVs[e.DefenseStat] = band.MinEv;
+                _knownFoes[$"{ds.Key}:{request.Defender.Pokemon.Id}"] = foe;
+                remembered = $" ※この振り方({foe.DescribeShort(includeItem: false, includeAbility: false)})を、この後の dmg の{foe.Pokemon.Name}に使います";
+            }
+            return new DamageCommandResult { Success = e.HasResult, Message = $"{attackerText}の{text} ※相手は持ち物なし・{abilityNote}{remembered}", Request = request };
         }
 
         var parts = results.Select(r =>
