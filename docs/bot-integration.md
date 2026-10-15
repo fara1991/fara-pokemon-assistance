@@ -74,11 +74,11 @@ public sealed class PokemonAssistService
 ### 登録データをサイトと共有する（データ共有）
 
 サイトの「データ共有」ページ（`/data-share`）で **データ共有を始める** を押すとアクセスキー（43 文字）が作られ、登録データがクラウド（`https://pokemon.fara-labs.com/api/my/pokemon`・`/api/my/team`）に保存されます。
-ボット（Auto Bot Settings の Game タブ → ポケモンシリーズ の「アクセスキー」）に同じアクセスキーを設定し、`FileRosterStore` の代わりに `RemoteRosterStore` を使うと、サイトとボットが同じデータを読み書きします（データはクラウドの 1 か所だけにあり、コピーを同期するのではありません）。
+配信用BOT（Auto Bot Settings の Game タブ → ポケモンシリーズ の「アクセスキー」）に同じアクセスキーを設定し、`FileRosterStore` の代わりに `RemoteRosterStore` を使うと、サイトと配信用BOTが同じデータを読み書きします（データはクラウドの 1 か所だけにあり、コピーを同期するのではありません）。
 画面上の呼び方は「データ共有」「アクセスキー」ですが、コード上の名前（`syncKey` 引数、サイトの localStorage キー `fara-pokemon-battle-assistant.syncKey` など）は互換性のためそのままです。
 
 ```csharp
-// syncKey: ボットの Game タブ（ポケモンシリーズ）の「アクセスキー」欄に貼り付けた値（パスワードと同じ扱い。ログに出さない）
+// syncKey: 配信用BOTの Game タブ（ポケモンシリーズ）の「アクセスキー」欄に貼り付けた値（パスワードと同じ扱い。ログに出さない）
 IRosterStore store = RemoteRosterStore.IsValidKey(syncKey)
     ? new RemoteRosterStore(httpClient, RemoteRosterStore.ProductionBaseUrl, syncKey)
     : new FileRosterStore(Path.Combine(appDir, "pokemon-roster.json"));
@@ -118,7 +118,7 @@ private async void TwitchClientOnMessageReceived(object? sender, OnMessageReceiv
 
 ## 動作確認
 
-ボットに組み込む前に、同じ文字列をターミナルやブラウザで試せます。
+配信用BOTに組み込む前に、同じ文字列をターミナルやブラウザで試せます。
 
 ```bash
 dotnet run --project src/FaraPokemonBattleAssistant.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコフィールド"
@@ -131,7 +131,7 @@ dotnet run --project src/FaraPokemonBattleAssistant.Cli -- --data https://pokemo
 
 - Twitch は `/` 始まりのメッセージを自身のコマンドとして扱うため、`!` 始まりにしています。
 - 1 メッセージ 500 文字制限に合わせて、結果は `DamageCommandOptions.MaxLength`（既定 480）で切り詰めます。
-- 連投対策（同一ユーザーのクールダウンなど）はボット側で行ってください。計算自体は数ミリ秒です。
+- 連投対策（同一ユーザーのクールダウンなど）は配信用BOT側で行ってください。計算自体は数ミリ秒です。
 - `!poke help` で使えるコマンド一覧が返ります（`!poke` はチャンピオンズ扱い）。
 - 登録・チームは短い形の `-p` / `-t` が主です。長い形の `--pokemon` / `--team` も同じ意味で使えます。例（短い形の直後に同じ意味の長い形を並べています）:
   ```
