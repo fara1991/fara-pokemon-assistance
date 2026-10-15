@@ -419,10 +419,17 @@ public sealed class DamageCommand
         var tagText = TagText(request, result, dataSet, request.IsCritical);
         var warnText = warnings is { Count: > 0 } ? $" ※{string.Join("、", warnings)}" : "";
 
-        // ダイマックス技・Z 技に変わるときは、変換後の技名も添える（例: じしん（ライジングランドオーバー））
-        var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
-        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort(includeItem: false, includeAbility: false)}): " +
+        return Header(request, result) + ": " +
                $"{result.RangeText} {result.KnockOut}{ParentalText(result)}{tagText}{warnText}";
+    }
+
+    /// <summary>「攻撃側(構成) 技 → 防御側(構成)」（結果の前の部分）。ダイマックス技・Z 技に変わるときは、変換後の技名も添える（例: じしん（ライジングランドオーバー））。</summary>
+    public static string Header(DamageRequest request, DamageResult result)
+    {
+        var a = request.Attacker;
+        var d = request.Defender;
+        var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
+        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort(includeItem: false, includeAbility: false)})";
     }
 
     /// <summary>おやこあいのときの、1 回目・2 回目のダメージ（例: <c> (おやこあい 1回目 20〜24・2回目 5〜6)</c>）。</summary>

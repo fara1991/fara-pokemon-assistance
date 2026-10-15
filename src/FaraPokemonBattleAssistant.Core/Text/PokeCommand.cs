@@ -359,47 +359,36 @@ public sealed class PokeCommand
         if (!normal.Success) return normal;
         var crit = await _damage.ExecuteAsync(text, new DamageCommandOptions { DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, IsCritical = true, MaxLength = int.MaxValue }, ct).ConfigureAwait(false);
 
+        // 連続技は、1 回ごとに急所判定があり威力も変わるので、急所なしで「当たった回数ごと」の合計だけを短く出す
+        if (MoveEffects.HitsTwoToFive(normal.Request!.Move) || MoveEffects.IsEscalating(normal.Request.Move))
+        {
+            var counts = MoveEffects.IsEscalating(normal.Request.Move) ? new[] { 1, 2, 3 }
+                : normal.Request.Attacker.Ability?.Identifier == "skill-link" ? new[] { 5 } : new[] { 1, 2, 3, 4, 5 };
+            // 急所は、オプション（「急所」）を付けたときだけ。付けると、全部の回が急所の結果になる
+            var resultLabel = normal.Request.IsCritical ? "急所の結果" : "結果";
+            var parts = new List<string>();
+            DamageResult? last = null;
+            foreach (var n in counts)
+            {
+                var r = await _damage.ExecuteAsync(text, new DamageCommandOptions { DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, IsCritical = normal.Request.IsCritical, HitCount = n, MaxLength = int.MaxValue }, ct).ConfigureAwait(false);
+                if (!r.Success || r.Damage is null) { parts.Clear(); break; }
+                last = r.Damage;
+                parts.Add($"{n}回: {r.Damage.RangeText} {r.Damage.KnockOut}");
+            }
+            if (parts.Count > 0)
+                return new DamageCommandResult
+                {
+                    Success = true,
+                    Message = DamageCommand.Header(normal.Request, last!) + "\n" + resultLabel + " " + string.Join(" ｜", parts),
+                    Request = normal.Request,
+                    Damage = last,
+                };
+        }
+
         var message = normal.Message;
         var critText = crit.Success && crit.Damage is not null && crit.Damage.MaxDamage > 0
             ? $" ｜急所: {crit.Damage.RangeText} {crit.Damage.KnockOut}{DamageCommand.ParentalText(crit.Damage)}"
             : "";
-        // 2〜5 回当たる連続技は、1 回あたりのダメージを出す（急所は 1 回ごとに判定されるため）。回数は最後に添える
-        var hitsSuffix = "";
-        if (MoveEffects.HitsTwoToFive(normal.Request!.Move))
-        {
-            DamageCommandOptions Hits(bool critical) => new() { DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, IsCritical = critical, HitCount = 1, MaxLength = int.MaxValue };
-            var oneNormal = await _damage.ExecuteAsync(text, Hits(false), ct).ConfigureAwait(false);
-            var oneCrit = await _damage.ExecuteAsync(text, Hits(true), ct).ConfigureAwait(false);
-            if (oneNormal.Success && oneNormal.Damage is not null)
-            {
-                normal = oneNormal;
-                message = oneNormal.Message;
-                critText = oneCrit.Success && oneCrit.Damage is not null && oneCrit.Damage.MaxDamage > 0
-                    ? $" ｜急所: {oneCrit.Damage.RangeText}"
-                    : "";
-                hitsSuffix = normal.Request!.Attacker.Ability?.Identifier == "skill-link" ? " (1回あたり。5回攻撃 ×5)" : " (1回あたり。2〜5回攻撃 ×2〜5)";
-            }
-        }
-        // トリプルキック・トリプルアクセルは 1 回ごとにダメージが変わるので、当たった回数ごと（1〜3 回）の合計を出す
-        if (MoveEffects.IsEscalating(normal.Request!.Move))
-        {
-            DamageCommandOptions Hits(int n, bool critical) => new() { DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, IsCritical = critical, HitCount = n, MaxLength = int.MaxValue };
-            var byHits = new List<DamageCommandResult>();
-            var byHitsCrit = new List<DamageCommandResult>();
-            for (var n = 1; n <= 3; n++)
-            {
-                byHits.Add(await _damage.ExecuteAsync(text, Hits(n, false), ct).ConfigureAwait(false));
-                byHitsCrit.Add(await _damage.ExecuteAsync(text, Hits(n, true), ct).ConfigureAwait(false));
-            }
-            if (byHits.All(r => r.Success && r.Damage is not null))
-            {
-                message = byHits[0].Message + " ｜" + string.Join(" / ", byHits.Skip(1).Select((r, i) => $"{i + 2}回: {r.Damage!.RangeText} {r.Damage.KnockOut}"));
-                critText = byHitsCrit.All(r => r.Success && r.Damage is not null)
-                    ? " ｜急所: " + string.Join(" / ", byHitsCrit.Select((r, i) => $"{i + 1}回 {r.Damage!.RangeText}"))
-                    : "";
-                hitsSuffix = " (当たった回数までの合計)";
-            }
-        }
         message += critText;
 
         // 相手（防御側）の特性が不明なら、特性でダメージが変わる場合に特性ごとの結果を添える
@@ -412,7 +401,7 @@ public sealed class PokeCommand
         }
         // 攻撃側の特性が、状態（HP・状態異常・天候）でダメージを変えるとき（もうか・こんじょう・サンパワーなど）は、その結果も出す
         if (AttackerAbilityVariants(data, request, normal.Damage!) is { } attackerVariants) message += attackerVariants;
-        return new DamageCommandResult { Success = true, Message = message + hitsSuffix, Request = request, Damage = normal.Damage };
+        return new DamageCommandResult { Success = true, Message = message, Request = request, Damage = normal.Damage };
     }
 
     /// <summary>
