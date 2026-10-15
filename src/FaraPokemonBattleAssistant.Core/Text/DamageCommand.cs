@@ -18,6 +18,8 @@ public sealed class DamageCommandOptions
     public int DefaultDefenderDefenseEv { get; set; } = 0;
     /// <summary>使用率データから性格・持ち物の既定値を埋めるか。</summary>
     public bool UseUsageDefaults { get; set; } = true;
+    /// <summary>2〜5 回当たる連続技の回数（2 や 5。null なら既定）。</summary>
+    public int? HitCount { get; set; }
     /// <summary>出力 1 行の最大長（Twitch は 500 文字）。</summary>
     public int MaxLength { get; set; } = 480;
     /// <summary>急所で計算する（トークンの「急所」と同じ）。</summary>
@@ -399,6 +401,7 @@ public sealed class DamageCommand
             Screen = screen,
             Reflect = reflect,
             LightScreen = lightScreen,
+            HitCountOverride = options.HitCount,
         };
         var result = new DamageCalculator(data.TypeChart, data.Info.Generation).Calculate(request);
 
@@ -418,9 +421,15 @@ public sealed class DamageCommand
 
         // ダイマックス技・Z 技に変わるときは、変換後の技名も添える（例: じしん（ライジングランドオーバー））
         var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
-        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort(includeItem: false)}): " +
-               $"{result.RangeText} {result.KnockOut}{tagText}{warnText}";
+        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort(includeItem: false, includeAbility: false)}): " +
+               $"{result.RangeText} {result.KnockOut}{ParentalText(result)}{tagText}{warnText}";
     }
+
+    /// <summary>おやこあいのときの、1 回目・2 回目のダメージ（例: <c> (おやこあい 1回目 20〜24・2回目 5〜6)</c>）。</summary>
+    public static string ParentalText(DamageResult result) =>
+        result.ParentalBond && result.HitRolls is { Count: 2 } h
+            ? $" (おやこあい 1回目 {h[0][0]}〜{h[0][^1]}・2回目 {h[1][0]}〜{h[1][^1]})"
+            : "";
 
     /// <summary>
     /// 急所なし・ありを 1 つにまとめた表示（ダメージ計算機の「チャットでの表示」用）。
@@ -434,8 +443,8 @@ public sealed class DamageCommand
         var tagText = TagText(request, result, dataSet, withCritical: false);
         var warnText = warnings is { Count: > 0 } ? $" ※{string.Join("、", warnings)}" : "";
         var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
-        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort(includeItem: false)}): " +
-               $"{result.RangeText} {result.KnockOut} / 急所 {crit.RangeText} {crit.KnockOut}{tagText}{warnText}";
+        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort(includeItem: false, includeAbility: false)}): " +
+               $"{result.RangeText} {result.KnockOut}{ParentalText(result)} / 急所 {crit.RangeText} {crit.KnockOut}{ParentalText(crit)}{tagText}{warnText}";
     }
 
     /// <summary>末尾の [相性 Z技 急所 天候 フィールド 壁 ダブル]。</summary>
@@ -444,6 +453,7 @@ public sealed class DamageCommand
         var tags = new List<string>();
         if (result.TypeEffectiveness != 1.0) tags.Add(result.EffectivenessText);
         if (request.IsZMove) tags.Add("Z技");
+        if (request.HitCountOverride is { } hitCount && MoveEffects.HitsTwoToFive(request.Move)) tags.Add($"{hitCount}回");
         if (withCritical) tags.Add("急所");
         if (request.Weather != Weather.None) tags.Add(FieldNames.Japanese(request.Weather, dataSet.Generation));
         if (request.Terrain != Terrain.None) tags.Add(FieldNames.Japanese(request.Terrain));

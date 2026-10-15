@@ -946,6 +946,14 @@ else if (data is not null && dataSet is not null)
                 <span class="ms-2 badge @(crit.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@crit.KnockOut</span>
             </p>
         }
+        @if (result.ParentalBond && result.HitRolls is { Count: 2 } hr)
+        {
+            <p class="mb-1 small">おやこあい: 1回目 @(hr[0][0])〜@(hr[0][^1]) ・ 2回目 @(hr[1][0])〜@(hr[1][^1])（急所なし）</p>
+        }
+        @foreach (var line in MultiHitLines(lastRequest, critRequest))
+        {
+            <p class="mb-1 small">@line</p>
+        }
         @RenderHpBar(result, lastRequest)
         @if (lastRequest.Attacker.Pokemon.IsProvisional || lastRequest.Defender.Pokemon.IsProvisional)
         {
@@ -955,6 +963,29 @@ else if (data is not null && dataSet is not null)
         <p class="mb-1 text-muted small">チャットでの表示</p>
         <div class="alert alert-light border chat-output mb-0">@(crit is null ? DamageCommand.Format(lastRequest, result, data!.Info) : DamageCommand.FormatBoth(lastRequest, result, crit, data!.Info))</div>
     };
+
+    /// <summary>2〜5 回当たる連続技の、最小回数（2 回）と最大回数（5 回）のダメージ（スキルリンクは 5 回で固定なので出さない）。</summary>
+    private IEnumerable<string> MultiHitLines(DamageRequest request, DamageRequest? critRequest)
+    {
+        if (data is null || !MoveEffects.HitsTwoToFive(request.Move) || request.Attacker.Ability?.Identifier == "skill-link") yield break;
+        var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation);
+        foreach (var n in new[] { 2, 5 })
+        {
+            var normal = calc.Calculate(new DamageRequest
+            {
+                Attacker = request.Attacker, Move = request.Move, Defender = request.Defender, Format = request.Format,
+                Weather = request.Weather, Terrain = request.Terrain, Reflect = request.Reflect, LightScreen = request.LightScreen,
+                IsZMove = request.IsZMove, HitCountOverride = n,
+            });
+            var text = $"{n}回: 通常 {normal.RangeText} {normal.KnockOut}";
+            if (critRequest is not null)
+            {
+                var crit = calc.Calculate(critRequest.With(hitCount: n));
+                text += $" ／ 急所 {crit.RangeText} {crit.KnockOut}";
+            }
+            yield return text;
+        }
+    }
 
     /// <summary>いまひとつ・ばつぐん・こうかなし（倍率の数字は付けない）。</summary>
     private static string EffectLabel(DamageResult r)

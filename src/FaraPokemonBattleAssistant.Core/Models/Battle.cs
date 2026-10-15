@@ -133,12 +133,13 @@ public sealed class PokemonBuild
 
     /// <summary>チャット向けの短い説明（例: <c>C252 C↑A↓ こだわりメガネ サイコメイカー</c>）。</summary>
     /// <param name="includeItem">false なら持ち物を出さない（チャットの防御側＝相手の表示）。</param>
-    public string DescribeShort(bool includeItem = true)
+    /// <param name="includeAbility">false なら特性を出さない（チャットの防御側＝相手の表示。特性は、別に「特性別」で出す）。</param>
+    public string DescribeShort(bool includeItem = true, bool includeAbility = true)
     {
         var parts = new List<string> { EVs.ToShortString() };
         if (Nature?.Summary() is { } natureText) parts.Add(natureText);
         if (includeItem && Item is not null) parts.Add(Item.Name);
-        if (Ability is not null) parts.Add(Ability.Name);
+        if (includeAbility && Ability is not null) parts.Add(Ability.Name);
         if (IsTerastallized) parts.Add($"テラス{TypeNames.ToJapanese(TeraType!)}");
         if (Status != StatusCondition.None) parts.Add(StatusNames.Japanese(Status));
         if (IsDynamax) parts.Add("ダイマックス");
@@ -173,12 +174,14 @@ public sealed class DamageRequest
     public bool LightScreen { get; init; }
     /// <summary>Z 技として使う（第 7 世代）。</summary>
     public bool IsZMove { get; init; }
+    /// <summary>2〜5 回当たる連続技の回数を決める（2 か 5 など。null なら既定の 3 回、スキルリンクは 5 回）。ほかの技では無視する。</summary>
+    public int? HitCountOverride { get; init; }
 
     /// <summary>その分類の技に壁が効くか。</summary>
     public bool HasScreenFor(bool physical) => Screen || (physical ? Reflect : LightScreen);
 
     /// <summary>技や防御側だけ差し替えた複製（場の条件はそのまま）。</summary>
-    public DamageRequest With(Move? move = null, PokemonBuild? defender = null, PokemonBuild? attacker = null, bool? isCritical = null, Weather? weather = null) => new()
+    public DamageRequest With(Move? move = null, PokemonBuild? defender = null, PokemonBuild? attacker = null, bool? isCritical = null, Weather? weather = null, int? hitCount = null) => new()
     {
         Attacker = attacker ?? Attacker,
         Move = move ?? Move,
@@ -191,6 +194,7 @@ public sealed class DamageRequest
         Reflect = Reflect,
         LightScreen = LightScreen,
         IsZMove = IsZMove,
+        HitCountOverride = hitCount ?? HitCountOverride,
     };
 }
 
@@ -213,8 +217,12 @@ public sealed class DamageResult
     public required int[] Rolls { get; init; }
     /// <summary>2 回目以降に使ったとき（マルチスケイル・半減きのみが無くなった後）の乱数 16 通り。null なら <see cref="Rolls"/> と同じ。</summary>
     internal int[]? LaterRolls { get; init; }
-    /// <summary>連続技の回数（連続技でなければ 1）。</summary>
+    /// <summary>連続技の回数（連続技でなければ 1。おやこあいは 2）。</summary>
     public int Hits { get; init; } = 1;
+    /// <summary>1 回ごとの乱数 16 通り（連続技・おやこあいのとき。<see cref="Rolls"/> はその合計）。1 回だけの技は null。</summary>
+    public IReadOnlyList<int[]>? HitRolls { get; init; }
+    /// <summary>おやこあいで 2 回当たる（2 回目は 1/4 のダメージ）。</summary>
+    public bool ParentalBond { get; init; }
     public int MinDamage => Rolls[0];
     public int MaxDamage => Rolls[^1];
     public required int DefenderHP { get; init; }
