@@ -1435,6 +1435,34 @@ public class MoveEffectTests
     }
 
     [Fact]
+    public async Task Parental_bond_hits_twice_and_multi_hit_count_can_be_chosen()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Champions");
+        var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation);
+        var target = P(data, "カビゴン");
+        var kanga = P(data, "メガガルーラ", "parental-bond");
+        var quake = M(data, "じしん");
+        var pb = calc.Calculate(new DamageRequest { Attacker = kanga, Move = quake, Defender = target });
+        Assert.True(pb.ParentalBond);
+        Assert.Equal(2, pb.Hits);
+        Assert.Equal(2, pb.HitRolls!.Count);
+        Assert.Equal(pb.HitRolls[0][0] + pb.HitRolls[1][0], pb.Rolls[0]);
+        Assert.InRange(pb.HitRolls[1][15] * 4, pb.HitRolls[0][15] - 4, pb.HitRolls[0][15] + 4);
+        Assert.Contains("おやこあい 1回目", DamageCommand.ParentalText(pb));
+
+        // 2〜5 回の技は、回数を決められる
+        (data, calc) = await Load();
+        target = P(data, "カビゴン");
+        var cloyster = P(data, "パルシェン", "shell-armor");
+        var icicle = M(data, "つららばり");
+        var two = calc.Calculate(new DamageRequest { Attacker = cloyster, Move = icicle, Defender = target, HitCountOverride = 2 });
+        var five = calc.Calculate(new DamageRequest { Attacker = cloyster, Move = icicle, Defender = target, HitCountOverride = 5 });
+        Assert.Equal(2, two.Hits);
+        Assert.Equal(5, five.Hits);
+        Assert.Equal(two.Rolls[0] / 2 * 5, five.Rolls[0]);
+    }
+
+    [Fact]
     public async Task Foul_play_body_press_and_sacred_sword_use_the_right_stats()
     {
         var (data, calc) = await Load();

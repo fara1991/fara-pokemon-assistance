@@ -92,22 +92,30 @@ public sealed class DamageCalculator
         var forcedCrit = !maxOrZ && !request.IsCritical && MoveEffects.AlwaysCrits(move, _generation);
         if (forcedCrit) request = request.With(isCritical: true);
         var hits = maxOrZ || !move.IsDamaging ? 1 : MoveEffects.HitCount(move, request.Attacker.Ability?.Identifier);
+        if (hits > 1 && request.HitCountOverride is { } overrideHits && MoveEffects.HitsTwoToFive(move)) hits = Math.Clamp(overrideHits, 2, 5);
+        // おやこあい: 連続技でない技が 2 回当たる（2 回目は 1/4 のダメージ。第 7 世代から。ダブルの全体技・Z 技・ダイマックス技は対象外）
+        var parental = hits == 1 && !maxOrZ && move.IsDamaging && move.Power > 0 && _legacy is null && _generation >= 7
+            && request.Attacker.Ability?.Identifier == "parental-bond"
+            && !(request.Format == BattleFormat.Doubles && move.Target != MoveTarget.Single);
         var first = CalculateHit(request, 1);
         if (forcedCrit && !first.Modifiers.Any(m => m.Contains("急所に当たらない"))) AddNote(first, $"{move.Name}(必ず急所)");
+        if (parental && first.MaxDamage > 0) hits = 2;
         if (hits <= 1 || first.MaxDamage == 0) return first;
 
         // 連続技: 1 回ずつ計算して足す（2 回目以降はマルチスケイル・半減きのみが効かない。トリプルアクセルなどは回ごとに威力が上がる）。
         // 当たるたびに防御側の能力が変わる特性・持ち物（じきゅうりょく・くだけるよろい・みずがためと、タラプのみ・アッキのみ・ひかりごけ）も反映する
         var total = (int[])first.Rolls.Clone();
         var later = (int[])(first.LaterRolls ?? first.Rolls).Clone();
+        var hitRolls = new List<int[]> { (int[])first.Rolls.Clone() };
         var defenderNow = request.Defender.Clone();
         var usedItem = false;
         var changes = new List<string>();
         for (var hit = 2; hit <= hits; hit++)
         {
             usedItem = ApplyHitReaction(request, first, defenderNow, usedItem, changes);
-            var r = CalculateHit(request.With(defender: defenderNow), hit);
+            var r = CalculateHit(request.With(defender: defenderNow), hit, parentalChild: parental);
             var rolls = r.LaterRolls ?? r.Rolls;
+            hitRolls.Add((int[])rolls.Clone());
             for (var i = 0; i < 16; i++)
             {
                 total[i] += rolls[i];
@@ -116,8 +124,10 @@ public sealed class DamageCalculator
         }
         var modifiers = first.Modifiers.ToList();
         modifiers.AddRange(changes.Distinct());
-        modifiers.Insert(0, MoveEffects.HitsTwoToFive(move)
-            ? $"{move.Name}({hits}回当たったとき。2〜5回の技は3回{(hits == 5 ? "・スキルリンクで5回" : "")}で計算)"
+        modifiers.Insert(0, parental
+            ? "おやこあい(2回当たる。2回目は1/4。合計)"
+            : MoveEffects.HitsTwoToFive(move)
+            ? $"{move.Name}({hits}回当たったとき)"
             : $"{move.Name}({hits}回の合計)");
         var defenderHp = first.DefenderHP;
         var defender = request.Defender;
@@ -128,6 +138,8 @@ public sealed class DamageCalculator
             Rolls = total,
             LaterRolls = later,
             Hits = hits,
+            HitRolls = hitRolls,
+            ParentalBond = parental,
             DefenderHP = defenderHp,
             TypeEffectiveness = first.TypeEffectiveness,
             IsStab = first.IsStab,
@@ -190,13 +202,13 @@ public sealed class DamageCalculator
     }
 
     /// <summary>連続技の <paramref name="hit"/> 回目（1 回目は 1）のダメージ。</summary>
-    private DamageResult CalculateHit(DamageRequest request, int hit)
+    private DamageResult CalculateHit(DamageRequest request, int hit, bool parentalChild = false)
     {
         var move = request.Move;
         var power = MoveEffects.PowerForHit(move, hit);
         if (power != move.Power) request = request.With(move: MoveEffects.With(move, power: power));
         if (_legacy is not null) return _legacy.Calculate(LegacyMove(request));
-        return CalculateModern(request);
+        return CalculateModern(request, parentalChild);
     }
 
     /// <summary>
@@ -223,7 +235,7 @@ public sealed class DamageCalculator
     /// 第 8 世代以降の計算。補正の分け方（威力・攻撃・防御・最後）と掛ける順番は、公開されているダメージ計算ツール（@smogon/calc の gen789）に合わせる
     /// （補正は 1 つ掛けるごとに丸めるので、順番が違うと 1 ずれることがある）。
     /// </summary>
-    private DamageResult CalculateModern(DamageRequest request)
+    private DamageResult CalculateModern(DamageRequest request, bool parentalChild = false)
     {
         var attacker = request.Attacker;
         var defender = request.Defender;
@@ -473,6 +485,9 @@ public sealed class DamageCalculator
             baseDamage = PokeRound(baseDamage * 3072 / 4096.0);
             modifiers.Add("複数対象(0.75倍)");
         }
+
+        // おやこあいの 2 回目は、ダメージが 1/4
+        if (parentalChild) baseDamage = PokeRound(baseDamage * 1024 / 4096.0);
 
         // --- 天候
         if (weather == Weather.Sun && move.Id == MoveIdHydroSteam)
