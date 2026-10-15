@@ -2395,8 +2395,14 @@ button.compact-cell {
 
 /* 晴れ: 右上の光から放射状に広がる線（動かない） */
 .wx-layer::before { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s; pointer-events: none;
-    background: repeating-conic-gradient(from 100deg at 82% 8%, rgba(255, 214, 90, 0.5) 0deg 2.5deg, transparent 2.5deg 11deg);
-    -webkit-mask-image: radial-gradient(circle at 82% 8%, #000 0, transparent 75%); mask-image: radial-gradient(circle at 82% 8%, #000 0, transparent 75%); }
+    /* 光源は画面の上の外。そこから下へ向かう、まっすぐな線を 5 本だけ出す */
+    background: conic-gradient(from 0deg at 82% -55%, transparent 0 148deg,
+        rgba(255, 214, 90, 0.55) 148deg 152deg, transparent 152deg 160deg,
+        rgba(255, 214, 90, 0.55) 160deg 164deg, transparent 164deg 171deg,
+        rgba(255, 214, 90, 0.55) 171deg 175deg, transparent 175deg 182deg,
+        rgba(255, 214, 90, 0.55) 182deg 186deg, transparent 186deg 193deg,
+        rgba(255, 214, 90, 0.55) 193deg 197deg, transparent 197deg);
+    -webkit-mask-image: linear-gradient(180deg, #000 0, transparent 90%); mask-image: linear-gradient(180deg, #000 0, transparent 90%); }
 .bg-scene.wx-sun .wx-layer::before { opacity: 0.55; }
 .bg-scene.wx-sun.battle .wx-layer::before { opacity: 1; }
 
