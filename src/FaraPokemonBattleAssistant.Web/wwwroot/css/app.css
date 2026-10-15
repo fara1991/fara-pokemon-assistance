@@ -2393,15 +2393,23 @@ button.compact-cell {
 .rolls-details > summary:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
 .rolls-details > .rolls-block { margin: 0; padding: 0 0.8rem 0.6rem; }
 
-/* 晴れ: 右上の光から放射状に広がる線（動かない） */
+/* 晴れ: 画面の上の外にある光から、コートの中心に向けて広がる線（動かない）。
+   光の位置（--sun-x / --sun-y）から、コートの中心（--sun-tx / --sun-ty）への向きを、角度（--sun-dir）にする */
+.bg-scene { --sun-x: 82vw; --sun-y: -55vh; --sun-tx: calc(50vw + var(--stage-shift)); --sun-ty: 58vh; }
+@supports (background: conic-gradient(from calc(atan2(1px, 1px) + 1deg), red, blue)) {
+    .bg-scene { --sun-dir: calc(atan2(var(--sun-tx) - var(--sun-x), var(--sun-y) - var(--sun-ty)) + 360deg); }
+}
+@media (max-aspect-ratio: 1/1) { .bg-scene { --sun-ty: 43vh; } }
+@media (orientation: landscape) and (max-height: 560px) { .bg-scene { --sun-ty: 52vh; --sun-tx: 50vw; } }
 .wx-layer::before { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s; pointer-events: none;
     /* 光源は画面の上の外。そこから下へ向かう、まっすぐな線を 5 本だけ出す */
-    background: conic-gradient(from 0deg at 82% -55%, transparent 0 148deg,
-        rgba(255, 214, 90, 0.55) 148deg 152deg, transparent 152deg 160deg,
-        rgba(255, 214, 90, 0.55) 160deg 164deg, transparent 164deg 171deg,
-        rgba(255, 214, 90, 0.55) 171deg 175deg, transparent 175deg 182deg,
-        rgba(255, 214, 90, 0.55) 182deg 186deg, transparent 186deg 193deg,
-        rgba(255, 214, 90, 0.55) 193deg 197deg, transparent 197deg);
+    /* 5 本のうち 3 本目が、コートの中心に向かう。1 本ごとの間隔は 30 度、線の太さは 5 度 */
+    background: conic-gradient(from calc(var(--sun-dir, 198deg) - 62.5deg) at var(--sun-x) var(--sun-y),
+        rgba(255, 214, 90, 0.55) 0 5deg, transparent 5deg 30deg,
+        rgba(255, 214, 90, 0.55) 30deg 35deg, transparent 35deg 60deg,
+        rgba(255, 214, 90, 0.55) 60deg 65deg, transparent 65deg 90deg,
+        rgba(255, 214, 90, 0.55) 90deg 95deg, transparent 95deg 120deg,
+        rgba(255, 214, 90, 0.55) 120deg 125deg, transparent 125deg);
     -webkit-mask-image: linear-gradient(180deg, #000 0, transparent 90%); mask-image: linear-gradient(180deg, #000 0, transparent 90%); }
 .bg-scene.wx-sun .wx-layer::before { opacity: 0.55; }
 .bg-scene.wx-sun.battle .wx-layer::before { opacity: 1; }
@@ -3228,6 +3236,12 @@ html.vt-nav .sidebar {
     .bv-bottom .bv-msg { width: min(30rem, 66%); }
     .bv-box { width: min(14rem, 28%); }
 }
+
+/* ポケモン登録: 登録一覧の行を選んで編集する */
+.reg-item { cursor: pointer; }
+.reg-item:hover { background: color-mix(in srgb, var(--bs-primary) 6%, transparent); }
+.reg-item.reg-selected { background: color-mix(in srgb, var(--bs-primary) 14%, transparent); box-shadow: inset 3px 0 0 var(--bs-primary); }
+.reg-item:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: -2px; }
 
 /* 天候・フィールドの表示（左上の札） */
 .bv-conditions { position: absolute; top: var(--bv-gap); left: var(--bv-gap); display: flex; flex-wrap: wrap; gap: 0.35rem; max-width: 46%; }

@@ -132,11 +132,12 @@ public sealed class PokemonBuild
     };
 
     /// <summary>チャット向けの短い説明（例: <c>C252 C↑A↓ こだわりメガネ サイコメイカー</c>）。</summary>
-    public string DescribeShort()
+    /// <param name="includeItem">false なら持ち物を出さない（チャットの防御側＝相手の表示）。</param>
+    public string DescribeShort(bool includeItem = true)
     {
         var parts = new List<string> { EVs.ToShortString() };
         if (Nature?.Summary() is { } natureText) parts.Add(natureText);
-        if (Item is not null) parts.Add(Item.Name);
+        if (includeItem && Item is not null) parts.Add(Item.Name);
         if (Ability is not null) parts.Add(Ability.Name);
         if (IsTerastallized) parts.Add($"テラス{TypeNames.ToJapanese(TeraType!)}");
         if (Status != StatusCondition.None) parts.Add(StatusNames.Japanese(Status));

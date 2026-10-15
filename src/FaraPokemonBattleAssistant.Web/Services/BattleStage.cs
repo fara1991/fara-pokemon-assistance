@@ -62,6 +62,19 @@ public sealed class BattleStage
     public Weather Weather { get; private set; }
     public Terrain Terrain { get; private set; }
 
+    /// <summary>
+    /// 「計算」の見出しの中（ダメージ計算機・素早さ比較）で、行き来しても引き継ぐ天候・フィールド。
+    /// 各ページは、開いたときにこの値を入れ、変わったら書き戻す。
+    /// </summary>
+    public Weather SharedWeather { get; private set; }
+    public Terrain SharedTerrain { get; private set; }
+
+    public void ShareField(Weather weather, Terrain terrain)
+    {
+        SharedWeather = weather;
+        SharedTerrain = terrain;
+    }
+
     /// <summary>ページが、入力している天候・フィールドを出す。同じ内容なら何もしない（描画のたびに呼んでよい）。</summary>
     public void SetConditions(object owner, Weather weather, Terrain terrain)
     {

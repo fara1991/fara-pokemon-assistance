@@ -418,7 +418,7 @@ public sealed class DamageCommand
 
         // ダイマックス技・Z 技に変わるときは、変換後の技名も添える（例: じしん（ライジングランドオーバー））
         var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
-        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort()} HP{result.DefenderHP}): " +
+        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort(includeItem: false)}): " +
                $"{result.RangeText} {result.KnockOut}{tagText}{warnText}";
     }
 
@@ -434,7 +434,7 @@ public sealed class DamageCommand
         var tagText = TagText(request, result, dataSet, withCritical: false);
         var warnText = warnings is { Count: > 0 } ? $" ※{string.Join("、", warnings)}" : "";
         var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
-        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort()} HP{result.DefenderHP}): " +
+        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort(includeItem: false)}): " +
                $"{result.RangeText} {result.KnockOut} / 急所 {crit.RangeText} {crit.KnockOut}{tagText}{warnText}";
     }
 

@@ -299,6 +299,25 @@ public sealed class RosterRepository
         }, ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 登録済みのポケモンの、ポイント・性格・特性・技を更新する（ポケモン自体・登録 ID・チームでの位置・持ち物は変えない）。
+    /// 登録が無ければ null。
+    /// </summary>
+    public async Task<RegisteredPokemon?> UpdatePokemonAsync(string dataSetKey, int entryId, StatSet evs, Nature nature, Ability? ability, IEnumerable<int>? moveIds, CancellationToken ct = default)
+    {
+        var moves = (moveIds ?? Array.Empty<int>()).Where(id => id > 0).Distinct().Take(RegisteredPokemon.MaxMoves).ToList();
+        return await MutateAsync<RegisteredPokemon?>(dataSetKey, RosterPart.Pokemon, roster =>
+        {
+            var entry = roster.Pokemon.FirstOrDefault(p => p.Id == entryId);
+            if (entry is null) return (null, false);
+            entry.EVs = evs;
+            entry.Nature = nature.Name;
+            entry.AbilityId = ability?.Id;
+            entry.MoveIds = moves;
+            return (entry, true);
+        }, ct).ConfigureAwait(false);
+    }
+
     public async Task<bool> RemovePokemonAsync(string dataSetKey, int entryId, CancellationToken ct = default)
     {
         return await MutateAsync(dataSetKey, RosterPart.Pokemon, roster =>

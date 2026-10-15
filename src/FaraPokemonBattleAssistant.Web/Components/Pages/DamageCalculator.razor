@@ -318,6 +318,9 @@ else if (data is not null && dataSet is not null)
     protected override async Task OnAppReadyAsync()
     {
         s = PageStates.Get<State>("damage");
+        // ダメージ計算機・素早さ比較で、天候・フィールドを引き継ぐ
+        s.Weather = Stage.SharedWeather;
+        s.Terrain = Stage.SharedTerrain;
         await LoadDataSet();
         // ポケモン一覧から開いたとき（?attacker=ID / ?defender=ID）は、そのポケモンを入れてから URL を戻す
         if (AttackerQuery is > 0 || DefenderQuery is > 0)
@@ -334,6 +337,7 @@ else if (data is not null && dataSet is not null)
         Stage.Show(s.DataSetKey, s.Attacker?.Pokemon, s.Defender?.Pokemon);
         Stage.SetScene(this, BuildScene());
         Stage.SetConditions(this, s.Weather, s.Terrain);
+        Stage.ShareField(s.Weather, s.Terrain);
     }
 
     public override void Dispose()
