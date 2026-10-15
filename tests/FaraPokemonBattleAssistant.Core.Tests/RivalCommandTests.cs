@@ -155,6 +155,22 @@ public class RivalCommandTests
     }
 
     [Fact]
+    public async Task Scan_and_other_rival_writes_need_the_mutation_permission()
+    {
+        var (command, repo) = await NewAsync();
+        var viewer = new PokeCommandOptions { AllowMutations = false };
+        foreach (var message in new[] { "!pokech scan マニューラ つららおとし フシギバナ 55", "!pokech add -r カイリュー", "!pokech set -r カイリュー D32", "!pokech rm -r カイリュー", "!pokech clear -r", "!pokech rm -h 1", "!pokech set -m 1 A1" })
+        {
+            var result = await command.ExecuteAsync(message, viewer);
+            Assert.False(result.Success, message);
+        }
+        Assert.Empty((await repo.GetAsync()).For(Ds).Rivals);
+        // 読むだけの ls は誰でも使える
+        Assert.True((await command.ExecuteAsync("!pokech ls -r", viewer)).Success);
+        Assert.True((await command.ExecuteAsync("!pokech ls -h", viewer)).Success);
+    }
+
+    [Fact]
     public async Task Old_forms_are_rejected_with_guidance()
     {
         var (command, _) = await NewAsync();
