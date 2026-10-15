@@ -567,7 +567,7 @@ public class PokeCommandTests
         Assert.True(known.Success, known.Message);
         var observed = known.Damage!.MaxDamage;
 
-        var calc = await cmd.ExecuteAsync($"!pokesv calc ガブリアス じしん ハバタクカミ {observed}");
+        var calc = await cmd.ExecuteAsync($"!pokesv scan ガブリアス じしん ハバタクカミ {observed}");
         Assert.True(calc.Success, calc.Message);
         Assert.Contains("B実数値", calc.Message);
         Assert.Contains("補正なし:B0", calc.Message);
@@ -639,7 +639,7 @@ public class PokeCommandTests
         Assert.True((await cmd.ExecuteAsync("!pokesv add -t 1 1")).Success);
         Assert.True((await cmd.ExecuteAsync("!pokesv use -t 1")).Success);
         // ドータクンへのじしんは振り方によって概ね 114〜180。150 なら候補がある
-        var calc = await cmd.ExecuteAsync("!pokesv calc ガブリアス じしん ドータクン 150");
+        var calc = await cmd.ExecuteAsync("!pokesv scan ガブリアス じしん ドータクン 150");
         Assert.True(calc.Success, calc.Message);
         Assert.Contains("特性別", calc.Message);
         Assert.Contains("ふゆう: 該当なし", calc.Message);

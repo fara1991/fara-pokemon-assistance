@@ -23,7 +23,7 @@ public sealed class PokeCommandOptions
 /// </list>
 /// 使用チームに入っているポケモンは、その努力値・性格・特性・持ち物で計算される。
 /// </summary>
-public sealed class PokeCommand
+public sealed partial class PokeCommand
 {
     private static readonly char[] Separators = { ' ', '　', '\t', ',', '、' };
     private static readonly Regex PercentToken = new(@"^(\d+(?:\.\d+)?)[%％]$", RegexOptions.Compiled);
@@ -31,24 +31,16 @@ public sealed class PokeCommand
     private readonly DataCatalog _catalog;
     private readonly RosterRepository _roster;
     private readonly DamageCommand _damage;
-    /// <summary>calc で分かった相手の振り方（範囲でもよい）。この後の dmg で、防御側に使う（アプリを閉じるまで）。</summary>
-    private readonly FoeBook _foes;
 
-    public PokeCommand(DataCatalog catalog, RosterRepository roster) : this(catalog, roster, new FoeBook())
-    {
-    }
-
-    /// <param name="foes">相手の情報の置き場（画面と共有するときに渡す）。</param>
-    public PokeCommand(DataCatalog catalog, RosterRepository roster, FoeBook foes)
+    public PokeCommand(DataCatalog catalog, RosterRepository roster)
     {
         _catalog = catalog;
         _roster = roster;
-        _foes = foes;
         _damage = new DamageCommand(catalog);
     }
 
     public static string Usage(string prefix) =>
-        $"!{prefix} add -m 名前 H A B C D S 性格 | ls -m [名前] | detail -m ID | rm -m ID | add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号 | help | dmg 攻撃 技±ランク 防御 | calc 攻撃 技 防御 ダメージ | faster 自分 相手";
+        $"!{prefix} add -m 名前 H A B C D S 性格 | set -m ID … | ls -m [名前] | detail -m ID | rm -m ID | add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号 | add -r 名前… | set -r 名前 … | ls -r | rm -r 名前 | clear -r [メモ] | ls -h [名前] | detail -h ID | help | dmg 攻撃 技±ランク 防御 | scan 攻撃 技 防御 ダメージ | faster 自分 相手";
 
     /// <summary>メッセージがこのコマンド群のものかを判定し、接頭辞と残りを返す。</summary>
     public async Task<(DataSetInfo DataSet, string Arguments)?> MatchAsync(string message, CancellationToken ct = default)
@@ -76,10 +68,12 @@ public sealed class PokeCommand
     public static string CommandList(IEnumerable<DataSetInfo> dataSets)
     {
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
-        return "ポケモン: add -m 名前 H A B C D S 性格 [特性] / ls -m [名前] / detail -m ID / rm -m ID ｜ " +
-               "チーム: add -t 番号 ID [持ち物] / rm -t 番号 [名前] / use -t 番号 / unuse -t / ls -t / detail -t 番号 ｜ " +
-               "計算: dmg 攻撃 技±ランク 防御 [努力値 性格 持ち物 特性 急所 やけど どく まひ 天候 …] / calc 攻撃 技 防御 ダメージ[%] / faster 自分 相手 [まひ] ｜ " +
-               $"接頭辞: {prefixes}（!poke はチャンピオンズ） ｜ -m/-t は --my/--team でも可（例: use --team 1）";
+        return "自分(-m): add -m 名前 H A B C D S 性格 [特性] / set -m ID … / ls・detail・rm ｜ " +
+               "チーム(-t): add -t 番号 ID [持ち物] / use・unuse・ls・detail・rm ｜ " +
+               "相手(-r): add -r 名前… [H32 D10 B↑A↓ 特性] / set -r / scan 攻撃 技 相手 ダメージ / ls・detail・rm / clear -r [メモ] ｜ " +
+               "履歴(-h): ls・detail・rm ｜ " +
+               "dmg 攻撃 技 防御 [オプション] / faster 自分 相手 ｜ " +
+               $"{prefixes}（!poke はチャンピオンズ）｜ --my/--team/--rival/--history も可";
     }
 
     public async Task<DamageCommandResult> ExecuteAsync(string message, PokeCommandOptions? options = null, CancellationToken ct = default)
@@ -126,13 +120,15 @@ public sealed class PokeCommand
         if (tokens.Count == 0) return Fail(Usage(ds.CommandPrefix));
         var sub = tokens[0].ToLowerInvariant();
         var args = tokens.Skip(1).ToList();
-        // 対象はオプションで指定する: -m / --my（自分のポケモン）、-t / --team（チーム）。サブコマンドの直後に置く
+        // 対象はオプションで指定する: -m / --my（自分のポケモン）、-t / --team（チーム）、-r / --rival（相手ポケモン）、-h / --history（試合の履歴）。サブコマンドの直後に置く
         var isTeam = args.Count > 0 && (args[0].Equals("-t", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--team", StringComparison.OrdinalIgnoreCase));
         var isPokemon = args.Count > 0 && (args[0].Equals("-m", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--my", StringComparison.OrdinalIgnoreCase));
         // 以前の -p / --pokemon は廃止した（自分のポケモンは -m / --my）
         if (args.Count > 0 && (args[0].Equals("-p", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--pokemon", StringComparison.OrdinalIgnoreCase)))
             return Fail($"-p（--pokemon）は廃止しました。自分のポケモンは -m（--my）を使ってください（例: !{ds.CommandPrefix} {sub} -m）");
-        if (isTeam || isPokemon) args.RemoveAt(0);
+        var isRival = args.Count > 0 && (args[0].Equals("-r", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--rival", StringComparison.OrdinalIgnoreCase));
+        var isHistory = args.Count > 0 && (args[0].Equals("-h", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--history", StringComparison.OrdinalIgnoreCase));
+        if (isTeam || isPokemon || isRival || isHistory) args.RemoveAt(0);
         // ヘルプと参照専用データセットの拒否はデータ本体を使わないので、データセットを読み込む前に返す
         if (sub is "help")
             return Ok(CommandList(await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false)));
@@ -144,6 +140,16 @@ public sealed class PokeCommand
         {
             case "add" when isTeam: return await AddTeamAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "add" when isPokemon: return await AddAsync(ds, data, args, options, ct).ConfigureAwait(false);
+            case "add" when isRival: return await AddRivalAsync(ds, data, args, options, ct).ConfigureAwait(false);
+            case "set" when isPokemon: return await SetMyAsync(ds, data, args, options, ct).ConfigureAwait(false);
+            case "set" when isRival: return await SetRivalAsync(ds, data, args, options, ct).ConfigureAwait(false);
+            case "ls" when isRival: return await ListRivalsAsync(ds, data, ct).ConfigureAwait(false);
+            case "ls" when isHistory: return await ListHistoryAsync(ds, data, args, ct).ConfigureAwait(false);
+            case "detail" when isRival: return await DetailRivalAsync(ds, data, args, ct).ConfigureAwait(false);
+            case "detail" when isHistory: return await DetailHistoryAsync(ds, data, args, ct).ConfigureAwait(false);
+            case "rm" when isRival: return await RemoveRivalAsync(ds, data, args, options, ct).ConfigureAwait(false);
+            case "rm" when isHistory: return await RemoveHistoryAsync(ds, args, options, ct).ConfigureAwait(false);
+            case "clear" or "release" when isRival: return await EndMatchAsync(ds, args, options, ct).ConfigureAwait(false);
             case "ls" when isTeam: return await ListTeamsAsync(ds, ct).ConfigureAwait(false);
             case "ls" when isPokemon: return await ListAsync(ds, data, args, ct).ConfigureAwait(false);
             case "detail" when isTeam: return await MoreTeamAsync(ds, data, args, ct).ConfigureAwait(false);
@@ -152,11 +158,12 @@ public sealed class PokeCommand
             case "rm" when isPokemon: return await RemoveAsync(ds, args, options, ct).ConfigureAwait(false);
             case "unuse" or "release" or "clear" when isTeam: return await UnuseTeamAsync(ds, options, ct).ConfigureAwait(false);
             case "use" when isTeam: return await UseTeamAsync(ds, args, options, ct).ConfigureAwait(false);
-            case "add" or "ls" or "detail" or "rm" or "use" or "unuse" or "release" or "clear":
-                return Fail($"「{tokens[0]}」の後に、対象を -m（自分のポケモン）か -t（チーム）で付けてください（例: !{ds.CommandPrefix} {sub} -m / {sub} -t。--my / --team でも可）。{Usage(ds.CommandPrefix)}");
-            case "foe" or "foes" or "opponent": return FoeCommand(ds, data, args);
+            case "add" or "set" or "ls" or "detail" or "rm" or "use" or "unuse" or "release" or "clear":
+                return Fail($"「{tokens[0]}」の後に、対象を -m（自分のポケモン）・-t（チーム）・-r（相手）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m / {sub} -r。--my / --team / --rival / --history でも可）。{Usage(ds.CommandPrefix)}");
+            case "scan": return await ScanAsync(ds, data, args, options, ct).ConfigureAwait(false);
+            case "calc" or "ev": return Fail($"calc は scan に変わりました（例: !{ds.CommandPrefix} scan 攻撃側 技 相手 受けたダメージ）");
+            case "foe" or "foes" or "opponent": return Fail($"foe は相手ポケモン（-r）に変わりました（例: !{ds.CommandPrefix} ls -r / clear -r）");
             case "dmg" or "damage": return await DamageAsync(ds, data, args, options, ct).ConfigureAwait(false);
-            case "calc" or "ev": return await CalcAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "faster": return await DiffAsync(ds, data, args, options, ct).ConfigureAwait(false);
             default: return Fail($"不明なサブコマンド「{tokens[0]}」。{Usage(ds.CommandPrefix)}");
         }
@@ -365,39 +372,59 @@ public sealed class PokeCommand
         if (RegisteredOnlyError(ds, data, args[0], provider, "攻撃側") is { } notRegistered) return Fail(notRegistered);
         var text = string.Join(" ", args);
 
-        // 1 つ目の想定（相手の情報が範囲なら、耐久が最も低い想定）
-        var first = await DamageScenarioAsync(ds, data, args, text, options, provider, useHigh: false, ct).ConfigureAwait(false);
-        if (first.Failure is not null) return first.Failure;
+        // まず相手の情報なし（既定）で計算して、相手ポケモンと技（B か D か）を確かめる
+        var probe = await DamageScenarioAsync(ds, data, args, text, options, provider, null, useHigh: false, ct).ConfigureAwait(false);
+        if (probe.Failure is not null) return probe.Failure;
+        var request = probe.Request!;
 
-        var foe = _foes.Get(ds.Key, first.Request!.Defender.Pokemon.Id);
-        // 分かっている振り方は、その技が使う防御（B か D）が同じときだけ使う
-        if (foe is not null && foe.DefenseStat != first.Request.Move.DefenseStatUsed) foe = null;
-        if (foe is null || !foe.IsRange)
-            return new DamageCommandResult { Success = true, Message = DamageCommand.Header(first.Request, first.Last!) + "\n" + first.Body + first.Note, Request = first.Request, Damage = first.Last };
+        // 対戦中の相手に登録があれば、その分かっている振り方・性格・特性で計算し直す
+        KnownFoe? foe = null;
+        var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
+        if (roster.Rivals.FirstOrDefault(r => r.PokemonId == request.Defender.Pokemon.Id) is { } rival)
+        {
+            var ability = rival.AbilityId is { } abilityId ? data.FindAbility(abilityId) : null;
+            foe = KnownFoe.FromRival(rival, request.Defender.Pokemon, ds.EvSystem, data.Natures, request.Move.DefenseStatUsed, ability);
+        }
+        if (foe is null)
+            return new DamageCommandResult { Success = true, Message = DamageCommand.Header(request, probe.Last!) + "\n" + probe.Body + probe.Note, Request = request, Damage = probe.Last };
+
+        var first = await DamageScenarioAsync(ds, data, args, text, options, provider, foe, useHigh: false, ct).ConfigureAwait(false);
+        if (first.Failure is not null) return first.Failure;
+        if (!foe.IsRange)
+            return new DamageCommandResult { Success = true, Message = DamageCommand.Header(first.Request!, first.Last!) + "\n" + first.Body + first.Note, Request = first.Request, Damage = first.Last };
 
         // 相手の情報が範囲のときは、耐久が最も低い想定と最も高い想定の 2 つを出す
-        var second = await DamageScenarioAsync(ds, data, args, text, options, provider, useHigh: true, ct).ConfigureAwait(false);
+        var second = await DamageScenarioAsync(ds, data, args, text, options, provider, foe, useHigh: true, ct).ConfigureAwait(false);
         if (second.Failure is not null) return second.Failure;
-        var header = DamageCommand.Header(first.Request, first.Last!, $"{foe.Pokemon.Name}({foe.Summary})");
         return new DamageCommandResult
         {
             Success = true,
-            Message = header + "\n" + first.Body + "\n" + second.Body + first.Note,
+            Message = DamageCommand.Header(first.Request!, first.Last!, $"{foe.Pokemon.Name}({RangeText(foe, ds.EvSystem)})") + "\n" + first.Body + "\n" + second.Body + first.Note,
             Request = first.Request,
             Damage = first.Last,
         };
     }
 
+    /// <summary>範囲の相手の、防御のポイントの範囲（1 行目の防御側の表記。例: <c>B0〜6pt</c>）。</summary>
+    private static string RangeText(KnownFoe foe, EvSystem system)
+    {
+        var unit = system == EvSystem.Points ? "pt" : "";
+        var letter = StatNames.Letter(foe.DefenseStat);
+        var lo = foe.Low.EVs[foe.DefenseStat];
+        var hi = foe.High.EVs[foe.DefenseStat];
+        var natureText = foe.Low.Nature?.Id == foe.High.Nature?.Id ? "" : " 性格補正は範囲";
+        var hp = foe.Low.EVs[Stat.HP] == foe.High.EVs[Stat.HP] ? $"H{foe.Low.EVs[Stat.HP]}{unit} " : $"H{foe.Low.EVs[Stat.HP]}〜{foe.High.EVs[Stat.HP]}{unit} ";
+        return $"{hp}{letter}{(lo == hi ? lo.ToString() : $"{lo}〜{hi}")}{unit}{natureText}";
+    }
+
     /// <summary>dmg の 1 つの想定（相手の情報があれば、耐久が最も低い／高い想定の構成）の結果の行。</summary>
     private async Task<(DamageCommandResult? Failure, DamageRequest? Request, DamageResult? Last, string Body, string Note)> DamageScenarioAsync(
         DataSetInfo ds, PokemonDataSet data, List<string> args, string text, PokeCommandOptions options,
-        Func<Pokemon, bool, PokemonBuild?> provider, bool useHigh, CancellationToken ct)
+        Func<Pokemon, bool, PokemonBuild?> provider, KnownFoe? foe, bool useHigh, CancellationToken ct)
     {
         // 登録の構成は攻撃側だけに使う（防御側は相手なので、分かっている相手の情報があればそれ、なければ使用率の既定値で計算する）
-        var ignoreFoe = false;
-        PokemonBuild? FoeBuild(Pokemon p) => !ignoreFoe && _foes.Get(ds.Key, p.Id) is { } known ? (useHigh ? known.High : known.Low).Clone() : null;
-        Func<Pokemon, bool, PokemonBuild?> withFoe = (p, isAttacker) => isAttacker ? provider(p, true) : FoeBuild(p);
-        string? scenarioLabel = null;
+        Func<Pokemon, bool, PokemonBuild?> withFoe = (p, isAttacker) =>
+            isAttacker ? provider(p, true) : foe is not null && p.Id == foe.Pokemon.Id ? (useHigh ? foe.High : foe.Low).Clone() : null;
 
         // 防御側は相手なので、既定は HP と受ける側の防御（物理技なら B、特殊技なら D）に全振りで計算する
         DamageCommandOptions Opts(int? hitCount = null) => new()
@@ -407,18 +434,9 @@ public sealed class PokeCommand
         };
         var normal = await _damage.ExecuteAsync(text, Opts(), ct).ConfigureAwait(false);
         if (!normal.Success || normal.Request is null || normal.Damage is null) return (normal, null, null, "", "");
-        var known = _foes.Get(ds.Key, normal.Request.Defender.Pokemon.Id);
-        // その技が使う防御（B か D）と、分かっている振り方の防御が違うときは、相手の情報を使わず、既定（全振り）で計算し直す
-        if (known is not null && known.DefenseStat != normal.Request.Move.DefenseStatUsed)
-        {
-            ignoreFoe = true;
-            known = null;
-            normal = await _damage.ExecuteAsync(text, Opts(), ct).ConfigureAwait(false);
-            if (!normal.Success || normal.Request is null || normal.Damage is null) return (normal, null, null, "", "");
-        }
         var request = normal.Request;
         // 範囲のときは、使った防御の文字（B / D）で「B最小想定」「B最大想定」と出す
-        if (known is not null && known.IsRange) scenarioLabel = $"{StatNames.Letter(known.DefenseStat)}{(useHigh ? "最大" : "最小")}想定";
+        var scenarioLabel = foe is not null && foe.IsRange ? $"{StatNames.Letter(foe.DefenseStat)}{(useHigh ? "最大" : "最小")}想定" : null;
 
         // 連続技は、当たった回数ごと（そこまでの合計）を出す。おやこあいは 1 回目・2 回目（合計）
         // 急所は、オプション「急所」を付けたときだけ（付けると、すべて急所のダメージ）
@@ -453,7 +471,8 @@ public sealed class PokeCommand
         // 連続技でないときは、特性でダメージが変わる場合の結果を添える（相手の特性が不明なら特性別、攻撃側は HP・状態・天候による変化）
         if (counts is null)
         {
-            if (!MentionsAbility(args, data, request.Defender.Pokemon))
+            // 相手の特性が分かっている（指定した・登録した）ときは、特性別は出さない
+            if (!MentionsAbility(args, data, request.Defender.Pokemon) && foe?.Low.Ability is null)
             {
                 var variants = AbilityVariants(data, request, normal.Damage);
                 if (variants.Count > 0)
@@ -465,32 +484,6 @@ public sealed class PokeCommand
         var noteAt = normal.Message.IndexOf(" ※", StringComparison.Ordinal);
         var note = noteAt >= 0 ? normal.Message[noteAt..] : "";
         return (null, request, last, body, note);
-    }
-
-    /// <summary>相手の情報（calc で分かった振り方）の一覧・解除。<c>foe ls</c>、<c>foe clear [ポケモン名]</c>。</summary>
-    private DamageCommandResult FoeCommand(DataSetInfo ds, PokemonDataSet data, List<string> args)
-    {
-        var sub = args.Count > 0 ? args[0].ToLowerInvariant() : "ls";
-        if (sub is "ls" or "list")
-        {
-            var list = _foes.List(ds.Key);
-            if (list.Count == 0) return new DamageCommandResult { Success = true, Message = "分かっている相手の情報はありません（calc で推定すると登録されます）" };
-            return new DamageCommandResult { Success = true, Message = "相手の情報: " + string.Join(" ｜ ", list.Select(f => $"{f.Pokemon.Name}({f.Summary})")) };
-        }
-        if (sub is "clear" or "rm" or "release")
-        {
-            if (args.Count < 2)
-            {
-                var count = _foes.Clear(ds.Key);
-                return new DamageCommandResult { Success = true, Message = count == 0 ? "解除する相手の情報はありません" : $"相手の情報を {count} 件すべて解除しました" };
-            }
-            var match = DamageCommand.CreatePokemonResolver(data).Resolve(string.Join(" ", args.Skip(1)));
-            if (!match.IsResolved) return Fail($"ポケモン「{string.Join(" ", args.Skip(1))}」が見つかりません");
-            return _foes.Remove(ds.Key, match.Value!.Id)
-                ? new DamageCommandResult { Success = true, Message = $"{match.Value.Name}の相手の情報を解除しました" }
-                : new DamageCommandResult { Success = true, Message = $"{match.Value.Name}の相手の情報はありません" };
-        }
-        return Fail($"書式: !{ds.CommandPrefix} foe ls | foe clear [ポケモン名]");
     }
 
     /// <summary>
@@ -580,101 +573,6 @@ public sealed class PokeCommand
     {
         var names = new HashSet<string>(data.AbilitiesOf(pokemon).Select(a => NameNormalizer.Normalize(a.Name)));
         return args.Any(a => names.Contains(NameNormalizer.Normalize(a.Replace("防:", "").Replace("攻:", ""))));
-    }
-
-    private async Task<DamageCommandResult> CalcAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
-    {
-        if (args.Count < 4) return Fail($"書式: !{ds.CommandPrefix} calc 攻撃側 技±ランク 防御側 受けたダメージ（例: 93 または 45%）");
-        // 数値トークンを探す（4 番目以降の最初の数値または %）
-        var damageIndex = -1;
-        double observed = 0;
-        var asPercent = false;
-        for (var i = 3; i < args.Count; i++)
-        {
-            var pm = PercentToken.Match(args[i]);
-            if (pm.Success) { observed = double.Parse(pm.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture); asPercent = true; damageIndex = i; break; }
-            if (double.TryParse(args[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0) { observed = v; damageIndex = i; break; }
-        }
-        if (damageIndex < 0) return Fail("受けたダメージを数値（93）か割合（45%）で指定してください");
-        args.RemoveAt(damageIndex);
-
-        var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
-        if (args.Count > 0 && RegisteredOnlyError(ds, data, args[0], provider, "攻撃側") is { } notRegistered) return Fail(notRegistered);
-        // 防御側は相手なので、登録の構成は攻撃側だけに適用する
-        Func<Pokemon, bool, PokemonBuild?> attackerOnly = (p, isAttacker) => isAttacker ? provider(p, true) : null;
-        var baseline = await _damage.ExecuteAsync(string.Join(" ", args), new DamageCommandOptions
-        {
-            DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, UseUsageDefaults = false, MaxLength = int.MaxValue,
-            DefaultDefenderHpEv = 0, DefaultDefenderDefenseEv = 0,
-        }, ct).ConfigureAwait(false);
-        if (!baseline.Success || baseline.Request is null) return baseline;
-
-        var request = baseline.Request;
-        request.Defender.Item = null; // 相手の持ち物は不明
-        var estimator = new EvEstimator(data.TypeChart, ds.Generation);
-        var attackerText = $"{request.Attacker.Pokemon.Name}({request.Attacker.DescribeShort()})";
-
-        // 相手の特性が指定されていなければ、持ちうる特性ごとに推定し、結果が違うときは特性別に出す
-        var abilities = MentionsAbility(args, data, request.Defender.Pokemon) || request.Defender.Ability is null
-            ? new List<Ability?> { request.Defender.Ability }
-            : data.AbilitiesOf(request.Defender.Pokemon).Cast<Ability?>().ToList();
-        var results = new List<(Ability? Ability, EvEstimator.Estimate Estimate)>();
-        foreach (var ability in abilities)
-        {
-            var defender = request.Defender.Clone();
-            defender.Ability = ability;
-            var req = request.With(defender: defender);
-            results.Add((ability, estimator.Run(req, observed, asPercent)));
-        }
-
-        string Summary(EvEstimator.Estimate e) => string.Join("|", e.Bands.Select(b => $"{b.Label}{b.MinEv}-{b.MaxEv}")) + $"/{e.MinDefenseStat}-{e.MaxDefenseStat}";
-        var allSame = results.Select(r => Summary(r.Estimate)).Distinct().Count() == 1;
-        if (allSame || results.Count == 1)
-        {
-            var e = results[0].Estimate;
-            var text = EvEstimator.Format(e, request.Defender.Pokemon, request.Move, ds.EvSystem);
-            var abilityNote = results.Count == 1 ? $"特性{results[0].Ability?.Name ?? "不明"}想定" : "特性による差なし";
-            // 分かった振り方は（範囲でも）覚えておき、この後の dmg の防御側に使う
-            var remembered = "";
-            if (results.Count == 1 || allSame)
-            {
-                var foe = KnownFoe.FromEstimate(ds.Key, e, request.Defender.Pokemon, ds.EvSystem, data.Natures);
-                if (foe is not null)
-                {
-                    _foes.Set(foe);
-                    remembered = $" ※この情報を、この後の dmg の{foe.Pokemon.Name}に使います（解除: !{ds.CommandPrefix} foe clear {foe.Pokemon.Name}）";
-                }
-            }
-            return new DamageCommandResult { Success = e.HasResult, Message = $"{attackerText}の{text} ※相手は持ち物なし・{abilityNote}{remembered}", Request = request };
-        }
-
-        var parts = results.Select(r =>
-        {
-            var e = r.Estimate;
-            if (!e.HasResult) return $"{r.Ability?.Name}: 該当なし";
-            var unit = ds.EvSystem == EvSystem.Points ? "pt" : "";
-            var letter = StatNames.Letter(e.DefenseStat);
-            var bands = string.Join(" / ", e.Bands.Select(b => b.MinEv == b.MaxEv ? $"{b.Label}:{letter}{b.MinEv}{unit}" : $"{b.Label}:{letter}{b.MinEv}〜{b.MaxEv}{unit}"));
-            var hp = e.HpEvRange is { } h ? $" H{h.MinEv}〜{h.MaxEv}{unit}" : "";
-            return $"{r.Ability?.Name}: {bands}{hp}";
-        });
-        var observedText = asPercent ? $"{observed:0.#}%" : $"{observed:0}";
-        var any = results.Any(r => r.Estimate.HasResult);
-        // 特性で分かれたときも、すべての特性の結果をまとめた範囲として覚える
-        var merged = KnownFoe.Merge(results.Where(r => r.Estimate.HasResult)
-            .Select(r => KnownFoe.FromEstimate(ds.Key, r.Estimate, request.Defender.Pokemon, ds.EvSystem, data.Natures)).OfType<KnownFoe>().ToList());
-        var rememberedAll = "";
-        if (merged is not null)
-        {
-            _foes.Set(merged);
-            rememberedAll = $" ※この情報を、この後の dmg の{merged.Pokemon.Name}に使います（解除: !{ds.CommandPrefix} foe clear {merged.Pokemon.Name}）";
-        }
-        return new DamageCommandResult
-        {
-            Success = any,
-            Message = $"{attackerText}の{request.Move.Name}で{request.Defender.Pokemon.Name}に{observedText}ダメージ → 特性別: " + string.Join(" ｜ ", parts) + " ※相手は持ち物なし想定" + rememberedAll,
-            Request = request,
-        };
     }
 
     private async Task<DamageCommandResult> DiffAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)

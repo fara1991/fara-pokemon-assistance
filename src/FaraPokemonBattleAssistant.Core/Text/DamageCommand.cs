@@ -64,6 +64,26 @@ public sealed class DamageCommand
     private static readonly Regex IgnoredHpToken = new(@"^(?:残り)?hp\d{1,3}[%％]$", RegexOptions.Compiled);
     /// <summary>上がる能力・下がる能力での性格指定（<c>B↑A↓</c>、<c>B↑</c>、<c>A↓</c>。↑は + 、↓は - でもよい）。</summary>
     private static readonly Regex NatureArrowToken = new(@"^(?:([ABCDSabcds])[↑＋+](?:([ABCDSabcds])[↓－\-])?|([ABCDSabcds])[↓－\-])$", RegexOptions.Compiled);
+    /// <summary>
+    /// <c>B↑A↓</c>・<c>B↑</c>・<c>A↓</c> のような、上がる・下がる能力での性格指定か。その形なら true で、合う性格（無ければ null）を返す。
+    /// 片方だけのときは、もう片方を使わない攻撃能力にした性格。
+    /// </summary>
+    public static bool TryParseNatureArrow(string token, IReadOnlyList<Nature> natures, out Nature? nature)
+    {
+        nature = null;
+        var arrow = NatureArrowToken.Match(token);
+        if (!arrow.Success) return false;
+        var up = arrow.Groups[1].Success ? StatNames.Parse(arrow.Groups[1].Value.ToUpperInvariant()) : null;
+        var downText = arrow.Groups[2].Success ? arrow.Groups[2].Value : arrow.Groups[3].Success ? arrow.Groups[3].Value : null;
+        var down = downText is not null ? StatNames.Parse(downText.ToUpperInvariant()) : null;
+        if (up == Stat.HP || down == Stat.HP) return true;
+        nature = up is not null && down is not null ? natures.FirstOrDefault(n => n.IncreasedStat == up && n.DecreasedStat == down)
+            : up is not null ? NatureSelection.WithIncreased(natures, null, up)
+            : down is not null ? NatureSelection.WithDecreased(natures, null, down)
+            : null;
+        return true;
+    }
+
     private static readonly Regex EvToken = new(@"^(?:([HABCDShabcds])(\d{1,3}))+$", RegexOptions.Compiled);
     private static readonly Regex EvPair = new(@"([HABCDShabcds])(\d{1,3})", RegexOptions.Compiled);
     private static readonly Regex BoostToken = new(@"^([+-])([1-6])$", RegexOptions.Compiled);

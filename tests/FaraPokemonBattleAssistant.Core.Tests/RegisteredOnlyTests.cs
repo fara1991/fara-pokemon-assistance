@@ -10,13 +10,13 @@ public class RegisteredOnlyTests
     private static PokeCommand NewCommand() => new(TestData.Catalog(), new RosterRepository(new MemoryRosterStore()));
 
     [Fact]
-    public async Task Unregistered_attacker_is_rejected_by_dmg_calc_and_faster()
+    public async Task Unregistered_attacker_is_rejected_by_dmg_scan_and_faster()
     {
         var cmd = NewCommand();
         var dmg = await cmd.ExecuteAsync("!pokesv dmg バシャーモ かえんほうしゃ ガブリアス");
         Assert.False(dmg.Success);
         Assert.Contains("バシャーモは登録されていません", dmg.Message);
-        var calc = await cmd.ExecuteAsync("!pokesv calc バシャーモ かえんほうしゃ ガブリアス 45%");
+        var calc = await cmd.ExecuteAsync("!pokesv scan バシャーモ かえんほうしゃ ガブリアス 45%");
         Assert.False(calc.Success);
         Assert.Contains("登録されていません", calc.Message);
         var faster = await cmd.ExecuteAsync("!pokesv faster バシャーモ ガブリアス");
@@ -90,64 +90,6 @@ public class RegisteredOnlyTests
         Assert.Contains(" | 2回目:", pbLine);
         Assert.DoesNotContain("急所", pb.Message);
         Assert.DoesNotContain("[", pb.Message);
-    }
-
-    [Fact]
-    public async Task Fixed_defender_spread_is_used_and_a_decided_estimate_is_reused_by_dmg()
-    {
-        var data = await TestData.Catalog().GetDataSetAsync("Champions");
-        var repo = new RosterRepository(new MemoryRosterStore());
-        await repo.AddPokemonAsync("Champions", data.Pokemon.First(p => p.Name == "マニューラ"), new Models.StatSet { Attack = 32 }, data.Natures.First(), null);
-        var command = new PokeCommand(TestData.Catalog(), repo);
-        // 振り方を指定したら、その数値で計算する
-        var fixedSpread = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H32 B10");
-        Assert.True(fixedSpread.Success, fixedSpread.Message);
-        Assert.Equal(32, fixedSpread.Request!.Defender.EVs.HP);
-        Assert.Equal(10, fixedSpread.Request.Defender.EVs.Defense);
-        Assert.Contains("H32B10", fixedSpread.Message.Split('\n')[0]);
-
-        // calc で振り方が 1 つに決まったときは、その後の dmg の防御側に使う
-        var calc = await command.ExecuteAsync("!pokech calc マニューラ つららおとし フシギバナ 60%");
-        if (calc.Message.Contains("この後の dmg"))
-        {
-            var after = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ");
-            Assert.True(after.Success, after.Message);
-            Assert.NotEqual(32, after.Request!.Defender.EVs.Defense);
-        }
-    }
-
-    [Fact]
-    public async Task Nature_can_be_given_by_arrows_and_a_range_estimate_is_kept_until_cleared()
-    {
-        var data = await TestData.Catalog().GetDataSetAsync("Champions");
-        var repo = new RosterRepository(new MemoryRosterStore());
-        await repo.AddPokemonAsync("Champions", data.Pokemon.First(p => p.Name == "マニューラ"), new Models.StatSet { Attack = 32 }, data.Natures.First(), null);
-        var command = new PokeCommand(TestData.Catalog(), repo);
-
-        // ポイント振りのあとに、B↑A↓ で性格も指定できる
-        var arrows = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H32 B10 B↑A↓");
-        Assert.True(arrows.Success, arrows.Message);
-        Assert.Equal(Models.Stat.Defense, arrows.Request!.Defender.Nature!.IncreasedStat);
-        Assert.Equal(Models.Stat.Attack, arrows.Request.Defender.Nature!.DecreasedStat);
-
-        // calc の結果は、1 つに決まらなくても覚える。dmg は耐久が最も低い想定と高い想定の 2 行を出し、foe clear で解除できる
-        var calc = await command.ExecuteAsync($"!pokech calc マニューラ つららおとし フシギバナ {Math.Round((arrows.Damage!.MinPercent + arrows.Damage.MaxPercent) / 2)}%");
-        Assert.Contains("この後の dmg", calc.Message);
-        var ranged = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ");
-        Assert.True(ranged.Success, ranged.Message);
-        var lines = ranged.Message.Split('\n');
-        Assert.Contains("B最小想定", ranged.Message);
-        Assert.Contains("B最大想定", ranged.Message);
-        Assert.Equal(3, lines.Length);
-        // 特殊技（D を使う）には、B で分かった振り方は使わない
-        var special = await command.ExecuteAsync("!pokech dmg マニューラ れいとうビーム フシギバナ");
-        Assert.True(special.Success, special.Message);
-        Assert.DoesNotContain("想定", special.Message);
-        Assert.Contains("フシギバナ", (await command.ExecuteAsync("!pokech foe ls")).Message);
-        Assert.True((await command.ExecuteAsync("!pokech foe clear フシギバナ")).Success);
-        var cleared = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ");
-        Assert.Equal(2, cleared.Message.Split('\n').Length);
-        Assert.DoesNotContain("B最大想定", cleared.Message);
     }
 
     [Fact]
