@@ -41,6 +41,7 @@ public class CommandOptionTests
     public async Task Full_width_input_is_treated_like_half_width()
     {
         var cmd = NewCommand();
+        await cmd.ExecuteAsync("!pokech add -p ガブリアス 4 32 0 0 0 30 ようき");
         var half = await cmd.ExecuteAsync("!pokech dmg ガブリアス じしん リザードン");
         var full = await cmd.ExecuteAsync("!pokech　dmg　ガブリアス　じしん　リザードン");
         var fullAll = await cmd.ExecuteAsync("！ｐｏｋｅｃｈ　ｄｍｇ  ガブリアス　　じしん＋１　リザードン");
