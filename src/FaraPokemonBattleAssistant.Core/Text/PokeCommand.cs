@@ -19,7 +19,7 @@ public sealed class PokeCommandOptions
 /// <list type="bullet">
 /// <item><c>add -m 名前 H A B C D S 性格 [特性]</c> 登録、<c>ls -m [名前]</c> 一覧、<c>detail -m ID</c> 詳細、<c>rm -m ID</c> 削除</item>
 /// <item><c>add -t 番号 ID [持ち物]</c>、<c>rm -t 番号 [名前]</c>、<c>use -t 番号</c>、<c>ls -t</c>、<c>detail -t 番号</c>、<c>help</c> 一覧</item>
-/// <item><c>dmg 攻撃側 技±ランク 防御側 [オプション]</c> 通常と急所、<c>calc 攻撃側 技±ランク 防御側 受けたダメージ[%]</c> 努力値推定、<c>faster 自分 相手</c> 素早さ比較</item>
+/// <item><c>dmg 攻撃側 技±ランク 防御側 [オプション]</c> 通常と急所、<c>scan 攻撃側 技±ランク 相手 受けたダメージ[%]</c> 相手の振り方の推定、<c>faster 自分 相手</c> 素早さ比較</item>
 /// </list>
 /// 使用チームに入っているポケモンは、その努力値・性格・特性・持ち物で計算される。
 /// </summary>
@@ -40,7 +40,7 @@ public sealed partial class PokeCommand
     }
 
     public static string Usage(string prefix) =>
-        $"!{prefix} add -m 名前 H A B C D S 性格 | set -m ID・名前 … | ls -m [名前] | detail -m ID | rm -m ID | add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号 | add -r 名前… | set -r 名前 … | ls -r | rm -r 名前 | clear -r [メモ] | ls -h [名前] | detail -h ID | help | dmg 攻撃 技±ランク 防御 | scan 攻撃 技 防御 ダメージ | faster 自分 相手";
+        $"!{prefix} add -m 名前 H A B C D S 性格 | set -m ID・名前 … | ls -m [名前] | detail -m ID | rm -m ID | add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号 | add -r 名前… | set -r 名前 … | ls -r | rm -r 名前 | clear -r [メモ] | ls -h [名前] | detail -h ID | dmg 攻撃 技±ランク 防御 | scan 攻撃 技 相手 ダメージ | faster 自分 相手 | help";
 
     /// <summary>メッセージがこのコマンド群のものかを判定し、接頭辞と残りを返す。</summary>
     public async Task<(DataSetInfo DataSet, string Arguments)?> MatchAsync(string message, CancellationToken ct = default)
@@ -70,9 +70,9 @@ public sealed partial class PokeCommand
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
         return "自分(-m): add -m 名前 H A B C D S 性格 [特性] / set -m ID・名前 … / ls・detail・rm ｜ " +
                "チーム(-t): add -t 番号 ID [持ち物] / use・unuse・ls・detail・rm ｜ " +
-               "相手(-r): add -r 名前… [H32 D10 B↑A↓ 特性] / set -r / scan 攻撃 技 相手 ダメージ / ls・detail・rm / clear -r [メモ] ｜ " +
+               "相手(-r): add -r 名前… [H32 D10 B↑A↓ 特性 選出] / set -r / ls・detail・rm / clear -r [メモ] ｜ " +
                "履歴(-h): ls・detail・rm ｜ " +
-               "dmg 攻撃 技 防御 [オプション] / faster 自分 相手 ｜ " +
+               "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 ｜ " +
                $"{prefixes}（!poke はチャンピオンズ）｜ --my/--team/--rival/--history も可";
     }
 
@@ -161,8 +161,6 @@ public sealed partial class PokeCommand
             case "add" or "set" or "ls" or "detail" or "rm" or "use" or "unuse" or "release" or "clear":
                 return Fail($"「{tokens[0]}」の後に、対象を -m（自分のポケモン）・-t（チーム）・-r（相手）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m / {sub} -r。--my / --team / --rival / --history でも可）。{Usage(ds.CommandPrefix)}");
             case "scan": return await ScanAsync(ds, data, args, options, ct).ConfigureAwait(false);
-            case "calc" or "ev": return Fail($"calc は scan に変わりました（例: !{ds.CommandPrefix} scan 攻撃側 技 相手 受けたダメージ）");
-            case "foe" or "foes" or "opponent": return Fail($"foe は相手ポケモン（-r）に変わりました（例: !{ds.CommandPrefix} ls -r / clear -r）");
             case "dmg" or "damage": return await DamageAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "faster": return await DiffAsync(ds, data, args, options, ct).ConfigureAwait(false);
             default: return Fail($"不明なサブコマンド「{tokens[0]}」。{Usage(ds.CommandPrefix)}");
@@ -175,41 +173,31 @@ public sealed partial class PokeCommand
     {
         if (!options.AllowMutations) return Fail("登録は配信者・モデレーターのみ行えます");
         var system = ds.EvSystem;
-        if (args.Count < 8)
-            return Fail($"書式: !{ds.CommandPrefix} add -m 名前 H A B C D S 性格 [特性]（{EvRules.Label(system)}は各 0〜{EvRules.MaxPerStat(system)}、合計 {EvRules.MaxTotal(system)} まで）");
-
-        var pokemon = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
-        if (!pokemon.IsResolved) return Fail(NotFound("ポケモン", args[0], pokemon.Candidates.Select(p => p.Name)));
-
-        var evs = new StatSet();
-        var stats = Enum.GetValues<Stat>();
-        for (var i = 0; i < 6; i++)
-        {
-            if (!int.TryParse(args[1 + i], out var v))
-                return Fail($"{StatNames.Letter(stats[i])}の{EvRules.Label(system)}「{args[1 + i]}」が数値ではありません");
-            evs[stats[i]] = v;
-        }
-        if (EvRules.Validate(system, evs) is { } error) return Fail(error);
-
-        var nature = new NameResolver<Nature>(data.Natures, n => n.Name).Resolve(args[7]);
-        if (!nature.IsResolved) return Fail(NotFound("性格", args[7], nature.Candidates.Select(n => n.Name)));
+        var usageText = $"書式: !{ds.CommandPrefix} add -m 名前 H A B C D S 性格 [特性]、または add -m 名前 H32B32C2 性格 [特性]（書いていない能力は 0。{EvRules.Label(system)}は各 0〜{EvRules.MaxPerStat(system)}、合計 {EvRules.MaxTotal(system)} まで）";
+        if (args.Count < 2) return Fail(usageText);
 
         // 持ち物は登録では指定しない（チームに入れるときに指定する）
-        if (args.Skip(8).Any(a => a.StartsWith('@') || a.StartsWith('＠')))
+        if (args.Skip(1).Any(a => a.StartsWith('@') || a.StartsWith('＠')))
             return Fail($"持ち物はチームに入れるときに指定してください（!{ds.CommandPrefix} add -t チーム番号 登録ID 持ち物）");
 
-        Ability? ability = null;
-        if (args.Count > 8)
-        {
-            var own = data.AbilitiesOf(pokemon.Value!);
-            var abilityMatch = new NameResolver<Ability>(own, a => a.Name).Resolve(args[8]);
-            if (!abilityMatch.IsResolved)
-                return Fail($"{pokemon.Value!.Name}の特性は {string.Join("/", own.Select(a => a.Name))} のいずれかです");
-            ability = abilityMatch.Value;
-        }
-        ability ??= (await UsageOrNullAsync(data, options.Format, ct).ConfigureAwait(false))?.TopAbility(pokemon.Value!) ?? data.AbilitiesOf(pokemon.Value!).FirstOrDefault();
+        // 振り方は 6 つの数字の並びか、H32B32C2 / H32 B32 のような書き方（書いていない能力は 0）
+        var pokemon = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
+        if (!pokemon.IsResolved) return Fail(NotFound("ポケモン", args[0], pokemon.Candidates.Select(p => p.Name)));
+        var (specs, specError) = ParseSpecs(args, data, system);
+        if (specError is not null) return Fail(specError);
+        if (specs.Count != 1) return Fail("自分のポケモンは 1 体ずつ登録してください");
+        var spec = specs[0];
+        if (spec.Picked) return Fail("「選出」は相手ポケモン（-r）にだけ付けられます");
+        if (spec.Evs.Count == 0) return Fail(usageText);
+        if (spec.Nature is null) return Fail($"性格を書いてください（名前か B↑A↓ のように）。{usageText}");
 
-        var entry = await _roster.AddPokemonAsync(ds.Key, pokemon.Value!, evs, nature.Value!, ability, ct).ConfigureAwait(false);
+        var evs = new StatSet();
+        foreach (var (stat, value) in spec.Evs) evs[stat] = value;
+        if (EvRules.Validate(system, evs) is { } error) return Fail(error);
+        var nature = spec.Nature;
+        var ability = spec.Ability ?? (await UsageOrNullAsync(data, options.Format, ct).ConfigureAwait(false))?.TopAbility(pokemon.Value!) ?? data.AbilitiesOf(pokemon.Value!).FirstOrDefault();
+
+        var entry = await _roster.AddPokemonAsync(ds.Key, pokemon.Value!, evs, nature, ability, ct).ConfigureAwait(false);
         var build = RosterRepository.ToBuild(entry, data)!;
         return Ok($"#{entry.Id} {pokemon.Value!.Name} を登録しました: {Describe(entry, build)}");
     }
@@ -307,7 +295,7 @@ public sealed partial class PokeCommand
     {
         if (!options.AllowMutations) return Fail("使用チームの変更は配信者・モデレーターのみ行えます");
         return await _roster.ClearActiveTeamAsync(ds.Key, ct).ConfigureAwait(false)
-            ? Ok("使用チームを解除しました。以降の dmg / calc / faster は使用率に基づく既定値で計算します")
+            ? Ok("使用チームを解除しました。以降の dmg / scan / faster は使用率に基づく既定値で計算します")
             : Ok("使用中のチームはありません");
     }
 
@@ -317,7 +305,7 @@ public sealed partial class PokeCommand
         if (args.Count == 0 || !int.TryParse(args[0], out var teamNo))
             return Fail($"書式: !{ds.CommandPrefix} use -t チーム番号");
         return await _roster.UseTeamAsync(ds.Key, teamNo, ct).ConfigureAwait(false)
-            ? Ok($"チーム{teamNo} を使用します。以降の dmg / calc / faster はこのチームの構成で計算します")
+            ? Ok($"チーム{teamNo} を使用します。以降の dmg / scan / faster はこのチームの構成で計算します")
             : Fail($"チーム{teamNo} はありません");
     }
 
@@ -363,7 +351,7 @@ public sealed partial class PokeCommand
     }
 
     private static string NotRegisteredMessage(DataSetInfo ds, string pokemonName, string role) =>
-        $"{role}の{pokemonName}は登録されていません。!{ds.CommandPrefix} dmg・calc・faster は、登録済みのポケモンだけ使えます（!{ds.CommandPrefix} add -m で登録してください）";
+        $"{role}の{pokemonName}は登録されていません。!{ds.CommandPrefix} dmg・scan・faster は、登録済みのポケモンだけ使えます（!{ds.CommandPrefix} add -m で登録してください）";
 
     private async Task<DamageCommandResult> DamageAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
@@ -380,7 +368,7 @@ public sealed partial class PokeCommand
         // 対戦中の相手に登録があれば、その分かっている振り方・性格・特性で計算し直す
         KnownFoe? foe = null;
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
-        if (roster.Rivals.FirstOrDefault(r => r.PokemonId == request.Defender.Pokemon.Id) is { } rival)
+        if (FindRival(roster.Rivals, request.Defender.Pokemon, data) is { } rival)
         {
             var ability = rival.AbilityId is { } abilityId ? data.FindAbility(abilityId) : null;
             foe = KnownFoe.FromRival(rival, request.Defender.Pokemon, ds.EvSystem, data.Natures, request.Move.DefenseStatUsed, ability);

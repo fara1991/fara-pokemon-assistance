@@ -11,32 +11,24 @@
 
 @* PC: 見出しは固定にして、カードの並びの中だけがスクロールする *@
 <div class="pane-scroll">
-@* 主役の計算機を大きく、右に対応ゲームと更新日。ほかの機能は下に 1 つのリストにまとめる *@
+@* 上に対応ゲームと更新日、下に機能の一覧（どの機能も同じ大きさで並べる） *@
 <div class="row g-3">
     <div class="col-lg-7">
         <div class="card h-100">
-            <div class="card-body d-flex flex-column">
-                <h2 class="card-title h4">ダメージ計算機</h2>
-                <p class="card-text">
-                    努力値・性格・持ち物・特性・ランク補正・急所・壁・天候・フィールド・状態異常・残り HP を指定して、
-                    乱数 16 通りのダメージと確定数を出します。確定数には回復きのみ・たべのこし・定数ダメージも含めます。受けたダメージから相手の努力値を推定することもできます。
-                </p>
-                <div class="mt-auto"><a href="damage-calculator" class="btn btn-primary">計算機を開く</a></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-5 d-flex flex-column gap-3">
-        <div class="card">
             <div class="card-body">
                 <h6 class="card-title">対応しているゲーム <Help Title="ゲームの切り替え">左のメニューの「ゲーム」で切り替えます。選んだゲームは全ページとチャットコマンドの接頭辞に反映されます。</Help></h6>
                 <ul class="mb-0 small">
+                    <li>第1・第2世代（赤・緑 〜 クリスタル）: その世代のポケモン・技・タイプ相性を見られます（ダメージ計算は未対応）</li>
+                    <li>第3〜第7世代（ルビー・サファイア 〜 ウルトラサン・ウルトラムーン）: その世代の計算式と補正でダメージを計算します。第7世代は Z 技に対応</li>
                     <li>ソード・シールド（鎧の孤島・冠の雪原を含む）: ダイマックスに対応</li>
                     <li>スカーレット・バイオレット（DLC を含む）: テラスタルに対応。ポケモン HOME のランクバトル使用率から、よく使われる技・持ち物・性格を既定値にしています</li>
                     <li>ポケモンチャンピオンズ: 収録ポケモン（231 種とメガシンカ・フォルム違い）、メガシンカ、ポイント制の努力値に対応</li>
                 </ul>
             </div>
         </div>
-        <div class="card">
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100">
             <div class="card-body">
                 <h6 class="card-title">サイト内ポケモンデータの更新 <Help Title="サイト内ポケモンデータの更新">ポケモン・技・持ち物・使用率のデータは毎週月曜の昼に自動で更新されます。更新後にページを再読み込みすると新しいデータになります。</Help></h6>
                 <table class="table table-sm mb-0 small">
@@ -51,15 +43,23 @@
 </div>
 
 <div class="card mt-3">
-    <div class="card-header fw-bold">ほかの機能</div>
+    <div class="card-header fw-bold">機能</div>
     <ul class="home-tools home-tools-2col">
+        <li>
+            <div class="home-tool-text"><b>ダメージ計算機</b><p>努力値・性格・持ち物・特性・ランク補正・天候・フィールドなどを指定して、乱数 16 通りのダメージと確定数を出します。受けたダメージから相手の振り方を推定することもできます。</p></div>
+            <div class="home-tool-actions"><a href="damage-calculator" class="btn btn-outline-primary btn-sm">開く</a></div>
+        </li>
         <li>
             <div class="home-tool-text"><b>チャットコマンド</b><p>配信中に <code>!@(App.CommandPrefix) dmg ガブリアス じしん リザードン</code> のように打つと、配信用BOTが結果を 1 行で返します。ブラウザでも試せます。</p></div>
             <div class="home-tool-actions"><a href="chat-commands" class="btn btn-outline-primary btn-sm">コマンドを試す</a></div>
         </li>
         <li>
-            <div class="home-tool-text"><b>ポケモン・チーム登録</b><p>育成済みのポケモンとチームを登録しておくと、計算のときに自分の構成が自動で入ります（<code>!@(App.CommandPrefix) add / add -t / use -t</code>）。</p></div>
+            <div class="home-tool-text"><b>ポケモン・チーム登録</b><p>育成済みのポケモンとチームを登録しておくと、計算のときに自分の構成が自動で入ります（<code>!@(App.CommandPrefix) add -m / add -t / use -t</code>）。</p></div>
             <div class="home-tool-actions"><a href="my-pokemon" class="btn btn-outline-primary btn-sm">ポケモン登録</a><a href="my-team" class="btn btn-outline-primary btn-sm">チーム登録</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>相手ポケモン</b><p>対戦中の相手を登録して、分かった振り方・性格・特性や推定をダメージ計算に使います。試合を終えると履歴に残ります（<code>!@(App.CommandPrefix) add -r / scan / clear -r</code>）。</p></div>
+            <div class="home-tool-actions"><a href="my-rival" class="btn btn-outline-primary btn-sm">開く</a></div>
         </li>
         <li>
             <div class="home-tool-text"><b>素早さ比較</b><p>2 体のポケモンの S を比べて、どちらが先に動くかを確認します（チャットでは <code>!@(App.CommandPrefix) faster</code>）。</p></div>
@@ -81,10 +81,6 @@
 </div>
 
 
-<p class="text-muted small mt-4 mb-0">
-    このサイトは個人が作った非公式のファンサイトで、任天堂・株式会社クリーチャーズ・株式会社ゲームフリーク・株式会社ポケモンとは関係ありません。
-    ポケモン・Pokémon は任天堂・クリーチャーズ・ゲームフリークの登録商標です。
-</p>
 </div>
 
 @code {

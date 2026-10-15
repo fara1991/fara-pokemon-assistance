@@ -704,7 +704,7 @@ else if (data is not null && dataSet is not null)
         }
     }
 
-    private RivalPokemon? RivalFor(Pokemon pokemon) => rivals.FirstOrDefault(r => r.PokemonId == pokemon.Id);
+    private RivalPokemon? RivalFor(Pokemon pokemon) => data is null ? null : PokeCommand.FindRival(rivals, pokemon, data);
 
     /// <summary>登録した相手から、いま選んでいる技の防御（B か D）で計算するときの構成。</summary>
     private KnownFoe? FoeOf(RivalPokemon rival)
@@ -747,7 +747,8 @@ else if (data is not null && dataSet is not null)
             await Repo.ChangeRivalsAsync(App.DataSetKey, roster =>
             {
                 tooMany = null;
-                var rival = roster.Rivals.FirstOrDefault(r => r.PokemonId == pokemon.Id);
+                var rival = PokeCommand.FindRival(roster.Rivals, pokemon, data!);
+                if (rival is not null) PokeCommand.ChangeRivalForm(rival, pokemon, data!);
                 var created = rival is null;
                 if (rival is null)
                 {

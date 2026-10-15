@@ -25,8 +25,31 @@ public sealed partial class PokeCommand
         public Dictionary<Stat, int> Evs { get; } = new();
         public Nature? Nature { get; set; }
         public Ability? Ability { get; set; }
+        /// <summary>「選出」と書いた（試合に出てきた）。</summary>
+        public bool Picked { get; set; }
 
-        public bool HasInfo => Evs.Count > 0 || Nature is not null || Ability is not null;
+        public bool HasInfo => Evs.Count > 0 || Nature is not null || Ability is not null || Picked;
+    }
+
+    /// <summary>
+    /// 対戦中の相手から、そのポケモンを探す。メガシンカの前後は同じポケモンとみなす（リザードンで登録して、メガリザードンX で更新できる）。
+    /// </summary>
+    public static RivalPokemon? FindRival(IEnumerable<RivalPokemon> rivals, Pokemon pokemon, PokemonDataSet data)
+    {
+        var list = rivals as IReadOnlyCollection<RivalPokemon> ?? rivals.ToList();
+        return list.FirstOrDefault(r => r.PokemonId == pokemon.Id)
+            ?? list.FirstOrDefault(r => data.FindPokemon(r.PokemonId) is { } registered
+                && registered.SpeciesId == pokemon.SpeciesId && (registered.IsMega || pokemon.IsMega));
+    }
+
+    /// <summary>相手の姿を変える（メガシンカ）。新しい姿が持てない特性は消す（ポイント・性格・推定はそのまま）。変えたら true。</summary>
+    public static bool ChangeRivalForm(RivalPokemon rival, Pokemon pokemon, PokemonDataSet data)
+    {
+        if (rival.PokemonId == pokemon.Id) return false;
+        rival.PokemonId = pokemon.Id;
+        rival.PokemonName = pokemon.Name;
+        if (rival.AbilityId is { } aid && data.AbilitiesOf(pokemon).All(a => a.Id != aid)) rival.AbilityId = null;
+        return true;
     }
 
     /// <summary>
@@ -57,6 +80,13 @@ public sealed partial class PokeCommand
                 if (current is null) return (specs, $"「{token}」の前に、ポケモン名を書いてください");
                 foreach (Match pair in RivalEvPair.Matches(token))
                     current.Evs[StatNames.Parse(pair.Groups[1].Value.ToUpperInvariant())!.Value] = int.Parse(pair.Groups[2].Value);
+                continue;
+            }
+            // 選出された（試合に出てきた）
+            if (token is "選出" or "せんしゅつ")
+            {
+                if (current is null) return (specs, $"「{token}」の前に、ポケモン名を書いてください");
+                current.Picked = true;
                 continue;
             }
             // B↑A↓ のような性格
@@ -109,21 +139,23 @@ public sealed partial class PokeCommand
         return (specs, null);
     }
 
-    /// <summary>指定した内容を相手ポケモンに反映する（指定した項目だけ上書き）。</summary>
+    /// <summary>
+    /// 指定した内容を相手ポケモンに反映する。ポイントは、書いたときは振り方全体の置き換え（書いていない能力は不明に戻す）。
+    /// 性格・特性は、書いたものだけ上書き。
+    /// </summary>
     private static void ApplySpec(RivalPokemon rival, RivalSpec spec, DateTimeOffset now)
     {
-        foreach (var (stat, value) in spec.Evs)
+        if (spec.Evs.Count > 0)
         {
-            switch (stat)
-            {
-                case Stat.HP: rival.HP = value; break;
-                case Stat.Attack: rival.Attack = value; break;
-                case Stat.Defense: rival.Defense = value; break;
-                case Stat.SpAttack: rival.SpAttack = value; break;
-                case Stat.SpDefense: rival.SpDefense = value; break;
-                case Stat.Speed: rival.Speed = value; break;
-            }
+            int? Ev(Stat stat) => spec.Evs.TryGetValue(stat, out var v) ? v : null;
+            rival.HP = Ev(Stat.HP);
+            rival.Attack = Ev(Stat.Attack);
+            rival.Defense = Ev(Stat.Defense);
+            rival.SpAttack = Ev(Stat.SpAttack);
+            rival.SpDefense = Ev(Stat.SpDefense);
+            rival.Speed = Ev(Stat.Speed);
         }
+        if (spec.Picked) rival.Picked = true;
         if (spec.Nature is not null) rival.Nature = spec.Nature.Name;
         if (spec.Ability is not null) rival.AbilityId = spec.Ability.Id;
         rival.Updated = now.ToString("o");
@@ -149,12 +181,15 @@ public sealed partial class PokeCommand
         if (args.Count < 2) return Fail($"書式: !{ds.CommandPrefix} set -r 名前 [H32 D10 …] [性格 / B↑A↓] [特性]");
         var (specs, error) = ParseSpecs(args, data, ds.EvSystem);
         if (error is not null) return Fail(error);
-        if (specs.Count == 0 || specs.All(s => !s.HasInfo)) return Fail("更新する内容（振り方・性格・特性）を書いてください");
+        if (specs.Count == 0 || specs.All(s => !s.HasInfo)) return Fail("更新する内容（振り方・性格・特性・選出）を書いてください");
         return await UpsertRivalsAsync(ds, data, specs, "更新", ct).ConfigureAwait(false);
     }
 
     private async Task<DamageCommandResult> UpsertRivalsAsync(DataSetInfo ds, PokemonDataSet data, List<RivalSpec> specs, string verb, CancellationToken ct)
     {
+        // 同じポケモンを 1 回のコマンドで重ねて書いたときは、まとめて 1 体として扱う
+        if (specs.Select(s => s.Pokemon.Id).Distinct().Count() > MaxRivals)
+            return Fail($"相手ポケモンは {MaxRivals} 体までです（{specs.Select(s => s.Pokemon.Id).Distinct().Count()} 体を指定しています）");
         var now = DateTimeOffset.Now;
         var lines = new List<string>();
         string? tooMany = null;
@@ -162,24 +197,40 @@ public sealed partial class PokeCommand
         {
             lines.Clear();
             tooMany = null;
+            // 新しく増える数を先に数え、6 体を超えるなら 1 体も登録しない
+            var adding = specs.Where(s => FindRival(roster.Rivals, s.Pokemon, data) is null).Select(s => s.Pokemon.Id).Distinct().Count();
+            if (roster.Rivals.Count + adding > MaxRivals)
+            {
+                tooMany = $"相手ポケモンは {MaxRivals} 体までです（対戦中 {roster.Rivals.Count} 体に {adding} 体を足すと {roster.Rivals.Count + adding} 体になります）。試合が終わったら !{ds.CommandPrefix} clear -r で履歴に移してください";
+                return (0, false);
+            }
             foreach (var spec in specs)
             {
-                var rival = roster.Rivals.FirstOrDefault(r => r.PokemonId == spec.Pokemon.Id);
+                var rival = FindRival(roster.Rivals, spec.Pokemon, data);
                 var created = rival is null;
+                var evolved = false;
                 if (rival is null)
                 {
-                    if (roster.Rivals.Count >= MaxRivals) { tooMany = $"対戦中の相手が {MaxRivals} 体います。試合が終わったら !{ds.CommandPrefix} clear -r で履歴に移してください（{spec.Pokemon.Name}は登録できませんでした）"; continue; }
                     rival = new RivalPokemon { Id = roster.NextRivalId++, PokemonId = spec.Pokemon.Id, PokemonName = spec.Pokemon.Name };
                     roster.Rivals.Add(rival);
                 }
+                else
+                {
+                    var before = rival.PokemonName;
+                    evolved = ChangeRivalForm(rival, spec.Pokemon, data);
+                    if (evolved) lines.Add($"{before}→{spec.Pokemon.Name}");
+                }
                 ApplySpec(rival, spec, now);
                 rival.Updated = now.ToString("o");
-                lines.Add($"{(created ? "登録" : verb == "登録" ? "更新" : "更新")} {DescribeRival(rival, data, ds.EvSystem)}");
+                var line = $"{(created ? "登録" : "更新")} {DescribeRival(rival, data, ds.EvSystem)}";
+                if (evolved) lines[^1] = $"{lines[^1]}（メガシンカ） {line}";
+                else lines.Add(line);
             }
             return (0, lines.Count > 0);
         }, ct).ConfigureAwait(false);
-        if (lines.Count == 0) return Fail(tooMany ?? "登録できませんでした");
-        return Ok("相手: " + string.Join(" ｜ ", lines) + (tooMany is null ? "" : $" ※{tooMany}"));
+        if (tooMany is not null) return Fail(tooMany);
+        if (lines.Count == 0) return Fail("登録できませんでした");
+        return Ok("相手: " + string.Join(" ｜ ", lines));
     }
 
     /// <summary>ls -r: 対戦中の相手。</summary>
@@ -197,7 +248,7 @@ public sealed partial class PokeCommand
         var match = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
         if (!match.IsResolved) return Fail(NotFound("ポケモン", args[0], match.Candidates.Select(p => p.Name)));
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
-        var rival = roster.Rivals.FirstOrDefault(r => r.PokemonId == match.Value!.Id);
+        var rival = FindRival(roster.Rivals, match.Value!, data);
         if (rival is null) return Fail($"{match.Value!.Name}は対戦中の相手にいません");
         return Ok(DescribeRival(rival, data, ds.EvSystem, withNotes: true));
     }
@@ -209,7 +260,7 @@ public sealed partial class PokeCommand
         if (args.Count == 0) return Fail($"書式: !{ds.CommandPrefix} rm -r 名前");
         var match = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
         if (!match.IsResolved) return Fail(NotFound("ポケモン", args[0], match.Candidates.Select(p => p.Name)));
-        var removed = await _roster.ChangeRivalsAsync(ds.Key, roster => { var n = roster.Rivals.RemoveAll(r => r.PokemonId == match.Value!.Id); return (n > 0, n > 0); }, ct).ConfigureAwait(false);
+        var removed = await _roster.ChangeRivalsAsync(ds.Key, roster => { var target = FindRival(roster.Rivals, match.Value!, data); var n = target is null ? 0 : roster.Rivals.RemoveAll(r => r.Id == target.Id); return (n > 0, n > 0); }, ct).ConfigureAwait(false);
         return removed ? Ok($"{match.Value!.Name}を対戦中の相手から外しました（履歴には残しません）") : Fail($"{match.Value!.Name}は対戦中の相手にいません");
     }
 
@@ -299,7 +350,8 @@ public sealed partial class PokeCommand
         var spec = specs.FirstOrDefault(s => s.Pokemon.Id == pokemon.Id);
         if (spec is null || !spec.HasInfo || specs.Count > 1) return Fail("更新する内容（振り方・性格・特性）を書いてください");
 
-        var evs = entry.EVs;
+        // ポイントを書いたときは振り方全体の置き換え（書いていない能力は 0）。書かなければ今のまま
+        var evs = spec.Evs.Count > 0 ? new StatSet() : entry.EVs;
         foreach (var (stat, value) in spec.Evs) evs[stat] = value;
         if (EvRules.Validate(ds.EvSystem, evs) is { } evError) return Fail(evError);
         var nature = spec.Nature ?? data.FindNature(entry.Nature) ?? NatureSelection.Neutral(data.Natures)!;
@@ -334,7 +386,8 @@ public sealed partial class PokeCommand
             var hp = scan.HpMin is { } lo && scan.HpMax is { } hi ? $" H{(lo == hi ? lo.ToString() : $"{lo}〜{hi}")}{unit}" : "";
             parts.Add($"推定{letter}:{bands}{hp}({scan.Count}回)");
         }
-        if (parts.Count == 0) parts.Add("名前だけ");
+        if (parts.Count == 0) parts.Add(r.Picked ? "選出" : "名前だけ");
+        else if (r.Picked) parts.Add("選出");
         var text = (withName ? r.PokemonName : "") + $"({string.Join(" ", parts)})";
         if (withNotes && r.Scans.Count > 0)
             text += " 根拠: " + string.Join("、", r.Scans.SelectMany(x => x.Notes));
@@ -385,7 +438,7 @@ public sealed partial class PokeCommand
 
         // 相手の特性が分かっていればその特性で、分からなければ持ちうる特性ごとに推定する（登録の特性があればそれ）
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
-        var existing = roster.Rivals.FirstOrDefault(r => r.PokemonId == pokemon.Id);
+        var existing = FindRival(roster.Rivals, pokemon, data);
         var knownAbility = existing?.AbilityId is { } aid ? data.FindAbility(aid) : null;
         if (knownAbility is not null) request.Defender.Ability = knownAbility;
         var abilities = MentionsAbility(args, data, pokemon) || request.Defender.Ability is null
@@ -414,7 +467,8 @@ public sealed partial class PokeCommand
         await _roster.ChangeRivalsAsync(ds.Key, r =>
         {
             tooMany = null;
-            var rival = r.Rivals.FirstOrDefault(x => x.PokemonId == pokemon.Id);
+            var rival = FindRival(r.Rivals, pokemon, data);
+            if (rival is not null) ChangeRivalForm(rival, pokemon, data);   // メガシンカした姿で scan したら、姿も更新する
             if (rival is null)
             {
                 if (r.Rivals.Count >= MaxRivals) { tooMany = $"対戦中の相手が {MaxRivals} 体いるため登録できません（clear -r で試合を終えてください）"; return (0, false); }
