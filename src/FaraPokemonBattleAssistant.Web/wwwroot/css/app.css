@@ -2393,12 +2393,12 @@ button.compact-cell {
 .rolls-details > summary:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
 .rolls-details > .rolls-block { margin: 0; padding: 0 0.8rem 0.6rem; }
 
-/* 晴れ: 日差しのライト（通常のライトと同じ形で、暖かい色。右上の光から差す） */
-.field-beam-sun { display: none; right: 6%; left: auto; top: -10%; background: linear-gradient(180deg, rgba(255, 214, 90, 0.42), transparent 80%); }
-.bg-scene.wx-sun .field-beam-sun { display: block; }
-.field-beam-sun-1 { transform: rotate(18deg); animation-duration: 16s; }
-.field-beam-sun-2 { right: 18%; transform: rotate(10deg); animation-duration: 20s; animation-delay: -4s; }
-.bg-scene.wx-sun.battle .field-beam-sun { background: linear-gradient(180deg, rgba(255, 214, 90, 0.6), transparent 80%); }
+/* 晴れ: 右上の光から放射状に広がる線（動かない） */
+.wx-layer::before { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s; pointer-events: none;
+    background: repeating-conic-gradient(from 100deg at 82% 8%, rgba(255, 214, 90, 0.5) 0deg 2.5deg, transparent 2.5deg 11deg);
+    -webkit-mask-image: radial-gradient(circle at 82% 8%, #000 0, transparent 75%); mask-image: radial-gradient(circle at 82% 8%, #000 0, transparent 75%); }
+.bg-scene.wx-sun .wx-layer::before { opacity: 0.55; }
+.bg-scene.wx-sun.battle .wx-layer::before { opacity: 1; }
 
 /* PC（横長でサイドバーがある幅）の対戦画面: 自分の枠を、右上の枠と同じように左下の隅に置く（枠の下に隙間を作らない） */
 @media (min-width: 768px) and (min-height: 561px) {
