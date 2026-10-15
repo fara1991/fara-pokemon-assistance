@@ -1460,6 +1460,9 @@ public class MoveEffectTests
         Assert.Equal(2, two.Hits);
         Assert.Equal(5, five.Hits);
         Assert.Equal(two.Rolls[0] / 2 * 5, five.Rolls[0]);
+        var one = calc.Calculate(new DamageRequest { Attacker = cloyster, Move = icicle, Defender = target, HitCountOverride = 1 });
+        Assert.Equal(1, one.Hits);
+        Assert.Equal(two.Rolls[0] / 2, one.Rolls[0]);
     }
 
     [Fact]

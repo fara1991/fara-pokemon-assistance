@@ -363,21 +363,21 @@ public sealed class PokeCommand
         var critText = crit.Success && crit.Damage is not null && crit.Damage.MaxDamage > 0
             ? $" ｜急所: {crit.Damage.RangeText} {crit.Damage.KnockOut}{DamageCommand.ParentalText(crit.Damage)}"
             : "";
-        // 2〜5 回当たる連続技は、最小回数（2 回）と最大回数（5 回）のダメージを出す（スキルリンクは常に 5 回）
-        if (MoveEffects.HitsTwoToFive(normal.Request!.Move) && normal.Request.Attacker.Ability?.Identifier != "skill-link")
+        // 2〜5 回当たる連続技は、1 回あたりのダメージを出す（急所は 1 回ごとに判定されるため）。回数は最後に添える
+        var hitsSuffix = "";
+        if (MoveEffects.HitsTwoToFive(normal.Request!.Move))
         {
-            DamageCommandOptions Hits(int n, bool critical) => new() { DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, IsCritical = critical, HitCount = n, MaxLength = int.MaxValue };
-            var minNormal = await _damage.ExecuteAsync(text, Hits(2, false), ct).ConfigureAwait(false);
-            var maxNormal = await _damage.ExecuteAsync(text, Hits(5, false), ct).ConfigureAwait(false);
-            var minCrit = await _damage.ExecuteAsync(text, Hits(2, true), ct).ConfigureAwait(false);
-            var maxCrit = await _damage.ExecuteAsync(text, Hits(5, true), ct).ConfigureAwait(false);
-            if (minNormal.Success && maxNormal.Success && minNormal.Damage is not null && maxNormal.Damage is not null)
+            DamageCommandOptions Hits(bool critical) => new() { DataSetKey = ds.Key, Format = options.Format, BuildProvider = attackerOnly, IsCritical = critical, HitCount = 1, MaxLength = int.MaxValue };
+            var oneNormal = await _damage.ExecuteAsync(text, Hits(false), ct).ConfigureAwait(false);
+            var oneCrit = await _damage.ExecuteAsync(text, Hits(true), ct).ConfigureAwait(false);
+            if (oneNormal.Success && oneNormal.Damage is not null)
             {
-                normal = minNormal;
-                message = minNormal.Message + $" ｜5回: {maxNormal.Damage.RangeText} {maxNormal.Damage.KnockOut}";
-                critText = minCrit.Success && maxCrit.Success && minCrit.Damage is not null && maxCrit.Damage is not null && maxCrit.Damage.MaxDamage > 0
-                    ? $" ｜急所: 2回 {minCrit.Damage.RangeText} {minCrit.Damage.KnockOut} / 5回 {maxCrit.Damage.RangeText} {maxCrit.Damage.KnockOut}"
+                normal = oneNormal;
+                message = oneNormal.Message;
+                critText = oneCrit.Success && oneCrit.Damage is not null && oneCrit.Damage.MaxDamage > 0
+                    ? $" ｜急所: {oneCrit.Damage.RangeText}"
                     : "";
+                hitsSuffix = normal.Request!.Attacker.Ability?.Identifier == "skill-link" ? " (1回あたり。5回攻撃 ×5)" : " (1回あたり。2〜5回攻撃 ×2〜5)";
             }
         }
         message += critText;
@@ -392,7 +392,7 @@ public sealed class PokeCommand
         }
         // 攻撃側の特性が、状態（HP・状態異常・天候）でダメージを変えるとき（もうか・こんじょう・サンパワーなど）は、その結果も出す
         if (AttackerAbilityVariants(data, request, normal.Damage!) is { } attackerVariants) message += attackerVariants;
-        return new DamageCommandResult { Success = true, Message = message, Request = request, Damage = normal.Damage };
+        return new DamageCommandResult { Success = true, Message = message + hitsSuffix, Request = request, Damage = normal.Damage };
     }
 
     /// <summary>
