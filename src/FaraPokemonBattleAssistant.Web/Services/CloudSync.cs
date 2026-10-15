@@ -311,7 +311,7 @@ public sealed class CloudSync : IRosterStore
     }
 
     private static bool HasData(RosterState state) =>
-        state.DataSets.Values.Any(r => r.Pokemon.Count > 0 || r.Teams.Count > 0);
+        state.DataSets.Values.Any(r => r.Pokemon.Count > 0 || r.Teams.Count > 0 || r.Rivals.Count > 0 || r.History.Count > 0);
 }
 
 /// <summary>使用中チームを読む（計算機・素早さ比較用）。クラウドに届かなくてもページは動くように、エラーは文で返す。</summary>

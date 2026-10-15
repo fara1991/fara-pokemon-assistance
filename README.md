@@ -191,6 +191,8 @@ npm run test:worker                                      # データ共有 API�
 | `PUT /api/my/pokemon` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"pokemon": [...], "nextId": n}}}`（`nextId` は省略可）。書いたゲームのポケモンだけを置き換え、**同じ処理の中で**、消えたポケモンをそのゲームのすべてのチームから外し、0 体になったチームを消し、使用中のチームが消えたら使用中を解除します。成功で `200 {"revision": n+1}` |
 | `GET /api/my/team` | `200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}, ...}}` |
 | `PUT /api/my/team` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}}}`。書いたゲームのチームと使用中チームだけを置き換えます。登録に無いポケモン・7 体以上・0 体のチーム・同じチーム番号や同じポケモンの重複・無いチームを使用中にする、は `400`（`message` に理由）で、何も保存しません。成功で `200 {"revision": n+1}` |
+| `GET /api/my/rival` | `200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "rivals": [...], "nextMatchId": n, "history": [...]}, ...}}`（対戦中の相手ポケモンと、終わった試合の履歴） |
+| `PUT /api/my/rival` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"rivals": [...], "nextId"?: n, "history": [...], "nextMatchId"?: n}}}`。書いたゲームの相手ポケモンと履歴だけを置き換えます（ID は使い回しません）。`409` は `GET` と同じ形で現在の内容を返します |
 | `DELETE /api/my/access-key` | このアクセスキーを使えなくし、その置き場を消す（キーの作り直し用）。`204`。以後そのキーはすべての API で `410` |
 
 - `revision` は登録データ全体で 1 つです（どちらの PUT でも増えます）。`baseRevision` が現在と違えば `409 {"revision": 現在, "dataSets": そのリソースの現在の内容}` なので、読み直してからやり直してください。両方を読むときは 2 回の GET の `revision` が同じことを確かめ、違えば読み直します

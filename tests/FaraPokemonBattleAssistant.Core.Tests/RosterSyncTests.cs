@@ -37,7 +37,7 @@ internal sealed class FakeRosterServer : HttpMessageHandler
         var path = request.RequestUri!.AbsolutePath;
         var methods = path switch
         {
-            "/api/my/pokemon" or "/api/my/team" => new[] { "GET", "PUT" },
+            "/api/my/pokemon" or "/api/my/team" or "/api/my/rival" => new[] { "GET", "PUT" },
             "/api/my/access-key" => new[] { "DELETE" },
             _ => null,
         };
@@ -56,21 +56,29 @@ internal sealed class FakeRosterServer : HttpMessageHandler
         }
         if (Deleted) return Json(HttpStatusCode.Gone, """{"error":"key_retired"}""");
         var pokemon = path == "/api/my/pokemon";
+        var rival = path == "/api/my/rival";
         if (request.Method == HttpMethod.Get)
         {
             BeforeGet?.Invoke(this, path);
-            return View(HttpStatusCode.OK, pokemon);
+            return View(HttpStatusCode.OK, pokemon, rival);
         }
 
         BeforePut?.Invoke(this);
         var node = JsonNode.Parse(body!)!.AsObject();
         var baseRevision = node["baseRevision"]!.GetValue<long>();
-        if (baseRevision != Revision) return View(HttpStatusCode.Conflict, pokemon);
+        if (baseRevision != Revision) return View(HttpStatusCode.Conflict, pokemon, rival);
         var state = RosterRepository.Deserialize(RosterJson);
         foreach (var (key, value) in node["dataSets"]!.AsObject())
         {
             var roster = state.For(key);
-            if (pokemon)
+            if (rival)
+            {
+                roster.Rivals = value!["rivals"].Deserialize<List<RivalPokemon>>()!;
+                roster.History = value["history"].Deserialize<List<RivalMatch>>()!;
+                roster.NextRivalId = Math.Max(roster.NextRivalId, Math.Max(value["nextId"]?.GetValue<int>() ?? 1, roster.Rivals.Select(r => r.Id).DefaultIfEmpty(0).Max() + 1));
+                roster.NextMatchId = Math.Max(roster.NextMatchId, Math.Max(value["nextMatchId"]?.GetValue<int>() ?? 1, roster.History.Select(h => h.Id).DefaultIfEmpty(0).Max() + 1));
+            }
+            else if (pokemon)
             {
                 roster.Pokemon = value!["pokemon"].Deserialize<List<RegisteredPokemon>>()!;
                 var nextId = value["nextId"]?.GetValue<int>() ?? 1;
@@ -96,12 +104,14 @@ internal sealed class FakeRosterServer : HttpMessageHandler
         return Json(HttpStatusCode.OK, $$"""{"revision":{{Revision}}}""");
     }
 
-    private HttpResponseMessage View(HttpStatusCode status, bool pokemon)
+    private HttpResponseMessage View(HttpStatusCode status, bool pokemon, bool rival = false)
     {
         var dataSets = new JsonObject();
         foreach (var (key, roster) in RosterRepository.Deserialize(RosterJson).DataSets)
         {
-            dataSets[key] = pokemon
+            dataSets[key] = rival
+                ? new JsonObject { ["nextId"] = roster.NextRivalId, ["rivals"] = JsonSerializer.SerializeToNode(roster.Rivals), ["nextMatchId"] = roster.NextMatchId, ["history"] = JsonSerializer.SerializeToNode(roster.History) }
+                : pokemon
                 ? new JsonObject { ["nextId"] = roster.NextId, ["pokemon"] = JsonSerializer.SerializeToNode(roster.Pokemon) }
                 : new JsonObject { ["teams"] = JsonSerializer.SerializeToNode(roster.Teams), ["activeTeam"] = roster.ActiveTeam };
         }
@@ -172,7 +182,7 @@ public class RosterSyncTests
         Assert.Null(await store.LoadAsync());
         Assert.Equal(0, store.Revision);
 
-        Assert.Equal(new[] { "https://pokemon.example/api/my/pokemon", "https://pokemon.example/api/my/team" },
+        Assert.Equal(new[] { "https://pokemon.example/api/my/pokemon", "https://pokemon.example/api/my/team", "https://pokemon.example/api/my/rival" },
             server.Requests.Select(r => r.RequestUri!.ToString()));
         Assert.All(server.Requests, request =>
         {
@@ -245,7 +255,7 @@ public class RosterSyncTests
             s.WriteFromElsewhere(state => state.For(Ds).Pokemon.Add(new RegisteredPokemon { Id = 1, PokemonName = "他の端末" }));
         };
         var loaded = RosterRepository.Deserialize(await store.LoadAsync());
-        Assert.Equal(4, server.Requests.Count);
+        Assert.Equal(6, server.Requests.Count);   // 1 回目（食い違い）3 つ + 読み直し 3 つ
         Assert.Equal(1, store.Revision);
         Assert.Equal("他の端末", loaded.For(Ds).Pokemon.Single().PokemonName);
 

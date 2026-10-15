@@ -12,6 +12,8 @@ public enum RosterPart
     Pokemon,
     /// <summary>チームと使用中チーム。</summary>
     Teams,
+    /// <summary>相手ポケモン（対戦中の相手と、試合ごとの履歴）。</summary>
+    Rival,
 }
 
 /// <summary>登録データ（育成済みポケモン・チーム）の保存先。</summary>
@@ -115,6 +117,83 @@ public sealed record RosterChoice(string Key, RegisteredPokemon Entry, Item? Ite
 
 public sealed record RosterChoiceGroup(string Label, IReadOnlyList<RosterChoice> Choices);
 
+/// <summary>推定で分かった、ある性格補正のときの防御（B か D）のポイントの範囲。</summary>
+public sealed class RivalBand
+{
+    /// <summary>性格補正（1.1・1.0・0.9）。</summary>
+    public double Modifier { get; set; }
+    public int MinEv { get; set; }
+    public int MaxEv { get; set; }
+}
+
+/// <summary>相手のダメージからの推定（scan）で絞り込んだ内容。推定のたびに、前の範囲と重なる部分に狭める。</summary>
+public sealed class RivalScan
+{
+    /// <summary>推定した防御（<c>Defense</c> か <c>SpDefense</c>）。</summary>
+    public string Defense { get; set; } = "";
+    public List<RivalBand> Bands { get; set; } = new();
+    /// <summary>HP のポイントの範囲（% で推定したとき。分からないときは null）。</summary>
+    public int? HpMin { get; set; }
+    public int? HpMax { get; set; }
+    /// <summary>推定した回数。</summary>
+    public int Count { get; set; }
+    /// <summary>推定の根拠（どの技で何ダメージか）。</summary>
+    public List<string> Notes { get; set; } = new();
+}
+
+/// <summary>対戦中の相手ポケモン。同じポケモンは 1 体だけ。分かった部分だけを持つ（null は不明）。</summary>
+public sealed class RivalPokemon
+{
+    public int Id { get; set; }
+    public int PokemonId { get; set; }
+    public string PokemonName { get; set; } = "";
+    /// <summary>分かっているポイント（null は不明）。</summary>
+    public int? HP { get; set; }
+    public int? Attack { get; set; }
+    public int? Defense { get; set; }
+    public int? SpAttack { get; set; }
+    public int? SpDefense { get; set; }
+    public int? Speed { get; set; }
+    /// <summary>分かっている性格の名前（不明なら null）。</summary>
+    public string? Nature { get; set; }
+    public int? AbilityId { get; set; }
+    public RivalScan? Scan { get; set; }
+    /// <summary>最後に更新した日時（ISO 8601）。</summary>
+    public string Updated { get; set; } = "";
+
+    /// <summary>ポイントも性格も特性も推定も何も分かっていない（名前だけ）か。</summary>
+    [JsonIgnore]
+    public bool IsNameOnly => HP is null && Attack is null && Defense is null && SpAttack is null && SpDefense is null && Speed is null
+                              && Nature is null && AbilityId is null && Scan is null;
+
+    /// <summary>推定（scan）をしたことがあるか。</summary>
+    [JsonIgnore]
+    public bool IsScanned => Scan is not null;
+
+    public RivalPokemon Clone() => new()
+    {
+        Id = Id, PokemonId = PokemonId, PokemonName = PokemonName,
+        HP = HP, Attack = Attack, Defense = Defense, SpAttack = SpAttack, SpDefense = SpDefense, Speed = Speed,
+        Nature = Nature, AbilityId = AbilityId, Updated = Updated,
+        Scan = Scan is null ? null : new RivalScan
+        {
+            Defense = Scan.Defense, HpMin = Scan.HpMin, HpMax = Scan.HpMax, Count = Scan.Count,
+            Bands = Scan.Bands.Select(b => new RivalBand { Modifier = b.Modifier, MinEv = b.MinEv, MaxEv = b.MaxEv }).ToList(),
+            Notes = Scan.Notes.ToList(),
+        },
+    };
+}
+
+/// <summary>終わった試合の記録（試合ごとの、そのとき分かった相手ポケモン）。</summary>
+public sealed class RivalMatch
+{
+    public int Id { get; set; }
+    /// <summary>試合を終えた日時（ISO 8601）。</summary>
+    public string Date { get; set; } = "";
+    public string Memo { get; set; } = "";
+    public List<RivalPokemon> Foes { get; set; } = new();
+}
+
 public sealed class TeamSlot
 {
     public int EntryId { get; set; }
@@ -133,6 +212,12 @@ public sealed class DataSetRoster
     public List<RegisteredPokemon> Pokemon { get; set; } = new();
     public List<Team> Teams { get; set; } = new();
     public int? ActiveTeam { get; set; }
+    /// <summary>対戦中の相手ポケモン（同じポケモンは 1 体）。</summary>
+    public int NextRivalId { get; set; } = 1;
+    public List<RivalPokemon> Rivals { get; set; } = new();
+    /// <summary>終わった試合の記録（上限なし）。</summary>
+    public int NextMatchId { get; set; } = 1;
+    public List<RivalMatch> History { get; set; } = new();
 }
 
 public sealed class RosterState
@@ -271,6 +356,37 @@ public sealed class RosterRepository
         {
             _gate.Release();
         }
+    }
+
+    // ---- 相手ポケモン（対戦中の相手と、試合ごとの履歴）
+
+    /// <summary>
+    /// 相手ポケモンを読んで変更する（<paramref name="apply"/> が (結果, 変更したか) を返す。クラウドでは競合したら読み直して何度か呼ばれる）。
+    /// 登録 ID は <see cref="DataSetRoster.NextRivalId"/> から振る。
+    /// </summary>
+    public Task<T> ChangeRivalsAsync<T>(string dataSetKey, Func<DataSetRoster, (T Result, bool Changed)> apply, CancellationToken ct = default) =>
+        MutateAsync(dataSetKey, RosterPart.Rival, apply, ct);
+
+    /// <summary>
+    /// 試合を終える。対戦中の相手のうち、何か分かっているもの（推定・ポイント・性格・特性）を履歴に移し、対戦中の相手は全部消す。
+    /// 名前だけのポケモンは履歴に移さない。移すものが無ければ履歴は作らない（<see cref="EndMatchResult.Match"/> は null）。
+    /// </summary>
+    public async Task<EndMatchResult> EndMatchAsync(string dataSetKey, string? memo, DateTimeOffset now, CancellationToken ct = default)
+    {
+        return await ChangeRivalsAsync(dataSetKey, roster =>
+        {
+            var total = roster.Rivals.Count;
+            if (total == 0) return (new EndMatchResult(null, 0, 0), false);
+            var keep = roster.Rivals.Where(r => !r.IsNameOnly).Select(r => r.Clone()).ToList();
+            RivalMatch? match = null;
+            if (keep.Count > 0)
+            {
+                match = new RivalMatch { Id = roster.NextMatchId++, Date = now.ToString("o"), Memo = (memo ?? "").Trim(), Foes = keep };
+                roster.History.Add(match);
+            }
+            roster.Rivals.Clear();
+            return (new EndMatchResult(match, keep.Count, total - keep.Count), true);
+        }, ct).ConfigureAwait(false);
     }
 
     // ---- 登録ポケモン
@@ -515,3 +631,6 @@ public sealed class RosterRepository
         return (pokemon, _) => builds.GetValueOrDefault(pokemon.Id);
     }
 }
+
+/// <summary>試合を終えた結果（履歴に移した記録、移した数、名前だけで移さなかった数）。</summary>
+public sealed record EndMatchResult(RivalMatch? Match, int Moved, int Dropped);
