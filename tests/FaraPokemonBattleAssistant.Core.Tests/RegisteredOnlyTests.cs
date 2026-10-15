@@ -101,3 +101,39 @@ public class AttackerAbilityVariantTests
         Assert.DoesNotContain("サンパワー発動時", physical.Message);
     }
 }
+
+/// <summary>チャンピオンズの実数値（性格補正はポイントを足したあとに掛ける）で、他のダメージ計算ツールの結果と合うこと。</summary>
+public class ChampionsNatureOrderTests
+{
+    [Fact]
+    public async Task Blaziken_flare_blitz_against_scarf_charizard_matches_the_public_numbers()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Champions");
+        var calc = new Battle.DamageCalculator(data.TypeChart, data.Info.Generation);
+        var blaze = data.Pokemon.First(p => p.Name == "バシャーモ");
+        var attacker = new Models.PokemonBuild(blaze, data.Info.EvSystem)
+        {
+            Nature = data.Natures.First(n => n.IncreasedStat == Models.Stat.Attack && n.DecreasedStat == Models.Stat.SpAttack),
+            EVs = new Models.StatSet { HP = 2, Attack = 32, Speed = 32 },
+            Ability = data.AbilitiesOf(blaze).First(a => a.Identifier == "blaze"),
+        };
+        var zard = data.Pokemon.First(p => p.Name == "リザードン");
+        var defender = new Models.PokemonBuild(zard, data.Info.EvSystem)
+        {
+            Nature = data.Natures.First(n => n.IncreasedStat == Models.Stat.SpAttack && n.DecreasedStat == Models.Stat.Attack),
+            EVs = new Models.StatSet { HP = 32 },
+            Ability = data.AbilitiesOf(zard).First(a => a.Identifier == "solar-power"),
+            Item = data.Items.First(i => i.Name == "こだわりスカーフ"),
+        };
+        var move = data.Moves.First(m => m.Name == "フレアドライブ");
+        var request = new Models.DamageRequest { Attacker = attacker, Move = move, Defender = defender };
+        Assert.Equal(189, Battle.StatCalculator.Calculate(attacker, Models.Stat.Attack));
+
+        var normal = calc.Calculate(request);
+        Assert.Equal(185, normal.DefenderHP);
+        var low = attacker.Clone();
+        low.HpPercent = 33;
+        var pinch = calc.Calculate(request.With(attacker: low));
+        Assert.Equal((97, 115), (pinch.MinDamage, pinch.MaxDamage));   // もうか発動時
+    }
+}
