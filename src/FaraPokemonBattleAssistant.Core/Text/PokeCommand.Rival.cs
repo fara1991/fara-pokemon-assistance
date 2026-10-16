@@ -12,7 +12,7 @@ namespace FaraPokemonBattleAssistant.Core.Text;
 /// </summary>
 public sealed partial class PokeCommand
 {
-    /// <summary>対戦中に登録できる相手チームの数（1 チーム 6 体）。</summary>
+    /// <summary>相手チームに登録できるポケモンの数（1 チーム 6 体）。</summary>
     public const int MaxRivals = 6;
 
     private static readonly Regex RivalEvToken = new(@"^(?:[HABCDShabcds]\d{1,3})+$", RegexOptions.Compiled);
@@ -153,7 +153,7 @@ public sealed partial class PokeCommand
     }
 
     /// <summary>
-    /// 指定した内容を相手チームに反映する。ポイントは書いた能力だけ更新し、書いていない能力は今のまま（scan の推定も消さない）。
+    /// 指定した内容を相手のポケモンに反映する。ポイントは書いた能力だけ更新し、書いていない能力は今のまま（scan の推定も消さない）。
     /// 性格・特性は、書いたものだけ上書き。
     /// </summary>
     private static void ApplySpec(RivalPokemon rival, RivalSpec spec, DateTimeOffset now)
@@ -276,7 +276,7 @@ public sealed partial class PokeCommand
     /// <summary>rm -r 名前: 登録ミスなどの取り消し（履歴には残さない）。</summary>
     private async Task<DamageCommandResult> RemoveRivalAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (!options.AllowMutations) return Fail("相手チームの削除は配信者・モデレーターのみ行えます");
+        if (!options.AllowMutations) return Fail("相手チームからの削除は配信者・モデレーターのみ行えます");
         if (args.Count == 0) return Fail($"書式: !{ds.CommandPrefix} rm -r 名前");
         var match = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
         if (!match.IsResolved) return Fail(NotFound("ポケモン", args[0], match.Candidates.Select(p => p.Name)));

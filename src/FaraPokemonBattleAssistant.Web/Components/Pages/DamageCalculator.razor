@@ -196,11 +196,11 @@ else if (data is not null && dataSet is not null)
             @if (s.EstimateMode)
             {
                 <div class="card result-card estimate-card result-sticky">
-                    <div class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定 <Help Title="相手の振り方を推定">攻撃側に自分の構成、防御側に相手チーム（特性・持ち物が分かれば、それも）を選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</Help></h5></div>
+                    <div class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定 <Help Title="相手の振り方を推定">攻撃側に自分の構成、防御側に相手のポケモン（特性・持ち物が分かれば、それも）を選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</Help></h5></div>
                     <div class="card-body">
                         <ol class="estimate-steps small">
                             <li>攻撃側に、自分の構成（@(EvRules.Label(dataSet.EvSystem))・性格・持ち物・特性）と技を入れる</li>
-                            <li>防御側は、相手チームと特性を選ぶ（@(EvRules.Label(dataSet.EvSystem))・性格は不明のまま）</li>
+                            <li>防御側は、相手のポケモンと特性を選ぶ（@(EvRules.Label(dataSet.EvSystem))・性格は不明のまま）</li>
                             <li>実際に受けた（与えた）ダメージを入れる（入れると、自動で推定します）</li>
                         </ol>
                         @* ラベルを「量」「割合」で切り替える。入力欄は数値だけ *@

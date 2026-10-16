@@ -158,7 +158,7 @@ public sealed class RemoteRosterStore : IRosterStore
         if (rivalKeys.Count > 0) await PutAsync(_rivalEndpoint, state, rivalKeys, RosterPart.Rival, ct).ConfigureAwait(false);
     }
 
-    /// <summary>1 つのゲームの、ポケモン（/api/my/pokemon）・チーム（/api/my/team）・相手チーム（/api/my/rival）のどれかだけを保存する。</summary>
+    /// <summary>1 つのゲームの、ポケモン（/api/my/pokemon）・自分チーム（/api/my/team）・相手チーム（/api/my/rival）のどれかだけを保存する。</summary>
     public Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default) =>
         PutAsync(part switch { RosterPart.Pokemon => _pokemonEndpoint, RosterPart.Rival => _rivalEndpoint, _ => _teamsEndpoint }, state, new[] { dataSetKey }, part, ct);
 

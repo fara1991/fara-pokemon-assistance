@@ -120,7 +120,7 @@ public sealed partial class PokeCommand
         if (tokens.Count == 0) return Fail(Usage(ds.CommandPrefix));
         var sub = tokens[0].ToLowerInvariant();
         var args = tokens.Skip(1).ToList();
-        // 対象はオプションで指定する: -m / --my（育成ポケモン）、-t / --team（チーム）、-r / --rival（相手チーム）、-h / --history（試合の履歴）。サブコマンドの直後に置く
+        // 対象はオプションで指定する: -m / --my（育成ポケモン）、-t / --team（自分チーム）、-r / --rival（相手チーム）、-h / --history（試合の履歴）。サブコマンドの直後に置く
         var isTeam = args.Count > 0 && (args[0].Equals("-t", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--team", StringComparison.OrdinalIgnoreCase));
         var isPokemon = args.Count > 0 && (args[0].Equals("-m", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--my", StringComparison.OrdinalIgnoreCase));
         var isRival = args.Count > 0 && (args[0].Equals("-r", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--rival", StringComparison.OrdinalIgnoreCase));
@@ -157,9 +157,9 @@ public sealed partial class PokeCommand
             case "use" when isTeam: return await UseTeamAsync(ds, args, options, ct).ConfigureAwait(false);
             case "add" or "set" or "ls" or "detail" or "rm" or "use" or "unuse" or "release" or "clear" when args.Count > 0 && args[0].StartsWith('-'):
                 // 存在しないオプション（-p など）
-                return Fail($"「{args[0]}」というオプションはありません。対象は -m（育成ポケモン）・-t（チーム）・-r（相手）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m）");
+                return Fail($"「{args[0]}」というオプションはありません。対象は -m（育成ポケモン）・-t（自分チーム）・-r（相手チーム）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m）");
             case "add" or "set" or "ls" or "detail" or "rm" or "use" or "unuse" or "release" or "clear":
-                return Fail($"「{tokens[0]}」の後に、対象を -m（育成ポケモン）・-t（チーム）・-r（相手）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m / {sub} -r。--my / --team / --rival / --history でも可）。{Usage(ds.CommandPrefix)}");
+                return Fail($"「{tokens[0]}」の後に、対象を -m（育成ポケモン）・-t（自分チーム）・-r（相手チーム）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m / {sub} -r。--my / --team / --rival / --history でも可）。{Usage(ds.CommandPrefix)}");
             case "end": return await EndMatchAsync(ds, args, options, ct).ConfigureAwait(false);
             case "scan": return await ScanAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "dmg" or "damage": return await DamageAsync(ds, data, args, options, ct).ConfigureAwait(false);
@@ -361,7 +361,7 @@ public sealed partial class PokeCommand
         if (RegisteredOnlyError(ds, data, args[0], provider, "攻撃側") is { } notRegistered) return Fail(notRegistered);
         var text = string.Join(" ", args);
 
-        // まず相手の情報なし（既定）で計算して、相手チームと技（B か D か）を確かめる
+        // まず相手の情報なし（既定）で計算して、相手のポケモンと技（B か D か）を確かめる
         var probe = await DamageScenarioAsync(ds, data, args, text, options, provider, null, useHigh: false, ct).ConfigureAwait(false);
         if (probe.Failure is not null) return probe.Failure;
         var request = probe.Request!;

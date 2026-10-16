@@ -141,7 +141,7 @@ public sealed class RivalScan
     public List<string> Notes { get; set; } = new();
 }
 
-/// <summary>対戦中の相手チーム。同じポケモンは 1 体だけ。分かった部分だけを持つ（null は不明）。</summary>
+/// <summary>対戦中の相手のポケモン（1 体分）。同じポケモンは 1 体だけ。分かった部分だけを持つ（null は不明）。</summary>
 public sealed class RivalPokemon
 {
     public int Id { get; set; }
