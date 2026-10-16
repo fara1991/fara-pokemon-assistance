@@ -40,7 +40,7 @@ public sealed partial class PokeCommand
     }
 
     public static string Usage(string prefix) =>
-        $"!{prefix} add -m 名前 H A B C D S 性格 | set -m ID・名前 … | ls -m [名前] | detail -m ID | rm -m ID | add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号 | add -r 名前… | set -r 名前 … | ls -r | rm -r 名前 | clear -r [メモ] | ls -h [名前] | detail -h ID | dmg 攻撃 技±ランク 防御 | scan 攻撃 技 相手 ダメージ | faster 自分 相手 | help";
+        $"!{prefix} add -m 名前 H A B C D S 性格 | set -m ID・名前 … | ls -m [名前] | detail -m ID | rm -m ID | add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号 | add -r 名前… | set -r 名前 … | ls -r | rm -r 名前 | clear -r | ls -h [名前] | detail -h ID | dmg 攻撃 技±ランク 防御 | scan 攻撃 技 相手 ダメージ | faster 自分 相手 | end [メモ] | help";
 
     /// <summary>メッセージがこのコマンド群のものかを判定し、接頭辞と残りを返す。</summary>
     public async Task<(DataSetInfo DataSet, string Arguments)?> MatchAsync(string message, CancellationToken ct = default)
@@ -70,9 +70,9 @@ public sealed partial class PokeCommand
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
         return "自分(-m): add -m 名前 H A B C D S 性格 [特性] / set -m ID・名前 … / ls・detail・rm ｜ " +
                "チーム(-t): add -t 番号 ID [持ち物] / use・unuse・ls・detail・rm ｜ " +
-               "相手(-r): add -r 名前… [H32 D10 B↑A↓ 特性 選出] / set -r / ls・detail・rm / clear -r [メモ] ｜ " +
+               "相手(-r): add -r 名前… [H32 D10 B↑A↓ 特性 選出] / set -r / ls・detail・rm / clear -r（全員の登録を解除） ｜ " +
                "履歴(-h): ls・detail・rm ｜ " +
-               "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 ｜ " +
+               "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 / end [メモ]（試合終了） ｜ " +
                $"{prefixes}（!poke はチャンピオンズ）｜ --my/--team/--rival/--history も可";
     }
 
@@ -146,7 +146,7 @@ public sealed partial class PokeCommand
             case "detail" when isHistory: return await DetailHistoryAsync(ds, data, args, ct).ConfigureAwait(false);
             case "rm" when isRival: return await RemoveRivalAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "rm" when isHistory: return await RemoveHistoryAsync(ds, args, options, ct).ConfigureAwait(false);
-            case "clear" or "release" when isRival: return await EndMatchAsync(ds, args, options, ct).ConfigureAwait(false);
+            case "clear" when isRival: return await ClearRivalsAsync(ds, args, options, ct).ConfigureAwait(false);
             case "ls" when isTeam: return await ListTeamsAsync(ds, ct).ConfigureAwait(false);
             case "ls" when isPokemon: return await ListAsync(ds, data, args, ct).ConfigureAwait(false);
             case "detail" when isTeam: return await MoreTeamAsync(ds, data, args, ct).ConfigureAwait(false);
@@ -160,6 +160,7 @@ public sealed partial class PokeCommand
                 return Fail($"「{args[0]}」というオプションはありません。対象は -m（自分のポケモン）・-t（チーム）・-r（相手）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m）");
             case "add" or "set" or "ls" or "detail" or "rm" or "use" or "unuse" or "release" or "clear":
                 return Fail($"「{tokens[0]}」の後に、対象を -m（自分のポケモン）・-t（チーム）・-r（相手）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m / {sub} -r。--my / --team / --rival / --history でも可）。{Usage(ds.CommandPrefix)}");
+            case "end": return await EndMatchAsync(ds, args, options, ct).ConfigureAwait(false);
             case "scan": return await ScanAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "dmg" or "damage": return await DamageAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "faster": return await DiffAsync(ds, data, args, options, ct).ConfigureAwait(false);

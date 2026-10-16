@@ -113,7 +113,7 @@ public class RivalCommandTests
         Assert.Equal(2, (await repo.GetAsync()).For(Ds).Rivals.Single().Scans.Single().Count);
 
         // 試合を終えると、推定した相手は履歴へ。対戦中の相手は空に戻り、dmg は既定に戻る
-        var ended = await command.ExecuteAsync("!pokech clear -r テスト戦");
+        var ended = await command.ExecuteAsync("!pokech end テスト戦");
         Assert.True(ended.Success, ended.Message);
         Assert.Contains("履歴 #1", ended.Message);
         Assert.Empty((await repo.GetAsync()).For(Ds).Rivals);
@@ -132,7 +132,7 @@ public class RivalCommandTests
         var (command, repo) = await NewAsync();
         await command.ExecuteAsync("!pokech add -r カイリュー ミミッキュ");
         await command.ExecuteAsync("!pokech set -r ミミッキュ S32");
-        var ended = await command.ExecuteAsync("!pokech clear -r");
+        var ended = await command.ExecuteAsync("!pokech end");
         Assert.True(ended.Success, ended.Message);
         var roster = (await repo.GetAsync()).For(Ds);
         Assert.Empty(roster.Rivals);
@@ -166,7 +166,7 @@ public class RivalCommandTests
     {
         var (command, repo) = await NewAsync();
         var viewer = new PokeCommandOptions { AllowMutations = false };
-        foreach (var message in new[] { "!pokech scan マニューラ つららおとし フシギバナ 55", "!pokech add -r カイリュー", "!pokech set -r カイリュー D32", "!pokech rm -r カイリュー", "!pokech clear -r", "!pokech rm -h 1", "!pokech set -m 1 A1" })
+        foreach (var message in new[] { "!pokech scan マニューラ つららおとし フシギバナ 55", "!pokech add -r カイリュー", "!pokech set -r カイリュー D32", "!pokech rm -r カイリュー", "!pokech clear -r", "!pokech end", "!pokech rm -h 1", "!pokech set -m 1 A1" })
         {
             var result = await command.ExecuteAsync(message, viewer);
             Assert.False(result.Success, message);
@@ -207,7 +207,7 @@ public class RivalCommandTests
         // 名前だけでも、選出したら試合終了で履歴に移る
         Assert.True((await command.ExecuteAsync("!pokech add -r カイリュー ミミッキュ")).Success);
         Assert.True((await command.ExecuteAsync("!pokech set -r カイリュー 選出")).Success);
-        var ended = await command.ExecuteAsync("!pokech clear -r");
+        var ended = await command.ExecuteAsync("!pokech end");
         Assert.True(ended.Success, ended.Message);
         var history = (await repo.GetAsync()).For(Ds).History.Single();
         Assert.Equal(new[] { "メガリザードンY", "カイリュー" }, history.Foes.Select(f => f.PokemonName).ToArray());
@@ -228,6 +228,24 @@ public class RivalCommandTests
         Assert.False((await command.ExecuteAsync("!pokech set -r メガリザードンX")).Success);
         Assert.False((await command.ExecuteAsync("!pokech set -r カイリュー")).Success);
         Assert.Single((await repo.GetAsync()).For(Ds).Rivals);
+    }
+
+    [Fact]
+    public async Task Clear_rival_removes_every_rival_without_history_and_rejects_arguments()
+    {
+        var (command, repo) = await NewAsync();
+        Assert.True((await command.ExecuteAsync("!pokech add -r カイリュー D32 おだやか")).Success);
+        Assert.True((await command.ExecuteAsync("!pokech set -r カイリュー 選出")).Success);
+        // 引数付きでは何も消さない（end と取り違えて全員の登録を消さないため）
+        var withMemo = await command.ExecuteAsync("!pokech clear -r テスト戦");
+        Assert.False(withMemo.Success);
+        Assert.Single((await repo.GetAsync()).For(Ds).Rivals);
+
+        var cleared = await command.ExecuteAsync("!pokech clear -r");
+        Assert.True(cleared.Success, cleared.Message);
+        var roster = (await repo.GetAsync()).For(Ds);
+        Assert.Empty(roster.Rivals);
+        Assert.Empty(roster.History);
     }
 
     [Fact]

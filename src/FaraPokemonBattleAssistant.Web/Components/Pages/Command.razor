@@ -476,13 +476,14 @@ else if (data is not null)
             new("ls -r", "ls -r（一覧）", "相手のポケモン", Array.Empty<Field>()),
             new("detail -r", "detail -r（詳細）", "相手のポケモン", new[] { Field.Subject }),
             new("rm -r", "rm -r（外す）", "相手のポケモン", new[] { Field.Subject }),
-            new("clear -r", "clear -r（試合終了・履歴へ）", "相手のポケモン", new[] { Field.Memo }),
+            new("clear -r", "clear -r（全員の登録を解除）", "相手のポケモン", Array.Empty<Field>()),
             new("ls -h", "ls -h（一覧）", "履歴", new[] { Field.Subject }),
             new("detail -h", "detail -h（詳細）", "履歴", new[] { Field.EntryId }),
             new("rm -h", "rm -h（削除）", "履歴", new[] { Field.EntryId }),
             new("dmg", "dmg（ダメージ）", "対戦", new[] { Field.Attacker, Field.Move, Field.Defender, Field.Weather, Field.Terrain }),
             new("scan", $"scan（{ev}推定・相手に登録）", "対戦", new[] { Field.Attacker, Field.Move, Field.Defender, Field.Weather, Field.Terrain, Field.Damage }),
             new("faster", "faster（素早さ比較）", "対戦", new[] { Field.Attacker, Field.Defender, Field.Weather, Field.Options }),
+            new("end", "end（試合終了・履歴へ）", "対戦", new[] { Field.Memo }),
             new("help", "help（コマンド一覧）", "ヘルプ", Array.Empty<Field>()),
         };
     }
@@ -539,7 +540,7 @@ else if (data is not null)
             case "rm -r":
                 parts.Add(s.Subject?.Name ?? "名前");
                 break;
-            case "clear -r":
+            case "end":
                 if (!string.IsNullOrWhiteSpace(s.Memo)) parts.Add(s.Memo.Trim());
                 break;
             case "add -t":
@@ -630,7 +631,7 @@ else if (data is not null)
         if ((second is "-m" or "--my") && first is "add" or "set" or "rm" or "ls" or "detail") { consumed = 2; return first + " -m"; }
         if ((second is "-r" or "--rival") && first is "add" or "set" or "rm" or "ls" or "detail" or "clear") { consumed = 2; return first + " -r"; }
         if ((second is "-h" or "--history") && first is "rm" or "ls" or "detail") { consumed = 2; return first + " -h"; }
-        if (first is "help" or "dmg" or "scan" or "faster") { consumed = 1; return first; }
+        if (first is "help" or "dmg" or "scan" or "faster" or "end") { consumed = 1; return first; }
         return null;
     }
 
@@ -681,9 +682,10 @@ else if (data is not null)
             case "rm -h":
                 s.EntryId = NumberOrEmpty(tokens, 0);
                 return;
-            case "clear -r":
+            case "end":
                 s.Memo = string.Join(" ", tokens);
                 return;
+            case "clear -r":
             case "ls -r":
                 return;
             case "detail -m":
@@ -758,7 +760,7 @@ else if (data is not null)
     {
         var tokens = text.Split(new[] { ' ', '　', '\t' }, StringSplitOptions.RemoveEmptyEntries);
         var i = tokens.Length > 0 && tokens[0].StartsWith('!') ? 1 : 0;
-        return i < tokens.Length && tokens[i].ToLowerInvariant() is "add" or "set" or "rm" or "use" or "unuse" or "clear";
+        return i < tokens.Length && tokens[i].ToLowerInvariant() is "add" or "set" or "rm" or "use" or "unuse" or "clear" or "end";
     }
 
     /// <summary>例をコマンド欄に入れるだけ。実行は「実行」を押したときだけ。</summary>
@@ -812,7 +814,7 @@ else if (data is not null)
         "add -t", "rm -t", "use -t", "unuse -t", "ls -t", "detail -t",
         "add -r", "set -r", "ls -r", "detail -r", "rm -r", "clear -r",
         "ls -h", "detail -h", "rm -h",
-        "dmg", "scan", "faster",
+        "dmg", "scan", "faster", "end",
         "help",
     };
 
@@ -862,8 +864,10 @@ else if (data is not null)
         yield return new($"{p} ls -r", "相手のポケモン", "対戦中の相手の一覧（分かっている振り方・推定の範囲つき）", new[] { $"{p} ls -r", $"{p} ls --rival" });
         yield return new($"{p} detail -r <名前>", "相手のポケモン", "相手 1 体の詳細（推定の根拠つき）", new[] { $"{p} detail -r カイリュー", $"{p} detail --rival カイリュー" });
         yield return new($"{p} rm -r <名前>", "相手のポケモン", "登録ミスなどの取り消し（履歴には残さない）", new[] { $"{p} rm -r カイリュー", $"{p} rm --rival カイリュー" });
-        yield return new($"{p} clear -r [<メモ>]", "相手のポケモン", "試合を終える。選出した相手と、何か分かっている相手（推定・ポイント・性格・特性）を履歴に移し、対戦中の相手を空にする（名前だけで選出もしていない相手は移さない）。メモを付けられる",
-            new[] { $"{p} clear -r", $"{p} clear -r ○○さん戦", $"{p} clear --rival" });
+        yield return new($"{p} clear -r", "相手のポケモン", "対戦中の相手の登録を全員解除する（履歴には残さない）。試合を終えて履歴に残すときは end を使う",
+            new[] { $"{p} clear -r", $"{p} clear --rival" });
+        yield return new($"{p} end [<メモ>]", "対戦", "試合を終える。選出した相手と、何か分かっている相手（推定・ポイント・性格・特性）を履歴に移し、対戦中の相手を空にする（名前だけで選出もしていない相手は移さない）。メモを付けられる",
+            new[] { $"{p} end", $"{p} end ○○さん戦" });
         yield return new($"{p} ls -h [<名前>]", "履歴", "終わった試合の履歴（新しい順）。名前を付けると、そのポケモンがいた試合の振り方", new[] { $"{p} ls -h", $"{p} ls --history", $"{p} ls -h カイリュー" });
         yield return new($"{p} detail -h <履歴ID>", "履歴", "その試合の相手ポケモンと推定の根拠", new[] { $"{p} detail -h 1", $"{p} detail --history 1" });
         yield return new($"{p} rm -h <履歴ID>", "履歴", "履歴を削除", new[] { $"{p} rm -h 1", $"{p} rm --history 1" });
