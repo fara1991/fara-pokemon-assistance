@@ -40,7 +40,13 @@ public sealed partial class PokeCommand
     }
 
     public static string Usage(string prefix) =>
-        $"!{prefix} add -m 名前 H A B C D S 性格 | set -m ID・名前 … | ls -m [名前] | detail -m ID | rm -m ID | add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号 | add -r 名前… | set -r 名前 … | ls -r | rm -r 名前 | clear -r | ls -h [名前] | detail -h ID | dmg 攻撃 技±ランク 防御 | scan 攻撃 技 相手 ダメージ | faster 自分 相手 | end [メモ] | help";
+        $"!{prefix} の使い方\n" +
+        "育成ポケモン(-m): add -m 名前 H A B C D S 性格 | set -m ID・名前 … | ls -m [名前] | detail -m ID | rm -m ID\n" +
+        "自分チーム(-t): add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号\n" +
+        "相手チーム(-r): add -r 名前… | set -r 名前 … | ls -r | detail -r 名前 | rm -r 名前 | clear -r\n" +
+        "対戦: dmg 攻撃 技±ランク 防御 | scan 攻撃 技 相手 ダメージ | faster 自分 相手 | end [メモ]\n" +
+        "履歴(-h): ls -h [名前] | detail -h ID | rm -h ID\n" +
+        "help";
 
     /// <summary>メッセージがこのコマンド群のものかを判定し、接頭辞と残りを返す。</summary>
     public async Task<(DataSetInfo DataSet, string Arguments)?> MatchAsync(string message, CancellationToken ct = default)
@@ -68,11 +74,11 @@ public sealed partial class PokeCommand
     public static string CommandList(IEnumerable<DataSetInfo> dataSets)
     {
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
-        return "育成ポケモン(-m): add -m 名前 H A B C D S 性格 [特性] / set -m ID・名前 … / ls・detail・rm ｜ " +
-               "自分チーム(-t): add -t 番号 ID [持ち物] / use・unuse・ls・detail・rm ｜ " +
-               "相手チーム(-r): add -r 名前… [H32 D10 B↑A↓ 特性 技 選出] / set -r / ls・detail・rm / clear -r（全員の登録を解除） ｜ " +
-               "履歴(-h): ls・detail・rm ｜ " +
-               "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 / end [メモ]（試合終了） ｜ " +
+        return "育成ポケモン(-m): add -m 名前 H A B C D S 性格 [特性] / set -m ID・名前 … / ls・detail・rm\n" +
+               "自分チーム(-t): add -t 番号 ID [持ち物] / use・unuse・ls・detail・rm\n" +
+               "相手チーム(-r): add -r 名前… [H32 D10 B↑A↓ 特性 技 持ち物 選出] / set -r / ls・detail・rm / clear -r（全員の登録を解除）\n" +
+               "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 / end [メモ]（試合終了）\n" +
+               "履歴(-h): ls・detail・rm\n" +
                $"{prefixes}（!poke はチャンピオンズ）｜ --my/--team/--rival/--history も可";
     }
 

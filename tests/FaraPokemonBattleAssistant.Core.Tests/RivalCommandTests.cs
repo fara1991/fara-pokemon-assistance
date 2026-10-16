@@ -373,10 +373,15 @@ public class RivalCommandTests
         Assert.Contains("たべのこし", defensive.Message.Split('\n')[0].Split('→')[1]);
         var berry = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン オボンのみ");
         Assert.Equal("オボンのみ", berry.Request!.Defender.Item?.Name);
-        // それ以外の持ち物は攻撃側に付く（防御側に持たせるときは 防: が必要）
+        // 攻撃側は登録の持ち物で決まるので、持ち物名は（どの種類でも）防御側に付く。攻撃側に書くと警告して、反映しない
         var offensive = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン いのちのたま");
-        Assert.Equal("いのちのたま", offensive.Request!.Attacker.Item?.Name);
-        Assert.NotEqual("いのちのたま", offensive.Request.Defender.Item?.Name);
+        Assert.Equal("いのちのたま", offensive.Request!.Defender.Item?.Name);
+        Assert.NotEqual("いのちのたま", offensive.Request.Attacker.Item?.Name);
+        var attackerItem = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 攻:いのちのたま");
+        Assert.True(attackerItem.Success, attackerItem.Message);
+        Assert.NotEqual("いのちのたま", attackerItem.Request!.Attacker.Item?.Name);
+        Assert.Null(attackerItem.Request.Defender.Item);
+        Assert.Contains("攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まります", attackerItem.Message);
         // scan でも同じ
         var probe = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H0 B10");
         var observed = (int)Math.Round((probe.Damage!.MinDamage + probe.Damage.MaxDamage) / 2.0);
@@ -420,11 +425,11 @@ public class RivalCommandTests
     public async Task Attacker_side_prefix_accepts_many_spellings(string prefix)
     {
         var (command, _) = await NewAsync();
-        // たべのこしは防御側に付くのが既定。攻撃側の前置きで、攻撃側に付く
-        var reply = await command.ExecuteAsync($"!pokech dmg マニューラ つららおとし リザードン {prefix}たべのこし");
+        // 攻撃側の前置きは、攻撃側のランクなどに効く（攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まるので指定できない）
+        var reply = await command.ExecuteAsync($"!pokech dmg マニューラ つららおとし リザードン {prefix}+1");
         Assert.True(reply.Success, reply.Message);
-        Assert.Equal("たべのこし", reply.Request!.Attacker.Item?.Name);
-        Assert.NotEqual("たべのこし", reply.Request.Defender.Item?.Name);
+        Assert.Equal(1, reply.Request!.Attacker.Boosts[Models.Stat.Attack]);
+        Assert.Equal(0, reply.Request.Defender.Boosts[Models.Stat.Defense]);
     }
 
     [Fact]

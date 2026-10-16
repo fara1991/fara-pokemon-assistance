@@ -347,7 +347,13 @@ public sealed class DamageCommand
             if (item.IsResolved)
             {
                 var it = item.Value!;
-                var toAttacker = forcedAttacker ?? !it.IsDefensive;
+                // 登録済みの攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まる。持ち物名は（前置きがなくても）防御側（相手）に付ける
+                var toAttacker = forcedAttacker ?? (attackerPreset is null && !it.IsDefensive);
+                if (toAttacker && attackerPreset is not null)
+                {
+                    warnings.Add($"攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まります（{it.Name}は反映しません）");
+                    continue;
+                }
                 if (toAttacker) { attacker.Item = it; attackerItemSet = true; }
                 else { defender.Item = it; defenderItemSet = true; }
                 continue;
