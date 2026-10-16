@@ -58,7 +58,7 @@ public sealed class BattleStage
     private object? sceneOwner;
     private object? conditionsOwner;
 
-    /// <summary>いま開いているページで入力している天候・フィールド（ダメージ計算機・素早さ比較・自分のポケモン）。背景のフィールドに見た目で出る。</summary>
+    /// <summary>いま開いているページで入力している天候・フィールド（ダメージ計算機・素早さ比較・育成ポケモン）。背景のフィールドに見た目で出る。</summary>
     public Weather Weather { get; private set; }
     public Terrain Terrain { get; private set; }
 
@@ -103,7 +103,7 @@ public sealed class BattleStage
     }
 
     /// <summary>
-    /// 背景に立たせる 2 体を、ページで「選んだ」ことにせずに出す（自分のポケモン用。ほかのページの入力欄には入れない）。
+    /// 背景に立たせる 2 体を、ページで「選んだ」ことにせずに出す（育成ポケモン用。ほかのページの入力欄には入れない）。
     /// 選んでいない側（null）は今のままにする。
     /// </summary>
     public void ShowOnly(string dataSetKey, Pokemon? mine, Pokemon? foe)

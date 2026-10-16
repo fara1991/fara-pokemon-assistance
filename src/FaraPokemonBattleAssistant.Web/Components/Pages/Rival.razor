@@ -3,17 +3,17 @@
 @using FaraPokemonBattleAssistant.Core.Roster
 @using FaraPokemonBattleAssistant.Core.Text
 
-<PageTitle>相手のポケモン | Pokémon Battle Assistant</PageTitle>
+<PageTitle>相手チーム | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>相手のポケモン <Help Title="相手のポケモン">対戦中の相手のポケモンを登録します。同じポケモンは 1 体だけです。名前だけ登録しておき、ダメージ計算機の「相手の振り方を推定」やチャットの scan で分かった範囲を絞り込んでいきます（振り方の一部が分かれば、ここで直接入れることもできます）。登録した相手は、ダメージ計算機とチャットの dmg で防御側に使われます。試合が終わったら「試合を終える」で、対戦中の相手を全員（名前だけの相手も）履歴に移して、対戦中の相手を空にします。履歴には、選出した相手・見えた技・ポイント・性格・特性・推定も一緒に残ります。</Help></h3>
+    <h3>相手チーム <Help Title="相手チーム">対戦中の相手チームを登録します。同じポケモンは 1 体だけです。名前だけ登録しておき、ダメージ計算機の「相手の振り方を推定」やチャットの scan で分かった範囲を絞り込んでいきます（振り方の一部が分かれば、ここで直接入れることもできます）。登録した相手は、ダメージ計算機とチャットの dmg で防御側に使われます。試合が終わったら「試合を終える」で、対戦中の相手を全員（名前だけの相手も）履歴に移して、対戦中の相手を空にします。履歴には、選出した相手・見えた技・ポイント・性格・特性・推定も一緒に残ります。</Help></h3>
     <p class="text-muted mb-0">対戦中の相手と、終わった試合の履歴です。データは配信用BOTとも共有されます（<a href="data-share">データ共有</a>）。</p>
     <RegistrationStorageNote />
 </div>
 
 @if (dataSet is { CalcSupported: false })
 {
-    <CalcUnsupported DataSet="dataSet" Feature="「相手のポケモン」ページ" />
+    <CalcUnsupported DataSet="dataSet" Feature="「相手チーム」ページ" />
 }
 else if (data is not null && roster is not null && dataSet is not null)
 {

@@ -226,7 +226,7 @@ body {
     flex: 1 1 auto;
 }
 
-/* 登録ページ（自分のポケモン・チーム）: スマホ・狭い画面では 2 つの列を縦に並べる（PC の段組みは下の @media で作る） */
+/* 登録ページ（育成ポケモン・自分チーム）: スマホ・狭い画面では 2 つの列を縦に並べる（PC の段組みは下の @media で作る） */
 .reg-col {
     min-width: 0;
 }
@@ -2826,7 +2826,7 @@ html.vt-nav .sidebar {
     }
 }
 
-/* 自分のポケモン・チーム（PC）: 左（入力フォーム）と右（一覧）がそれぞれ画面内に収まり、中だけがスクロールする */
+/* 育成ポケモン・自分チーム（PC）: 左（入力フォーム）と右（一覧）がそれぞれ画面内に収まり、中だけがスクロールする */
 @media (min-width: 768px) {
     .reg-layout.pane-fill {
         display: grid;
@@ -3176,7 +3176,7 @@ html.vt-nav .sidebar {
 @media (min-width: 768px) {
     .bv-msg { align-self: center; width: min(44rem, 100%); }
 }
-/* 自分のポケモン: 左下に自分側、右下に技 4 つ（縦 1 列・4 行。右端に威力） */
+/* 育成ポケモン: 左下に自分側、右下に技 4 つ（縦 1 列・4 行。右端に威力） */
 .bv-bottom-moves { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 0.75rem; }
 .bv-moves { display: grid; grid-template-columns: 1fr; gap: 0.4rem; width: min(19rem, 58%); }
 .bv-move {
@@ -3237,7 +3237,7 @@ html.vt-nav .sidebar {
     .bv-box { width: min(14rem, 28%); }
 }
 
-/* 自分のポケモン: 登録一覧の行を選んで編集する */
+/* 育成ポケモン: 登録一覧の行を選んで編集する */
 .reg-item { cursor: pointer; }
 .reg-item:hover { background: color-mix(in srgb, var(--bs-primary) 6%, transparent); }
 .reg-item.reg-selected { background: color-mix(in srgb, var(--bs-primary) 14%, transparent); box-shadow: inset 3px 0 0 var(--bs-primary); }
@@ -3285,7 +3285,7 @@ html.vt-nav .sidebar {
 .bg-scene.tr-misty .field-floor::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 75%, rgba(255, 200, 230, 0.1), transparent 70%); }
 .bg-scene.tr-misty.battle .field-floor::after { background: radial-gradient(ellipse at 50% 75%, rgba(255, 200, 230, 0.2), transparent 70%); }
 
-/* 自分のポケモン: 技の 4 枠と、登録一覧の技 */
+/* 育成ポケモン: 技の 4 枠と、登録一覧の技 */
 .move-pick-summary { list-style: none; padding: 0; }
 .move-pick-summary li { display: flex; align-items: center; gap: 0.4rem; padding: 0.1rem 0; }
 .move-pick-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }

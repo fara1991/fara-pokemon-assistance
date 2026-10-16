@@ -68,9 +68,9 @@ public sealed partial class PokeCommand
     public static string CommandList(IEnumerable<DataSetInfo> dataSets)
     {
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
-        return "自分(-m): add -m 名前 H A B C D S 性格 [特性] / set -m ID・名前 … / ls・detail・rm ｜ " +
-               "チーム(-t): add -t 番号 ID [持ち物] / use・unuse・ls・detail・rm ｜ " +
-               "相手(-r): add -r 名前… [H32 D10 B↑A↓ 特性 技 選出] / set -r / ls・detail・rm / clear -r（全員の登録を解除） ｜ " +
+        return "育成ポケモン(-m): add -m 名前 H A B C D S 性格 [特性] / set -m ID・名前 … / ls・detail・rm ｜ " +
+               "自分チーム(-t): add -t 番号 ID [持ち物] / use・unuse・ls・detail・rm ｜ " +
+               "相手チーム(-r): add -r 名前… [H32 D10 B↑A↓ 特性 技 選出] / set -r / ls・detail・rm / clear -r（全員の登録を解除） ｜ " +
                "履歴(-h): ls・detail・rm ｜ " +
                "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 / end [メモ]（試合終了） ｜ " +
                $"{prefixes}（!poke はチャンピオンズ）｜ --my/--team/--rival/--history も可";
@@ -120,7 +120,7 @@ public sealed partial class PokeCommand
         if (tokens.Count == 0) return Fail(Usage(ds.CommandPrefix));
         var sub = tokens[0].ToLowerInvariant();
         var args = tokens.Skip(1).ToList();
-        // 対象はオプションで指定する: -m / --my（自分のポケモン）、-t / --team（チーム）、-r / --rival（相手のポケモン）、-h / --history（試合の履歴）。サブコマンドの直後に置く
+        // 対象はオプションで指定する: -m / --my（育成ポケモン）、-t / --team（自分チーム）、-r / --rival（相手チーム）、-h / --history（試合の履歴）。サブコマンドの直後に置く
         var isTeam = args.Count > 0 && (args[0].Equals("-t", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--team", StringComparison.OrdinalIgnoreCase));
         var isPokemon = args.Count > 0 && (args[0].Equals("-m", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--my", StringComparison.OrdinalIgnoreCase));
         var isRival = args.Count > 0 && (args[0].Equals("-r", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--rival", StringComparison.OrdinalIgnoreCase));
@@ -157,9 +157,9 @@ public sealed partial class PokeCommand
             case "use" when isTeam: return await UseTeamAsync(ds, args, options, ct).ConfigureAwait(false);
             case "add" or "set" or "ls" or "detail" or "rm" or "use" or "unuse" or "release" or "clear" when args.Count > 0 && args[0].StartsWith('-'):
                 // 存在しないオプション（-p など）
-                return Fail($"「{args[0]}」というオプションはありません。対象は -m（自分のポケモン）・-t（チーム）・-r（相手）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m）");
+                return Fail($"「{args[0]}」というオプションはありません。対象は -m（育成ポケモン）・-t（自分チーム）・-r（相手チーム）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m）");
             case "add" or "set" or "ls" or "detail" or "rm" or "use" or "unuse" or "release" or "clear":
-                return Fail($"「{tokens[0]}」の後に、対象を -m（自分のポケモン）・-t（チーム）・-r（相手）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m / {sub} -r。--my / --team / --rival / --history でも可）。{Usage(ds.CommandPrefix)}");
+                return Fail($"「{tokens[0]}」の後に、対象を -m（育成ポケモン）・-t（自分チーム）・-r（相手チーム）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m / {sub} -r。--my / --team / --rival / --history でも可）。{Usage(ds.CommandPrefix)}");
             case "end": return await EndMatchAsync(ds, args, options, ct).ConfigureAwait(false);
             case "scan": return await ScanAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "dmg" or "damage": return await DamageAsync(ds, data, args, options, ct).ConfigureAwait(false);
@@ -186,9 +186,9 @@ public sealed partial class PokeCommand
         if (!pokemon.IsResolved) return Fail(NotFound("ポケモン", args[0], pokemon.Candidates.Select(p => p.Name)));
         var (specs, specError) = ParseSpecs(args, data, system);
         if (specError is not null) return Fail(specError);
-        if (specs.Count != 1) return Fail("自分のポケモンは 1 体ずつ登録してください");
+        if (specs.Count != 1) return Fail("育成ポケモンは 1 体ずつ登録してください");
         var spec = specs[0];
-        if (spec.Picked) return Fail("「選出」は相手のポケモン（-r）にだけ付けられます");
+        if (spec.Picked) return Fail("「選出」は相手チーム（-r）にだけ付けられます");
         if (spec.Evs.Count == 0) return Fail(usageText);
         if (spec.Nature is null) return Fail($"性格を書いてください（名前か B↑A↓ のように）。{usageText}");
 
@@ -570,7 +570,7 @@ public sealed partial class PokeCommand
 
     private async Task<DamageCommandResult> DiffAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (args.Count < 2) return Fail($"書式: !{ds.CommandPrefix} faster 自分のポケモン 相手のポケモン [+1 晴れ まひ 自:まひ など]");
+        if (args.Count < 2) return Fail($"書式: !{ds.CommandPrefix} faster 自分 相手 [+1 晴れ まひ 自:まひ など]");
         var resolver = DamageCommand.CreatePokemonResolver(data);
         var mineMatch = resolver.Resolve(args[0]);
         if (!mineMatch.IsResolved) return Fail(NotFound("ポケモン", args[0], mineMatch.Candidates.Select(p => p.Name)));
@@ -581,9 +581,9 @@ public sealed partial class PokeCommand
         var usage = await UsageOrNullAsync(data, options.Format, ct).ConfigureAwait(false);
         var warnings = new List<string>();
 
-        // 自分のポケモンは、登録済みのものに限る（特性・持ち物・努力値は登録の内容）
+        // 育成ポケモンは、登録済みのものに限る（特性・持ち物・努力値は登録の内容）
         var mine = provider(mineMatch.Value!, true)?.Clone();
-        if (mine is null) return Fail(NotRegisteredMessage(ds, mineMatch.Value!.Name, "自分のポケモン"));
+        if (mine is null) return Fail(NotRegisteredMessage(ds, mineMatch.Value!.Name, "育成ポケモン"));
         var weather = Weather.None;
         var terrain = Terrain.None;
         var opponentParalyzed = false;

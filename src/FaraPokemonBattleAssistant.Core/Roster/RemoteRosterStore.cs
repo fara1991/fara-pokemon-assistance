@@ -112,7 +112,7 @@ public sealed class RemoteRosterStore : IRosterStore
         {
             using var pokemon = await GetAsync(_pokemonEndpoint, ct).ConfigureAwait(false);
             using var teams = await GetAsync(_teamsEndpoint, ct).ConfigureAwait(false);
-            // 相手のポケモンの API が無い（古いサーバー）・読めないときは、相手のポケモンは空として扱う（ほかの登録データは使えるように）
+            // 相手チームの API が無い（古いサーバー）・読めないときは、相手チームは空として扱う（ほかの登録データは使えるように）
             using var rivals = await TryGetRivalAsync(ct).ConfigureAwait(false);
             var (pokemonRevision, pokemonSets) = ReadDataSets(pokemon);
             var (teamRevision, teamSets) = ReadDataSets(teams);
@@ -153,16 +153,16 @@ public sealed class RemoteRosterStore : IRosterStore
         // 先にポケモン、次にチーム（チームは登録ポケモンに無い ID を受け付けないため）
         await PutAsync(_pokemonEndpoint, state, keys, RosterPart.Pokemon, ct).ConfigureAwait(false);
         await PutAsync(_teamsEndpoint, state, keys, RosterPart.Teams, ct).ConfigureAwait(false);
-        // 相手のポケモンは、あるゲームだけ送る（無ければ API を呼ばない）
+        // 相手チームは、あるゲームだけ送る（無ければ API を呼ばない）
         var rivalKeys = keys.Where(k => state.DataSets[k] is { } r && (r.Rivals.Count > 0 || r.History.Count > 0)).ToList();
         if (rivalKeys.Count > 0) await PutAsync(_rivalEndpoint, state, rivalKeys, RosterPart.Rival, ct).ConfigureAwait(false);
     }
 
-    /// <summary>1 つのゲームの、ポケモン（/api/my/pokemon）・チーム（/api/my/team）・相手のポケモン（/api/my/rival）のどれかだけを保存する。</summary>
+    /// <summary>1 つのゲームの、ポケモン（/api/my/pokemon）・自分チーム（/api/my/team）・相手チーム（/api/my/rival）のどれかだけを保存する。</summary>
     public Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default) =>
         PutAsync(part switch { RosterPart.Pokemon => _pokemonEndpoint, RosterPart.Rival => _rivalEndpoint, _ => _teamsEndpoint }, state, new[] { dataSetKey }, part, ct);
 
-    /// <summary>相手のポケモンを読む。API が無い（404）・想定外の応答のときは null（相手のポケモンは使えない）。</summary>
+    /// <summary>相手チームを読む。API が無い（404）・想定外の応答のときは null（相手チームは使えない）。</summary>
     private async Task<JsonDocument?> TryGetRivalAsync(CancellationToken ct)
     {
         try
