@@ -329,9 +329,12 @@ public class RivalCommandTests
         var plainBands = (await repo.GetAsync()).For(Ds).Rivals.Single().Scans.Single().Bands.Select(x => (x.MinEv, x.MaxEv)).ToList();
         var berryBands = (await repo2.GetAsync()).For(Ds).Rivals.Single().Scans.Single().Bands.Select(x => (x.MinEv, x.MaxEv)).ToList();
         Assert.Equal(plainBands, berryBands);
-        // 持ち物は保存されないので、推定の根拠に残し、dmg でも書くよう案内する
-        Assert.Contains("防:ヤチェのみ", berry.Message);
-        Assert.Contains("防:ヤチェのみ", (await command2.ExecuteAsync("!pokech detail -r フシギバナ")).Message);
+        // 持ち物は確定情報として、相手に保存する（推定の根拠にも残る）
+        Assert.Contains("持ち物: ヤチェのみ", berry.Message);
+        var detail = (await command2.ExecuteAsync("!pokech detail -r フシギバナ")).Message;
+        Assert.Contains("持ち物:ヤチェのみ", detail);
+        Assert.Contains("防:ヤチェのみ", detail);
+        Assert.NotNull((await repo2.GetAsync()).For(Ds).Rivals.Single().ItemId);
     }
 
     [Fact]
@@ -342,13 +345,12 @@ public class RivalCommandTests
         var observed = (int)Math.Round((probe.Damage!.MinDamage + probe.Damage.MaxDamage) / 2.0);
         var plainScan = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}");
         Assert.True(plainScan.Success, plainScan.Message);
-        Assert.EndsWith("持ち物: 不明", plainScan.Message.Split((char)10)[1]);
+        Assert.Contains("持ち物: 不明", plainScan.Message.Split((char)10)[1]);
         // scan でも、書いた持ち物（防:たべのこし）は捨てずに、その持ち物として推定する
         var heldScan = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed} 防:たべのこし");
         Assert.True(heldScan.Success, heldScan.Message);
         Assert.Equal("たべのこし", heldScan.Request!.Defender.Item?.Name);
         Assert.Contains("持ち物: たべのこし", heldScan.Message);
-        Assert.Contains("防:たべのこし を書いてください", heldScan.Message);
         Assert.DoesNotContain("持ち物: 不明", heldScan.Message);
 
         // 範囲の相手の 1 行目にも、書いた持ち物が出る。持ち物なしを書けば出ない
@@ -483,6 +485,41 @@ public class RivalCommandTests
         var dmg = (await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ")).Message.Split('\n');
         Assert.Contains("→ フシギバナ", dmg[0]);
         Assert.StartsWith("結果", dmg[1]);
+    }
+
+    [Fact]
+    public async Task Rival_item_is_saved_and_used_by_dmg_scan_and_history()
+    {
+        var (command, repo) = await NewAsync();
+        // set -r で持ち物（確定情報）を保存する。技・性格などと同じく、書いた分だけ更新する
+        Assert.True((await command.ExecuteAsync("!pokech add -r リザードン D32 おだやか")).Success);
+        var set = await command.ExecuteAsync("!pokech set -r リザードン たべのこし");
+        Assert.True(set.Success, set.Message);
+        Assert.Contains("持ち物:たべのこし", set.Message);
+        var rival = Assert.Single((await repo.GetAsync()).For(Ds).Rivals);
+        Assert.Equal(32, rival.SpDefense);
+        Assert.NotNull(rival.ItemId);
+
+        // 保存した持ち物は、書かなくても dmg の防御側に使われ、返信にも出る。持ち物なしと書けば、そちらが優先
+        var dmg = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン");
+        Assert.Equal("たべのこし", dmg.Request!.Defender.Item?.Name);
+        Assert.Contains("たべのこし", dmg.Message.Split('\n')[0].Split('→')[1]);
+        var none = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 防:持ち物なし");
+        Assert.Null(none.Request!.Defender.Item);
+
+        // scan も、保存した持ち物で推定する（結果の行に出る）
+        var probe = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H0 B10 防:たべのこし");
+        var observed = (int)Math.Round((probe.Damage!.MinDamage + probe.Damage.MaxDamage) / 2.0);
+        Assert.True((await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed} 防:オボンのみ")).Success);
+        var again = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}");
+        Assert.True(again.Success, again.Message);
+        Assert.Contains("持ち物: オボンのみ", again.Message);
+
+        // 試合を終えても、履歴に持ち物が残る
+        Assert.True((await command.ExecuteAsync("!pokech end")).Success);
+        var history = (await repo.GetAsync()).For(Ds).History.Single();
+        Assert.Contains(history.Foes, f => f.PokemonName == "リザードン" && f.ItemId is not null);
+        Assert.Contains("持ち物:たべのこし", (await command.ExecuteAsync("!pokech detail -h 1")).Message);
     }
 
     [Fact]

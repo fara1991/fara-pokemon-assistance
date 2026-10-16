@@ -18,6 +18,8 @@ public sealed class DamageCommandOptions
     public int DefaultDefenderDefenseEv { get; set; } = 0;
     /// <summary>使用率データから、性格・特性と攻撃側の持ち物の既定値を埋めるか（防御側の持ち物は入れない）。</summary>
     public bool UseUsageDefaults { get; set; } = true;
+    /// <summary>防御側の持ち物（登録済みの相手の持ち物など、確定している情報）。コマンドに持ち物を書いたときはそちらが優先。</summary>
+    public Item? DefenderItem { get; set; }
     /// <summary>2〜5 回当たる連続技の回数（2 や 5。null なら既定）。</summary>
     public int? HitCount { get; set; }
     /// <summary>出力 1 行の最大長（Twitch は 500 文字）。</summary>
@@ -409,7 +411,9 @@ public sealed class DamageCommand
         else if (!attackerItemSet && usage is not null)
             attacker.Item = usage.TopItem(attacker.Pokemon.Id);
         // 防御側は対戦中の相手なので、使用率の持ち物は入れない（書いた持ち物かメガストーンだけ。不明なら持ち物なしで計算し、表示にも出さない）
-        if (!defenderItemSet && defender.Pokemon.MegaStoneId is { } defenderStone && data.FindItem(defenderStone) is { } defenderStoneItem)
+        if (!defenderItemSet && options.DefenderItem is { } knownDefenderItem)
+            defender.Item = knownDefenderItem;
+        else if (!defenderItemSet && defender.Pokemon.MegaStoneId is { } defenderStone && data.FindItem(defenderStone) is { } defenderStoneItem)
             defender.Item = defenderStoneItem;
         if (!attackerAbilitySet)
             attacker.Ability = usage?.DefaultAbility(attacker.Pokemon) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(attacker.Pokemon), null);

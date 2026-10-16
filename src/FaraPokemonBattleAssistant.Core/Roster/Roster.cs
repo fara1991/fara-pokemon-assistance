@@ -163,13 +163,15 @@ public sealed class RivalPokemon
     public bool Picked { get; set; }
     /// <summary>相手が使った（見えた）技の Id。0〜<see cref="RegisteredPokemon.MaxMoves"/> 個。</summary>
     public List<int> MoveIds { get; set; } = new();
+    /// <summary>相手が持っている持ち物の Id（確定情報。不明なら null。メガシンカ後の姿は、メガストーンで確定なので保存しなくてよい）。</summary>
+    public int? ItemId { get; set; }
     /// <summary>最後に更新した日時（ISO 8601）。</summary>
     public string Updated { get; set; } = "";
 
     /// <summary>ポイントも性格も特性も推定も何も分かっていない（名前だけ）か。</summary>
     [JsonIgnore]
     public bool IsNameOnly => HP is null && Attack is null && Defense is null && SpAttack is null && SpDefense is null && Speed is null
-                              && Nature is null && AbilityId is null && Scans.Count == 0 && MoveIds.Count == 0;
+                              && Nature is null && AbilityId is null && ItemId is null && Scans.Count == 0 && MoveIds.Count == 0;
 
     /// <summary>推定（scan）をしたことがあるか。</summary>
     [JsonIgnore]
@@ -179,7 +181,7 @@ public sealed class RivalPokemon
     {
         Id = Id, PokemonId = PokemonId, PokemonName = PokemonName,
         HP = HP, Attack = Attack, Defense = Defense, SpAttack = SpAttack, SpDefense = SpDefense, Speed = Speed,
-        Nature = Nature, AbilityId = AbilityId, Updated = Updated, Picked = Picked, MoveIds = MoveIds.ToList(),
+        Nature = Nature, AbilityId = AbilityId, Updated = Updated, Picked = Picked, MoveIds = MoveIds.ToList(), ItemId = ItemId,
         Scans = Scans.Select(scan => new RivalScan
         {
             Defense = scan.Defense, HpMin = scan.HpMin, HpMax = scan.HpMax, Count = scan.Count,
@@ -600,6 +602,20 @@ public sealed class RosterRepository
             .Where(s => byId.ContainsKey(s.EntryId))
             .Select(s => (byId[s.EntryId], s.ItemId is { } iid ? data.FindItem(iid) : null))
             .ToList();
+    }
+
+    /// <summary>
+    /// 登録 ID で指定した育成ポケモンの構成を返す（使用チームにいれば、チームで持たせた持ち物つき）。登録が無ければ null。
+    /// 同じポケモンを別の育成で複数登録しているとき、どの 1 体かを登録 ID で指定するために使う。
+    /// </summary>
+    public async Task<PokemonBuild?> BuildForEntryAsync(string dataSetKey, PokemonDataSet data, int entryId, CancellationToken ct = default)
+    {
+        var members = await ActiveTeamMembersAsync(dataSetKey, data, ct).ConfigureAwait(false);
+        var member = members.FirstOrDefault(m => m.Entry.Id == entryId);
+        if (member.Entry is not null) return ToBuild(member.Entry, data, member.Item);
+        var roster = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey);
+        var entry = roster.Pokemon.FirstOrDefault(p => p.Id == entryId);
+        return entry is null ? null : ToBuild(entry, data);
     }
 
     /// <summary>
