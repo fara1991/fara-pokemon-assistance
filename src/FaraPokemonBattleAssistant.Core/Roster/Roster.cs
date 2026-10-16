@@ -393,6 +393,15 @@ public sealed class RosterRepository
         }, ct).ConfigureAwait(false);
     }
 
+    /// <summary>対戦中の相手を全部消す（履歴には残さない）。消した数を返す。</summary>
+    public Task<int> ClearRivalsAsync(string dataSetKey, CancellationToken ct = default) =>
+        ChangeRivalsAsync(dataSetKey, roster =>
+        {
+            var count = roster.Rivals.Count;
+            roster.Rivals.Clear();
+            return (count, count > 0);
+        }, ct);
+
     // ---- 登録ポケモン
 
     public async Task<RegisteredPokemon> AddPokemonAsync(string dataSetKey, Pokemon pokemon, StatSet evs, Nature nature, Ability? ability, CancellationToken ct = default) =>
