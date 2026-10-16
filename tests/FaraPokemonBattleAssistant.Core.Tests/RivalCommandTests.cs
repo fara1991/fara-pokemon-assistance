@@ -289,16 +289,19 @@ public class RivalCommandTests
         Assert.Equal("リザードナイトX", dmg.Request!.Defender.Item?.Name);
         // 返信にも、防御側の持ち物（メガストーン）が出る
         Assert.Matches(@"→ メガリザードンX\([^)]*リザードナイトX[^)]*\)", dmg.Message);
-        // メガシンカしない防御側でも、持ち物があれば返信に出る。持ち物なしなら何も出ない
+        // メガシンカしない防御側は、持ち物が不明なら何も出ない（使用率の持ち物は入れない。持ち物なしとして計算する）
         var plain = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン");
         Assert.True(plain.Success, plain.Message);
-        var defenderPart = plain.Message.Split('\n')[0].Split('→')[1];
-        var plainItem = plain.Request!.Defender.Item?.Name;
-        Assert.NotNull(plainItem);   // 使用率の持ち物が入る前提（入らなくなったらこのテストを見直す）
-        Assert.Contains(plainItem, defenderPart);
+        Assert.Null(plain.Request!.Defender.Item);
+        Assert.Matches(@"→ リザードン\([^)]*\)", plain.Message);
+        // 書いた持ち物は、計算にも返信にも反映する
+        var held = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 防:たべのこし");
+        Assert.True(held.Success, held.Message);
+        Assert.Equal("たべのこし", held.Request!.Defender.Item?.Name);
+        Assert.Contains("たべのこし", held.Message.Split('\n')[0].Split('→')[1]);
         var noItem = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 防:持ち物なし");
         Assert.Null(noItem.Request!.Defender.Item);
-        Assert.DoesNotContain(plainItem, noItem.Message.Split('\n')[0].Split('→')[1]);
+        Assert.DoesNotContain("たべのこし", noItem.Message.Split('\n')[0].Split('→')[1]);
     }
 
     [Fact]
@@ -307,7 +310,15 @@ public class RivalCommandTests
         var (command, _) = await NewAsync();
         var probe = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H0 B10");
         var observed = (int)Math.Round((probe.Damage!.MinDamage + probe.Damage.MaxDamage) / 2.0);
-        Assert.True((await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}")).Success);
+        var plainScan = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}");
+        Assert.True(plainScan.Success, plainScan.Message);
+        Assert.Contains("相手は持ち物なし想定", plainScan.Message);
+        // scan でも、書いた持ち物（防:たべのこし）は捨てずに、その持ち物として推定する
+        var heldScan = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed} 防:たべのこし");
+        Assert.True(heldScan.Success, heldScan.Message);
+        Assert.Equal("たべのこし", heldScan.Request!.Defender.Item?.Name);
+        Assert.Contains("相手の持ち物はたべのこしとして推定", heldScan.Message);
+        Assert.DoesNotContain("持ち物なし想定", heldScan.Message);
 
         // 範囲の相手の 1 行目にも、書いた持ち物が出る。持ち物なしを書けば出ない
         var held = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ 防:たべのこし");

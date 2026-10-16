@@ -410,10 +410,9 @@ public sealed class DamageCommand
             attacker.Item = attackerStoneItem;
         else if (!attackerItemSet && usage is not null)
             attacker.Item = usage.TopItem(attacker.Pokemon.Id);
+        // 防御側は対戦中の相手なので、使用率の持ち物は入れない（書いた持ち物かメガストーンだけ。不明なら持ち物なしで計算し、表示にも出さない）
         if (!defenderItemSet && defender.Pokemon.MegaStoneId is { } defenderStone && data.FindItem(defenderStone) is { } defenderStoneItem)
             defender.Item = defenderStoneItem;
-        else if (!defenderItemSet && usage is not null)
-            defender.Item = usage.TopItem(defender.Pokemon.Id);
         if (!attackerAbilitySet)
             attacker.Ability = usage?.DefaultAbility(attacker.Pokemon) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(attacker.Pokemon), null);
         if (!defenderAbilitySet)
