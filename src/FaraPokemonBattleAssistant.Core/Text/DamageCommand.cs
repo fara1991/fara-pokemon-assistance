@@ -405,9 +405,14 @@ public sealed class DamageCommand
             attacker.Nature = usage?.TopNature(attacker.Pokemon.Id) ?? data.FindNature("まじめ") ?? data.Natures.FirstOrDefault(n => n.IsNeutral);
         if (!defenderNatureSet)
             defender.Nature = usage?.TopNature(defender.Pokemon.Id) ?? data.FindNature("まじめ") ?? data.Natures.FirstOrDefault(n => n.IsNeutral);
-        if (!attackerItemSet && usage is not null)
+        // メガシンカ後の姿は、持ち物がメガストーンで確定（使用率の持ち物より優先する）
+        if (!attackerItemSet && attacker.Pokemon.MegaStoneId is { } attackerStone && data.FindItem(attackerStone) is { } attackerStoneItem)
+            attacker.Item = attackerStoneItem;
+        else if (!attackerItemSet && usage is not null)
             attacker.Item = usage.TopItem(attacker.Pokemon.Id);
-        if (!defenderItemSet && usage is not null)
+        if (!defenderItemSet && defender.Pokemon.MegaStoneId is { } defenderStone && data.FindItem(defenderStone) is { } defenderStoneItem)
+            defender.Item = defenderStoneItem;
+        else if (!defenderItemSet && usage is not null)
             defender.Item = usage.TopItem(defender.Pokemon.Id);
         if (!attackerAbilitySet)
             attacker.Ability = usage?.DefaultAbility(attacker.Pokemon) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(attacker.Pokemon), null);

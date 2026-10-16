@@ -406,6 +406,8 @@ public sealed partial class PokeCommand
         if (exact.Count > 0) parts.Add(string.Join("", exact));
         if (r.Nature is { } nature) parts.Add(data.FindNature(nature)?.Summary() ?? nature);
         if (r.AbilityId is { } aid && data.FindAbility(aid) is { } ability) parts.Add(ability.Name);
+        // メガシンカ後の姿は、持ち物がメガストーンで確定している
+        if (data.FindPokemon(r.PokemonId)?.MegaStoneId is { } stoneId && data.FindItem(stoneId) is { } stone) parts.Add("持ち物:" + stone.Name);
         var moveNames = r.MoveIds.Select(id => data.FindMove(id)?.Name).Where(n => n is not null).ToList();
         if (moveNames.Count > 0) parts.Add("技:" + string.Join("/", moveNames));
         foreach (var scan in r.Scans)
