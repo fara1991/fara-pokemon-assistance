@@ -362,6 +362,29 @@ public class RivalCommandTests
         Assert.DoesNotContain("たべのこし", none.Message.Split('\n')[0].Split('→')[1]);
     }
 
+    [Fact]
+    public async Task Item_names_without_a_side_prefix_go_to_the_natural_side()
+    {
+        var (command, _) = await NewAsync();
+        // 防御側に持たせるのが自然な持ち物（たべのこし・オボンのみ など）は、前置きなしで防御側に付く
+        var defensive = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン たべのこし");
+        Assert.Equal("たべのこし", defensive.Request!.Defender.Item?.Name);
+        Assert.NotEqual("たべのこし", defensive.Request.Attacker.Item?.Name);
+        Assert.Contains("たべのこし", defensive.Message.Split('\n')[0].Split('→')[1]);
+        var berry = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン オボンのみ");
+        Assert.Equal("オボンのみ", berry.Request!.Defender.Item?.Name);
+        // それ以外の持ち物は攻撃側に付く（防御側に持たせるときは 防: が必要）
+        var offensive = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン いのちのたま");
+        Assert.Equal("いのちのたま", offensive.Request!.Attacker.Item?.Name);
+        Assert.NotEqual("いのちのたま", offensive.Request.Defender.Item?.Name);
+        // scan でも同じ
+        var probe = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H0 B10");
+        var observed = (int)Math.Round((probe.Damage!.MinDamage + probe.Damage.MaxDamage) / 2.0);
+        var scan = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed} たべのこし");
+        Assert.True(scan.Success, scan.Message);
+        Assert.Equal("たべのこし", scan.Request!.Defender.Item?.Name);
+    }
+
     [Theory]
     [InlineData("防:")]
     [InlineData("防：")]
