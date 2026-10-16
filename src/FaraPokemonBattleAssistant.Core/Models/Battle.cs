@@ -132,7 +132,7 @@ public sealed class PokemonBuild
     };
 
     /// <summary>チャット向けの短い説明（例: <c>C252 C↑A↓ こだわりメガネ サイコメイカー</c>）。</summary>
-    /// <param name="includeItem">false なら持ち物を出さない（チャットの防御側＝相手の表示）。</param>
+    /// <param name="includeItem">false なら持ち物を出さない（チャットの防御側＝相手の表示。メガシンカ後の姿だけは、メガストーンで確定なので出す）。</param>
     /// <param name="includeAbility">false なら特性を出さない（チャットの防御側＝相手の表示。特性は、別に「特性別」で出す）。</param>
     public string DescribeShort(bool includeItem = true, bool includeAbility = true)
     {
