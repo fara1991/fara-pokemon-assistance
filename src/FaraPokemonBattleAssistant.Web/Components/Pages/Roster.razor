@@ -73,7 +73,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                         else
                         {
                             <SearchableSelect TItem="Ability" Items="@(s.NewPokemon is null ? Array.Empty<Ability>() : data.AbilitiesOf(s.NewPokemon))" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
-                                SelectedValue="@(s.NewAbility?.Id.ToString() ?? "")" SelectedValueChanged="@(v => OnAbilityChanged(data.FindAbility(ParseId(v))))"
+                                SelectedValue="@(s.NewAbility?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { if (v.Length > 0) OnAbilityChanged(data.FindAbility(ParseId(v))); })"
                                 Disabled="@(s.NewPokemon is null)" Dropdown="true" Placeholder="特性名を入力..." />
                         }
                     </div>

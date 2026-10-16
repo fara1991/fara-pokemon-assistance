@@ -357,6 +357,7 @@
 
     private void OnAbilityChanged(string value)
     {
+        if (value.Length == 0) return;   // 文字を消して離れたときは、選択を変えない
         s.AbilityId = int.TryParse(value, out var id) ? id : 0;
         Refresh();
     }

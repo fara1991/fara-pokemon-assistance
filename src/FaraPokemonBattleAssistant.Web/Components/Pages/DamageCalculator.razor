@@ -988,7 +988,7 @@ else if (data is not null && dataSet is not null)
                 else
                 {
                     <SearchableSelect TItem="Ability" Items="abilities" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
-                        SelectedValue="@(build.Ability?.Id.ToString() ?? "")" SelectedValueChanged="@(v => SetAbility(build, ParseId(v)))" Dropdown="true" Placeholder="特性名を入力..." />
+                        SelectedValue="@(build.Ability?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { if (v.Length > 0) SetAbility(build, ParseId(v)); })" Dropdown="true" Placeholder="特性名を入力..." />
                 }
             </div>
             @if (dataSet!.HasTerastal)

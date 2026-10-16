@@ -78,14 +78,14 @@ else if (data is not null && roster is not null && dataSet is not null)
                                                     @foreach (var stat in EditStats)
                                                     {
                                                         var st = stat;
-                                                        <div class="ev-cell">
+                                                        <div class="ev-cell" @key="@($"{st}-{evVersion}")">
                                                             <span class="ev-label">@StatNames.Letter(st)</span>
-                                                            <input type="number" class="form-control form-control-sm" min="0" max="@EvRules.MaxPerStat(dataSet.EvSystem)" step="@EvRules.Step(dataSet.EvSystem)"
-                                                                   placeholder="不明" value="@editEvs[st]" @onchange="@(e => editEvs[st] = ClampText(e.Value, EvRules.MaxPerStat(dataSet.EvSystem)))" />
+                                                            <input type="number" class="form-control form-control-sm" aria-label="@StatNames.Japanese(st)" title="@StatNames.Japanese(st)" min="0" max="@EvRules.MaxPerStat(dataSet.EvSystem)" step="@EvRules.Step(dataSet.EvSystem)"
+                                                                   placeholder="不明" value="@editEvs[st]" @onchange="@(e => { editEvs[st] = ClampText(e.Value, EvRules.MaxPerStat(dataSet.EvSystem)); evVersion++; })" />
                                                             <div class="ev-buttons">
-                                                                <button type="button" class="btn btn-outline-secondary" @onclick="() => editEvs[st] = 0.ToString()">0</button>
-                                                                <button type="button" class="btn btn-outline-secondary" @onclick="() => editEvs[st] = EvRules.MaxPerStat(dataSet.EvSystem).ToString()">@EvRules.MaxPerStat(dataSet.EvSystem)</button>
-                                                                <button type="button" class="btn btn-outline-secondary" title="不明に戻す" @onclick="() => editEvs[st] = string.Empty">?</button>
+                                                                <button type="button" class="btn btn-outline-secondary" @onclick="() => { editEvs[st] = 0.ToString(); evVersion++; }">0</button>
+                                                                <button type="button" class="btn btn-outline-secondary" @onclick="() => { editEvs[st] = EditMaxAllowed(st).ToString(); evVersion++; }">@EvRules.MaxPerStat(dataSet.EvSystem)</button>
+                                                                <button type="button" class="btn btn-outline-secondary" title="不明に戻す" @onclick="() => { editEvs[st] = string.Empty; evVersion++; }">?</button>
                                                             </div>
                                                         </div>
                                                     }
@@ -94,7 +94,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                                             </div>
                                             <div class="form-group mb-2">
                                                 <label class="form-label small mb-0">性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります。分からないときは「不明にする」を押します。</Help></label>
-                                                <NaturePicker Natures="data.Natures" Value="@data.FindNature(editNature)" ValueChanged="@(n => editNature = n?.Name ?? "")" Physical="true" />
+                                                <NaturePicker Natures="data.Natures" Value="@data.FindNature(editNature)" ValueChanged="@(n => editNature = n?.Name ?? "")" Physical="@EditPhysical" />
                                                 <div class="small mt-1">
                                                     <span class="text-muted">@(editNature.Length == 0 ? "性格は不明です" : $"選択中: {data.FindNature(editNature)?.Describe()}")</span>
                                                     <button type="button" class="btn btn-sm btn-outline-secondary ms-2" disabled="@(editNature.Length == 0)" @onclick="() => editNature = string.Empty">不明にする</button>
@@ -211,6 +211,20 @@ else
             .OrderBy(p => p.IsMega).ThenBy(p => p.Id).ToList();
     }
 
+    private int evVersion;
+
+    /// <summary>A の方が C 以上なら物理向け（性格を片方だけ選んだとき、C を下げる側に補う）。</summary>
+    private bool EditPhysical => (int.TryParse(editEvs[Stat.Attack], out var a) ? a : 0) >= (int.TryParse(editEvs[Stat.SpAttack], out var c) ? c : 0);
+
+    /// <summary>合計の上限（66 など）を超えない範囲で、その能力に振れる最大のポイント。</summary>
+    private int EditMaxAllowed(Stat stat)
+    {
+        var evs = new StatSet();
+        foreach (var st in EditStats)
+            if (st != stat && int.TryParse(editEvs[st], out var v)) evs[st] = Math.Clamp(v, 0, EvRules.MaxPerStat(dataSet!.EvSystem));
+        return EvRules.MaxAllowed(dataSet!.EvSystem, evs, stat);
+    }
+
     private int EditEvTotal => EditStats.Sum(st => int.TryParse(editEvs[st], out var v) ? v : 0);
 
     /// <summary>入力欄の文字を 0〜max の数字にそろえる（空欄は不明のまま）。</summary>
@@ -220,6 +234,7 @@ else
     /// <summary>姿を変えたとき、その姿が持てない特性は外す。</summary>
     private void OnEditFormChanged(string value)
     {
+        if (value.Length == 0) return;   // 文字を消して離れたときは、選択を変えない
         editFormId = ParseId(value);
         var form = data?.FindPokemon(editFormId);
         if (form is not null && int.TryParse(editAbility, out var aid) && data!.AbilitiesOf(form).All(a => a.Id != aid)) editAbility = "";
@@ -232,7 +247,7 @@ else
     /// <summary>その枠で選べる技。その姿が覚える技から、ほかの枠で選んだ技を除く。</summary>
     private IReadOnlyList<Move> EditMoveChoices(int slot)
     {
-        var form = data?.FindPokemon(editFormId);
+        var form = data?.FindPokemon(editFormId) ?? data?.FindPokemon(roster?.Rivals.FirstOrDefault(r => r.Id == editingId)?.PokemonId ?? 0);
         if (data is null || form is null) return Array.Empty<Move>();
         var taken = editMoves.Where((m, i) => i != slot && m.Length > 0).ToHashSet();
         return data.LearnableMoves(form.Id).Where(m => !taken.Contains(m.Id.ToString())).ToList();
@@ -344,7 +359,7 @@ else
             target.SpAttack = values[Stat.SpAttack]; target.SpDefense = values[Stat.SpDefense]; target.Speed = values[Stat.Speed];
             target.Nature = nature;
             target.AbilityId = abilityId;
-            target.ItemId = itemId;
+            target.ItemId = form?.IsMega == true ? null : itemId;
             target.Updated = DateTimeOffset.Now.ToString("o");
             return (true, true);
         }));
