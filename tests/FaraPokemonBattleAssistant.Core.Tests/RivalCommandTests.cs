@@ -287,14 +287,16 @@ public class RivalCommandTests
         var dmg = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし メガリザードンX");
         Assert.True(dmg.Success, dmg.Message);
         Assert.Equal("リザードナイトX", dmg.Request!.Defender.Item?.Name);
-        // 返信にも、防御側のメガストーンが出る（メガシンカしない相手の持ち物は、従来どおり出さない）
+        // 返信にも、防御側の持ち物（メガストーン）が出る
         Assert.Matches(@"→ メガリザードンX\([^)]*リザードナイトX[^)]*\)", dmg.Message);
-        // メガシンカしない防御側は、持ち物があっても返信には出さない
+        // メガシンカしない防御側でも、持ち物があれば返信に出る。持ち物なしなら何も出ない
         var plain = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン");
         Assert.True(plain.Success, plain.Message);
-        var plainItem = plain.Request!.Defender.Item?.Name ?? "（持ち物なし）";
         var defenderPart = plain.Message.Split('\n')[0].Split('→')[1];
-        Assert.DoesNotContain(plainItem, defenderPart);
+        if (plain.Request!.Defender.Item?.Name is { } plainItem) Assert.Contains(plainItem, defenderPart);
+        var noItem = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 防:持ち物なし");
+        Assert.Null(noItem.Request!.Defender.Item);
+        Assert.DoesNotContain("こだわり", noItem.Message.Split('\n')[0].Split('→')[1]);
     }
 
     [Fact]

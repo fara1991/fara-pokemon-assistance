@@ -33,14 +33,19 @@ public class UpdatePokemonTests
     }
 
     [Fact]
-    public async Task Chat_output_hides_the_opponents_item_and_hp()
+    public async Task Chat_output_shows_the_opponents_item_but_not_its_hp()
     {
         var repo = new RosterRepository(new MemoryRosterStore());
         var cmd = new PokeCommand(TestData.Catalog(), repo);
         await cmd.ExecuteAsync("!pokech add -m ガブリアス 4 32 0 0 0 30 ようき");
         var reply = await cmd.ExecuteAsync("!pokech dmg ガブリアス じしん リザードン 防:たべのこし");
         Assert.True(reply.Success, reply.Message);
-        Assert.DoesNotContain("たべのこし", reply.Message.Split("→")[1].Split(':')[0]);   // 相手の持ち物は出さない
-        Assert.DoesNotContain("HP1", reply.Message.Split("→")[1].Split(':')[0]);        // 相手の HP の数値も出さない
+        Assert.Contains("たべのこし", reply.Message.Split("→")[1].Split(':')[0]);       // 相手の持ち物（持っているとき）は出す
+        Assert.DoesNotContain("HP1", reply.Message.Split("→")[1].Split(':')[0]);        // 相手の HP の数値は出さない
+        // 持ち物なしの相手には、持ち物は何も出ない
+        var none = await cmd.ExecuteAsync("!pokech dmg ガブリアス じしん リザードン 防:持ち物なし");
+        Assert.True(none.Success, none.Message);
+        Assert.Null(none.Request!.Defender.Item);
+        Assert.DoesNotContain("たべのこし", none.Message);
     }
 }
