@@ -50,6 +50,20 @@ else if (data is not null)
                         </SearchableSelect>
                     </div>
                 }
+                @if (Has(Field.Rivals))
+                {
+                    @for (var i = 0; i < 6; i++)
+                    {
+                        var idx = i;
+                        <div class="cmd-f-poke">
+                            <label class="form-label">@($"{idx + 1}体目")@(idx == 0 ? "" : "（任意）")</label>
+                            <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
+                                SelectedValue="@(s.Rivals[idx]?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { s.Rivals[idx] = data.FindPokemon(ParseId(v)); BuildText(); })" Placeholder="例: カイリュー">
+                                <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /></ItemTemplate>
+                            </SearchableSelect>
+                        </div>
+                    }
+                }
                 @if (Has(Field.Evs))
                 {
                     <div class="cmd-f-evs">
@@ -339,6 +353,8 @@ else if (data is not null)
         public string Damage { get; set; } = "";
         // 登録・チーム系のコマンド用
         public Pokemon? Subject { get; set; }
+        /// <summary>add -r で登録する相手（最大 6 体）。</summary>
+        public Pokemon?[] Rivals { get; } = new Pokemon?[6];
         public string[] Evs { get; set; } = new string[6] { "", "", "", "", "", "" };
         public string NatureName { get; set; } = "";
         public string AbilityName { get; set; } = "";
@@ -426,7 +442,7 @@ else if (data is not null)
 
     // ---- 種類ごとの入力欄 ----
 
-    private enum Field { Subject, Evs, Nature, Ability, EntryId, TeamNo, TeamItem, Attacker, Move, Defender, Weather, Terrain, Damage, Options, Memo }
+    private enum Field { Subject, Rivals, Evs, Nature, Ability, EntryId, TeamNo, TeamItem, Attacker, Move, Defender, Weather, Terrain, Damage, Options, Memo }
 
     /// <summary>ポケモンの欄の見出し（必須か任意か）。</summary>
     private string SubjectLabel => s.Kind switch
@@ -455,7 +471,7 @@ else if (data is not null)
             new("unuse -t", "unuse -t（解除）", "チーム", Array.Empty<Field>()),
             new("ls -t", "ls -t（一覧）", "チーム", Array.Empty<Field>()),
             new("detail -t", "detail -t（詳細）", "チーム", new[] { Field.TeamNo }),
-            new("add -r", "add -r（登録）", "相手のポケモン", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability }),
+            new("add -r", "add -r（登録）", "相手のポケモン", new[] { Field.Rivals }),
             new("set -r", "set -r（更新）", "相手のポケモン", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability }),
             new("ls -r", "ls -r（一覧）", "相手のポケモン", Array.Empty<Field>()),
             new("detail -r", "detail -r（詳細）", "相手のポケモン", new[] { Field.Subject }),
@@ -511,6 +527,10 @@ else if (data is not null)
                 AddSpecParts(parts);
                 break;
             case "add -r":
+                var picked = s.Rivals.Where(p => p is not null).Select(p => p!.Name).ToList();
+                if (picked.Count == 0) parts.Add("名前");
+                else parts.AddRange(picked);
+                break;
             case "set -r":
                 parts.Add(s.Subject?.Name ?? "名前");
                 AddSpecParts(parts);
@@ -649,6 +669,10 @@ else if (data is not null)
                 ParseSpecTokens(tokens.Skip(1).ToList());
                 return;
             case "add -r":
+                Array.Clear(s.Rivals);
+                for (int i = 0, n = 0; i < tokens.Count && n < 6; i++)
+                    if (PokemonAt(i) is { } rp) s.Rivals[n++] = rp;
+                return;
             case "set -r":
                 s.Subject = PokemonAt(0);
                 ParseSpecTokens(tokens.Skip(1).ToList());

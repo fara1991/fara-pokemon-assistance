@@ -214,6 +214,23 @@ public class RivalCommandTests
     }
 
     [Fact]
+    public async Task Name_only_set_changes_the_form_of_a_registered_rival_but_does_nothing_otherwise()
+    {
+        var (command, repo) = await NewAsync();
+        Assert.True((await command.ExecuteAsync("!pokech add -r リザードン D32 おだやか")).Success);
+        var mega = await command.ExecuteAsync("!pokech set -r メガリザードンX");
+        Assert.True(mega.Success, mega.Message);
+        var rival = Assert.Single((await repo.GetAsync()).For(Ds).Rivals);
+        Assert.Equal("メガリザードンX", rival.PokemonName);
+        Assert.Equal(32, rival.SpDefense);
+
+        // 姿が変わらない・登録されていない相手の名前だけでは、何も更新しない
+        Assert.False((await command.ExecuteAsync("!pokech set -r メガリザードンX")).Success);
+        Assert.False((await command.ExecuteAsync("!pokech set -r カイリュー")).Success);
+        Assert.Single((await repo.GetAsync()).For(Ds).Rivals);
+    }
+
+    [Fact]
     public async Task Removed_calc_and_foe_are_unknown_commands()
     {
         var (command, _) = await NewAsync();

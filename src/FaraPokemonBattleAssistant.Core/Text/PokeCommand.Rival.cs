@@ -178,10 +178,17 @@ public sealed partial class PokeCommand
     private async Task<DamageCommandResult> SetRivalAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("相手ポケモンの更新は配信者・モデレーターのみ行えます");
-        if (args.Count < 2) return Fail($"書式: !{ds.CommandPrefix} set -r 名前 [H32 D10 …] [性格 / B↑A↓] [特性]");
+        if (args.Count == 0) return Fail($"書式: !{ds.CommandPrefix} set -r 名前 [H32 D10 …] [性格 / B↑A↓] [特性]");
         var (specs, error) = ParseSpecs(args, data, ds.EvSystem);
         if (error is not null) return Fail(error);
-        if (specs.Count == 0 || specs.All(s => !s.HasInfo)) return Fail("更新する内容（振り方・性格・特性・選出）を書いてください");
+        if (specs.Count == 0) return Fail("更新する内容（振り方・性格・特性・選出）を書いてください");
+        if (specs.Any(s => !s.HasInfo))
+        {
+            // 名前だけの指定は、対戦中の相手の姿を変える（メガシンカ）ときだけ使える
+            var current = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key).Rivals;
+            var unchanged = specs.FirstOrDefault(s => !s.HasInfo && (FindRival(current, s.Pokemon, data) is not { } r || r.PokemonId == s.Pokemon.Id));
+            if (unchanged is not null) return Fail("更新する内容（振り方・性格・特性・選出）を書いてください");
+        }
         return await UpsertRivalsAsync(ds, data, specs, "更新", ct).ConfigureAwait(false);
     }
 
