@@ -178,7 +178,7 @@ try {
   const bothT = await req("GET", T, key);
   check("書かなかったゲームのチームは変わらない", bothT.json?.dataSets?.Champions?.teams?.length === 2 && same(bothT.json?.dataSets?.Gen9?.teams, []), bothT.text);
 
-  // 相手のポケモン（/api/my/rival）: 対戦中の相手と試合の履歴
+  // 相手チーム（/api/my/rival）: 対戦中の相手と試合の履歴
   const rkey = newKey();
   const R = "/api/my/rival";
   check("キーなしの my-rival は 401", (await req("GET", R)).status === 401);
@@ -209,7 +209,7 @@ try {
   await badR("Foes が配列でない履歴", { rivals: [], history: [{ Id: 1, Foes: {} }] });
   await badR("同じ Id の履歴", { rivals: [], history: [match(1, []), match(1, [])] });
   check("不正な PUT では my-rival の内容が変わらない", (await req("GET", R, rkey)).json?.revision === 2);
-  check("my-pokemon の PUT は相手のポケモンを消さない", (await req("PUT", P, rkey, { baseRevision: 2, dataSets: { Champions: { pokemon: [mon(1, "ガブリアス")] } } })).status === 200
+  check("my-pokemon の PUT は相手チームを消さない", (await req("PUT", P, rkey, { baseRevision: 2, dataSets: { Champions: { pokemon: [mon(1, "ガブリアス")] } } })).status === 200
     && same((await req("GET", R, rkey)).json?.dataSets?.Champions?.history, history1));
   check("DELETE /api/my/rival は 405", (await req("DELETE", R, rkey)).status === 405);
 

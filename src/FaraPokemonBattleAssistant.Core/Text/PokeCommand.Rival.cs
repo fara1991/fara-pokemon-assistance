@@ -7,12 +7,12 @@ using FaraPokemonBattleAssistant.Core.Roster;
 namespace FaraPokemonBattleAssistant.Core.Text;
 
 /// <summary>
-/// 相手のポケモン（<c>-r</c> / <c>--rival</c>）と、終わった試合の履歴（<c>-h</c> / <c>--history</c>）、自分のポケモンの更新（<c>set -m</c>）、
+/// 相手チーム（<c>-r</c> / <c>--rival</c>）と、終わった試合の履歴（<c>-h</c> / <c>--history</c>）、育成ポケモンの更新（<c>set -m</c>）、
 /// ダメージからの推定（<c>scan</c>）のコマンド。
 /// </summary>
 public sealed partial class PokeCommand
 {
-    /// <summary>対戦中に登録できる相手のポケモンの数（1 チーム 6 体）。</summary>
+    /// <summary>対戦中に登録できる相手チームの数（1 チーム 6 体）。</summary>
     public const int MaxRivals = 6;
 
     private static readonly Regex RivalEvToken = new(@"^(?:[HABCDShabcds]\d{1,3})+$", RegexOptions.Compiled);
@@ -153,7 +153,7 @@ public sealed partial class PokeCommand
     }
 
     /// <summary>
-    /// 指定した内容を相手のポケモンに反映する。ポイントは書いた能力だけ更新し、書いていない能力は今のまま（scan の推定も消さない）。
+    /// 指定した内容を相手チームに反映する。ポイントは書いた能力だけ更新し、書いていない能力は今のまま（scan の推定も消さない）。
     /// 性格・特性は、書いたものだけ上書き。
     /// </summary>
     private static void ApplySpec(RivalPokemon rival, RivalSpec spec, DateTimeOffset now)
@@ -174,12 +174,12 @@ public sealed partial class PokeCommand
         rival.Updated = now.ToString("o");
     }
 
-    // ------------------------------------------------------------------ 相手のポケモン
+    // ------------------------------------------------------------------ 相手チーム
 
     /// <summary>add -r 名前 [振り方] [性格] [特性] （名前はまとめて指定できる）。同じポケモンは 1 体で、2 回目以降は更新。</summary>
     private async Task<DamageCommandResult> AddRivalAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (!options.AllowMutations) return Fail("相手のポケモンの登録は配信者・モデレーターのみ行えます");
+        if (!options.AllowMutations) return Fail("相手チームの登録は配信者・モデレーターのみ行えます");
         if (args.Count == 0) return Fail($"書式: !{ds.CommandPrefix} add -r 名前 [名前 …] または add -r 名前 H A B C D S 性格 [特性]（一部だけなら H32 D10 B↑A↓ のように）");
         var (specs, error) = ParseSpecs(args, data, ds.EvSystem);
         if (error is not null) return Fail(error);
@@ -190,7 +190,7 @@ public sealed partial class PokeCommand
     /// <summary>set -r 名前 [振り方] [性格] [特性] 。登録済みの相手の、指定した項目だけ更新（まだなら登録）。</summary>
     private async Task<DamageCommandResult> SetRivalAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (!options.AllowMutations) return Fail("相手のポケモンの更新は配信者・モデレーターのみ行えます");
+        if (!options.AllowMutations) return Fail("相手チームの更新は配信者・モデレーターのみ行えます");
         if (args.Count == 0) return Fail($"書式: !{ds.CommandPrefix} set -r 名前 [H32 D10 …] [性格 / B↑A↓] [特性]");
         var (specs, error) = ParseSpecs(args, data, ds.EvSystem);
         if (error is not null) return Fail(error);
@@ -209,7 +209,7 @@ public sealed partial class PokeCommand
     {
         // 同じポケモンを 1 回のコマンドで重ねて書いたときは、まとめて 1 体として扱う
         if (specs.Select(s => s.Pokemon.Id).Distinct().Count() > MaxRivals)
-            return Fail($"相手のポケモンは {MaxRivals} 体までです（{specs.Select(s => s.Pokemon.Id).Distinct().Count()} 体を指定しています）");
+            return Fail($"相手チームは {MaxRivals} 体までです（{specs.Select(s => s.Pokemon.Id).Distinct().Count()} 体を指定しています）");
         var now = DateTimeOffset.Now;
         var lines = new List<string>();
         string? tooMany = null;
@@ -221,7 +221,7 @@ public sealed partial class PokeCommand
             var adding = specs.Where(s => FindRival(roster.Rivals, s.Pokemon, data) is null).Select(s => s.Pokemon.Id).Distinct().Count();
             if (roster.Rivals.Count + adding > MaxRivals)
             {
-                tooMany = $"相手のポケモンは {MaxRivals} 体までです（対戦中 {roster.Rivals.Count} 体に {adding} 体を足すと {roster.Rivals.Count + adding} 体になります）。試合が終わったら !{ds.CommandPrefix} end で履歴に移してください（登録を全部解除するなら clear -r）";
+                tooMany = $"相手チームは {MaxRivals} 体までです（対戦中 {roster.Rivals.Count} 体に {adding} 体を足すと {roster.Rivals.Count + adding} 体になります）。試合が終わったら !{ds.CommandPrefix} end で履歴に移してください（登録を全部解除するなら clear -r）";
                 return (0, false);
             }
             foreach (var spec in specs)
@@ -276,7 +276,7 @@ public sealed partial class PokeCommand
     /// <summary>rm -r 名前: 登録ミスなどの取り消し（履歴には残さない）。</summary>
     private async Task<DamageCommandResult> RemoveRivalAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (!options.AllowMutations) return Fail("相手のポケモンの削除は配信者・モデレーターのみ行えます");
+        if (!options.AllowMutations) return Fail("相手チームの削除は配信者・モデレーターのみ行えます");
         if (args.Count == 0) return Fail($"書式: !{ds.CommandPrefix} rm -r 名前");
         var match = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
         if (!match.IsResolved) return Fail(NotFound("ポケモン", args[0], match.Candidates.Select(p => p.Name)));
@@ -298,7 +298,7 @@ public sealed partial class PokeCommand
     /// <summary>clear -r: 対戦中の相手の登録を全部解除する（履歴には残さない）。</summary>
     private async Task<DamageCommandResult> ClearRivalsAsync(DataSetInfo ds, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        if (!options.AllowMutations) return Fail("相手のポケモンの登録解除は配信者・モデレーターのみ行えます");
+        if (!options.AllowMutations) return Fail("相手チームの登録解除は配信者・モデレーターのみ行えます");
         if (args.Count > 0) return Fail($"clear -r には名前やメモを付けられません。全員の登録を解除するときは !{ds.CommandPrefix} clear -r だけを、試合を終えて履歴に残すときは !{ds.CommandPrefix} end [メモ] を使ってください");
         var cleared = await _roster.ClearRivalsAsync(ds.Key, ct).ConfigureAwait(false);
         return Ok(cleared == 0 ? "対戦中の相手はいません" : $"対戦中の相手 {cleared} 体の登録をすべて解除しました（履歴には残していません）");
@@ -325,7 +325,7 @@ public sealed partial class PokeCommand
         return Ok($"試合の履歴 {roster.History.Count}件（新しい順）: " + string.Join(" ｜ ", recent.Select(m => $"#{m.Id} {DateText(m.Date)}{MemoText(m.Memo)} {string.Join("・", m.Foes.Select(f => f.PokemonName))}")));
     }
 
-    /// <summary>detail -h 履歴ID: その試合の相手のポケモンと推定の根拠。</summary>
+    /// <summary>detail -h 履歴ID: その試合の相手チームと推定の根拠。</summary>
     private async Task<DamageCommandResult> DetailHistoryAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, CancellationToken ct)
     {
         if (args.Count == 0 || !int.TryParse(args[0].TrimStart('#'), out var id)) return Fail($"書式: !{ds.CommandPrefix} detail -h 履歴ID");
@@ -347,9 +347,9 @@ public sealed partial class PokeCommand
     private static string DateText(string iso) => DateTimeOffset.TryParse(iso, out var d) ? d.ToLocalTime().ToString("M/d HH:mm") : iso;
     private static string MemoText(string memo) => memo.Length > 0 ? $" 「{memo}」" : "";
 
-    // ------------------------------------------------------------------ 自分のポケモンの更新
+    // ------------------------------------------------------------------ 育成ポケモンの更新
 
-    /// <summary>set -m 登録ID または名前 [振り方] [性格] [特性] : 登録済みの自分のポケモンの、指定した項目だけ更新。</summary>
+    /// <summary>set -m 登録ID または名前 [振り方] [性格] [特性] : 登録済みの育成ポケモンの、指定した項目だけ更新。</summary>
     private async Task<DamageCommandResult> SetMyAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("更新は配信者・モデレーターのみ行えます");
@@ -429,13 +429,13 @@ public sealed partial class PokeCommand
     // ------------------------------------------------------------------ 推定（scan）
 
     /// <summary>
-    /// scan 攻撃側 技 相手 受けたダメージ [オプション]: 受けたダメージから相手の防御の振り方を推定し、相手のポケモンに反映する
+    /// scan 攻撃側 技 相手 受けたダメージ [オプション]: 受けたダメージから相手の防御の振り方を推定し、相手チームに反映する
     /// （前の推定があれば重なる範囲に狭める。登録していなければ自動で登録）。
     /// </summary>
     private async Task<DamageCommandResult> ScanAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
-        // scan は相手のポケモンの登録・絞り込みを保存するので、変更系と同じく配信者・モデレーターだけ
-        if (!options.AllowMutations) return Fail("scan は相手のポケモンを登録するため、配信者・モデレーターのみ使えます");
+        // scan は相手チームの登録・絞り込みを保存するので、変更系と同じく配信者・モデレーターだけ
+        if (!options.AllowMutations) return Fail("scan は相手チームを登録するため、配信者・モデレーターのみ使えます");
         if (args.Count < 4) return Fail($"書式: !{ds.CommandPrefix} scan 攻撃側 技±ランク 相手 受けたダメージ（例: 93 または 45%）");
         // 数値トークンを探す（4 番目以降の最初の数値または %）
         var damageIndex = -1;

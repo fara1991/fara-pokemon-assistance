@@ -196,11 +196,11 @@ else if (data is not null && dataSet is not null)
             @if (s.EstimateMode)
             {
                 <div class="card result-card estimate-card result-sticky">
-                    <div class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定 <Help Title="相手の振り方を推定">攻撃側に自分の構成、防御側に相手のポケモン（特性・持ち物が分かれば、それも）を選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</Help></h5></div>
+                    <div class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定 <Help Title="相手の振り方を推定">攻撃側に自分の構成、防御側に相手チーム（特性・持ち物が分かれば、それも）を選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</Help></h5></div>
                     <div class="card-body">
                         <ol class="estimate-steps small">
                             <li>攻撃側に、自分の構成（@(EvRules.Label(dataSet.EvSystem))・性格・持ち物・特性）と技を入れる</li>
-                            <li>防御側は、相手のポケモンと特性を選ぶ（@(EvRules.Label(dataSet.EvSystem))・性格は不明のまま）</li>
+                            <li>防御側は、相手チームと特性を選ぶ（@(EvRules.Label(dataSet.EvSystem))・性格は不明のまま）</li>
                             <li>実際に受けた（与えた）ダメージを入れる（入れると、自動で推定します）</li>
                         </ol>
                         @* ラベルを「量」「割合」で切り替える。入力欄は数値だけ *@
@@ -667,7 +667,7 @@ else if (data is not null && dataSet is not null)
                 {
                     var registered = RivalFor(s.Defender.Pokemon);
                     <div class="mt-2">
-                        <button type="button" class="btn btn-sm btn-primary" @onclick="() => RegisterRivalAsync(e)">@(registered is null ? "この推定を相手のポケモンに登録" : "この推定で絞り込む")</button>
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="() => RegisterRivalAsync(e)">@(registered is null ? "この推定を相手チームに登録" : "この推定で絞り込む")</button>
                         @if (registered is not null)
                         {
                             <button type="button" class="btn btn-sm btn-outline-secondary ms-1" @onclick="() => RemoveRivalAsync(registered)">対戦中の相手から外す</button>
@@ -677,7 +677,7 @@ else if (data is not null && dataSet is not null)
                         {
                             <div class="small @(rivalMessageIsError ? "text-danger" : "text-success") mt-1">@rivalMessage</div>
                         }
-                        <div class="small text-muted mt-1">範囲のままでも登録できます。同じ相手を続けて推定すると、前の推定と重なる範囲に絞り込みます。登録した相手は、計算の画面とチャットの dmg で防御側に使われ、配信用BOTとも共有されます。試合が終わったら「相手のポケモン」のページ（チャットは clear -r）で履歴に移します。</div>
+                        <div class="small text-muted mt-1">範囲のままでも登録できます。同じ相手を続けて推定すると、前の推定と重なる範囲に絞り込みます。登録した相手は、計算の画面とチャットの dmg で防御側に使われ、配信用BOTとも共有されます。試合が終わったら「相手チーム」のページ（チャットは clear -r）で履歴に移します。</div>
                     </div>
                 }
                 <p class="small text-muted mt-2 mb-0">相手は持ち物なしとして計算しています。持ち物・特性・ランクが違うと結果が変わります。</p>
@@ -685,7 +685,7 @@ else if (data is not null && dataSet is not null)
         </div>
     };
 
-    // ---- 相手のポケモン（対戦中の相手。クラウドに保存し、配信用BOTとも共有する）
+    // ---- 相手チーム（対戦中の相手。クラウドに保存し、配信用BOTとも共有する）
 
     private List<RivalPokemon> rivals = new();
     private string rivalMessage = "";
@@ -753,7 +753,7 @@ else if (data is not null && dataSet is not null)
                 var created = rival is null;
                 if (rival is null)
                 {
-                    if (roster.Rivals.Count >= PokeCommand.MaxRivals) { tooMany = $"対戦中の相手が {PokeCommand.MaxRivals} 体います。「相手のポケモン」のページで試合を終えてください"; return (0, false); }
+                    if (roster.Rivals.Count >= PokeCommand.MaxRivals) { tooMany = $"対戦中の相手が {PokeCommand.MaxRivals} 体います。「相手チーム」のページで試合を終えてください"; return (0, false); }
                     rival = new RivalPokemon { Id = roster.NextRivalId++, PokemonId = pokemon.Id, PokemonName = pokemon.Name };
                     roster.Rivals.Add(rival);
                 }

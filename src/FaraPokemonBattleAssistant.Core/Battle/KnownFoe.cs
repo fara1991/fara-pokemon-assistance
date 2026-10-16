@@ -4,7 +4,7 @@ using FaraPokemonBattleAssistant.Core.Roster;
 namespace FaraPokemonBattleAssistant.Core.Battle;
 
 /// <summary>
-/// 相手のポケモン（<see cref="RivalPokemon"/>）の分かっている振り方から作る、ダメージ計算用の防御側の構成。
+/// 相手チーム（<see cref="RivalPokemon"/>）の分かっている振り方から作る、ダメージ計算用の防御側の構成。
 /// 範囲のときは、耐久が最も低い想定（<see cref="Low"/>）と最も高い想定（<see cref="High"/>）の 2 つで計算する。
 /// 分かっていない部分は、ダメージ計算の既定（HP と受ける側の防御に全振り）にする。
 /// </summary>
@@ -21,7 +21,7 @@ public sealed class KnownFoe
     public bool IsRange => Low.EVs.ToShortString() != High.EVs.ToShortString() || Low.Nature?.Id != High.Nature?.Id;
 
     /// <summary>
-    /// 相手のポケモンから、<paramref name="defense"/>（その技が使う防御。B か D）で計算するときの構成を作る。
+    /// 相手チームから、<paramref name="defense"/>（その技が使う防御。B か D）で計算するときの構成を作る。
     /// 防御・HP・性格・特性のどれも分かっていなければ null（既定の構成で計算する）。<paramref name="item"/> は、持ち物が分かっているとき（メガシンカ後のメガストーン）に渡す。
     /// </summary>
     public static KnownFoe? FromRival(RivalPokemon rival, Pokemon pokemon, EvSystem system, IReadOnlyList<Nature> natures, Stat defense, Ability? ability, Item? item = null)
@@ -91,7 +91,7 @@ public sealed class KnownFoe
     }
 }
 
-/// <summary>相手のポケモンの推定（scan）の結果を反映する処理。</summary>
+/// <summary>相手チームの推定（scan）の結果を反映する処理。</summary>
 public static class RivalScanning
 {
     /// <summary>

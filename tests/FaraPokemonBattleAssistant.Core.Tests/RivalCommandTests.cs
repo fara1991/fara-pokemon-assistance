@@ -4,7 +4,7 @@ using Xunit;
 
 namespace FaraPokemonBattleAssistant.Core.Tests;
 
-/// <summary>相手のポケモン（-r）・履歴（-h）・set・scan のコマンド。</summary>
+/// <summary>相手チーム（-r）・履歴（-h）・set・scan のコマンド。</summary>
 public class RivalCommandTests
 {
     private const string Ds = "Champions";
@@ -180,7 +180,7 @@ public class RivalCommandTests
         Assert.Equal(Models.Stat.Defense, dmg.Request.Defender.Nature!.IncreasedStat);
         Assert.Equal(2, dmg.Message.Split('\n').Length);   // 1 つに決まっていれば、想定は分けない
 
-        // 自分のポケモンの更新（set -m）
+        // 育成ポケモンの更新（set -m）
         var set = await command.ExecuteAsync("!pokech set -m 1 A20 S10 ようき");
         Assert.True(set.Success, set.Message);
         var mine = (await repo.GetAsync()).For(Ds).Pokemon.Single(p => p.Id == 1);
