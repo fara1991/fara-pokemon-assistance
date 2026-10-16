@@ -40,7 +40,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                             <label class="form-label">持ち物</label>
                             @if (TeamEntryIsMega)
                             {
-                                <FixedField Value="@s.TeamItem?.Name" Reason="@FixedField.MegaReason" />
+                                <FixedField Value="@s.TeamItem?.Name" Item="s.TeamItem" Reason="@FixedField.MegaReason" />
                             }
                             else
                             {
@@ -52,7 +52,9 @@ else if (data is not null && roster is not null && dataSet is not null)
                                     SelectedValueChanged="@(v => s.TeamItem = data.FindItem(ParseId(v)))"
                                     Dropdown="true"
                                     EmptyOption="持ち物なし"
-                                    Placeholder="持ち物なし（入力して検索）" />
+                                    Placeholder="持ち物なし（入力して検索）">
+                    <ItemTemplate Context="held"><ItemLabel Item="held" /></ItemTemplate>
+                </SearchableSelect>
                             }
                         </div>
                     </div>

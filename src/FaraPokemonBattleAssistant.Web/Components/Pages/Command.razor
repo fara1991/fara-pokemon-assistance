@@ -145,7 +145,9 @@ else if (data is not null)
                     <div class="cmd-f-item">
                         <label class="form-label">持ち物（任意）</label>
                         <SearchableSelect TItem="Item" Items="data.Items" DisplayText="@(i => i.Name)" ValueSelector="@(i => i.Id.ToString())" Dropdown="true" EmptyOption="指定しない"
-                            SelectedValue="@(data.Items.FirstOrDefault(i => i.Name == s.ItemName)?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { s.ItemName = data.FindItem(ParseId(v))?.Name ?? ""; BuildText(); })" Placeholder="例: こだわりスカーフ" />
+                            SelectedValue="@(data.Items.FirstOrDefault(i => i.Name == s.ItemName)?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { s.ItemName = data.FindItem(ParseId(v))?.Name ?? ""; BuildText(); })" Placeholder="例: こだわりスカーフ">
+                            <ItemTemplate Context="held"><ItemLabel Item="held" /></ItemTemplate>
+                        </SearchableSelect>
                     </div>
                 }
 
