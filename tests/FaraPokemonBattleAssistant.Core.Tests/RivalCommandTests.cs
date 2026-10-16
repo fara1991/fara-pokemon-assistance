@@ -287,6 +287,10 @@ public class RivalCommandTests
         var dmg = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし メガリザードンX");
         Assert.True(dmg.Success, dmg.Message);
         Assert.Equal("リザードナイトX", dmg.Request!.Defender.Item?.Name);
+        // 返信にも、防御側のメガストーンが出る（メガシンカしない相手の持ち物は、従来どおり出さない）
+        Assert.Contains("メガリザードンX(", dmg.Message);
+        Assert.Contains("リザードナイトX", dmg.Message);
+        Assert.DoesNotContain("リザードナイトX", (await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン")).Message);
     }
 
     [Fact]
