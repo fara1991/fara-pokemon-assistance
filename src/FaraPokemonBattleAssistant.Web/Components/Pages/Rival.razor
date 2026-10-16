@@ -48,7 +48,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                                     <div class="d-flex justify-content-between align-items-start gap-2">
                                         <div class="min-w-0">
                                             <PokemonLabel Pokemon="pokemon" Small="true" />
-                                            <div class="small text-muted">@PokeCommand.DescribeRival(rival, data, dataSet.EvSystem, withName: false, withNotes: true)</div>
+                                            <div class="small text-muted">@PokeCommand.DescribeRival(rival, data, dataSet.EvSystem, withName: false, withNotes: true, withPicked: false)</div>
                                         </div>
                                         <div class="d-flex flex-shrink-0 gap-1">
                                             @* 選出された（試合に出てきた）相手は、履歴で分かるように印を付ける *@
@@ -170,7 +170,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                                     @* 選出した相手を先に並べ、印を付ける。選出しなかった相手も残る *@
                                     @foreach (var foe in match.Foes.OrderByDescending(f => f.Picked))
                                     {
-                                        <div class="small mt-1"><PokemonLabel Pokemon="data.FindPokemon(foe.PokemonId)" Small="true" /> @if (foe.Picked) { <span class="badge text-bg-success">選出</span> } <span class="text-muted">@PokeCommand.DescribeRival(foe, data, dataSet.EvSystem, withName: false, withNotes: true)</span></div>
+                                        <div class="small mt-1"><PokemonLabel Pokemon="data.FindPokemon(foe.PokemonId)" Small="true" /> @if (foe.Picked) { <span class="badge text-bg-success">選出</span> } <span class="text-muted">@PokeCommand.DescribeRival(foe, data, dataSet.EvSystem, withName: false, withNotes: true, withPicked: false)</span></div>
                                     }
                                 </li>
                             }

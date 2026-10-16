@@ -392,7 +392,7 @@ public sealed partial class PokeCommand
 
     // ------------------------------------------------------------------ 表示
 
-    public static string DescribeRival(RivalPokemon r, PokemonDataSet data, EvSystem system, bool withName = true, bool withNotes = false)
+    public static string DescribeRival(RivalPokemon r, PokemonDataSet data, EvSystem system, bool withName = true, bool withNotes = false, bool withPicked = true)
     {
         var unit = system == EvSystem.Points ? "pt" : "";
         var parts = new List<string>();
@@ -416,8 +416,8 @@ public sealed partial class PokeCommand
             var hp = scan.HpMin is { } lo && scan.HpMax is { } hi ? $" H{(lo == hi ? lo.ToString() : $"{lo}〜{hi}")}{unit}" : "";
             parts.Add($"推定{letter}:{bands}{hp}({scan.Count}回)");
         }
-        if (parts.Count == 0) parts.Add(r.Picked ? "選出" : "名前だけ");
-        else if (r.Picked) parts.Add("選出");
+        if (parts.Count == 0) parts.Add(r.Picked && withPicked ? "選出" : "名前だけ");
+        else if (r.Picked && withPicked) parts.Add("選出");
         var text = (withName ? r.PokemonName : "") + $"({string.Join(" ", parts)})";
         if (withNotes && r.Scans.Count > 0)
             text += " 根拠: " + string.Join("、", r.Scans.SelectMany(x => x.Notes));
