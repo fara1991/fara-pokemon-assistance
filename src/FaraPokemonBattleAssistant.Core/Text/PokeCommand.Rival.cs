@@ -569,7 +569,7 @@ public sealed partial class PokeCommand
         var statHi = statRanges.Count > 0 ? statRanges.Max(x => x.Hi) : merged.MaxDefenseStat;
         var natureMark = natureApplies ? (knownModifier > 1.0 ? $"({letter}↑)" : knownModifier < 1.0 ? $"({letter}↓)" : "(補正無し)") : "";
         var itemText = request.Defender.Item is { } shownItem ? shownItem.Name : "不明";
-        var resultLine = $"結果 {pokemon.Name}{letter}実数値: {(statLo == statHi ? statLo.ToString() : $"{statLo}〜{statHi}")}{natureMark}, 持ち物: {itemText}";
+        var resultLine = $"結果 {pokemon.Name} {letter}実数値: {(statLo == statHi ? statLo.ToString() : $"{statLo}〜{statHi}")}{natureMark}, 持ち物: {itemText}";
 
         // 範囲の行（絞り込み済みの範囲。特性で差があれば特性別）
         var lines = new List<string> { header, resultLine };

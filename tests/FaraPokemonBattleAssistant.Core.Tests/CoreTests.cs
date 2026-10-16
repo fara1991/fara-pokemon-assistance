@@ -573,7 +573,7 @@ public class PokeCommandTests
         var lines = calc.Message.Split('\n');
         Assert.Contains("ガブリアス", lines[0]);
         Assert.Contains("じしん → ハバタクカミ", lines[0]);
-        Assert.StartsWith("結果 ハバタクカミB実数値:", lines[1]);
+        Assert.StartsWith("結果 ハバタクカミ B実数値:", lines[1]);
         Assert.EndsWith("持ち物: 不明", lines[1]);
         Assert.Contains("B補正無し: 0", lines[2]);
     }

@@ -437,7 +437,7 @@ public class RivalCommandTests
         var scan = (await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}")).Message.Split('\n');
         Assert.Contains("→ フシギバナ（", scan[0]);
         Assert.Contains($"{observed}ダメージ", scan[0]);
-        Assert.StartsWith("結果 フシギバナB実数値:", scan[1]);
+        Assert.StartsWith("結果 フシギバナ B実数値:", scan[1]);
         // 性格が不明なときは、3 つの補正の範囲が出る
         Assert.Contains("B上昇補正", scan[2]);
         Assert.Contains("B補正無し", scan[2]);
