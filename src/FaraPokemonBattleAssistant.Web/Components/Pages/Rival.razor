@@ -95,6 +95,16 @@ else if (data is not null && roster is not null && dataSet is not null)
                                                         }
                                                     </select>
                                                 </div>
+                                                <div class="col-12">
+                                                    <label class="form-label small mb-0">持ち物（確定したときだけ。履歴に残ります）</label>
+                                                    <select class="form-select form-select-sm" @bind="editItem">
+                                                        <option value="">不明</option>
+                                                        @foreach (var held in data.Items)
+                                                        {
+                                                            <option value="@held.Id">@held.Name</option>
+                                                        }
+                                                    </select>
+                                                </div>
                                                 <div class="col-6">
                                                     <label class="form-label small mb-0">特性</label>
                                                     <select class="form-select form-select-sm" @bind="editAbility">
@@ -198,6 +208,7 @@ else
     private readonly Dictionary<Stat, string> editEvs = EditStats.ToDictionary(x => x, _ => "");
     private string editNature = "";
     private string editAbility = "";
+    private string editItem = "";
     private readonly string[] editMoves = new string[RegisteredPokemon.MaxMoves];
     private int editFormId;
 
@@ -267,6 +278,7 @@ else
         editEvs[Stat.Speed] = rival.Speed?.ToString() ?? "";
         editNature = rival.Nature ?? "";
         editAbility = rival.AbilityId?.ToString() ?? "";
+        editItem = rival.ItemId?.ToString() ?? "";
         for (var i = 0; i < editMoves.Length; i++) editMoves[i] = i < rival.MoveIds.Count ? rival.MoveIds[i].ToString() : "";
         editFormId = rival.PokemonId;
     }
@@ -292,6 +304,7 @@ else
             return;
         }
         int? abilityId = int.TryParse(editAbility, out var aid) ? aid : null;
+        int? itemId = int.TryParse(editItem, out var iid) ? iid : null;
         var nature = editNature.Length > 0 ? editNature : null;
         var form = data?.FindPokemon(editFormId);
         // 姿を変えたときは、その姿が持てない特性を消す
@@ -307,6 +320,7 @@ else
             target.SpAttack = values[Stat.SpAttack]; target.SpDefense = values[Stat.SpDefense]; target.Speed = values[Stat.Speed];
             target.Nature = nature;
             target.AbilityId = abilityId;
+            target.ItemId = itemId;
             target.Updated = DateTimeOffset.Now.ToString("o");
             return (true, true);
         }));

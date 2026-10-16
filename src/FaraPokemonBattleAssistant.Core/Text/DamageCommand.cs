@@ -18,6 +18,8 @@ public sealed class DamageCommandOptions
     public int DefaultDefenderDefenseEv { get; set; } = 0;
     /// <summary>使用率データから、性格・特性と攻撃側の持ち物の既定値を埋めるか（防御側の持ち物は入れない）。</summary>
     public bool UseUsageDefaults { get; set; } = true;
+    /// <summary>防御側の持ち物（登録済みの相手の持ち物など、確定している情報）。コマンドに持ち物を書いたときはそちらが優先。</summary>
+    public Item? DefenderItem { get; set; }
     /// <summary>2〜5 回当たる連続技の回数（2 や 5。null なら既定）。</summary>
     public int? HitCount { get; set; }
     /// <summary>出力 1 行の最大長（Twitch は 500 文字）。</summary>
@@ -254,10 +256,16 @@ public sealed class DamageCommand
                 else attacker.TeraType = teraType;
                 continue;
             }
-            if (normalized is "持ち物なし" or "もちものなし" or "道具なし" or "どうぐなし" or "noitem")
+            if (IsNoItemWord(normalized))
             {
+                if (forcedAttacker == true && attackerPreset is not null)
+                {
+                    warnings.Add("攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まります（持ち物なしは反映しません）");
+                    continue;
+                }
                 if (forcedAttacker == false) { defender.Item = null; defenderItemSet = true; }
                 else if (forcedAttacker == true) { attacker.Item = null; attackerItemSet = true; }
+                else if (attackerPreset is not null) { defender.Item = null; defenderItemSet = true; }   // 登録済みの攻撃側の持ち物は、登録で決まる
                 else { attacker.Item = null; defender.Item = null; attackerItemSet = defenderItemSet = true; }
                 continue;
             }
@@ -347,7 +355,13 @@ public sealed class DamageCommand
             if (item.IsResolved)
             {
                 var it = item.Value!;
-                var toAttacker = forcedAttacker ?? !it.IsDefensive;
+                // 登録済みの攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まる。持ち物名は（前置きがなくても）防御側（相手）に付ける
+                var toAttacker = forcedAttacker ?? (attackerPreset is null && !it.IsDefensive);
+                if (toAttacker && attackerPreset is not null)
+                {
+                    warnings.Add($"攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まります（{it.Name}は反映しません）");
+                    continue;
+                }
                 if (toAttacker) { attacker.Item = it; attackerItemSet = true; }
                 else { defender.Item = it; defenderItemSet = true; }
                 continue;
@@ -403,7 +417,9 @@ public sealed class DamageCommand
         else if (!attackerItemSet && usage is not null)
             attacker.Item = usage.TopItem(attacker.Pokemon.Id);
         // 防御側は対戦中の相手なので、使用率の持ち物は入れない（書いた持ち物かメガストーンだけ。不明なら持ち物なしで計算し、表示にも出さない）
-        if (!defenderItemSet && defender.Pokemon.MegaStoneId is { } defenderStone && data.FindItem(defenderStone) is { } defenderStoneItem)
+        if (!defenderItemSet && options.DefenderItem is { } knownDefenderItem)
+            defender.Item = knownDefenderItem;
+        else if (!defenderItemSet && defender.Pokemon.MegaStoneId is { } defenderStone && data.FindItem(defenderStone) is { } defenderStoneItem)
             defender.Item = defenderStoneItem;
         if (!attackerAbilitySet)
             attacker.Ability = usage?.DefaultAbility(attacker.Pokemon) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(attacker.Pokemon), null);
@@ -568,6 +584,12 @@ public sealed class DamageCommand
         }
         return false;
     }
+
+    /// <summary>「持ち物なし」と書いたトークンか（前置きを外して正規化したあとの形）。</summary>
+    public static bool IsNoItemWord(string normalized) => normalized is "持ち物なし" or "もちものなし" or "道具なし" or "どうぐなし" or "noitem";
+
+    /// <summary>コマンドの引数に「持ち物なし」（前置き付きも含む）が書かれているか。</summary>
+    public static bool MentionsNoItem(IEnumerable<string> args) => args.Any(a => IsNoItemWord(NameNormalizer.Normalize(SplitSide(a).Remainder)));
 
     // 攻撃側・防御側を明示する前置き（全角・半角のコロン、英字は大文字小文字を問わない）。
     // 攻撃側: 攻 / 攻撃 / こうげき / A / C / atk、防御側: 防 / 防御 / ぼうぎょ / B / D / def

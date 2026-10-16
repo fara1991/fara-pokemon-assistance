@@ -40,7 +40,13 @@ public sealed partial class PokeCommand
     }
 
     public static string Usage(string prefix) =>
-        $"!{prefix} add -m 名前 H A B C D S 性格 | set -m ID・名前 … | ls -m [名前] | detail -m ID | rm -m ID | add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号 | add -r 名前… | set -r 名前 … | ls -r | rm -r 名前 | clear -r | ls -h [名前] | detail -h ID | dmg 攻撃 技±ランク 防御 | scan 攻撃 技 相手 ダメージ | faster 自分 相手 | end [メモ] | help";
+        $"!{prefix} の使い方\n" +
+        "育成ポケモン(-m): add -m 名前 H A B C D S 性格 | set -m ID・名前 … | ls -m [名前] | detail -m ID | rm -m ID\n" +
+        "自分チーム(-t): add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号\n" +
+        "相手チーム(-r): add -r 名前… | set -r 名前 … | ls -r | detail -r 名前 | rm -r 名前 | clear -r\n" +
+        "対戦: dmg 攻撃 技±ランク 防御 | scan 攻撃 技 相手 ダメージ | faster 自分 相手 | end [メモ]\n" +
+        "履歴(-h): ls -h [名前] | detail -h ID | rm -h ID\n" +
+        "help";
 
     /// <summary>メッセージがこのコマンド群のものかを判定し、接頭辞と残りを返す。</summary>
     public async Task<(DataSetInfo DataSet, string Arguments)?> MatchAsync(string message, CancellationToken ct = default)
@@ -68,11 +74,11 @@ public sealed partial class PokeCommand
     public static string CommandList(IEnumerable<DataSetInfo> dataSets)
     {
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
-        return "育成ポケモン(-m): add -m 名前 H A B C D S 性格 [特性] / set -m ID・名前 … / ls・detail・rm ｜ " +
-               "自分チーム(-t): add -t 番号 ID [持ち物] / use・unuse・ls・detail・rm ｜ " +
-               "相手チーム(-r): add -r 名前… [H32 D10 B↑A↓ 特性 技 選出] / set -r / ls・detail・rm / clear -r（全員の登録を解除） ｜ " +
-               "履歴(-h): ls・detail・rm ｜ " +
-               "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 / end [メモ]（試合終了） ｜ " +
+        return "育成ポケモン(-m): add -m 名前 H A B C D S 性格 [特性] / set -m ID・名前 … / ls・detail・rm\n" +
+               "自分チーム(-t): add -t 番号 ID [持ち物] / use・unuse・ls・detail・rm\n" +
+               "相手チーム(-r): add -r 名前… [H32 D10 B↑A↓ 特性 技 持ち物 選出] / set -r / ls・detail・rm / clear -r（全員の登録を解除）\n" +
+               "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 / end [メモ]（試合終了）\n" +
+               "履歴(-h): ls・detail・rm\n" +
                $"{prefixes}（!poke はチャンピオンズ）｜ --my/--team/--rival/--history も可";
     }
 
@@ -83,7 +89,7 @@ public sealed partial class PokeCommand
             var result = await TryExecuteAsync(message, options, ct).ConfigureAwait(false);
             if (result is not null) return result;
             var sets = await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false);
-            return Fail("コマンドは " + string.Join(" / ", sets.Select(s => $"!{s.CommandPrefix}")) + " で始めてください。例: " + Usage(sets.LastOrDefault()?.CommandPrefix ?? "pokech"));
+            return Fail("コマンドは " + string.Join(" / ", sets.Select(s => $"!{s.CommandPrefix}")) + " で始めてください。\n" + Usage(sets.LastOrDefault()?.CommandPrefix ?? "pokech"));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -200,7 +206,9 @@ public sealed partial class PokeCommand
 
         var entry = await _roster.AddPokemonAsync(ds.Key, pokemon.Value!, evs, nature, ability, ct).ConfigureAwait(false);
         var build = RosterRepository.ToBuild(entry, data)!;
-        return Ok($"#{entry.Id} {pokemon.Value!.Name} を登録しました: {Describe(entry, build)}");
+        var sameCount = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key).Pokemon.Count(e => e.PokemonId == pokemon.Value!.Id);
+        var duplicateNote = sameCount > 1 ? $"（{pokemon.Value!.Name}は {sameCount} 体になりました。dmg・scan・faster は #登録ID で指定できます）" : "";
+        return Ok($"#{entry.Id} {pokemon.Value!.Name} を登録しました: {Describe(entry, build)}{duplicateNote}");
     }
 
     private async Task<DamageCommandResult> ListAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, CancellationToken ct)
@@ -284,6 +292,14 @@ public sealed partial class PokeCommand
                 ? Ok($"チーム{teamNo} を削除しました")
                 : Fail($"チーム{teamNo} はありません");
         }
+        // 登録 ID（#3 / 3）で指定すると、同じポケモンを複数登録していても、その 1 体だけを外せる
+        if (int.TryParse(args[1].TrimStart('#'), out var entryId))
+        {
+            var byId = await _roster.RemoveFromTeamAsync(ds.Key, teamNo, e => e.Id == entryId, ct).ConfigureAwait(false);
+            if (!byId) return Fail($"チーム{teamNo} に #{entryId} はいません");
+            var teamLeft = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key).Teams.Any(t => t.Number == teamNo);
+            return Ok($"チーム{teamNo} から #{entryId} を外しました" + (teamLeft ? "" : "（0 体になったのでチームを削除しました）"));
+        }
         var match = DamageCommand.CreatePokemonResolver(data).Resolve(args[1]);
         if (!match.IsResolved) return Fail(NotFound("ポケモン", args[1], match.Candidates.Select(p => p.Name)));
         var removed = await _roster.RemoveFromTeamAsync(ds.Key, teamNo, e => e.PokemonId == match.Value!.Id, ct).ConfigureAwait(false);
@@ -354,38 +370,86 @@ public sealed partial class PokeCommand
     private static string NotRegisteredMessage(DataSetInfo ds, string pokemonName, string role) =>
         $"{role}の{pokemonName}は登録されていません。!{ds.CommandPrefix} dmg・scan・faster は、登録済みのポケモンだけ使えます（!{ds.CommandPrefix} add -m で登録してください）";
 
+    /// <summary>同じポケモンの育成ポケモンが複数いるときの案内用に、登録 ID・名前・振り方・性格・特性を 1 体 1 行で並べる。</summary>
+    private static string RegisteredList(PokemonDataSet data, IEnumerable<RegisteredPokemon> entries) =>
+        string.Join("\n", entries.Select(e =>
+        {
+            var ability = e.AbilityId is { } aid ? data.FindAbility(aid)?.Name : null;
+            return $"#{e.Id} {e.PokemonName}({e.EVs.ToShortString()} {e.Nature}{(ability is null ? "" : " " + ability)})";
+        }));
+
+    /// <summary>
+    /// dmg・scan・faster の攻撃側（自分）の育成ポケモンを決める。<c>#3</c> や <c>3</c> で登録 ID を指定できる（指定したら、先頭を名前に置き換える）。
+    /// 同じポケモンを複数登録していて、名前だけで指定されたときは、使用チームにその 1 体だけがいればそれを使い、
+    /// そうでなければ一覧を出して、登録 ID での指定を案内する。名前が決まらないときは、それぞれのコマンドの案内に任せる。
+    /// </summary>
+    private async Task<(string? Error, Func<Pokemon, bool, PokemonBuild?> Provider)> ResolveRegisteredAttackerAsync(
+        DataSetInfo ds, PokemonDataSet data, string sub, List<string> args, Func<Pokemon, bool, PokemonBuild?> provider, CancellationToken ct)
+    {
+        if (args.Count == 0) return (null, provider);
+        var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
+        if (int.TryParse(args[0].TrimStart('#'), out var entryId))
+        {
+            var entry = roster.Pokemon.FirstOrDefault(e => e.Id == entryId);
+            if (entry is null) return ($"育成ポケモン #{entryId} はありません。!{ds.CommandPrefix} ls -m で登録 ID を確認してください", provider);
+            var build = await _roster.BuildForEntryAsync(ds.Key, data, entryId, ct).ConfigureAwait(false);
+            if (build is null) return ($"#{entryId} {entry.PokemonName} は現在のデータに存在しません", provider);
+            args[0] = data.FindPokemon(entry.PokemonId)?.Name ?? entry.PokemonName;
+            return (null, (p, isAttacker) => isAttacker && p.Id == entry.PokemonId ? build.Clone() : provider(p, isAttacker));
+        }
+        var match = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
+        if (!match.IsResolved) return (null, provider);
+        var same = roster.Pokemon.Where(e => e.PokemonId == match.Value!.Id).OrderBy(e => e.Id).ToList();
+        if (same.Count <= 1) return (null, provider);
+        var team = roster.ActiveTeam is { } active ? roster.Teams.FirstOrDefault(t => t.Number == active) : null;
+        if (team is not null && same.Count(e => team.Slots.Any(s => s.EntryId == e.Id)) == 1) return (null, provider);
+        return ($"{match.Value!.Name}は育成ポケモンが {same.Count} 体います。どれを使うか、登録 ID で指定してください（例: !{ds.CommandPrefix} {sub} #{same[0].Id} …）\n" + RegisteredList(data, same), provider);
+    }
+
     private async Task<DamageCommandResult> DamageAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (args.Count < 3) return Fail($"書式: !{ds.CommandPrefix} dmg 攻撃側 技±ランク 防御側 [オプション]");
         var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
+        var (attackerError, attackerProvider) = await ResolveRegisteredAttackerAsync(ds, data, "dmg", args, provider, ct).ConfigureAwait(false);
+        if (attackerError is not null) return Fail(attackerError);
+        provider = attackerProvider;
         if (RegisteredOnlyError(ds, data, args[0], provider, "攻撃側") is { } notRegistered) return Fail(notRegistered);
         var text = string.Join(" ", args);
 
         // まず相手の情報なし（既定）で計算して、相手のポケモンと技（B か D か）を確かめる
-        var probe = await DamageScenarioAsync(ds, data, args, text, options, provider, null, useHigh: false, ct).ConfigureAwait(false);
+        var probe = await DamageScenarioAsync(ds, data, args, text, options, provider, null, useHigh: false, null, ct).ConfigureAwait(false);
         if (probe.Failure is not null) return probe.Failure;
         var request = probe.Request!;
 
         // 対戦中の相手に登録があれば、その分かっている振り方・性格・特性で計算し直す
         KnownFoe? foe = null;
+        Item? rivalItem = null;
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         if (FindRival(roster.Rivals, request.Defender.Pokemon, data) is { } rival)
         {
             var ability = rival.AbilityId is { } abilityId ? data.FindAbility(abilityId) : null;
-            // メガシンカ後の姿は、持ち物がメガストーンで確定している
+            // 持ち物は、保存してあればその持ち物。メガシンカ後の姿は、メガストーンで確定している
             var stone = request.Defender.Pokemon.MegaStoneId is { } stoneId ? data.FindItem(stoneId) : null;
-            foe = KnownFoe.FromRival(rival, request.Defender.Pokemon, ds.EvSystem, data.Natures, request.Move.DefenseStatUsed, ability, stone);
+            rivalItem = stone ?? (rival.ItemId is { } savedItemId ? data.FindItem(savedItemId) : null);
+            foe = KnownFoe.FromRival(rival, request.Defender.Pokemon, ds.EvSystem, data.Natures, request.Move.DefenseStatUsed, ability, rivalItem);
+        }
+        if (foe is null && rivalItem is not null && request.Defender.Item is null)
+        {
+            // 持ち物だけが分かっている相手は、その持ち物で計算し直す
+            probe = await DamageScenarioAsync(ds, data, args, text, options, provider, null, useHigh: false, rivalItem, ct).ConfigureAwait(false);
+            if (probe.Failure is not null) return probe.Failure;
+            request = probe.Request!;
         }
         if (foe is null)
             return new DamageCommandResult { Success = true, Message = DamageCommand.Header(request, probe.Last!) + "\n" + probe.Body + probe.Note, Request = request, Damage = probe.Last };
 
-        var first = await DamageScenarioAsync(ds, data, args, text, options, provider, foe, useHigh: false, ct).ConfigureAwait(false);
+        var first = await DamageScenarioAsync(ds, data, args, text, options, provider, foe, useHigh: false, rivalItem, ct).ConfigureAwait(false);
         if (first.Failure is not null) return first.Failure;
         if (!foe.IsRange)
             return new DamageCommandResult { Success = true, Message = DamageCommand.Header(first.Request!, first.Last!) + "\n" + first.Body + first.Note, Request = first.Request, Damage = first.Last };
 
         // 相手の情報が範囲のときは、耐久が最も低い想定と最も高い想定の 2 つを出す
-        var second = await DamageScenarioAsync(ds, data, args, text, options, provider, foe, useHigh: true, ct).ConfigureAwait(false);
+        var second = await DamageScenarioAsync(ds, data, args, text, options, provider, foe, useHigh: true, rivalItem, ct).ConfigureAwait(false);
         if (second.Failure is not null) return second.Failure;
         return new DamageCommandResult
         {
@@ -413,7 +477,7 @@ public sealed partial class PokeCommand
     /// <summary>dmg の 1 つの想定（相手の情報があれば、耐久が最も低い／高い想定の構成）の結果の行。</summary>
     private async Task<(DamageCommandResult? Failure, DamageRequest? Request, DamageResult? Last, string Body, string Note)> DamageScenarioAsync(
         DataSetInfo ds, PokemonDataSet data, List<string> args, string text, PokeCommandOptions options,
-        Func<Pokemon, bool, PokemonBuild?> provider, KnownFoe? foe, bool useHigh, CancellationToken ct)
+        Func<Pokemon, bool, PokemonBuild?> provider, KnownFoe? foe, bool useHigh, Item? defenderItem, CancellationToken ct)
     {
         // 登録の構成は攻撃側だけに使う（防御側は相手なので、分かっている相手の情報があればそれ、なければ使用率の性格・特性の既定値で計算する。持ち物は書いたものかメガストーンだけ）
         Func<Pokemon, bool, PokemonBuild?> withFoe = (p, isAttacker) =>
@@ -423,7 +487,7 @@ public sealed partial class PokeCommand
         DamageCommandOptions Opts(int? hitCount = null) => new()
         {
             DataSetKey = ds.Key, Format = options.Format, BuildProvider = withFoe, MaxLength = int.MaxValue,
-            DefaultDefenderHpEv = 252, DefaultDefenderDefenseEv = 252, HitCount = hitCount,
+            DefaultDefenderHpEv = 252, DefaultDefenderDefenseEv = 252, HitCount = hitCount, DefenderItem = defenderItem,
         };
         var normal = await _damage.ExecuteAsync(text, Opts(), ct).ConfigureAwait(false);
         if (!normal.Success || normal.Request is null || normal.Damage is null) return (normal, null, null, "", "");
@@ -571,13 +635,16 @@ public sealed partial class PokeCommand
     private async Task<DamageCommandResult> DiffAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (args.Count < 2) return Fail($"書式: !{ds.CommandPrefix} faster 自分 相手 [+1 晴れ まひ 自:まひ など]");
+        var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
+        var (mineError, mineProvider) = await ResolveRegisteredAttackerAsync(ds, data, "faster", args, provider, ct).ConfigureAwait(false);
+        if (mineError is not null) return Fail(mineError);
+        provider = mineProvider;
         var resolver = DamageCommand.CreatePokemonResolver(data);
         var mineMatch = resolver.Resolve(args[0]);
         if (!mineMatch.IsResolved) return Fail(NotFound("ポケモン", args[0], mineMatch.Candidates.Select(p => p.Name)));
         var oppMatch = resolver.Resolve(args[1]);
         if (!oppMatch.IsResolved) return Fail(NotFound("ポケモン", args[1], oppMatch.Candidates.Select(p => p.Name)));
 
-        var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
         var usage = await UsageOrNullAsync(data, options.Format, ct).ConfigureAwait(false);
         var warnings = new List<string>();
 

@@ -29,8 +29,10 @@ public sealed partial class PokeCommand
         public bool Picked { get; set; }
         /// <summary>相手が使った（見えた）技。</summary>
         public List<Move> Moves { get; } = new();
+        /// <summary>相手が持っている持ち物（確定情報）。</summary>
+        public Item? Item { get; set; }
 
-        public bool HasInfo => Evs.Count > 0 || Nature is not null || Ability is not null || Picked || Moves.Count > 0;
+        public bool HasInfo => Evs.Count > 0 || Nature is not null || Ability is not null || Picked || Moves.Count > 0 || Item is not null;
     }
 
     /// <summary>
@@ -51,6 +53,7 @@ public sealed partial class PokeCommand
         rival.PokemonId = pokemon.Id;
         rival.PokemonName = pokemon.Name;
         if (rival.AbilityId is { } aid && data.AbilitiesOf(pokemon).All(a => a.Id != aid)) rival.AbilityId = null;
+        if (pokemon.IsMega) rival.ItemId = null;   // メガシンカ後の姿は、持ち物がメガストーンで確定している
         return true;
     }
 
@@ -135,8 +138,18 @@ public sealed partial class PokeCommand
                 specs.Add(new RivalSpec { Pokemon = pokemon.Value! });
                 continue;
             }
+            // 持ち物（直前のポケモンが持っている持ち物。確定情報として保存する）
+            if (current is not null)
+            {
+                var heldItem = data.Items.FirstOrDefault(i => NameNormalizer.Normalize(i.Name) == NameNormalizer.Normalize(token));
+                if (heldItem is not null)
+                {
+                    current.Item = heldItem;
+                    continue;
+                }
+            }
             return (specs, current is null ? NotFound("ポケモン", token, pokemon.Candidates.Select(p => p.Name))
-                : $"「{token}」が{current.Pokemon.Name}の振り方・性格・特性・技・次のポケモン名として読めません");
+                : $"「{token}」が{current.Pokemon.Name}の振り方・性格・特性・技・持ち物・次のポケモン名として読めません");
         }
         // ポイントの検証
         foreach (var spec in specs)
@@ -171,6 +184,7 @@ public sealed partial class PokeCommand
             if (!rival.MoveIds.Contains(move.Id) && rival.MoveIds.Count < RegisteredPokemon.MaxMoves) rival.MoveIds.Add(move.Id);
         if (spec.Nature is not null) rival.Nature = spec.Nature.Name;
         if (spec.Ability is not null) rival.AbilityId = spec.Ability.Id;
+        if (spec.Item is not null) rival.ItemId = spec.Item.Id;
         rival.Updated = now.ToString("o");
     }
 
@@ -364,7 +378,7 @@ public sealed partial class PokeCommand
             var same = roster.Pokemon.Where(e => e.PokemonId == match.Value!.Id).ToList();
             if (same.Count == 0) return Fail($"{match.Value!.Name}は登録されていません");
             if (same.Count > 1)
-                return Fail($"{match.Value!.Name}は複数登録されています（{string.Join("・", same.Select(e => $"#{e.Id}"))}）。登録IDで指定してください（例: !{ds.CommandPrefix} set -m {same[0].Id} …）");
+                return Fail($"{match.Value!.Name}は育成ポケモンが {same.Count} 体います。どれを更新するか、登録 ID で指定してください（例: !{ds.CommandPrefix} set -m #{same[0].Id} …）\n" + RegisteredList(data, same.OrderBy(e => e.Id)));
             id = same[0].Id;
         }
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == id);
@@ -406,8 +420,10 @@ public sealed partial class PokeCommand
         if (exact.Count > 0) parts.Add(string.Join("", exact));
         if (r.Nature is { } nature) parts.Add(data.FindNature(nature)?.Summary() ?? nature);
         if (r.AbilityId is { } aid && data.FindAbility(aid) is { } ability) parts.Add(ability.Name);
-        // メガシンカ後の姿は、持ち物がメガストーンで確定している
-        if (data.FindPokemon(r.PokemonId)?.MegaStoneId is { } stoneId && data.FindItem(stoneId) is { } stone) parts.Add("持ち物:" + stone.Name);
+        // 持ち物は、分かっていればその持ち物。メガシンカ後の姿は、メガストーンで確定している
+        var heldItem = data.FindPokemon(r.PokemonId)?.MegaStoneId is { } stoneId ? data.FindItem(stoneId)
+            : r.ItemId is { } heldId ? data.FindItem(heldId) : null;
+        if (heldItem is not null) parts.Add("持ち物:" + heldItem.Name);
         var moveNames = r.MoveIds.Select(id => data.FindMove(id)?.Name).Where(n => n is not null).ToList();
         if (moveNames.Count > 0) parts.Add("技:" + string.Join("/", moveNames));
         foreach (var scan in r.Scans)
@@ -452,6 +468,11 @@ public sealed partial class PokeCommand
         args.RemoveAt(damageIndex);
 
         var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
+        var typedAttacker = args.Count > 0 ? args[0] : "";
+        var (attackerError, attackerProvider) = await ResolveRegisteredAttackerAsync(ds, data, "scan", args, provider, ct).ConfigureAwait(false);
+        if (attackerError is not null) return Fail(attackerError);
+        provider = attackerProvider;
+        if (args.Count > 0 && typedAttacker != args[0] && scanText.StartsWith(typedAttacker)) scanText = args[0] + scanText[typedAttacker.Length..];
         if (args.Count > 0 && RegisteredOnlyError(ds, data, args[0], provider, "攻撃側") is { } notRegistered) return Fail(notRegistered);
         // 防御側は相手なので、登録の構成は攻撃側だけに適用する
         Func<Pokemon, bool, PokemonBuild?> attackerOnly = (p, isAttacker) => isAttacker ? provider(p, true) : null;
@@ -463,11 +484,8 @@ public sealed partial class PokeCommand
         if (!baseline.Success || baseline.Request is null) return baseline;
 
         var request = baseline.Request;
-        // 相手の持ち物は、書いたもの（防:たべのこし など）かメガストーンだけ。不明なら持ち物なしとして推定する（使用率の持ち物は入れない）
-        // 持ち物は相手に保存されないので、推定の根拠に残し、返信でも dmg で同じ持ち物を書くよう案内する
-        var itemNote = request.Defender.Item is { } heldItem
-            ? $"相手の持ち物は{heldItem.Name}として推定（持ち物は保存されないので、dmg でも 防:{heldItem.Name} を書いてください）"
-            : "相手は持ち物なし想定";
+        // 相手の持ち物は、書いたもの（防:たべのこし など）・保存してある持ち物・メガストーンだけ。不明なら持ち物なしとして推定する（使用率の持ち物は入れない）
+        var writtenItem = request.Defender.Item is { } given && request.Defender.Pokemon.MegaStoneId is null ? given : null;
         var estimator = new EvEstimator(data.TypeChart, ds.Generation);
         var attackerText = $"{request.Attacker.Pokemon.Name}({request.Attacker.DescribeShort()})";
         var pokemon = request.Defender.Pokemon;
@@ -477,6 +495,8 @@ public sealed partial class PokeCommand
         var existing = FindRival(roster.Rivals, pokemon, data);
         var knownAbility = existing?.AbilityId is { } aid ? data.FindAbility(aid) : null;
         if (knownAbility is not null) request.Defender.Ability = knownAbility;
+        if (request.Defender.Item is null && !DamageCommand.MentionsNoItem(args) && existing?.ItemId is { } savedItemId && data.FindItem(savedItemId) is { } savedItem) request.Defender.Item = savedItem;
+        var itemNote = request.Defender.Item is { } assumedItem ? $"相手の持ち物は{assumedItem.Name}として推定" : "相手は持ち物なし想定";
         var abilities = MentionsAbility(args, data, pokemon) || request.Defender.Ability is null
             ? new List<Ability?> { request.Defender.Ability }
             : data.AbilitiesOf(pokemon).Cast<Ability?>().ToList();
@@ -499,7 +519,6 @@ public sealed partial class PokeCommand
         var note = request.Defender.Item is { } noteItem && request.Defender.Pokemon.MegaStoneId is null ? $"{scanText} 防:{noteItem.Name}" : $"{scanText}";
         var now = DateTimeOffset.Now;
         (bool Applied, string? Problem) applied = (false, null);
-        var rivalText = "";
         var rivalAdded = false;
         string? tooMany = null;
         RivalScan? narrowed = null;
@@ -509,7 +528,6 @@ public sealed partial class PokeCommand
             tooMany = null;
             narrowed = null;
             knownNatureName = null;
-            rivalText = "";
             var rival = FindRival(r.Rivals, pokemon, data);
             if (rival is not null) ChangeRivalForm(rival, pokemon, data);   // メガシンカした姿で scan したら、姿も更新する
             knownNatureName = rival?.Nature;
@@ -524,8 +542,8 @@ public sealed partial class PokeCommand
             var working = rival.Clone();
             applied = RivalScanning.Apply(working, merged, note, now);
             if (!applied.Applied) return (0, rivalAdded);   // 矛盾したときは、前の推定のまま（新しく登録した場合は名前だけで残す）
+            if (writtenItem is not null) working.ItemId = writtenItem.Id;   // 書いた持ち物は確定情報として保存する
             r.Rivals[r.Rivals.IndexOf(rival)] = working;
-            rivalText = DescribeRival(working, data, ds.EvSystem);
             narrowed = working.Scans.FirstOrDefault(x => x.Defense == merged.DefenseStat.ToString());
             knownNatureName = working.Nature;
             return (0, true);
@@ -569,7 +587,9 @@ public sealed partial class PokeCommand
         var statHi = statRanges.Count > 0 ? statRanges.Max(x => x.Hi) : merged.MaxDefenseStat;
         var natureMark = natureApplies ? (knownModifier > 1.0 ? $"({letter}↑)" : knownModifier < 1.0 ? $"({letter}↓)" : "(補正無し)") : "";
         var itemText = request.Defender.Item is { } shownItem ? shownItem.Name : "不明";
-        var resultLine = $"結果 {pokemon.Name} {letter}実数値: {(statLo == statHi ? statLo.ToString() : $"{statLo}〜{statHi}")}{natureMark}, 持ち物: {itemText}";
+        // 相手に登録したか・絞り込んだかも、結果の行に出す
+        var statusText = tooMany is null && applied.Applied ? (rivalAdded ? ", 相手チームに登録" : narrowed is { Count: > 1 } ? $", 絞り込み({narrowed.Count}回目)" : ", 相手チームを更新") : "";
+        var resultLine = $"結果 {pokemon.Name} {letter}実数値: {(statLo == statHi ? statLo.ToString() : $"{statLo}〜{statHi}")}{natureMark}, 持ち物: {itemText}{statusText}";
 
         // 範囲の行（絞り込み済みの範囲。特性で差があれば特性別）
         var lines = new List<string> { header, resultLine };
@@ -583,10 +603,8 @@ public sealed partial class PokeCommand
         }
         if (knownNature is not null && !natureApplies)
             lines.Add($"※分かっている性格（{knownNature.Name}）と合う振り方がありません。性格か、ダメージを見直してください");
-        var itemAdvice = request.Defender.Item is { } given && pokemon.MegaStoneId is null ? $"（持ち物は保存されません。dmg でも 防:{given.Name} を書いてください）" : "";
         if (tooMany is not null) { lines.Add($"※{tooMany}"); return new DamageCommandResult { Success = false, Message = string.Join("\n", lines), Request = request }; }
         if (!applied.Applied) { lines.Add($"※{applied.Problem}"); return new DamageCommandResult { Success = false, Message = string.Join("\n", lines), Request = request }; }
-        lines.Add($"{pokemon.Name}を{(rivalAdded ? "相手に登録" : "絞り込み")}: {rivalText}{itemAdvice}");
         return new DamageCommandResult { Success = true, Message = string.Join("\n", lines), Request = request };
     }
 

@@ -574,8 +574,10 @@ public class PokeCommandTests
         Assert.Contains("ガブリアス", lines[0]);
         Assert.Contains("じしん → ハバタクカミ", lines[0]);
         Assert.StartsWith("結果 ハバタクカミ B実数値:", lines[1]);
-        Assert.EndsWith("持ち物: 不明", lines[1]);
+        Assert.Contains("持ち物: 不明", lines[1]);
+        Assert.EndsWith(", 相手チームに登録", lines[1]);
         Assert.Contains("B補正無し: 0", lines[2]);
+        Assert.Equal(3, lines.Length);   // 登録・絞り込みの情報は 2 行目に出す（4 行目は無い）
     }
 
     [Fact]

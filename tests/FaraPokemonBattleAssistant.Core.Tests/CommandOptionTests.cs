@@ -47,7 +47,9 @@ public class CommandOptionTests
         Assert.True((await cmd.ExecuteAsync("!pokech add -m アシレーヌ 4 0 0 32 0 30 おくびょう")).Success);
         var ambiguous = await cmd.ExecuteAsync("!pokech set -m アシレーヌ B↑A↓");
         Assert.False(ambiguous.Success);
-        Assert.Contains("#1・#2", ambiguous.Message);
+        Assert.Contains("#1 アシレーヌ(", ambiguous.Message);
+        Assert.Contains("#2 アシレーヌ(", ambiguous.Message);
+        Assert.Contains("set -m #1", ambiguous.Message);
     }
 
     [Theory]
