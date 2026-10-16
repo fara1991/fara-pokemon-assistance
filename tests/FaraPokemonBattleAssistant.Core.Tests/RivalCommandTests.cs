@@ -373,14 +373,38 @@ public class RivalCommandTests
         Assert.Contains("→ フシギバナ（", scan[0]);
         Assert.Contains($"{observed}ダメージ", scan[0]);
         Assert.StartsWith("結果 B実数値:", scan[1]);
-        Assert.StartsWith("B", scan[2]);   // B上昇補正 | B補正無し | B下降補正（性格が不明なときは 3 つ）
+        // 性格が不明なときは、3 つの補正の範囲が出る
+        Assert.Contains("B上昇補正", scan[2]);
+        Assert.Contains("B補正無し", scan[2]);
+        Assert.Contains("B下降補正", scan[2]);
+        (int Lo, int Hi) StatOf(string line)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(line, @"実数値: (\d+)(?:〜(\d+))?");
+            Assert.True(m.Success, line);
+            return (int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Success ? m.Groups[2].Value : m.Groups[1].Value));
+        }
+        var unknownStat = StatOf(scan[1]);
 
-        // 性格が分かると、その補正の範囲だけを出し、結果の行に B↑ のように出す
+        // 性格が分かると、その補正の範囲だけを出し、結果の行に B↑ のように出す。実数値の範囲も、その補正の分だけに絞る
         Assert.True((await command.ExecuteAsync("!pokech set -r フシギバナ ずぶとい")).Success);
         var known = (await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}")).Message.Split('\n');
         Assert.Contains("（B↑）", known[1]);
         Assert.Contains("B上昇補正", known[2]);
         Assert.DoesNotContain("B下降補正", known[2]);
+        Assert.DoesNotContain("B補正無し", known[2]);
+        var knownStat = StatOf(known[1]);
+        Assert.True(knownStat.Lo >= unknownStat.Lo && knownStat.Hi <= unknownStat.Hi);
+        Assert.True(knownStat.Hi - knownStat.Lo < unknownStat.Hi - unknownStat.Lo);
+
+        // 割合（%）で scan したときは、HP の範囲も 3 行目の末尾に出る
+        var (command2, _) = await NewAsync();
+        var percent = (await command2.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {Math.Round(observed * 100.0 / probe.Damage!.DefenderHP)}%")).Message.Split('\n');
+        Assert.Contains(" | H: ", percent[2]);
+
+        // 当てはまる振り方がないダメージのときは、2 行目に理由が出る
+        var notFound = (await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed * 3}")).Message.Split('\n');
+        Assert.StartsWith("結果 ", notFound[1]);
+        Assert.Contains("見つかりません", notFound[1]);
 
         var faster = (await command.ExecuteAsync("!pokech faster マニューラ フシギバナ")).Message.Split('\n');
         Assert.Contains(" vs フシギバナ", faster[0]);

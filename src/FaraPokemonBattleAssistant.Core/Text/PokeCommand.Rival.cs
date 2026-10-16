@@ -414,7 +414,7 @@ public sealed partial class PokeCommand
         {
             var letter = scan.Defense == nameof(Stat.Defense) ? "B" : "D";
             var bands = string.Join("/", scan.Bands.OrderByDescending(x => x.Modifier).Select(x =>
-                $"{(x.Modifier > 1 ? "上昇" : x.Modifier < 1 ? "下降" : "補正なし")}{(x.MinEv == x.MaxEv ? x.MinEv.ToString() : $"{x.MinEv}〜{x.MaxEv}")}{unit}"));
+                $"{(x.Modifier > 1 ? "上昇" : x.Modifier < 1 ? "下降" : "補正無し")}{(x.MinEv == x.MaxEv ? x.MinEv.ToString() : $"{x.MinEv}〜{x.MaxEv}")}{unit}"));
             var hp = scan.HpMin is { } lo && scan.HpMax is { } hi ? $" H{(lo == hi ? lo.ToString() : $"{lo}〜{hi}")}{unit}" : "";
             parts.Add($"推定{letter}:{bands}{hp}({scan.Count}回)");
         }
@@ -507,8 +507,12 @@ public sealed partial class PokeCommand
         await _roster.ChangeRivalsAsync(ds.Key, r =>
         {
             tooMany = null;
+            narrowed = null;
+            knownNatureName = null;
+            rivalText = "";
             var rival = FindRival(r.Rivals, pokemon, data);
             if (rival is not null) ChangeRivalForm(rival, pokemon, data);   // メガシンカした姿で scan したら、姿も更新する
+            knownNatureName = rival?.Nature;
             if (rival is null)
             {
                 if (r.Rivals.Count >= MaxRivals) { tooMany = $"対戦中の相手が {MaxRivals} 体いるため登録できません（end で試合を終えてください）"; return (0, false); }
@@ -529,24 +533,41 @@ public sealed partial class PokeCommand
 
         // 推定の内訳。性格が分かっていれば、その補正の範囲だけを出す
         var unit = ds.EvSystem == EvSystem.Points ? "pt" : "";
-        var letter = StatNames.Letter(merged.DefenseStat);
+        var defenseStat = merged.DefenseStat;
+        var letter = StatNames.Letter(defenseStat);
         var knownNature = knownNatureName is null ? null : data.FindNature(knownNatureName);
-        var knownModifier = knownNature?.Modifier(merged.DefenseStat);
+        var knownModifier = knownNature?.Modifier(defenseStat);
         string Range(int lo, int hi) => lo == hi ? $"{lo}{unit}" : $"{lo}〜{hi}{unit}";
         string BandLabel(double modifier) => modifier > 1.0 ? "上昇補正" : modifier < 1.0 ? "下降補正" : "補正無し";
+        // 表示する範囲のもと（前の推定と重ねて絞り込んだ範囲。なければ今回の推定）
+        var bandSource = (narrowed is not null ? narrowed.Bands.Select(x => (x.Modifier, x.MinEv, x.MaxEv)) : merged.Bands.Select(x => (x.Modifier, x.MinEv, x.MaxEv))).ToList();
+        // 分かっている性格の補正が、範囲に残っているときだけ、その補正に絞る
+        var natureApplies = knownModifier is { } km && bandSource.Any(x => x.Modifier == km);
         IEnumerable<(double Modifier, int MinEv, int MaxEv)> OnlyKnown(IEnumerable<(double Modifier, int MinEv, int MaxEv)> bands)
         {
             var all = bands.ToList();
-            return knownModifier is { } m && all.Any(x => x.Modifier == m) ? all.Where(x => x.Modifier == m).ToList() : all;
+            return natureApplies && all.Any(x => x.Modifier == knownModifier) ? all.Where(x => x.Modifier == knownModifier).ToList() : all;
         }
         string BandText(IEnumerable<(double Modifier, int MinEv, int MaxEv)> bands) =>
             string.Join(" | ", OnlyKnown(bands).OrderByDescending(x => x.Modifier).Select(x => $"{letter}{BandLabel(x.Modifier)}: {Range(x.MinEv, x.MaxEv)}"));
 
-        // 実数値の範囲（性格が分かっていれば、その補正の分だけ）
-        var statBands = (knownModifier is { } km && merged.Bands.Any(x => x.Modifier == km) ? merged.Bands.Where(x => x.Modifier == km) : merged.Bands).ToList();
-        var statLo = statBands.Where(x => x.MinStat > 0).Select(x => x.MinStat).DefaultIfEmpty(merged.MinDefenseStat).Min();
-        var statHi = statBands.Where(x => x.MaxStat > 0).Select(x => x.MaxStat).DefaultIfEmpty(merged.MaxDefenseStat).Max();
-        var natureMark = knownModifier is { } nm ? (nm > 1.0 ? $"（{letter}↑）" : nm < 1.0 ? $"（{letter}↓）" : "（補正無し）") : "";
+        // 実数値の範囲は、下の範囲（努力値の範囲と補正）から計算し直す。2 行目と 3 行目がずれないようにする
+        (int Lo, int Hi) StatRange(double modifier, int minEv, int maxEv)
+        {
+            int At(int ev)
+            {
+                var d = request.Defender.Clone();
+                d.EVs = request.Defender.EVs.Clone();
+                d.EVs[defenseStat] = ev;
+                d.Nature = EvEstimator.SyntheticNature(defenseStat, modifier, null);
+                return StatCalculator.Calculate(d, defenseStat);
+            }
+            return (At(minEv), At(maxEv));
+        }
+        var statRanges = OnlyKnown(bandSource).Select(x => StatRange(x.Modifier, x.MinEv, x.MaxEv)).ToList();
+        var statLo = statRanges.Count > 0 ? statRanges.Min(x => x.Lo) : merged.MinDefenseStat;
+        var statHi = statRanges.Count > 0 ? statRanges.Max(x => x.Hi) : merged.MaxDefenseStat;
+        var natureMark = natureApplies ? (knownModifier > 1.0 ? $"（{letter}↑）" : knownModifier < 1.0 ? $"（{letter}↓）" : "（補正無し）") : "";
         var itemText = request.Defender.Item is { } shownItem ? shownItem.Name : "不明（なしとして推定）";
         var resultLine = $"結果 {letter}実数値: {(statLo == statHi ? statLo.ToString() : $"{statLo}〜{statHi}")}{natureMark}, 持ち物: {itemText}";
 
@@ -557,10 +578,11 @@ public sealed partial class PokeCommand
             lines.AddRange(results.Select(r => $"特性 {r.Ability?.Name}: " + (r.Estimate.HasResult ? BandText(r.Estimate.Bands.Select(x => (x.Modifier, x.MinEv, x.MaxEv))) : "該当なし")));
         else
         {
-            var bandSource = narrowed is not null ? narrowed.Bands.Select(x => (x.Modifier, x.MinEv, x.MaxEv)) : merged.Bands.Select(x => (x.Modifier, x.MinEv, x.MaxEv));
             var hpRange = narrowed is { HpMin: { } hmin, HpMax: { } hmax } ? ((int, int)?)(hmin, hmax) : merged.HpEvRange;
             lines.Add(BandText(bandSource) + (hpRange is { } h ? $" | H: {Range(h.Item1, h.Item2)}" : ""));
         }
+        if (knownNature is not null && !natureApplies)
+            lines.Add($"※分かっている性格（{knownNature.Name}）と合う振り方がありません。性格か、ダメージを見直してください");
         var itemAdvice = request.Defender.Item is { } given && pokemon.MegaStoneId is null ? $"（持ち物は保存されません。dmg でも 防:{given.Name} を書いてください）" : "";
         if (tooMany is not null) { lines.Add($"※{tooMany}"); return new DamageCommandResult { Success = false, Message = string.Join("\n", lines), Request = request }; }
         if (!applied.Applied) { lines.Add($"※{applied.Problem}"); return new DamageCommandResult { Success = false, Message = string.Join("\n", lines), Request = request }; }

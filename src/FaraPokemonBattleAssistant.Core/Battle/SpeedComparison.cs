@@ -215,7 +215,7 @@ public static class SpeedCalculator
         // 1 行目は入力した内容（自分と相手）、2 行目以降が結果
         var sb = new System.Text.StringBuilder();
         var opponentText = opponentBuild is not null && opponentSpeed is not null ? $"{opponent.Name}({opponentBuild.DescribeShort()})" : opponent.Name;
-        sb.Append($"{mine.Pokemon.Name}({mine.DescribeShort()}) vs {opponentText}{(reference.Any(r => r.Note == "まひ") ? "(まひ)" : "")}\n");
+        sb.Append($"{mine.Pokemon.Name}({mine.DescribeShort()}) vs {opponentText}{(opponentBuild is null && reference.Any(r => r.Note == "まひ") ? "(まひ)" : "")}\n");
         sb.Append($"結果 S{mySpeed}{myNote} vs ");
         if (opponentBuild is not null && opponentSpeed is { } os)
         {
