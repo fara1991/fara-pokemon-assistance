@@ -405,7 +405,9 @@ public sealed partial class PokeCommand
         var hi = foe.High.EVs[foe.DefenseStat];
         var natureText = foe.Low.Nature?.Id == foe.High.Nature?.Id ? "" : " 性格補正は範囲";
         var hp = foe.Low.EVs[Stat.HP] == foe.High.EVs[Stat.HP] ? $"H{foe.Low.EVs[Stat.HP]}{unit} " : $"H{foe.Low.EVs[Stat.HP]}〜{foe.High.EVs[Stat.HP]}{unit} ";
-        return $"{hp}{letter}{(lo == hi ? lo.ToString() : $"{lo}〜{hi}")}{unit}{natureText}";
+        // メガシンカ後の姿は、持ち物がメガストーンで確定している（範囲でない表記と揃える）
+        var itemText = foe.Pokemon.IsMega && foe.Low.Item is { } stone ? $" {stone.Name}" : "";
+        return $"{hp}{letter}{(lo == hi ? lo.ToString() : $"{lo}〜{hi}")}{unit}{natureText}{itemText}";
     }
 
     /// <summary>dmg の 1 つの想定（相手の情報があれば、耐久が最も低い／高い想定の構成）の結果の行。</summary>
