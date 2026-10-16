@@ -667,7 +667,7 @@ else if (data is not null && dataSet is not null)
                 {
                     var registered = RivalFor(s.Defender.Pokemon);
                     <div class="mt-2">
-                        <button type="button" class="btn btn-sm btn-primary" @onclick="() => RegisterRivalAsync(e)">@(registered is null ? "この推定を相手ポケモンに登録" : "この推定で絞り込む")</button>
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="() => RegisterRivalAsync(e)">@(registered is null ? "この推定を相手のポケモンに登録" : "この推定で絞り込む")</button>
                         @if (registered is not null)
                         {
                             <button type="button" class="btn btn-sm btn-outline-secondary ms-1" @onclick="() => RemoveRivalAsync(registered)">対戦中の相手から外す</button>
@@ -677,7 +677,7 @@ else if (data is not null && dataSet is not null)
                         {
                             <div class="small @(rivalMessageIsError ? "text-danger" : "text-success") mt-1">@rivalMessage</div>
                         }
-                        <div class="small text-muted mt-1">範囲のままでも登録できます。同じ相手を続けて推定すると、前の推定と重なる範囲に絞り込みます。登録した相手は、計算の画面とチャットの dmg で防御側に使われ、配信用BOTとも共有されます。試合が終わったら「相手ポケモン」のページ（チャットは clear -r）で履歴に移します。</div>
+                        <div class="small text-muted mt-1">範囲のままでも登録できます。同じ相手を続けて推定すると、前の推定と重なる範囲に絞り込みます。登録した相手は、計算の画面とチャットの dmg で防御側に使われ、配信用BOTとも共有されます。試合が終わったら「相手のポケモン」のページ（チャットは clear -r）で履歴に移します。</div>
                     </div>
                 }
                 <p class="small text-muted mt-2 mb-0">相手は持ち物なしとして計算しています。持ち物・特性・ランクが違うと結果が変わります。</p>
@@ -685,7 +685,7 @@ else if (data is not null && dataSet is not null)
         </div>
     };
 
-    // ---- 相手ポケモン（対戦中の相手。クラウドに保存し、配信用BOTとも共有する）
+    // ---- 相手のポケモン（対戦中の相手。クラウドに保存し、配信用BOTとも共有する）
 
     private List<RivalPokemon> rivals = new();
     private string rivalMessage = "";
@@ -753,7 +753,7 @@ else if (data is not null && dataSet is not null)
                 var created = rival is null;
                 if (rival is null)
                 {
-                    if (roster.Rivals.Count >= PokeCommand.MaxRivals) { tooMany = $"対戦中の相手が {PokeCommand.MaxRivals} 体います。「相手ポケモン」のページで試合を終えてください"; return (0, false); }
+                    if (roster.Rivals.Count >= PokeCommand.MaxRivals) { tooMany = $"対戦中の相手が {PokeCommand.MaxRivals} 体います。「相手のポケモン」のページで試合を終えてください"; return (0, false); }
                     rival = new RivalPokemon { Id = roster.NextRivalId++, PokemonId = pokemon.Id, PokemonName = pokemon.Name };
                     roster.Rivals.Add(rival);
                 }

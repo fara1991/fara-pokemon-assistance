@@ -573,8 +573,8 @@ public class PokeCommandTests
         var lines = calc.Message.Split('\n');
         Assert.Contains("ガブリアス", lines[0]);
         Assert.Contains("じしん → ハバタクカミ", lines[0]);
-        Assert.StartsWith("結果 B実数値:", lines[1]);
-        Assert.Contains("持ち物: 不明（なしとして推定）", lines[1]);
+        Assert.StartsWith("結果 ハバタクカミB実数値:", lines[1]);
+        Assert.EndsWith("持ち物: 不明", lines[1]);
         Assert.Contains("B補正無し: 0", lines[2]);
     }
 
@@ -698,6 +698,27 @@ public class PokeCommandTests
         Assert.False(result.Success);
         Assert.Contains("!pokech", result.Message);
     }
+
+    [Theory]
+    [InlineData("防:まひ", false)]
+    [InlineData("防御:まひ", false)]
+    [InlineData("B:まひ", false)]
+    [InlineData("まひ", false)]
+    [InlineData("攻:まひ", true)]
+    [InlineData("攻撃：まひ", true)]
+    [InlineData("A:まひ", true)]
+    [InlineData("自:まひ", true)]
+    public async Task Faster_paralysis_side_prefix_spellings(string token, bool mine)
+    {
+        var cmd = NewCommand(out _);
+        Assert.True((await cmd.ExecuteAsync("!pokesv add -m ガブリアス 4 252 0 0 0 252 ようき")).Success);
+        var reply = await cmd.ExecuteAsync($"!pokesv faster ガブリアス ハバタクカミ {token}");
+        Assert.True(reply.Success, reply.Message);
+        // 相手がまひのときは 1 行目に (まひ)、自分がまひのときは結果の行に まひ(0.5倍) が出る
+        Assert.Equal(!mine, reply.Message.Split((char)10)[0].Contains("(まひ)"));
+        Assert.Equal(mine, reply.Message.Contains("まひ(0.5倍)"));
+    }
+
 }
 
 public class DataSourceTests
@@ -965,6 +986,39 @@ public class GimmickAndFormTests
         Assert.True(result.Request!.Defender.IsDynamax);
         Assert.False(result.Request.Attacker.IsDynamax);
         Assert.Contains("ダイマックス", result.Message);
+    }
+
+    [Theory]
+    [InlineData("防：ダイマ")]
+    [InlineData("防御:ダイマ")]
+    [InlineData("防御：ダイマ")]
+    [InlineData("ぼうぎょ：ダイマ")]
+    [InlineData("B：ダイマ")]
+    [InlineData("d:ダイマ")]
+    [InlineData("DEF:ダイマ")]
+    public async Task Defender_prefix_spellings_are_accepted_by_the_damage_command_itself(string token)
+    {
+        // PokeCommand 経由だと全角の「：」は先に半角へそろえられるので、DamageCommand を直接呼んで確かめる
+        var command = new DamageCommand(TestData.Catalog());
+        var result = await command.ExecuteAsync($"ガブリアス じしん リザードン {token}", new DamageCommandOptions { DataSetKey = "Gen8" });
+        Assert.True(result.Success, result.Message);
+        Assert.True(result.Request!.Defender.IsDynamax);
+        Assert.False(result.Request.Attacker.IsDynamax);
+    }
+
+    [Theory]
+    [InlineData("攻：ダイマ")]
+    [InlineData("攻撃:ダイマ")]
+    [InlineData("こうげき：ダイマ")]
+    [InlineData("A：ダイマ")]
+    [InlineData("ATK:ダイマ")]
+    public async Task Attacker_prefix_spellings_are_accepted_by_the_damage_command_itself(string token)
+    {
+        var command = new DamageCommand(TestData.Catalog());
+        var result = await command.ExecuteAsync($"ガブリアス じしん リザードン {token}", new DamageCommandOptions { DataSetKey = "Gen8" });
+        Assert.True(result.Success, result.Message);
+        Assert.True(result.Request!.Attacker.IsDynamax);
+        Assert.False(result.Request.Defender.IsDynamax);
     }
 
     [Fact]

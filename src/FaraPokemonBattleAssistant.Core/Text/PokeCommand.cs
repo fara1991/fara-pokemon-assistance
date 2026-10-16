@@ -120,7 +120,7 @@ public sealed partial class PokeCommand
         if (tokens.Count == 0) return Fail(Usage(ds.CommandPrefix));
         var sub = tokens[0].ToLowerInvariant();
         var args = tokens.Skip(1).ToList();
-        // 対象はオプションで指定する: -m / --my（自分のポケモン）、-t / --team（チーム）、-r / --rival（相手ポケモン）、-h / --history（試合の履歴）。サブコマンドの直後に置く
+        // 対象はオプションで指定する: -m / --my（自分のポケモン）、-t / --team（チーム）、-r / --rival（相手のポケモン）、-h / --history（試合の履歴）。サブコマンドの直後に置く
         var isTeam = args.Count > 0 && (args[0].Equals("-t", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--team", StringComparison.OrdinalIgnoreCase));
         var isPokemon = args.Count > 0 && (args[0].Equals("-m", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--my", StringComparison.OrdinalIgnoreCase));
         var isRival = args.Count > 0 && (args[0].Equals("-r", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--rival", StringComparison.OrdinalIgnoreCase));
@@ -188,7 +188,7 @@ public sealed partial class PokeCommand
         if (specError is not null) return Fail(specError);
         if (specs.Count != 1) return Fail("自分のポケモンは 1 体ずつ登録してください");
         var spec = specs[0];
-        if (spec.Picked) return Fail("「選出」は相手ポケモン（-r）にだけ付けられます");
+        if (spec.Picked) return Fail("「選出」は相手のポケモン（-r）にだけ付けられます");
         if (spec.Evs.Count == 0) return Fail(usageText);
         if (spec.Nature is null) return Fail($"性格を書いてください（名前か B↑A↓ のように）。{usageText}");
 
@@ -361,7 +361,7 @@ public sealed partial class PokeCommand
         if (RegisteredOnlyError(ds, data, args[0], provider, "攻撃側") is { } notRegistered) return Fail(notRegistered);
         var text = string.Join(" ", args);
 
-        // まず相手の情報なし（既定）で計算して、相手ポケモンと技（B か D か）を確かめる
+        // まず相手の情報なし（既定）で計算して、相手のポケモンと技（B か D か）を確かめる
         var probe = await DamageScenarioAsync(ds, data, args, text, options, provider, null, useHigh: false, ct).ConfigureAwait(false);
         if (probe.Failure is not null) return probe.Failure;
         var request = probe.Request!;
@@ -565,7 +565,7 @@ public sealed partial class PokeCommand
     private static bool MentionsAbility(IEnumerable<string> args, PokemonDataSet data, Pokemon pokemon)
     {
         var names = new HashSet<string>(data.AbilitiesOf(pokemon).Select(a => NameNormalizer.Normalize(a.Name)));
-        return args.Any(a => names.Contains(NameNormalizer.Normalize(a.Replace("防:", "").Replace("攻:", ""))));
+        return args.Any(a => names.Contains(NameNormalizer.Normalize(DamageCommand.SplitSide(a).Remainder)));
     }
 
     private async Task<DamageCommandResult> DiffAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
@@ -592,8 +592,15 @@ public sealed partial class PokeCommand
             var n = NameNormalizer.Normalize(token);
             var (_, rank) = DamageCommand.SplitRankSuffix("x" + token);
             if (rank != 0 && token.Length <= 2) { mine.Boosts[Stat.Speed] = rank; continue; }
-            if (n is "まひ" or "相手まひ" or "相手:まひ" or "防:まひ") { opponentParalyzed = true; continue; }
-            if (n is "自まひ" or "自分まひ" or "自:まひ" or "攻:まひ" or "自分:まひ") { mine.Status = StatusCondition.Paralysis; continue; }
+            // 「防:まひ」「防御:まひ」「B:まひ」は相手、「攻:まひ」「攻撃:まひ」「A:まひ」は自分
+            var (paralysisSide, paralysisRemainder) = DamageCommand.SplitSide(token);
+            if (NameNormalizer.Normalize(paralysisRemainder) == "まひ" && paralysisSide is { } who)
+            {
+                if (who) mine.Status = StatusCondition.Paralysis; else opponentParalyzed = true;
+                continue;
+            }
+            if (n is "まひ" or "相手まひ" or "相手:まひ") { opponentParalyzed = true; continue; }
+            if (n is "自まひ" or "自分まひ" or "自:まひ" or "自分:まひ") { mine.Status = StatusCondition.Paralysis; continue; }
             if (n is "晴れ" or "はれ") weather = Weather.Sun;
             else if (n is "雨" or "あめ") weather = Weather.Rain;
             else if (n is "砂" or "すなあらし" or "砂嵐") weather = Weather.Sand;

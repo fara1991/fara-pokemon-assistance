@@ -55,7 +55,7 @@ fara-pokemon-battle-assistant/
 接頭辞でデータセットを選びます: **`!pokech`** = ポケモンチャンピオンズ、**`!pokesv`** = スカーレット・バイオレット、**`!pokess`** = ソード・シールド（`!poke` はチャンピオンズ扱い）。
 `!poke help` で使えるコマンドの一覧が返ります。登録・削除・使用チームの変更は配信者本人とモデレーターだけに許可する想定です（`PokeCommandOptions.AllowMutations`）。
 登録データは配信用BOTなら PC 上の JSON、ブラウザなら localStorage に保存され、データセットごとに独立しています。
-サイトの「データ共有」ページ（`/data-share`。ポケモン登録は `/my-pokemon`、チーム登録は `/my-team`。以前の `/data-sync`・`/sync`・`/pokemon`・`/roster`・`/team`・`/my-teams` などは新しい URL に転送）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末や配信用BOTが同じデータを読み書きできます（データ共有中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。配信用BOT側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
+サイトの「データ共有」ページ（`/data-share`。自分のポケモンは `/my-pokemon`、チームは `/my-team`。以前の `/data-sync`・`/sync`・`/pokemon`・`/roster`・`/team`・`/my-teams` などは新しい URL に転送）でアクセスキーを作ると、登録データをクラウドに保存し、同じアクセスキーを入れた別のブラウザ・端末や配信用BOTが同じデータを読み書きできます（データ共有中はクラウドだけが正で、ブラウザにはアクセスキーだけを保存します。配信用BOT側は `RemoteRosterStore`。[docs/bot-integration.md](docs/bot-integration.md)）。
 
 ### 育成済みポケモンの登録（`-m` / `--my`）
 
@@ -91,9 +91,9 @@ fara-pokemon-battle-assistant/
 | `unuse -t` | 使用チームを解除する |
 | `ls -t` / `detail -t 番号` | チーム一覧 / 詳細 |
 
-### 相手ポケモン（`-r` / `--rival`）と履歴（`-h` / `--history`）
+### 相手のポケモン（`-r` / `--rival`）と履歴（`-h` / `--history`）
 
-対戦中の相手を登録します（同じポケモンは 1 体、6 体まで）。名前だけ登録しておき、分かった部分から埋めていきます。登録データと同じ保存先（クラウド・ローカル）に入るので、サイトとBOTで共有されます。サイトの「相手ポケモン」ページ（`/my-rival`）でも同じ操作ができます。
+対戦中の相手を登録します（同じポケモンは 1 体、6 体まで）。名前だけ登録しておき、分かった部分から埋めていきます。登録データと同じ保存先（クラウド・ローカル）に入るので、サイトとBOTで共有されます。サイトの「相手のポケモン」ページ（`/my-rival`）でも同じ操作ができます。
 
 | コマンド | 内容 |
 |---|---|
@@ -121,7 +121,7 @@ fara-pokemon-battle-assistant/
 | 書き方 | 意味 |
 |---|---|
 | `A252` `C252` `S4` / `H252` `B4` `D252` | 攻撃側 / 防御側の努力値（チャンピオンズはポイント） |
-| 性格名、持ち物名、特性名 | 持てる側・自然な側に付く。`攻:` / `防:` で明示（例: `防:ずぶとい` `防:持ち物なし`） |
+| 性格名、持ち物名、特性名 | 持てる側・自然な側に付く。`攻:` / `防:` で明示（例: `防:ずぶとい` `防:持ち物なし`。`攻撃:` `防御:` `こうげき:` `ぼうぎょ:` `A:` `B:` `C:` `D:` や全角の「：」も可。英字は攻撃側・防御側の指定だけで、ランクなどが効く能力は技の分類で決まります） |
 | `+1`〜`+6` / `-1`〜`-6` | 攻撃側の攻撃ランク（技名に直接 `じしん+2` とも書ける） |
 | `急所` `ダブル` `シングル` `無振り` `持ち物なし` | そのまま |
 | `壁` | 防御側の場にリフレクター / ひかりのかべ（オーロラベール）。0.5 倍、ダブルは 2732/4096。急所・すりぬけは無視 |
@@ -208,8 +208,8 @@ npm run test:worker                                      # データ共有 API�
 | `PUT /api/my/pokemon` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"pokemon": [...], "nextId": n}}}`（`nextId` は省略可）。書いたゲームのポケモンだけを置き換え、**同じ処理の中で**、消えたポケモンをそのゲームのすべてのチームから外し、0 体になったチームを消し、使用中のチームが消えたら使用中を解除します。成功で `200 {"revision": n+1}` |
 | `GET /api/my/team` | `200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}, ...}}` |
 | `PUT /api/my/team` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}}}`。書いたゲームのチームと使用中チームだけを置き換えます。登録に無いポケモン・7 体以上・0 体のチーム・同じチーム番号や同じポケモンの重複・無いチームを使用中にする、は `400`（`message` に理由）で、何も保存しません。成功で `200 {"revision": n+1}` |
-| `GET /api/my/rival` | `200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "rivals": [...], "nextMatchId": n, "history": [...]}, ...}}`（対戦中の相手ポケモンと、終わった試合の履歴） |
-| `PUT /api/my/rival` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"rivals": [...], "nextId"?: n, "history": [...], "nextMatchId"?: n}}}`。書いたゲームの相手ポケモンと履歴だけを置き換えます（ID は使い回しません）。`409` は `GET` と同じ形で現在の内容を返します |
+| `GET /api/my/rival` | `200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "rivals": [...], "nextMatchId": n, "history": [...]}, ...}}`（対戦中の相手のポケモンと、終わった試合の履歴） |
+| `PUT /api/my/rival` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"rivals": [...], "nextId"?: n, "history": [...], "nextMatchId"?: n}}}`。書いたゲームの相手のポケモンと履歴だけを置き換えます（ID は使い回しません）。`409` は `GET` と同じ形で現在の内容を返します |
 | `DELETE /api/my/access-key` | このアクセスキーを使えなくし、その置き場を消す（キーの作り直し用）。`204`。以後そのキーはすべての API で `410` |
 
 - `revision` は登録データ全体で 1 つです（どちらの PUT でも増えます）。`baseRevision` が現在と違えば `409 {"revision": 現在, "dataSets": そのリソースの現在の内容}` なので、読み直してからやり直してください。両方を読むときは 2 回の GET の `revision` が同じことを確かめ、違えば読み直します

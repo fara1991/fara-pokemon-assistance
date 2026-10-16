@@ -4,7 +4,7 @@ using Xunit;
 
 namespace FaraPokemonBattleAssistant.Core.Tests;
 
-/// <summary>相手ポケモン（対戦中の相手と、試合ごとの履歴）の保存。</summary>
+/// <summary>相手のポケモン（対戦中の相手と、試合ごとの履歴）の保存。</summary>
 public class RivalRosterTests
 {
     private const string Ds = "Champions";
@@ -69,7 +69,7 @@ public class RivalRosterTests
         await repo.EndMatchAsync(Ds, "1 試合目", DateTimeOffset.Now);
         await repo.ChangeRivalsAsync(Ds, roster => { roster.Rivals.Add(Rival(roster.NextRivalId++, "ハバタクカミ", r => r.Speed = 32)); return (0, true); });
 
-        // クラウドには相手ポケモンの API だけで保存される
+        // クラウドには相手のポケモンの API だけで保存される
         Assert.Equal(new[] { "/api/my/rival", "/api/my/rival", "/api/my/rival" },
             server.Requests.Where(r => r.Method == HttpMethod.Put).Select(r => r.RequestUri!.AbsolutePath));
         var saved = server.State.For(Ds);
@@ -92,7 +92,7 @@ public class RivalRosterTests
         var server = new FakeRosterServer { ExpectedKey = Key };
         server.RosterJson = RosterRepository.Serialize(new RosterState { DataSets = { [Ds] = new DataSetRoster { Pokemon = { new RegisteredPokemon { Id = 1, PokemonName = "ガブリアス" } }, NextId = 2 } } });
         server.Revision = 1;
-        // 相手ポケモンの API が無い古いサーバー（404）
+        // 相手のポケモンの API が無い古いサーバー（404）
         server.Override = request => request.RequestUri!.AbsolutePath == "/api/my/rival" ? FakeRosterServer.Json(HttpStatusCode.NotFound, "{}") : null;
         var repo = new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
         var state = (await repo.GetAsync()).For(Ds);

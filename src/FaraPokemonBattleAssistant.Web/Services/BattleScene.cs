@@ -33,10 +33,10 @@ public sealed record DamageScene(
     string? CritKnockOut,
     bool CritKnockOutGuaranteed) : BattleScene;
 
-/// <summary>ポケモン登録で選んでいる技 1 つ。</summary>
+/// <summary>自分のポケモンで選んでいる技 1 つ。</summary>
 public sealed record MoveSlot(string Name, string Type, int Power);
 
-/// <summary>ポケモン登録の入力中の内容。登録するポケモンが自分側（左下）、選んだ技（最大 4 つ）が右下に出る。相手側は背景に立っている相手。</summary>
+/// <summary>自分のポケモンの入力中の内容。登録するポケモンが自分側（左下）、選んだ技（最大 4 つ）が右下に出る。相手側は背景に立っている相手。</summary>
 public sealed record RegisterScene(string MineName, int MaxHp, IReadOnlyList<MoveSlot> Moves) : BattleScene
 {
     // 技の一覧は参照ではなく中身で比べる（同じ内容なら描き直さない）

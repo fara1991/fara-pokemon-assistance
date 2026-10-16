@@ -12,7 +12,7 @@ public enum RosterPart
     Pokemon,
     /// <summary>チームと使用中チーム。</summary>
     Teams,
-    /// <summary>相手ポケモン（対戦中の相手と、試合ごとの履歴）。</summary>
+    /// <summary>相手のポケモン（対戦中の相手と、試合ごとの履歴）。</summary>
     Rival,
 }
 
@@ -141,7 +141,7 @@ public sealed class RivalScan
     public List<string> Notes { get; set; } = new();
 }
 
-/// <summary>対戦中の相手ポケモン。同じポケモンは 1 体だけ。分かった部分だけを持つ（null は不明）。</summary>
+/// <summary>対戦中の相手のポケモン。同じポケモンは 1 体だけ。分かった部分だけを持つ（null は不明）。</summary>
 public sealed class RivalPokemon
 {
     public int Id { get; set; }
@@ -189,7 +189,7 @@ public sealed class RivalPokemon
     };
 }
 
-/// <summary>終わった試合の記録（試合ごとの、そのとき分かった相手ポケモン）。</summary>
+/// <summary>終わった試合の記録（試合ごとの、そのとき分かった相手のポケモン）。</summary>
 public sealed class RivalMatch
 {
     public int Id { get; set; }
@@ -217,7 +217,7 @@ public sealed class DataSetRoster
     public List<RegisteredPokemon> Pokemon { get; set; } = new();
     public List<Team> Teams { get; set; } = new();
     public int? ActiveTeam { get; set; }
-    /// <summary>対戦中の相手ポケモン（同じポケモンは 1 体）。</summary>
+    /// <summary>対戦中の相手のポケモン（同じポケモンは 1 体）。</summary>
     public int NextRivalId { get; set; } = 1;
     public List<RivalPokemon> Rivals { get; set; } = new();
     /// <summary>終わった試合の記録（上限なし）。</summary>
@@ -363,10 +363,10 @@ public sealed class RosterRepository
         }
     }
 
-    // ---- 相手ポケモン（対戦中の相手と、試合ごとの履歴）
+    // ---- 相手のポケモン（対戦中の相手と、試合ごとの履歴）
 
     /// <summary>
-    /// 相手ポケモンを読んで変更する（<paramref name="apply"/> が (結果, 変更したか) を返す。クラウドでは競合したら読み直して何度か呼ばれる）。
+    /// 相手のポケモンを読んで変更する（<paramref name="apply"/> が (結果, 変更したか) を返す。クラウドでは競合したら読み直して何度か呼ばれる）。
     /// 登録 ID は <see cref="DataSetRoster.NextRivalId"/> から振る。
     /// </summary>
     public Task<T> ChangeRivalsAsync<T>(string dataSetKey, Func<DataSetRoster, (T Result, bool Changed)> apply, CancellationToken ct = default) =>

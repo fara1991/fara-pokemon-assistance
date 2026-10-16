@@ -3,17 +3,17 @@
 @using FaraPokemonBattleAssistant.Core.Roster
 @inject BattleStage Stage
 
-<PageTitle>ポケモン登録 | Pokémon Battle Assistant</PageTitle>
+<PageTitle>自分のポケモン | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>ポケモン登録 <Help Title="ポケモン登録">育成済みのポケモン（努力値・性格・特性）を登録します。登録したポケモンは、ダメージ計算機・素早さ比較の「登録から選ぶ」や、チーム登録・チャットコマンドで使えます。データはゲームごとに分かれています。</Help></h3>
-    <p class="text-muted mb-0">登録したポケモンは、チームに入れると計算に自動で使われます（<a href="my-team">チーム登録</a>）。</p>
+    <h3>自分のポケモン <Help Title="自分のポケモン">育成済みのポケモン（努力値・性格・特性）を登録します。登録したポケモンは、ダメージ計算機・素早さ比較の「登録から選ぶ」や、チーム・チャットコマンドで使えます。データはゲームごとに分かれています。</Help></h3>
+    <p class="text-muted mb-0">登録したポケモンは、チームに入れると計算に自動で使われます（<a href="my-team">チーム</a>）。</p>
     <RegistrationStorageNote />
 </div>
 
 @if (dataSet is { CalcSupported: false })
 {
-    <CalcUnsupported DataSet="dataSet" Feature="ポケモン登録" />
+    <CalcUnsupported DataSet="dataSet" Feature="「自分のポケモン」ページ" />
 }
 else if (data is not null && roster is not null && dataSet is not null)
 {
