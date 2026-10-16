@@ -3423,9 +3423,11 @@ html.vt-nav .sidebar {
 
 /* 持ち物のアイコン＋名前 */
 .item-label { display: inline-flex; align-items: center; gap: 0.2rem; vertical-align: middle; }
-.item-icon { width: 2.25rem; height: 2.25rem; image-rendering: pixelated; }
+/* アイコンの場所は、画像が無い持ち物でも同じ幅で空ける（名前の位置をそろえる） */
+.item-icon-slot { display: inline-block; flex: none; width: 2.25rem; height: 2.25rem; }
+.item-icon { width: 100%; height: 100%; image-rendering: pixelated; }
 /* 検索入力の候補・固定欄の中では、行の高さに合わせて小さくする */
-.searchable-select-item .item-icon, .fixed-field .item-icon { width: 1.75rem; height: 1.75rem; }
+.searchable-select-item .item-icon-slot, .fixed-field .item-icon-slot { width: 1.75rem; height: 1.75rem; }
 .searchable-select-item .item-label, .fixed-field .item-label { gap: 0.4rem; }
 
 /* 連続技・おやこあい: HP バーの下の「何回当たったか」の目印（押すと切り替わる） */
