@@ -27,8 +27,10 @@ public sealed partial class PokeCommand
         public Ability? Ability { get; set; }
         /// <summary>「選出」と書いた（試合に出てきた）。</summary>
         public bool Picked { get; set; }
+        /// <summary>相手が使った（見えた）技。</summary>
+        public List<Move> Moves { get; } = new();
 
-        public bool HasInfo => Evs.Count > 0 || Nature is not null || Ability is not null || Picked;
+        public bool HasInfo => Evs.Count > 0 || Nature is not null || Ability is not null || Picked || Moves.Count > 0;
     }
 
     /// <summary>
@@ -115,6 +117,17 @@ public sealed partial class PokeCommand
                     continue;
                 }
             }
+            // 技（直前のポケモンが覚える技。使った技として最大 4 つまで）
+            if (current is not null)
+            {
+                var move = new NameResolver<Move>(data.LearnableMoves(current.Pokemon.Id), m => m.Name).Resolve(token);
+                if (move.IsResolved)
+                {
+                    if (current.Moves.All(m => m.Id != move.Value!.Id)) current.Moves.Add(move.Value!);
+                    if (current.Moves.Count > RegisteredPokemon.MaxMoves) return (specs, $"{current.Pokemon.Name}の技は {RegisteredPokemon.MaxMoves} つまでです");
+                    continue;
+                }
+            }
             // 次のポケモン
             var pokemon = pokemonResolver.Resolve(token);
             if (pokemon.IsResolved)
@@ -123,7 +136,7 @@ public sealed partial class PokeCommand
                 continue;
             }
             return (specs, current is null ? NotFound("ポケモン", token, pokemon.Candidates.Select(p => p.Name))
-                : $"「{token}」が{current.Pokemon.Name}の振り方・性格・特性・次のポケモン名として読めません");
+                : $"「{token}」が{current.Pokemon.Name}の振り方・性格・特性・技・次のポケモン名として読めません");
         }
         // ポイントの検証
         foreach (var spec in specs)
@@ -153,6 +166,9 @@ public sealed partial class PokeCommand
         if (spec.Evs.TryGetValue(Stat.SpDefense, out var spd)) rival.SpDefense = spd;
         if (spec.Evs.TryGetValue(Stat.Speed, out var spe)) rival.Speed = spe;
         if (spec.Picked) rival.Picked = true;
+        // 技は、書いたものを足す（前に見えた技は消さない。4 つまで）
+        foreach (var move in spec.Moves)
+            if (!rival.MoveIds.Contains(move.Id) && rival.MoveIds.Count < RegisteredPokemon.MaxMoves) rival.MoveIds.Add(move.Id);
         if (spec.Nature is not null) rival.Nature = spec.Nature.Name;
         if (spec.Ability is not null) rival.AbilityId = spec.Ability.Id;
         rival.Updated = now.ToString("o");
@@ -268,16 +284,15 @@ public sealed partial class PokeCommand
         return removed ? Ok($"{match.Value!.Name}を対戦中の相手から外しました（履歴には残しません）") : Fail($"{match.Value!.Name}は対戦中の相手にいません");
     }
 
-    /// <summary>end [メモ]: 試合を終える。何か分かっている相手だけ履歴に移し、対戦中の相手は空にする。</summary>
+    /// <summary>end [メモ]: 試合を終える。対戦中の相手を全員（名前だけの相手も）履歴に移し、対戦中の相手は空にする。</summary>
     private async Task<DamageCommandResult> EndMatchAsync(DataSetInfo ds, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("試合の終了は配信者・モデレーターのみ行えます");
         var ended = await _roster.EndMatchAsync(ds.Key, string.Join(" ", args), DateTimeOffset.Now, ct).ConfigureAwait(false);
         if (ended.Match is null)
-            return Ok(ended.Dropped == 0 ? "対戦中の相手はいません" : $"対戦中の相手 {ended.Dropped} 体は名前だけだったので、履歴には移さず空にしました");
-        var dropped = ended.Dropped > 0 ? $"（名前だけの {ended.Dropped} 体は移していません）" : "";
+            return Ok("対戦中の相手はいません");
         var memo = ended.Match.Memo.Length > 0 ? $" 「{ended.Match.Memo}」" : "";
-        return Ok($"試合を終えました。履歴 #{ended.Match.Id}{memo} に {ended.Moved} 体を移しました{dropped}: {string.Join("・", ended.Match.Foes.Select(f => f.PokemonName))}");
+        return Ok($"試合を終えました。履歴 #{ended.Match.Id}{memo} に {ended.Moved} 体を移しました: {string.Join("・", ended.Match.Foes.Select(f => f.Picked ? $"{f.PokemonName}(選出)" : f.PokemonName))}");
     }
 
     /// <summary>clear -r: 対戦中の相手の登録を全部解除する（履歴には残さない）。</summary>
@@ -391,6 +406,8 @@ public sealed partial class PokeCommand
         if (exact.Count > 0) parts.Add(string.Join("", exact));
         if (r.Nature is { } nature) parts.Add(data.FindNature(nature)?.Summary() ?? nature);
         if (r.AbilityId is { } aid && data.FindAbility(aid) is { } ability) parts.Add(ability.Name);
+        var moveNames = r.MoveIds.Select(id => data.FindMove(id)?.Name).Where(n => n is not null).ToList();
+        if (moveNames.Count > 0) parts.Add("技:" + string.Join("/", moveNames));
         foreach (var scan in r.Scans)
         {
             var letter = scan.Defense == nameof(Stat.Defense) ? "B" : "D";

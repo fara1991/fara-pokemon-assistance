@@ -31,11 +31,11 @@ public class RivalRosterTests
         });
 
         var ended = await repo.EndMatchAsync(Ds, "  テスト戦  ", new DateTimeOffset(2026, 10, 16, 10, 0, 0, TimeSpan.FromHours(9)));
-        Assert.Equal(3, ended.Moved);
-        Assert.Equal(1, ended.Dropped);
+        // 名前だけの相手も含めて、全員が履歴に移る
+        Assert.Equal(4, ended.Moved);
         Assert.NotNull(ended.Match);
         Assert.Equal("テスト戦", ended.Match!.Memo);
-        Assert.Equal(new[] { "ポイントだけ", "推定した", "特性だけ" }, ended.Match.Foes.Select(f => f.PokemonName));
+        Assert.Equal(new[] { "名前だけ", "ポイントだけ", "推定した", "特性だけ" }, ended.Match.Foes.Select(f => f.PokemonName));
 
         var roster = (await repo.GetAsync()).For(Ds);
         Assert.Empty(roster.Rivals);
@@ -43,11 +43,9 @@ public class RivalRosterTests
         Assert.Equal(5, roster.NextRivalId);   // ID は使い回さない
         Assert.Equal(2, roster.NextMatchId);
 
-        // 履歴に移すものが無ければ、履歴は作らない（試合を終えたことにして、相手は空にする）
-        await repo.ChangeRivalsAsync(Ds, r => { r.Rivals.Add(Rival(r.NextRivalId++, "名前だけ")); return (0, true); });
+        // 対戦中の相手がいなければ、履歴は作らない
         var empty = await repo.EndMatchAsync(Ds, null, DateTimeOffset.Now);
         Assert.Null(empty.Match);
-        Assert.Equal(1, empty.Dropped);
         Assert.Single((await repo.GetAsync()).For(Ds).History);
     }
 

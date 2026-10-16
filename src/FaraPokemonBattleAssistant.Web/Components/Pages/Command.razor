@@ -1,5 +1,6 @@
 @page "/chat-commands"
 @inherits AppPageBase
+@using FaraPokemonBattleAssistant.Core.Roster
 @inject DataCatalog Catalog
 @inject PokeCommand Poke
 @inject FaraPokemonBattleAssistant.Core.Roster.RosterRepository Repo
@@ -61,6 +62,23 @@ else if (data is not null)
                                 SelectedValue="@(s.Rivals[idx]?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { s.Rivals[idx] = data.FindPokemon(ParseId(v)); BuildText(); })" Placeholder="例: カイリュー">
                                 <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /></ItemTemplate>
                             </SearchableSelect>
+                        </div>
+                    }
+                }
+                @if (Has(Field.Moves))
+                {
+                    @for (var i = 0; i < RegisteredPokemon.MaxMoves; i++)
+                    {
+                        var idx = i;
+                        <div class="cmd-f-ability">
+                            <label class="form-label">@($"見えた技 {idx + 1}（任意）")</label>
+                            <select class="form-select" value="@s.RivalMoves[idx]" @onchange="@(e => { s.RivalMoves[idx] = e.Value?.ToString() ?? ""; BuildText(); })">
+                                <option value="">指定しない</option>
+                                @if (s.Subject is not null)
+                                {
+                                    @foreach (var mv in data.LearnableMoves(s.Subject.Id)) { <option value="@mv.Name">@mv.Name</option> }
+                                }
+                            </select>
                         </div>
                     }
                 }
@@ -355,6 +373,8 @@ else if (data is not null)
         public Pokemon? Subject { get; set; }
         /// <summary>add -r で登録する相手（最大 6 体）。</summary>
         public Pokemon?[] Rivals { get; } = new Pokemon?[6];
+        /// <summary>set -r で足す、相手が使った技（名前）。</summary>
+        public string[] RivalMoves { get; } = new string[RegisteredPokemon.MaxMoves] { "", "", "", "" };
         public string[] Evs { get; set; } = new string[6] { "", "", "", "", "", "" };
         public string NatureName { get; set; } = "";
         public string AbilityName { get; set; } = "";
@@ -442,7 +462,7 @@ else if (data is not null)
 
     // ---- 種類ごとの入力欄 ----
 
-    private enum Field { Subject, Rivals, Evs, Nature, Ability, EntryId, TeamNo, TeamItem, Attacker, Move, Defender, Weather, Terrain, Damage, Options, Memo }
+    private enum Field { Subject, Rivals, Moves, Evs, Nature, Ability, EntryId, TeamNo, TeamItem, Attacker, Move, Defender, Weather, Terrain, Damage, Options, Memo }
 
     /// <summary>ポケモンの欄の見出し（必須か任意か）。</summary>
     private string SubjectLabel => s.Kind switch
@@ -472,7 +492,7 @@ else if (data is not null)
             new("ls -t", "ls -t（一覧）", "チーム", Array.Empty<Field>()),
             new("detail -t", "detail -t（詳細）", "チーム", new[] { Field.TeamNo }),
             new("add -r", "add -r（登録）", "相手のポケモン", new[] { Field.Rivals }),
-            new("set -r", "set -r（更新）", "相手のポケモン", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability }),
+            new("set -r", "set -r（更新）", "相手のポケモン", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability, Field.Moves }),
             new("ls -r", "ls -r（一覧）", "相手のポケモン", Array.Empty<Field>()),
             new("detail -r", "detail -r（詳細）", "相手のポケモン", new[] { Field.Subject }),
             new("rm -r", "rm -r（外す）", "相手のポケモン", new[] { Field.Subject }),
@@ -535,6 +555,7 @@ else if (data is not null)
             case "set -r":
                 parts.Add(s.Subject?.Name ?? "名前");
                 AddSpecParts(parts);
+                parts.AddRange(s.RivalMoves.Where(m => !string.IsNullOrWhiteSpace(m)).Distinct());
                 break;
             case "detail -r":
             case "rm -r":
@@ -614,6 +635,17 @@ else if (data is not null)
         }
     }
 
+    /// <summary>set -r 用: 名前の後ろに書かれた、相手が覚える技を読み取って欄に入れる。</summary>
+    private void ParseRivalMoves(List<string> tokens)
+    {
+        Array.Fill(s.RivalMoves, "");
+        if (s.Subject is null) return;
+        var learnable = data!.LearnableMoves(s.Subject.Id);
+        var n = 0;
+        foreach (var token in tokens)
+            if (n < s.RivalMoves.Length && learnable.FirstOrDefault(m => m.Name == token) is { } mv && !s.RivalMoves.Contains(mv.Name)) s.RivalMoves[n++] = mv.Name;
+    }
+
     private void OnInput(ChangeEventArgs e)
     {
         s.Input = e.Value?.ToString() ?? "";
@@ -677,6 +709,7 @@ else if (data is not null)
             case "set -r":
                 s.Subject = PokemonAt(0);
                 ParseSpecTokens(tokens.Skip(1).ToList());
+                ParseRivalMoves(tokens.Skip(1).ToList());
                 return;
             case "detail -h":
             case "rm -h":
@@ -857,8 +890,8 @@ else if (data is not null)
             new[] { $"{p} set -m 1 H2 A32 S32 ようき", $"{p} set -m ガブリアス B↑A↓", $"{p} set --my 1 B↑A↓ 特性" });
         yield return new($"{p} add -r <名前> [<名前> …] [<振り方>] [<性格>] [<特性>]", "相手のポケモン", "対戦中の相手ポケモンを登録（6 体まで。同じポケモンは 1 体で、2 回目以降は更新）。名前だけでもよく、選出画面の 6 体をまとめて登録できる。振り方は H32 D10 や 6 つの数字（H A B C D S）、性格は名前か B↑A↓",
             new[] { $"{p} add -r カイリュー ミミッキュ ドドゲザン", $"{p} add -r カイリュー H4 D32 おだやか マルチスケイル", $"{p} add --rival カイリュー" });
-        yield return new($"{p} set -r <名前> [<振り方>] [<性格>] [<特性>]", "相手のポケモン", "登録済みの相手の、書いた項目だけを更新（まだなら登録）。書いた能力だけ更新し、書いていない能力は今のまま（scan の推定も消えません）。「選出」で選出に、メガシンカした姿の名前で姿を変える",
-            new[] { $"{p} set -r カイリュー H4 D32", $"{p} set --rival カイリュー B↑A↓ マルチスケイル", $"{p} set -r カイリュー 選出", $"{p} set -r メガリザードンX" });
+        yield return new($"{p} set -r <名前> [<振り方>] [<性格>] [<特性>]", "相手のポケモン", "登録済みの相手の、書いた項目だけを更新（まだなら登録）。書いた能力だけ更新し、書いていない能力は今のまま（scan の推定も消えません）。相手が使った技を書くと、4 つまで覚えて履歴に残る。「選出」で選出に、メガシンカした姿の名前で姿を変える",
+            new[] { $"{p} set -r カイリュー H4 D32", $"{p} set --rival カイリュー B↑A↓ マルチスケイル", $"{p} set -r カイリュー しんそく じしん", $"{p} set -r カイリュー 選出", $"{p} set -r メガリザードンX" });
         yield return new($"{p} scan <攻撃側> <技>[<±ランク>] <相手> <受けたダメージ> [<オプション>]", "対戦", "【攻撃側は登録済みのポケモンが必須】受けた（与えた）ダメージから相手の防御の振り方と性格補正を推定し、相手ポケモンに反映する（登録していなければ自動で登録。同じ相手を続けて推定すると、前の推定と重なる範囲に絞り込む）。93 なら実数、45% なら割合（H も推定）。以降の dmg で、範囲のときは「B（特殊技なら D）最小想定」「最大想定」の 2 行を出す",
             new[] { $"{p} scan ガブリアス じしん リザードン 93", $"{p} scan ガブリアス じしん リザードン 45% サイコフィールド" });
         yield return new($"{p} ls -r", "相手のポケモン", "対戦中の相手の一覧（分かっている振り方・推定の範囲つき）", new[] { $"{p} ls -r", $"{p} ls --rival" });
@@ -866,7 +899,7 @@ else if (data is not null)
         yield return new($"{p} rm -r <名前>", "相手のポケモン", "登録ミスなどの取り消し（履歴には残さない）", new[] { $"{p} rm -r カイリュー", $"{p} rm --rival カイリュー" });
         yield return new($"{p} clear -r", "相手のポケモン", "対戦中の相手の登録を全員解除する（履歴には残さない）。試合を終えて履歴に残すときは end を使う",
             new[] { $"{p} clear -r", $"{p} clear --rival" });
-        yield return new($"{p} end [<メモ>]", "対戦", "試合を終える。選出した相手と、何か分かっている相手（推定・ポイント・性格・特性）を履歴に移し、対戦中の相手を空にする（名前だけで選出もしていない相手は移さない）。メモを付けられる",
+        yield return new($"{p} end [<メモ>]", "対戦", "試合を終える。対戦中の相手を全員（名前だけの相手も）履歴に移し、対戦中の相手を空にする。選出した相手・見えた技・ポイント・性格・特性・推定も一緒に残る。メモを付けられる",
             new[] { $"{p} end", $"{p} end ○○さん戦" });
         yield return new($"{p} ls -h [<名前>]", "履歴", "終わった試合の履歴（新しい順）。名前を付けると、そのポケモンがいた試合の振り方", new[] { $"{p} ls -h", $"{p} ls --history", $"{p} ls -h カイリュー" });
         yield return new($"{p} detail -h <履歴ID>", "履歴", "その試合の相手ポケモンと推定の根拠", new[] { $"{p} detail -h 1", $"{p} detail --history 1" });

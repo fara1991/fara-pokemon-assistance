@@ -159,15 +159,17 @@ public sealed class RivalPokemon
     public int? AbilityId { get; set; }
     /// <summary>ダメージからの推定（scan）。防御（B・D）ごとに 1 つ。</summary>
     public List<RivalScan> Scans { get; set; } = new();
-    /// <summary>選出された（試合に出てきた）。試合を終えるとき、名前だけでも履歴に移す。</summary>
+    /// <summary>選出された（試合に出てきた）。履歴で、選出した相手が分かるようにする。</summary>
     public bool Picked { get; set; }
+    /// <summary>相手が使った（見えた）技の Id。0〜<see cref="RegisteredPokemon.MaxMoves"/> 個。</summary>
+    public List<int> MoveIds { get; set; } = new();
     /// <summary>最後に更新した日時（ISO 8601）。</summary>
     public string Updated { get; set; } = "";
 
     /// <summary>ポイントも性格も特性も推定も何も分かっていない（名前だけ）か。</summary>
     [JsonIgnore]
     public bool IsNameOnly => HP is null && Attack is null && Defense is null && SpAttack is null && SpDefense is null && Speed is null
-                              && Nature is null && AbilityId is null && Scans.Count == 0;
+                              && Nature is null && AbilityId is null && Scans.Count == 0 && MoveIds.Count == 0;
 
     /// <summary>推定（scan）をしたことがあるか。</summary>
     [JsonIgnore]
@@ -177,7 +179,7 @@ public sealed class RivalPokemon
     {
         Id = Id, PokemonId = PokemonId, PokemonName = PokemonName,
         HP = HP, Attack = Attack, Defense = Defense, SpAttack = SpAttack, SpDefense = SpDefense, Speed = Speed,
-        Nature = Nature, AbilityId = AbilityId, Updated = Updated, Picked = Picked,
+        Nature = Nature, AbilityId = AbilityId, Updated = Updated, Picked = Picked, MoveIds = MoveIds.ToList(),
         Scans = Scans.Select(scan => new RivalScan
         {
             Defense = scan.Defense, HpMin = scan.HpMin, HpMax = scan.HpMax, Count = scan.Count,
@@ -371,25 +373,20 @@ public sealed class RosterRepository
         MutateAsync(dataSetKey, RosterPart.Rival, apply, ct);
 
     /// <summary>
-    /// 試合を終える。対戦中の相手のうち、何か分かっているもの（推定・ポイント・性格・特性）を履歴に移し、対戦中の相手は全部消す。
-    /// 名前だけのポケモンは履歴に移さない。移すものが無ければ履歴は作らない（<see cref="EndMatchResult.Match"/> は null）。
+    /// 試合を終える。対戦中の相手を、名前だけの相手も含めて全員履歴に移し（選出・技・ポイント・性格・特性・推定も一緒に残す）、対戦中の相手は全部消す。
+    /// 対戦中の相手がいなければ履歴は作らない（<see cref="EndMatchResult.Match"/> は null）。
     /// </summary>
     public async Task<EndMatchResult> EndMatchAsync(string dataSetKey, string? memo, DateTimeOffset now, CancellationToken ct = default)
     {
         return await ChangeRivalsAsync(dataSetKey, roster =>
         {
-            var total = roster.Rivals.Count;
-            if (total == 0) return (new EndMatchResult(null, 0, 0), false);
-            // 選出された相手と、何か分かっている相手を履歴に移す（名前だけで選出もされていない相手は移さない）
-            var keep = roster.Rivals.Where(r => r.Picked || !r.IsNameOnly).Select(r => r.Clone()).ToList();
-            RivalMatch? match = null;
-            if (keep.Count > 0)
-            {
-                match = new RivalMatch { Id = roster.NextMatchId++, Date = now.ToString("o"), Memo = (memo ?? "").Trim(), Foes = keep };
-                roster.History.Add(match);
-            }
+            if (roster.Rivals.Count == 0) return (new EndMatchResult(null, 0), false);
+            // 振り返りのため、選出しなかった相手も含めて全員を履歴に移す
+            var all = roster.Rivals.Select(r => r.Clone()).ToList();
+            var match = new RivalMatch { Id = roster.NextMatchId++, Date = now.ToString("o"), Memo = (memo ?? "").Trim(), Foes = all };
+            roster.History.Add(match);
             roster.Rivals.Clear();
-            return (new EndMatchResult(match, keep.Count, total - keep.Count), true);
+            return (new EndMatchResult(match, all.Count), true);
         }, ct).ConfigureAwait(false);
     }
 
@@ -645,5 +642,5 @@ public sealed class RosterRepository
     }
 }
 
-/// <summary>試合を終えた結果（履歴に移した記録、移した数、名前だけで移さなかった数）。</summary>
-public sealed record EndMatchResult(RivalMatch? Match, int Moved, int Dropped);
+/// <summary>試合を終えた結果（履歴に移した記録と、移した数）。</summary>
+public sealed record EndMatchResult(RivalMatch? Match, int Moved);
