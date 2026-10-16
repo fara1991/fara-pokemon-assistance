@@ -569,8 +569,13 @@ public class PokeCommandTests
 
         var calc = await cmd.ExecuteAsync($"!pokesv scan ガブリアス じしん ハバタクカミ {observed}");
         Assert.True(calc.Success, calc.Message);
-        Assert.Contains("B実数値", calc.Message);
-        Assert.Contains("補正なし:B0", calc.Message);
+        // 1 行目は入力した内容、2 行目以降が結果
+        var lines = calc.Message.Split('\n');
+        Assert.Contains("ガブリアス", lines[0]);
+        Assert.Contains("じしん → ハバタクカミ", lines[0]);
+        Assert.StartsWith("結果 B実数値:", lines[1]);
+        Assert.Contains("持ち物: 不明（なしとして推定）", lines[1]);
+        Assert.Contains("B補正無し: 0", lines[2]);
     }
 
     [Fact]
@@ -641,9 +646,8 @@ public class PokeCommandTests
         // ドータクンへのじしんは振り方によって概ね 114〜180。150 なら候補がある
         var calc = await cmd.ExecuteAsync("!pokesv scan ガブリアス じしん ドータクン 150");
         Assert.True(calc.Success, calc.Message);
-        Assert.Contains("特性別", calc.Message);
-        Assert.Contains("ふゆう: 該当なし", calc.Message);
-        Assert.Contains("たいねつ:", calc.Message);
+        Assert.Contains("特性 ふゆう: 該当なし", calc.Message);
+        Assert.Contains("特性 たいねつ:", calc.Message);
     }
 
     [Fact]
