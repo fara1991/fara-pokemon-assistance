@@ -3424,6 +3424,9 @@ html.vt-nav .sidebar {
 /* 持ち物のアイコン＋名前 */
 .item-label { display: inline-flex; align-items: center; gap: 0.2rem; vertical-align: middle; }
 .item-icon { width: 2.25rem; height: 2.25rem; image-rendering: pixelated; }
+/* 検索入力の候補・固定欄の中では、行の高さに合わせて小さくする */
+.searchable-select-item .item-icon, .fixed-field .item-icon { width: 1.75rem; height: 1.75rem; }
+.searchable-select-item .item-label, .fixed-field .item-label { gap: 0.4rem; }
 
 /* 連続技・おやこあい: HP バーの下の「何回当たったか」の目印（押すと切り替わる） */
 .hp-ticks { position: relative; height: 1.7rem; margin: 0.15rem 0.7rem 0; }
