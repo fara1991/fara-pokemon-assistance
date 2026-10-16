@@ -46,6 +46,8 @@ public class UpdatePokemonTests
         var none = await cmd.ExecuteAsync("!pokech dmg ガブリアス じしん リザードン 防:持ち物なし");
         Assert.True(none.Success, none.Message);
         Assert.Null(none.Request!.Defender.Item);
-        Assert.DoesNotContain("たべのこし", none.Message);
+        // 括弧の中が、持ち物なしの形（種族名(振り方 性格) だけ）になっている
+        Assert.Matches(@"→ リザードン\([^)]*\)", none.Message);
+        Assert.DoesNotContain(reply.Request!.Defender.Item!.Name, none.Message.Split("→")[1].Split(':')[0]);
     }
 }

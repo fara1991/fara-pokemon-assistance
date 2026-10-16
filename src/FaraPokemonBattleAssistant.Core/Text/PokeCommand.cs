@@ -390,14 +390,14 @@ public sealed partial class PokeCommand
         return new DamageCommandResult
         {
             Success = true,
-            Message = DamageCommand.Header(first.Request!, first.Last!, $"{foe.Pokemon.Name}({RangeText(foe, ds.EvSystem)})") + "\n" + first.Body + "\n" + second.Body + first.Note,
+            Message = DamageCommand.Header(first.Request!, first.Last!, $"{foe.Pokemon.Name}({RangeText(foe, ds.EvSystem, first.Request!.Defender.Item)})") + "\n" + first.Body + "\n" + second.Body + first.Note,
             Request = first.Request,
             Damage = first.Last,
         };
     }
 
     /// <summary>範囲の相手の、防御のポイントの範囲（1 行目の防御側の表記。例: <c>B0〜6pt</c>）。</summary>
-    private static string RangeText(KnownFoe foe, EvSystem system)
+    private static string RangeText(KnownFoe foe, EvSystem system, Item? item)
     {
         var unit = system == EvSystem.Points ? "pt" : "";
         var letter = StatNames.Letter(foe.DefenseStat);
@@ -405,8 +405,8 @@ public sealed partial class PokeCommand
         var hi = foe.High.EVs[foe.DefenseStat];
         var natureText = foe.Low.Nature?.Id == foe.High.Nature?.Id ? "" : " 性格補正は範囲";
         var hp = foe.Low.EVs[Stat.HP] == foe.High.EVs[Stat.HP] ? $"H{foe.Low.EVs[Stat.HP]}{unit} " : $"H{foe.Low.EVs[Stat.HP]}〜{foe.High.EVs[Stat.HP]}{unit} ";
-        // 持ち物があるときは、範囲でない表記と同じく出す（メガシンカ後の姿はメガストーン）
-        var itemText = foe.Low.Item is { } stone ? $" {stone.Name}" : "";
+        // 計算に使った持ち物（メガシンカ後の姿はメガストーン、書いたときはその持ち物）があれば、範囲でない表記と同じく出す
+        var itemText = item is { } held ? $" {held.Name}" : "";
         return $"{hp}{letter}{(lo == hi ? lo.ToString() : $"{lo}〜{hi}")}{unit}{natureText}{itemText}";
     }
 

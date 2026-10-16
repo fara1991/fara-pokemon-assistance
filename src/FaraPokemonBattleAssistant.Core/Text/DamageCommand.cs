@@ -476,7 +476,7 @@ public sealed class DamageCommand
         var a = request.Attacker;
         var d = request.Defender;
         var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
-        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {defenderText ?? $"{d.Pokemon.Name}({d.DescribeShort(includeItem: true, includeAbility: false)})"}";
+        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {defenderText ?? $"{d.Pokemon.Name}({d.DescribeShort(includeAbility: false)})"}";
     }
 
     /// <summary>おやこあいのときの、1 回目・2 回目のダメージ（例: <c> (おやこあい 1回目 20〜24・2回目 5〜6)</c>）。</summary>
@@ -497,7 +497,7 @@ public sealed class DamageCommand
         var tagText = TagText(request, result, dataSet, withCritical: false);
         var warnText = warnings is { Count: > 0 } ? $" ※{string.Join("、", warnings)}" : "";
         var moveText = result.Converted is { } converted ? $"{request.Move.Name}（{converted.Name}）" : request.Move.Name;
-        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort(includeItem: true, includeAbility: false)}): " +
+        return $"{a.Pokemon.Name}({a.DescribeShort()}) {moveText} → {d.Pokemon.Name}({d.DescribeShort(includeAbility: false)}): " +
                $"{result.RangeText} {result.KnockOut}{ParentalText(result)} / 急所 {crit.RangeText} {crit.KnockOut}{ParentalText(crit)}{tagText}{warnText}";
     }
 

@@ -293,10 +293,31 @@ public class RivalCommandTests
         var plain = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン");
         Assert.True(plain.Success, plain.Message);
         var defenderPart = plain.Message.Split('\n')[0].Split('→')[1];
-        if (plain.Request!.Defender.Item?.Name is { } plainItem) Assert.Contains(plainItem, defenderPart);
+        var plainItem = plain.Request!.Defender.Item?.Name;
+        Assert.NotNull(plainItem);   // 使用率の持ち物が入る前提（入らなくなったらこのテストを見直す）
+        Assert.Contains(plainItem, defenderPart);
         var noItem = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 防:持ち物なし");
         Assert.Null(noItem.Request!.Defender.Item);
-        Assert.DoesNotContain("こだわり", noItem.Message.Split('\n')[0].Split('→')[1]);
+        Assert.DoesNotContain(plainItem, noItem.Message.Split('\n')[0].Split('→')[1]);
+    }
+
+    [Fact]
+    public async Task Range_line_shows_the_item_that_the_calculation_used()
+    {
+        var (command, _) = await NewAsync();
+        var probe = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H0 B10");
+        var observed = (int)Math.Round((probe.Damage!.MinDamage + probe.Damage.MaxDamage) / 2.0);
+        Assert.True((await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}")).Success);
+
+        // 範囲の相手の 1 行目にも、書いた持ち物が出る。持ち物なしを書けば出ない
+        var held = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ 防:たべのこし");
+        Assert.True(held.Success, held.Message);
+        Assert.Contains("B最小想定", held.Message);
+        Assert.Equal("たべのこし", held.Request!.Defender.Item?.Name);
+        Assert.Contains("たべのこし", held.Message.Split('\n')[0].Split('→')[1]);
+        var none = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ 防:持ち物なし");
+        Assert.Null(none.Request!.Defender.Item);
+        Assert.DoesNotContain("たべのこし", none.Message.Split('\n')[0].Split('→')[1]);
     }
 
     [Fact]
