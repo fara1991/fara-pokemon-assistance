@@ -256,10 +256,16 @@ public sealed class DamageCommand
                 else attacker.TeraType = teraType;
                 continue;
             }
-            if (normalized is "持ち物なし" or "もちものなし" or "道具なし" or "どうぐなし" or "noitem")
+            if (IsNoItemWord(normalized))
             {
+                if (forcedAttacker == true && attackerPreset is not null)
+                {
+                    warnings.Add("攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まります（持ち物なしは反映しません）");
+                    continue;
+                }
                 if (forcedAttacker == false) { defender.Item = null; defenderItemSet = true; }
                 else if (forcedAttacker == true) { attacker.Item = null; attackerItemSet = true; }
+                else if (attackerPreset is not null) { defender.Item = null; defenderItemSet = true; }   // 登録済みの攻撃側の持ち物は、登録で決まる
                 else { attacker.Item = null; defender.Item = null; attackerItemSet = defenderItemSet = true; }
                 continue;
             }
@@ -578,6 +584,12 @@ public sealed class DamageCommand
         }
         return false;
     }
+
+    /// <summary>「持ち物なし」と書いたトークンか（前置きを外して正規化したあとの形）。</summary>
+    public static bool IsNoItemWord(string normalized) => normalized is "持ち物なし" or "もちものなし" or "道具なし" or "どうぐなし" or "noitem";
+
+    /// <summary>コマンドの引数に「持ち物なし」（前置き付きも含む）が書かれているか。</summary>
+    public static bool MentionsNoItem(IEnumerable<string> args) => args.Any(a => IsNoItemWord(NameNormalizer.Normalize(SplitSide(a).Remainder)));
 
     // 攻撃側・防御側を明示する前置き（全角・半角のコロン、英字は大文字小文字を問わない）。
     // 攻撃側: 攻 / 攻撃 / こうげき / A / C / atk、防御側: 防 / 防御 / ぼうぎょ / B / D / def

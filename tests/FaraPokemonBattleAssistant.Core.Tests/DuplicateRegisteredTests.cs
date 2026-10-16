@@ -103,4 +103,32 @@ public class DuplicateRegisteredTests
         var team = (await repo.GetAsync()).For(Ds).Teams.Single();
         Assert.Equal(new[] { 1 }, team.Slots.Select(s => s.EntryId).ToArray());
     }
+
+    [Fact]
+    public async Task Entry_id_uses_that_pokemons_own_build_in_faster_and_scan_warns_about_duplicates()
+    {
+        var (command, _) = await NewAsync();
+        // #2 は S12（おくびょう）、#1 は S0。素早さの数字が変わる
+        var first = (await command.ExecuteAsync("!pokech faster #1 リザードン")).Message;
+        var second = (await command.ExecuteAsync("!pokech faster #2 リザードン")).Message;
+        Assert.NotEqual(first.Split('\n')[1], second.Split('\n')[1]);
+
+        // scan も、名前だけで同名が複数いるときは警告して、一覧を出す
+        var scan = await command.ExecuteAsync("!pokech scan イエッサン♂ ワイドフォース リザードン 30%");
+        Assert.False(scan.Success);
+        Assert.Contains("scan #1", scan.Message.Split('\n')[0]);
+        Assert.StartsWith("#2 イエッサン(♂)(", scan.Message.Split('\n')[2]);
+    }
+
+    [Fact]
+    public async Task Two_duplicates_in_the_active_team_still_warn()
+    {
+        var (command, _) = await NewAsync();
+        Assert.True((await command.ExecuteAsync("!pokech add -t 1 1")).Success);
+        Assert.True((await command.ExecuteAsync("!pokech add -t 1 2")).Success);
+        Assert.True((await command.ExecuteAsync("!pokech use -t 1")).Success);
+        var reply = await command.ExecuteAsync("!pokech dmg イエッサン♂ ワイドフォース リザードン");
+        Assert.False(reply.Success);
+        Assert.Contains("育成ポケモンが 2 体います", reply.Message);
+    }
 }

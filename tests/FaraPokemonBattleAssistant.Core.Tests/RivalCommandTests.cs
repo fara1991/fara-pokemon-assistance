@@ -548,4 +548,53 @@ public class RivalCommandTests
             Assert.Contains("不明なサブコマンド", r.Message);
         }
     }
+
+    [Fact]
+    public async Task Saved_item_follows_the_priority_written_then_saved_then_mega_stone()
+    {
+        var (command, repo) = await NewAsync();
+        // 保存した持ち物があっても、メガシンカ後の姿はメガストーンで確定（dmg・detail・scan が食い違わない）
+        Assert.True((await command.ExecuteAsync("!pokech add -r リザードン D32 おだやか たべのこし")).Success);
+        var mega = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし メガリザードンX");
+        Assert.Equal("リザードナイトX", mega.Request!.Defender.Item?.Name);
+        var form = await command.ExecuteAsync("!pokech set -r メガリザードンX");
+        Assert.True(form.Success, form.Message);
+        Assert.Contains("持ち物:リザードナイトX", form.Message);
+        Assert.DoesNotContain("たべのこし", form.Message);
+        Assert.Null((await repo.GetAsync()).For(Ds).Rivals.Single().ItemId);
+
+        // scan で「持ち物なし」と書いたら、保存した持ち物は使わない（dmg と同じ優先順位）
+        Assert.True((await command.ExecuteAsync("!pokech add -r フシギバナ オボンのみ")).Success);
+        var probe = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H0 B10");
+        var observed = (int)Math.Round((probe.Damage!.MinDamage + probe.Damage.MaxDamage) / 2.0);
+        var saved = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}");
+        Assert.Contains("持ち物: オボンのみ", saved.Message);
+        var none = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed} 防:持ち物なし");
+        Assert.True(none.Success, none.Message);
+        Assert.Null(none.Request!.Defender.Item);
+        Assert.Contains("持ち物: 不明", none.Message);
+
+        // 持ち物だけ分かっている相手は、dmg でもその持ち物で計算し、返信に出す
+        Assert.True((await command.ExecuteAsync("!pokech add -r ミミッキュ いのちのたま")).Success);
+        var itemOnly = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし ミミッキュ");
+        Assert.Equal("いのちのたま", itemOnly.Request!.Defender.Item?.Name);
+        Assert.Contains("いのちのたま", itemOnly.Message.Split('\n')[0].Split('→')[1]);
+    }
+
+    [Fact]
+    public async Task Attacker_item_is_fixed_by_the_registration_but_unregistered_attackers_still_accept_it()
+    {
+        var (command, _) = await NewAsync();
+        var noItem = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 攻:持ち物なし");
+        Assert.True(noItem.Success, noItem.Message);
+        Assert.Contains("攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まります", noItem.Message);
+
+        // 登録のない攻撃側（DamageCommand を直接使う経路）は、従来どおり持ち物を指定できる
+        var direct = new DamageCommand(TestData.Catalog());
+        var reply = await direct.ExecuteAsync("マニューラ つららおとし リザードン 攻:たべのこし", new DamageCommandOptions { DataSetKey = Ds });
+        Assert.True(reply.Success, reply.Message);
+        Assert.Equal("たべのこし", reply.Request!.Attacker.Item?.Name);
+        var autoSide = await direct.ExecuteAsync("マニューラ つららおとし リザードン いのちのたま", new DamageCommandOptions { DataSetKey = Ds });
+        Assert.Equal("いのちのたま", autoSide.Request!.Attacker.Item?.Name);
+    }
 }

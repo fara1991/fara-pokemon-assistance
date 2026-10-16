@@ -89,7 +89,7 @@ public sealed partial class PokeCommand
             var result = await TryExecuteAsync(message, options, ct).ConfigureAwait(false);
             if (result is not null) return result;
             var sets = await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false);
-            return Fail("コマンドは " + string.Join(" / ", sets.Select(s => $"!{s.CommandPrefix}")) + " で始めてください。例: " + Usage(sets.LastOrDefault()?.CommandPrefix ?? "pokech"));
+            return Fail("コマンドは " + string.Join(" / ", sets.Select(s => $"!{s.CommandPrefix}")) + " で始めてください。\n" + Usage(sets.LastOrDefault()?.CommandPrefix ?? "pokech"));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -394,7 +394,7 @@ public sealed partial class PokeCommand
             if (entry is null) return ($"育成ポケモン #{entryId} はありません。!{ds.CommandPrefix} ls -m で登録 ID を確認してください", provider);
             var build = await _roster.BuildForEntryAsync(ds.Key, data, entryId, ct).ConfigureAwait(false);
             if (build is null) return ($"#{entryId} {entry.PokemonName} は現在のデータに存在しません", provider);
-            args[0] = entry.PokemonName;
+            args[0] = data.FindPokemon(entry.PokemonId)?.Name ?? entry.PokemonName;
             return (null, (p, isAttacker) => isAttacker && p.Id == entry.PokemonId ? build.Clone() : provider(p, isAttacker));
         }
         var match = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
@@ -430,7 +430,7 @@ public sealed partial class PokeCommand
             var ability = rival.AbilityId is { } abilityId ? data.FindAbility(abilityId) : null;
             // 持ち物は、保存してあればその持ち物。メガシンカ後の姿は、メガストーンで確定している
             var stone = request.Defender.Pokemon.MegaStoneId is { } stoneId ? data.FindItem(stoneId) : null;
-            rivalItem = rival.ItemId is { } savedItemId ? data.FindItem(savedItemId) ?? stone : stone;
+            rivalItem = stone ?? (rival.ItemId is { } savedItemId ? data.FindItem(savedItemId) : null);
             foe = KnownFoe.FromRival(rival, request.Defender.Pokemon, ds.EvSystem, data.Natures, request.Move.DefenseStatUsed, ability, rivalItem);
         }
         if (foe is null && rivalItem is not null && request.Defender.Item is null)
