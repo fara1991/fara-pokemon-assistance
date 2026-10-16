@@ -63,74 +63,65 @@ else if (data is not null && roster is not null && dataSet is not null)
                                             @if (FormsOf(pokemon) is { Count: > 1 } forms)
                                             {
                                                 @* メガシンカしたら、同じ相手のまま姿だけ変える（ポイント・性格・推定はそのまま） *@
-                                                <div class="mb-2">
+                                                <div class="form-group mb-2">
                                                     <label class="form-label small mb-0">姿（メガシンカ）</label>
-                                                    <select class="form-select form-select-sm" @bind="editFormId">
-                                                        @foreach (var f in forms)
-                                                        {
-                                                            <option value="@f.Id">@f.Name</option>
-                                                        }
-                                                    </select>
+                                                    <SearchableSelect TItem="Pokemon" Items="forms" DisplayText="@(f => f.Name)" ValueSelector="@(f => f.Id.ToString())"
+                                                        SelectedValue="@editFormId.ToString()" SelectedValueChanged="@OnEditFormChanged" Dropdown="true" Placeholder="姿を選ぶ...">
+                                                        <ItemTemplate Context="f"><PokemonIcon Pokemon="f" Small="true" /><span>@f.Name</span><PokemonTypes Pokemon="f" Small="true" /></ItemTemplate>
+                                                    </SearchableSelect>
                                                 </div>
                                             }
-                                            <div class="small text-muted mb-1">分かっている部分だけ入力してください（空欄は不明のまま）。性格も、分かっていれば選びます。</div>
-                                            <div class="row g-2">
-                                                @foreach (var stat in EditStats)
-                                                {
-                                                    var st = stat;
-                                                    <div class="col-4 col-md-2">
-                                                        <label class="form-label small mb-0">@StatNames.Letter(st)</label>
-                                                        <input class="form-control form-control-sm" inputmode="numeric" placeholder="不明" value="@editEvs[st]" @oninput="@(e => editEvs[st] = e.Value?.ToString() ?? "")" />
-                                                    </div>
-                                                }
+                                            <div class="small text-muted mb-1">分かっている部分だけ入力してください（空欄・「不明」は不明のままです）。</div>
+                                            <div class="form-group mb-2">
+                                                <label class="form-label small mb-0">@EvRules.Label(dataSet.EvSystem)（各 0〜@EvRules.MaxPerStat(dataSet.EvSystem)、合計 @EvRules.MaxTotal(dataSet.EvSystem)）</label>
+                                                <div class="ev-grid">
+                                                    @foreach (var stat in EditStats)
+                                                    {
+                                                        var st = stat;
+                                                        <div class="ev-cell" @key="@($"{st}-{evVersion}")">
+                                                            <span class="ev-label">@StatNames.Letter(st)</span>
+                                                            <input type="number" class="form-control form-control-sm" aria-label="@StatNames.Japanese(st)" title="@StatNames.Japanese(st)" min="0" max="@EvRules.MaxPerStat(dataSet.EvSystem)" step="@EvRules.Step(dataSet.EvSystem)"
+                                                                   placeholder="不明" value="@editEvs[st]" @onchange="@(e => { editEvs[st] = ClampText(e.Value, EvRules.MaxPerStat(dataSet.EvSystem)); evVersion++; })" />
+                                                            <div class="ev-buttons">
+                                                                <button type="button" class="btn btn-outline-secondary" @onclick="() => { editEvs[st] = 0.ToString(); evVersion++; }">0</button>
+                                                                <button type="button" class="btn btn-outline-secondary" @onclick="() => { editEvs[st] = EditMaxAllowed(st).ToString(); evVersion++; }">@EvRules.MaxPerStat(dataSet.EvSystem)</button>
+                                                                <button type="button" class="btn btn-outline-secondary" title="不明に戻す" @onclick="() => { editEvs[st] = string.Empty; evVersion++; }">?</button>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                                <div class="small @(EditEvTotal > EvRules.MaxTotal(dataSet.EvSystem) ? "text-danger" : "text-muted")">合計 @EditEvTotal / @EvRules.MaxTotal(dataSet.EvSystem)</div>
                                             </div>
-                                            <div class="row g-2 mt-1">
-                                                <div class="col-6">
-                                                    <label class="form-label small mb-0">性格</label>
-                                                    <select class="form-select form-select-sm" @bind="editNature">
-                                                        <option value="">不明</option>
-                                                        @foreach (var n in data.Natures)
-                                                        {
-                                                            <option value="@n.Name">@n.Describe()</option>
-                                                        }
-                                                    </select>
-                                                </div>
-                                                <div class="col-12">
-                                                    <label class="form-label small mb-0">持ち物（確定したときだけ。履歴に残ります）</label>
-                                                    <select class="form-select form-select-sm" @bind="editItem">
-                                                        <option value="">不明</option>
-                                                        @foreach (var held in data.Items)
-                                                        {
-                                                            <option value="@held.Id">@held.Name</option>
-                                                        }
-                                                    </select>
-                                                </div>
-                                                <div class="col-6">
-                                                    <label class="form-label small mb-0">特性</label>
-                                                    <select class="form-select form-select-sm" @bind="editAbility">
-                                                        <option value="">不明</option>
-                                                        @foreach (var a in data.AbilitiesOf(data.FindPokemon(editFormId) ?? pokemon))
-                                                        {
-                                                            <option value="@a.Id">@a.Name</option>
-                                                        }
-                                                    </select>
+                                            <div class="form-group mb-2">
+                                                <label class="form-label small mb-0">性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります。分からないときは「不明にする」を押します。</Help></label>
+                                                <NaturePicker Natures="data.Natures" Value="@data.FindNature(editNature)" ValueChanged="@(n => editNature = n?.Name ?? "")" Physical="@EditPhysical" />
+                                                <div class="small mt-1">
+                                                    <span class="text-muted">@(editNature.Length == 0 ? "性格は不明です" : $"選択中: {data.FindNature(editNature)?.Describe()}")</span>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" disabled="@(editNature.Length == 0)" @onclick="() => editNature = string.Empty">不明にする</button>
                                                 </div>
                                             </div>
-                                            <div class="mt-2">
+                                            <div class="form-group mb-2">
+                                                <label class="form-label small mb-0">持ち物（確定したときだけ。履歴に残ります）</label>
+                                                <SearchableSelect TItem="Item" Items="data.Items" DisplayText="@(i => i.Name)" ValueSelector="@(i => i.Id.ToString())"
+                                                    SelectedValue="@editItem" SelectedValueChanged="@(v => editItem = v)" Dropdown="true" EmptyOption="不明" Placeholder="持ち物名を入力...">
+                                                    <ItemTemplate Context="i"><ItemLabel Item="i" /></ItemTemplate>
+                                                </SearchableSelect>
+                                            </div>
+                                            <div class="form-group mb-2">
+                                                <label class="form-label small mb-0">特性</label>
+                                                <SearchableSelect TItem="Ability" Items="data.AbilitiesOf(data.FindPokemon(editFormId) ?? pokemon)" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
+                                                    SelectedValue="@editAbility" SelectedValueChanged="@(v => editAbility = v)" Dropdown="true" EmptyOption="不明" Placeholder="特性名を入力..." />
+                                            </div>
+                                            <div class="form-group mb-2">
                                                 <label class="form-label small mb-0">見えた技（4 つまで。履歴に残ります）</label>
-                                                <div class="row g-2">
+                                                <div class="move-pick-grid">
                                                     @for (var mi = 0; mi < RegisteredPokemon.MaxMoves; mi++)
                                                     {
                                                         var slot = mi;
-                                                        <div class="col-6 col-md-3">
-                                                            <select class="form-select form-select-sm" value="@editMoves[slot]" @onchange="@(e => editMoves[slot] = e.Value?.ToString() ?? "")">
-                                                                <option value="">未確認</option>
-                                                                @foreach (var mv in data.LearnableMoves((data.FindPokemon(editFormId) ?? pokemon).Id))
-                                                                {
-                                                                    <option value="@mv.Id">@mv.Name</option>
-                                                                }
-                                                            </select>
-                                                        </div>
+                                                        <SearchableSelect TItem="Move" Items="EditMoveChoices(slot)" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
+                                                            SelectedValue="@editMoves[slot]" SelectedValueChanged="@(v => editMoves[slot] = v)" Dropdown="true" EmptyOption="未確認" Placeholder="@($"技 {slot + 1}")">
+                                                            <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto">@MoveInfo(m)</span></ItemTemplate>
+                                                        </SearchableSelect>
                                                     }
                                                 </div>
                                             </div>
@@ -218,6 +209,54 @@ else
         if (data is null) return new() { pokemon };
         return data.Pokemon.Where(p => p.SpeciesId == pokemon.SpeciesId && (p.Id == pokemon.Id || p.IsMega || pokemon.IsMega))
             .OrderBy(p => p.IsMega).ThenBy(p => p.Id).ToList();
+    }
+
+    private int evVersion;
+
+    /// <summary>A の方が C 以上なら物理向け（性格を片方だけ選んだとき、C を下げる側に補う）。</summary>
+    private bool EditPhysical => (int.TryParse(editEvs[Stat.Attack], out var a) ? a : 0) >= (int.TryParse(editEvs[Stat.SpAttack], out var c) ? c : 0);
+
+    /// <summary>合計の上限（66 など）を超えない範囲で、その能力に振れる最大のポイント。</summary>
+    private int EditMaxAllowed(Stat stat)
+    {
+        var evs = new StatSet();
+        foreach (var st in EditStats)
+            if (st != stat && int.TryParse(editEvs[st], out var v)) evs[st] = Math.Clamp(v, 0, EvRules.MaxPerStat(dataSet!.EvSystem));
+        return EvRules.MaxAllowed(dataSet!.EvSystem, evs, stat);
+    }
+
+    private int EditEvTotal => EditStats.Sum(st => int.TryParse(editEvs[st], out var v) ? v : 0);
+
+    /// <summary>入力欄の文字を 0〜max の数字にそろえる（空欄は不明のまま）。</summary>
+    private static string ClampText(object? value, int max) =>
+        int.TryParse(value?.ToString(), out var v) ? Math.Clamp(v, 0, max).ToString() : "";
+
+    /// <summary>姿を変えたとき、その姿が持てない特性は外す。</summary>
+    private void OnEditFormChanged(string value)
+    {
+        if (value.Length == 0) return;   // 文字を消して離れたときは、選択を変えない
+        editFormId = ParseId(value);
+        var form = data?.FindPokemon(editFormId);
+        if (form is not null && int.TryParse(editAbility, out var aid) && data!.AbilitiesOf(form).All(a => a.Id != aid)) editAbility = "";
+        // その姿が覚えない技は外す
+        if (form is not null)
+            for (var i = 0; i < editMoves.Length; i++)
+                if (int.TryParse(editMoves[i], out var mid) && !data!.LearnableMoves(form.Id).Any(m => m.Id == mid)) editMoves[i] = "";
+    }
+
+    /// <summary>その枠で選べる技。その姿が覚える技から、ほかの枠で選んだ技を除く。</summary>
+    private IReadOnlyList<Move> EditMoveChoices(int slot)
+    {
+        var form = data?.FindPokemon(editFormId) ?? data?.FindPokemon(roster?.Rivals.FirstOrDefault(r => r.Id == editingId)?.PokemonId ?? 0);
+        if (data is null || form is null) return Array.Empty<Move>();
+        var taken = editMoves.Where((m, i) => i != slot && m.Length > 0).ToHashSet();
+        return data.LearnableMoves(form.Id).Where(m => !taken.Contains(m.Id.ToString())).ToList();
+    }
+
+    private static string MoveInfo(Move m)
+    {
+        var category = m.Category switch { MoveCategory.Physical => "物理", MoveCategory.Special => "特殊", _ => "変化" };
+        return m.Power <= 0 ? $"{category} -" : $"{category} {m.Power}";
     }
 
     private async Task TogglePickedAsync(RivalPokemon rival)
@@ -320,7 +359,7 @@ else
             target.SpAttack = values[Stat.SpAttack]; target.SpDefense = values[Stat.SpDefense]; target.Speed = values[Stat.Speed];
             target.Nature = nature;
             target.AbilityId = abilityId;
-            target.ItemId = itemId;
+            target.ItemId = form?.IsMega == true ? null : itemId;
             target.Updated = DateTimeOffset.Now.ToString("o");
             return (true, true);
         }));

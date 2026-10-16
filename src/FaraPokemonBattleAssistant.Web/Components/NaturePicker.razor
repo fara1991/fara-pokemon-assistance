@@ -13,11 +13,13 @@
     @foreach (var (label, increased) in new[] { ("上昇", true), ("下降", false) })
     {
         var current = increased ? Value?.IncreasedStat : Value?.DecreasedStat;
+        @* 性格が未選択のときは、「なし」も押した状態にしない（補正なしの性格を選んだ状態と区別する） *@
+        var noneSelected = Value is not null && current is null;
         <div class="nature-row">
             <span class="nature-row-label @(increased ? "stat-up" : "stat-down")">@label</span>
             <div class="nature-buttons" role="group" aria-label="@(label)する能力">
-                <button type="button" class="btn btn-sm @(current is null ? "btn-primary" : "btn-outline-secondary")"
-                        aria-pressed="@(current is null)"
+                <button type="button" class="btn btn-sm @(noneSelected ? "btn-primary" : "btn-outline-secondary")"
+                        aria-pressed="@(noneSelected)"
                         @onclick="() => Change(increased ? NatureSelection.WithIncreased(Natures, Value, null, Physical) : NatureSelection.WithDecreased(Natures, Value, null, Physical))">なし</button>
                 @foreach (var stat in NatureSelection.Stats)
                 {

@@ -125,12 +125,8 @@
                         }
                         else
                         {
-                            <select class="form-select form-select-sm" value="@(selectedAbility?.Id.ToString() ?? "")" @onchange="OnAbilityChanged">
-                                @foreach (var ab in abilities)
-                                {
-                                    <option value="@ab.Id">@ab.Name</option>
-                                }
-                            </select>
+                            <SearchableSelect TItem="Ability" Items="abilities" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
+                                SelectedValue="@(selectedAbility?.Id.ToString() ?? "")" SelectedValueChanged="@OnAbilityChanged" Dropdown="true" Placeholder="特性名を入力..." />
                         }
                     </div>
                     }
@@ -359,9 +355,10 @@
         Refresh();
     }
 
-    private void OnAbilityChanged(ChangeEventArgs e)
+    private void OnAbilityChanged(string value)
     {
-        s.AbilityId = int.TryParse(e.Value?.ToString(), out var id) ? id : 0;
+        if (value.Length == 0) return;   // 文字を消して離れたときは、選択を変えない
+        s.AbilityId = int.TryParse(value, out var id) ? id : 0;
         Refresh();
     }
 
