@@ -70,7 +70,7 @@ public sealed partial class PokeCommand
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
         return "自分(-m): add -m 名前 H A B C D S 性格 [特性] / set -m ID・名前 … / ls・detail・rm ｜ " +
                "チーム(-t): add -t 番号 ID [持ち物] / use・unuse・ls・detail・rm ｜ " +
-               "相手(-r): add -r 名前… [H32 D10 B↑A↓ 特性 選出] / set -r / ls・detail・rm / clear -r（全員の登録を解除） ｜ " +
+               "相手(-r): add -r 名前… [H32 D10 B↑A↓ 特性 技 選出] / set -r / ls・detail・rm / clear -r（全員の登録を解除） ｜ " +
                "履歴(-h): ls・detail・rm ｜ " +
                "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 / end [メモ]（試合終了） ｜ " +
                $"{prefixes}（!poke はチャンピオンズ）｜ --my/--team/--rival/--history も可";

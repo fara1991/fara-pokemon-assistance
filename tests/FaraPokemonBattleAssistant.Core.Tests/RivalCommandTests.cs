@@ -127,17 +127,46 @@ public class RivalCommandTests
     }
 
     [Fact]
-    public async Task Name_only_rivals_are_not_moved_to_the_history()
+    public async Task Every_rival_goes_to_the_history_with_picked_moves_and_points()
     {
         var (command, repo) = await NewAsync();
-        await command.ExecuteAsync("!pokech add -r カイリュー ミミッキュ");
-        await command.ExecuteAsync("!pokech set -r ミミッキュ S32");
+        await command.ExecuteAsync("!pokech add -r カイリュー ミミッキュ ドドゲザン");
+        await command.ExecuteAsync("!pokech set -r ミミッキュ S32 選出");
+        // 技は、その相手が覚える技を書く。書いた分だけ足していく（前の技は消えない）
+        var move = await command.ExecuteAsync("!pokech set -r カイリュー しんそく");
+        Assert.True(move.Success, move.Message);
+        Assert.True((await command.ExecuteAsync("!pokech set -r カイリュー じしん しんそく")).Success);
         var ended = await command.ExecuteAsync("!pokech end");
         Assert.True(ended.Success, ended.Message);
+        Assert.Contains("3 体", ended.Message);
         var roster = (await repo.GetAsync()).For(Ds);
         Assert.Empty(roster.Rivals);
-        Assert.Equal("ミミッキュ", roster.History.Single().Foes.Single().PokemonName);
-        Assert.Contains("名前だけ", ended.Message);
+
+        // 選出しなかった名前だけの相手も含めて、6 体全員が履歴に残る
+        var foes = roster.History.Single().Foes;
+        Assert.Equal(new[] { "カイリュー", "ミミッキュ", "ドドゲザン" }, foes.Select(f => f.PokemonName).ToArray());
+        Assert.Equal(new[] { false, true, false }, foes.Select(f => f.Picked).ToArray());
+        Assert.Equal(32, foes[1].Speed);
+        Assert.Equal(2, foes[0].MoveIds.Count);
+
+        var detail = await command.ExecuteAsync("!pokech detail -h 1");
+        Assert.Contains("しんそく", detail.Message);
+        Assert.Contains("じしん", detail.Message);
+        Assert.Contains("選出", detail.Message);
+    }
+
+    [Fact]
+    public async Task Rival_moves_are_limited_to_four_and_unreadable_names_are_rejected()
+    {
+        var (command, repo) = await NewAsync();
+        await command.ExecuteAsync("!pokech add -r カイリュー");
+        Assert.False((await command.ExecuteAsync("!pokech set -r カイリュー しんそく じしん げきりん ばくれつパンチ はかいこうせん")).Success);
+        // 5 つ書くとエラーで、1 つも覚えない
+        Assert.Empty((await repo.GetAsync()).For(Ds).Rivals.Single().MoveIds);
+        Assert.True((await command.ExecuteAsync("!pokech set -r カイリュー しんそく じしん げきりん りゅうのまい")).Success);
+        Assert.Equal(4, (await repo.GetAsync()).For(Ds).Rivals.Single().MoveIds.Count);
+        // 技として読めない名前は、エラー
+        Assert.False((await command.ExecuteAsync("!pokech set -r カイリュー でたらめわざ")).Success);
     }
 
     [Fact]
@@ -204,13 +233,13 @@ public class RivalCommandTests
         Assert.Equal("おだやか", rivals[0].Nature);
         Assert.True(rivals[0].Picked);
 
-        // 名前だけでも、選出したら試合終了で履歴に移る
+        // 名前だけの相手も、選出していない相手も、試合終了で全員履歴に移る
         Assert.True((await command.ExecuteAsync("!pokech add -r カイリュー ミミッキュ")).Success);
         Assert.True((await command.ExecuteAsync("!pokech set -r カイリュー 選出")).Success);
         var ended = await command.ExecuteAsync("!pokech end");
         Assert.True(ended.Success, ended.Message);
         var history = (await repo.GetAsync()).For(Ds).History.Single();
-        Assert.Equal(new[] { "メガリザードンY", "カイリュー" }, history.Foes.Select(f => f.PokemonName).ToArray());
+        Assert.Equal(new[] { "メガリザードンY", "カイリュー", "ミミッキュ" }, history.Foes.Select(f => f.PokemonName).ToArray());
     }
 
     [Fact]
