@@ -729,7 +729,7 @@ else if (data is not null && dataSet is not null)
         {
             var letter = scan.Defense == nameof(Stat.Defense) ? "B" : "D";
             var bands = string.Join(" / ", scan.Bands.OrderByDescending(x => x.Modifier).Select(x =>
-                $"{(x.Modifier > 1 ? "上昇" : x.Modifier < 1 ? "下降" : "補正なし")} {(x.MinEv == x.MaxEv ? x.MinEv.ToString() : $"{x.MinEv}〜{x.MaxEv}")}{unit}"));
+                $"{(x.Modifier > 1 ? "上昇" : x.Modifier < 1 ? "下降" : "補正無し")} {(x.MinEv == x.MaxEv ? x.MinEv.ToString() : $"{x.MinEv}〜{x.MaxEv}")}{unit}"));
             parts.Add($"推定{letter}: {bands}（{scan.Count}回）");
         }
         return parts.Count == 0 ? "名前だけ" : string.Join("　", parts);

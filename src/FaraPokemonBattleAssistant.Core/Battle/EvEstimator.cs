@@ -112,7 +112,7 @@ public sealed class EvEstimator
     }
 
     /// <summary>防御側の性格を「対象能力の補正だけ」持つ仮の性格に置き換える。</summary>
-    private static Nature SyntheticNature(Stat stat, double modifier, Nature? original)
+    internal static Nature SyntheticNature(Stat stat, double modifier, Nature? original)
     {
         var other = stat == Stat.Defense ? Stat.SpDefense : Stat.Defense;
         return modifier switch

@@ -212,8 +212,11 @@ public static class SpeedCalculator
     public static string Format(PokemonBuild mine, int mySpeed, IReadOnlyList<string> myNotes, Pokemon opponent, PokemonBuild? opponentBuild, int? opponentSpeed, IReadOnlyList<string>? opponentNotes, IReadOnlyList<SpeedLine> reference)
     {
         var myNote = myNotes.Count > 0 ? $"({string.Join(",", myNotes)})" : "";
+        // 1 行目は入力した内容（自分と相手）、2 行目以降が結果
         var sb = new System.Text.StringBuilder();
-        sb.Append($"{mine.Pokemon.Name} S{mySpeed}{myNote} vs {opponent.Name}{(reference.Any(r => r.Note == "まひ") ? "(まひ)" : "")} ");
+        var opponentText = opponentBuild is not null && opponentSpeed is not null ? $"{opponent.Name}({opponentBuild.DescribeShort()})" : opponent.Name;
+        sb.Append($"{mine.Pokemon.Name}({mine.DescribeShort()}) vs {opponentText}{(opponentBuild is null && reference.Any(r => r.Note == "まひ") ? "(まひ)" : "")}\n");
+        sb.Append($"結果 S{mySpeed}{myNote} vs ");
         if (opponentBuild is not null && opponentSpeed is { } os)
         {
             var oNote = opponentNotes is { Count: > 0 } ? $"({string.Join(",", opponentNotes)})" : "";
