@@ -287,14 +287,37 @@ public class RivalCommandTests
         var dmg = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし メガリザードンX");
         Assert.True(dmg.Success, dmg.Message);
         Assert.Equal("リザードナイトX", dmg.Request!.Defender.Item?.Name);
-        // 返信にも、防御側のメガストーンが出る（メガシンカしない相手の持ち物は、従来どおり出さない）
+        // 返信にも、防御側の持ち物（メガストーン）が出る
         Assert.Matches(@"→ メガリザードンX\([^)]*リザードナイトX[^)]*\)", dmg.Message);
-        // メガシンカしない防御側は、持ち物があっても返信には出さない
+        // メガシンカしない防御側でも、持ち物があれば返信に出る。持ち物なしなら何も出ない
         var plain = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン");
         Assert.True(plain.Success, plain.Message);
-        var plainItem = plain.Request!.Defender.Item?.Name ?? "（持ち物なし）";
         var defenderPart = plain.Message.Split('\n')[0].Split('→')[1];
-        Assert.DoesNotContain(plainItem, defenderPart);
+        var plainItem = plain.Request!.Defender.Item?.Name;
+        Assert.NotNull(plainItem);   // 使用率の持ち物が入る前提（入らなくなったらこのテストを見直す）
+        Assert.Contains(plainItem, defenderPart);
+        var noItem = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 防:持ち物なし");
+        Assert.Null(noItem.Request!.Defender.Item);
+        Assert.DoesNotContain(plainItem, noItem.Message.Split('\n')[0].Split('→')[1]);
+    }
+
+    [Fact]
+    public async Task Range_line_shows_the_item_that_the_calculation_used()
+    {
+        var (command, _) = await NewAsync();
+        var probe = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H0 B10");
+        var observed = (int)Math.Round((probe.Damage!.MinDamage + probe.Damage.MaxDamage) / 2.0);
+        Assert.True((await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}")).Success);
+
+        // 範囲の相手の 1 行目にも、書いた持ち物が出る。持ち物なしを書けば出ない
+        var held = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ 防:たべのこし");
+        Assert.True(held.Success, held.Message);
+        Assert.Contains("B最小想定", held.Message);
+        Assert.Equal("たべのこし", held.Request!.Defender.Item?.Name);
+        Assert.Contains("たべのこし", held.Message.Split('\n')[0].Split('→')[1]);
+        var none = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ 防:持ち物なし");
+        Assert.Null(none.Request!.Defender.Item);
+        Assert.DoesNotContain("たべのこし", none.Message.Split('\n')[0].Split('→')[1]);
     }
 
     [Fact]
