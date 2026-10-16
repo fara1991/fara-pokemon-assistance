@@ -35,12 +35,12 @@ public class RivalCommandTests
         Assert.Equal(32, dragonite.SpDefense);
         Assert.Equal("おだやか", dragonite.Nature);
 
-        // set -r のポイントは振り方全体の置き換え（書いていない能力は不明に戻す）。性格・特性は書いたものだけ
+        // set -r は書いた項目だけ更新する（書いていない能力のポイントも、前の値のまま残る）
         var set = await command.ExecuteAsync("!pokech set -r カイリュー H4 マルチスケイル");
         Assert.True(set.Success, set.Message);
         dragonite = (await repo.GetAsync()).For(Ds).Rivals.Single(r => r.PokemonName == "カイリュー");
         Assert.Equal(4, dragonite.HP);
-        Assert.Null(dragonite.SpDefense);
+        Assert.Equal(32, dragonite.SpDefense);
         Assert.Equal("おだやか", dragonite.Nature);
         Assert.NotNull(dragonite.AbilityId);
 

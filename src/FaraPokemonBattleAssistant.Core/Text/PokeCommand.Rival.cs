@@ -140,21 +140,18 @@ public sealed partial class PokeCommand
     }
 
     /// <summary>
-    /// 指定した内容を相手ポケモンに反映する。ポイントは、書いたときは振り方全体の置き換え（書いていない能力は不明に戻す）。
+    /// 指定した内容を相手ポケモンに反映する。ポイントは書いた能力だけ更新し、書いていない能力は今のまま（scan の推定も消さない）。
     /// 性格・特性は、書いたものだけ上書き。
     /// </summary>
     private static void ApplySpec(RivalPokemon rival, RivalSpec spec, DateTimeOffset now)
     {
-        if (spec.Evs.Count > 0)
-        {
-            int? Ev(Stat stat) => spec.Evs.TryGetValue(stat, out var v) ? v : null;
-            rival.HP = Ev(Stat.HP);
-            rival.Attack = Ev(Stat.Attack);
-            rival.Defense = Ev(Stat.Defense);
-            rival.SpAttack = Ev(Stat.SpAttack);
-            rival.SpDefense = Ev(Stat.SpDefense);
-            rival.Speed = Ev(Stat.Speed);
-        }
+        // 書いた能力だけ更新する（scan で推定した値や、前に書いた能力は消さない）
+        if (spec.Evs.TryGetValue(Stat.HP, out var hp)) rival.HP = hp;
+        if (spec.Evs.TryGetValue(Stat.Attack, out var atk)) rival.Attack = atk;
+        if (spec.Evs.TryGetValue(Stat.Defense, out var def)) rival.Defense = def;
+        if (spec.Evs.TryGetValue(Stat.SpAttack, out var spa)) rival.SpAttack = spa;
+        if (spec.Evs.TryGetValue(Stat.SpDefense, out var spd)) rival.SpDefense = spd;
+        if (spec.Evs.TryGetValue(Stat.Speed, out var spe)) rival.Speed = spe;
         if (spec.Picked) rival.Picked = true;
         if (spec.Nature is not null) rival.Nature = spec.Nature.Name;
         if (spec.Ability is not null) rival.AbilityId = spec.Ability.Id;
