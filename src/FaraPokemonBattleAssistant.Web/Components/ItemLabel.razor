@@ -4,7 +4,7 @@
     <span class="item-label">
         @if (!string.IsNullOrEmpty(Item.Identifier))
         {
-            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/@(Item.Identifier).png" alt="" loading="lazy" class="item-icon" onerror="this.style.display='none'" />
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/@(Item.Identifier).png" alt="" loading="lazy" class="item-icon" onerror="this.style.visibility='hidden'" />
         }
         <span>@Item.Name</span>
     </span>
