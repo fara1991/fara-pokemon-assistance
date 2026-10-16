@@ -294,6 +294,10 @@ public class RivalCommandTests
         Assert.True(plain.Success, plain.Message);
         Assert.Null(plain.Request!.Defender.Item);
         Assert.Matches(@"→ リザードン\([^)]*\)", plain.Message);
+        // 使用率の持ち物（その名前）も、防御側の表記に出さない
+        var usageItem = (await TestData.Catalog().GetDataSetAsync(Ds)).GetUsageAsync(Models.BattleFormat.Singles).Result.TopItem(
+            (await TestData.Catalog().GetDataSetAsync(Ds)).Pokemon.First(p => p.Name == "リザードン").Id);
+        if (usageItem is not null) Assert.DoesNotContain(usageItem.Name, plain.Message.Split('\n')[0].Split('→')[1]);
         // 書いた持ち物は、計算にも返信にも反映する
         var held = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 防:たべのこし");
         Assert.True(held.Success, held.Message);
@@ -301,7 +305,33 @@ public class RivalCommandTests
         Assert.Contains("たべのこし", held.Message.Split('\n')[0].Split('→')[1]);
         var noItem = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 防:持ち物なし");
         Assert.Null(noItem.Request!.Defender.Item);
-        Assert.DoesNotContain("たべのこし", noItem.Message.Split('\n')[0].Split('→')[1]);
+        Assert.DoesNotMatch(@"→ リザードン\([^)]*たべのこし", noItem.Message);
+    }
+
+    [Fact]
+    public async Task Scan_uses_the_written_item_in_the_estimate_and_keeps_it_in_the_basis()
+    {
+        var (command, repo) = await NewAsync();
+        var probe = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H0 B10");
+        Assert.True(probe.Success, probe.Message);
+        var observed = (int)Math.Round((probe.Damage!.MinDamage + probe.Damage.MaxDamage) / 2.0);
+        var plain = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}");
+        Assert.True(plain.Success, plain.Message);
+        // 同じ B10 の相手が、ヤチェのみ（こおり技の効果抜群を半減）を持っているときの受けるダメージ
+        var probeBerry = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ H0 B10 防:ヤチェのみ");
+        Assert.True(probeBerry.Success, probeBerry.Message);
+        var observedBerry = (int)Math.Round((probeBerry.Damage!.MinDamage + probeBerry.Damage.MaxDamage) / 2.0);
+        Assert.True(observedBerry < observed);
+        var (command2, repo2) = await NewAsync();
+        var berry = await command2.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observedBerry} 防:ヤチェのみ");
+        Assert.True(berry.Success, berry.Message);
+        // 持ち物を書けば、持ち物なしのときと同じ B の範囲に推定される（持ち物が推定に届いている）
+        var plainBands = (await repo.GetAsync()).For(Ds).Rivals.Single().Scans.Single().Bands.Select(x => (x.MinEv, x.MaxEv)).ToList();
+        var berryBands = (await repo2.GetAsync()).For(Ds).Rivals.Single().Scans.Single().Bands.Select(x => (x.MinEv, x.MaxEv)).ToList();
+        Assert.Equal(plainBands, berryBands);
+        // 持ち物は保存されないので、推定の根拠に残し、dmg でも書くよう案内する
+        Assert.Contains("防:ヤチェのみ", berry.Message);
+        Assert.Contains("防:ヤチェのみ", (await command2.ExecuteAsync("!pokech detail -r フシギバナ")).Message);
     }
 
     [Fact]

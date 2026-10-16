@@ -415,7 +415,7 @@ public sealed partial class PokeCommand
         DataSetInfo ds, PokemonDataSet data, List<string> args, string text, PokeCommandOptions options,
         Func<Pokemon, bool, PokemonBuild?> provider, KnownFoe? foe, bool useHigh, CancellationToken ct)
     {
-        // 登録の構成は攻撃側だけに使う（防御側は相手なので、分かっている相手の情報があればそれ、なければ使用率の既定値で計算する）
+        // 登録の構成は攻撃側だけに使う（防御側は相手なので、分かっている相手の情報があればそれ、なければ使用率の性格・特性の既定値で計算する。持ち物は書いたものかメガストーンだけ）
         Func<Pokemon, bool, PokemonBuild?> withFoe = (p, isAttacker) =>
             isAttacker ? provider(p, true) : foe is not null && p.Id == foe.Pokemon.Id ? (useHigh ? foe.High : foe.Low).Clone() : null;
 

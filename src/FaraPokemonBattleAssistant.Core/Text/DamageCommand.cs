@@ -16,7 +16,7 @@ public sealed class DamageCommandOptions
     public int DefaultDefenderHpEv { get; set; } = 252;
     /// <summary>防御側の既定 B/D 努力値（技の分類に応じた方）。</summary>
     public int DefaultDefenderDefenseEv { get; set; } = 0;
-    /// <summary>使用率データから性格・持ち物の既定値を埋めるか。</summary>
+    /// <summary>使用率データから、性格・特性と攻撃側の持ち物の既定値を埋めるか（防御側の持ち物は入れない）。</summary>
     public bool UseUsageDefaults { get; set; } = true;
     /// <summary>2〜5 回当たる連続技の回数（2 や 5。null なら既定）。</summary>
     public int? HitCount { get; set; }

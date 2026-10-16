@@ -464,7 +464,10 @@ public sealed partial class PokeCommand
 
         var request = baseline.Request;
         // 相手の持ち物は、書いたもの（防:たべのこし など）かメガストーンだけ。不明なら持ち物なしとして推定する（使用率の持ち物は入れない）
-        var itemNote = request.Defender.Item is { } heldItem ? $"相手の持ち物は{heldItem.Name}として推定" : "相手は持ち物なし想定";
+        // 持ち物は相手に保存されないので、推定の根拠に残し、返信でも dmg で同じ持ち物を書くよう案内する
+        var itemNote = request.Defender.Item is { } heldItem
+            ? $"相手の持ち物は{heldItem.Name}として推定（持ち物は保存されないので、dmg でも 防:{heldItem.Name} を書いてください）"
+            : "相手は持ち物なし想定";
         var estimator = new EvEstimator(data.TypeChart, ds.Generation);
         var attackerText = $"{request.Attacker.Pokemon.Name}({request.Attacker.DescribeShort()})";
         var pokemon = request.Defender.Pokemon;
@@ -491,7 +494,7 @@ public sealed partial class PokeCommand
 
         // 特性ごとの結果は、重なる範囲ではなく「どれかの特性なら成り立つ範囲」（和）にまとめて反映する
         var merged = MergeEstimates(found.Select(r => r.Estimate).ToList());
-        var note = $"{scanText}";
+        var note = request.Defender.Item is { } noteItem && request.Defender.Pokemon.MegaStoneId is null ? $"{scanText} 防:{noteItem.Name}" : $"{scanText}";
         var now = DateTimeOffset.Now;
         (bool Applied, string? Problem) applied = (false, null);
         var rivalText = "";
