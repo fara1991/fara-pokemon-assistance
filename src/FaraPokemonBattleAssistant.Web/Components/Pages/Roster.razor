@@ -72,15 +72,9 @@ else if (data is not null && roster is not null && dataSet is not null)
                         }
                         else
                         {
-                            <select class="form-select" value="@(s.NewAbility?.Id.ToString() ?? "")" disabled="@(s.NewPokemon is null)" @onchange="@(e => OnAbilityChanged(data.FindAbility(ParseId(e.Value))))">
-                                @if (s.NewPokemon is not null)
-                                {
-                                    @foreach (var a in data.AbilitiesOf(s.NewPokemon))
-                                    {
-                                        <option value="@a.Id">@a.Name</option>
-                                    }
-                                }
-                            </select>
+                            <SearchableSelect TItem="Ability" Items="@(s.NewPokemon is null ? Array.Empty<Ability>() : data.AbilitiesOf(s.NewPokemon))" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
+                                SelectedValue="@(s.NewAbility?.Id.ToString() ?? "")" SelectedValueChanged="@(v => OnAbilityChanged(data.FindAbility(ParseId(v))))"
+                                Disabled="@(s.NewPokemon is null)" Dropdown="true" Placeholder="特性名を入力..." />
                         }
                     </div>
                     <div class="form-group mb-3">

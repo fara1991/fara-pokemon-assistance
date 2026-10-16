@@ -33,13 +33,8 @@ else if (data is not null && roster is not null && dataSet is not null)
                         </div>
                         <div class="col-8">
                             <label class="form-label">登録ポケモン</label>
-                            <select class="form-select" value="@s.TeamEntryId" @onchange="OnTeamEntryChanged">
-                                <option value="0">選択...</option>
-                                @foreach (var e in roster.Pokemon)
-                                {
-                                    <option value="@e.Id">#@e.Id @e.PokemonName（@e.Nature）</option>
-                                }
-                            </select>
+                            <SearchableSelect TItem="RegisteredPokemon" Items="roster.Pokemon" DisplayText="@(e => $"#{e.Id} {e.PokemonName}（{e.Nature}）")" ValueSelector="@(e => e.Id.ToString())"
+                                SelectedValue="@(s.TeamEntryId == 0 ? "" : s.TeamEntryId.ToString())" SelectedValueChanged="@OnTeamEntryChanged" Dropdown="true" Placeholder="登録ポケモンを選ぶ..." />
                         </div>
                         <div class="col-12">
                             <label class="form-label">持ち物</label>
@@ -145,9 +140,9 @@ else if (data is not null && roster is not null && dataSet is not null)
     private bool TeamEntryIsMega =>
         roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId) is { } entry && data?.FindPokemon(entry.PokemonId)?.IsMega == true;
 
-    private void OnTeamEntryChanged(ChangeEventArgs e)
+    private void OnTeamEntryChanged(string value)
     {
-        s.TeamEntryId = ParseId(e.Value);
+        s.TeamEntryId = ParseId(value);
         var entry = roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId);
         var pokemon = entry is null ? null : data?.FindPokemon(entry.PokemonId);
         if (pokemon?.IsMega == true)

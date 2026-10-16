@@ -28,7 +28,7 @@ else if (data is not null)
             <div class="cmd-build">
                 <div class="cmd-f-kind">
                     <label class="form-label" for="cmd-kind">種類 <Help Title="種類">実行したいコマンドの種類です。選ぶと、そのコマンドに必要な入力欄だけが出て、下のコマンド欄に文字列を組み立てます。dmg はダメージと確定数、scan は受けたダメージから相手の振り方を推定して相手チームに登録します。</Help></label>
-                    <select id="cmd-kind" class="form-select" value="@s.Kind" @onchange="@(e => { s.Kind = e.Value?.ToString() ?? "dmg"; BuildText(); })">
+                    <select id="cmd-kind" class="form-select" value="@s.Kind" @onchange="@(e => { s.Kind = e.Value?.ToString() ?? "add -m"; BuildText(); })">
                         @foreach (var group in KindGroups())
                         {
                             <optgroup label="@group.Key">
@@ -72,13 +72,11 @@ else if (data is not null)
                         var idx = i;
                         <div class="cmd-f-ability">
                             <label class="form-label">@($"見えた技 {idx + 1}（任意）")</label>
-                            <select class="form-select" value="@s.RivalMoves[idx]" @onchange="@(e => { s.RivalMoves[idx] = e.Value?.ToString() ?? ""; BuildText(); })">
-                                <option value="">指定しない</option>
-                                @if (s.Subject is not null)
-                                {
-                                    @foreach (var mv in data.LearnableMoves(s.Subject.Id)) { <option value="@mv.Name">@mv.Name</option> }
-                                }
-                            </select>
+                            <SearchableSelect TItem="Move" Items="RivalMoveChoices(idx)" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Name)"
+                                SelectedValue="@s.RivalMoves[idx]" SelectedValueChanged="@(v => { s.RivalMoves[idx] = v; BuildText(); })"
+                                Disabled="@(s.Subject is null)" Dropdown="true" EmptyOption="指定しない" Placeholder="技名を入力...">
+                                <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span></ItemTemplate>
+                            </SearchableSelect>
                         </div>
                     }
                 }
@@ -91,8 +89,9 @@ else if (data is not null)
                             {
                                 var idx = i;
                                 var stat = (Stat)idx;
-                                <input class="form-control text-center px-1" inputmode="numeric" maxlength="3" placeholder="@StatNames.Letter(stat)" aria-label="@StatNames.Japanese(stat)" title="@StatNames.Japanese(stat)"
-                                       value="@s.Evs[idx]" @onchange="@(e => { s.Evs[idx] = e.Value?.ToString()?.Trim() ?? ""; BuildText(); })" />
+                                <input type="number" class="form-control text-center px-1" min="0" max="@EvRules.MaxPerStat(App.DataSet?.EvSystem ?? EvSystem.Classic)" step="@EvRules.Step(App.DataSet?.EvSystem ?? EvSystem.Classic)"
+                                       placeholder="@StatNames.Letter(stat)" aria-label="@StatNames.Japanese(stat)" title="@StatNames.Japanese(stat)"
+                                       value="@s.Evs[idx]" @onchange="@(e => { s.Evs[idx] = EvText(e.Value); BuildText(); })" />
                             }
                         </div>
                     </div>
@@ -100,24 +99,24 @@ else if (data is not null)
                 @if (Has(Field.Nature))
                 {
                     <div class="cmd-f-nature">
-                        <label class="form-label" for="cmd-nature">@(s.Kind == "add -m" ? "性格" : "性格（任意）")</label>
-                        <select id="cmd-nature" class="form-select" value="@s.NatureName" @onchange="@(e => { s.NatureName = e.Value?.ToString() ?? ""; BuildText(); })">
-                            <option value="">@(s.Kind == "add -m" ? "選ぶ" : "指定しない")</option>
-                            @foreach (var n in data.Natures) { <option value="@n.Name">@n.Describe()</option> }
-                        </select>
+                        <label class="form-label">@(s.Kind == "add -m" ? "性格" : "性格（任意）")</label>
+                        <NaturePicker Natures="data.Natures" Value="@data.FindNature(s.NatureName)" ValueChanged="@(n => { s.NatureName = n?.Name ?? ""; BuildText(); })" Physical="true" />
+                        @if (s.Kind != "add -m")
+                        {
+                            <div class="small mt-1">
+                                <span class="text-muted">@(s.NatureName.Length == 0 ? "指定しない" : $"選択中: {data.FindNature(s.NatureName)?.Describe()}")</span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary ms-2" disabled="@(s.NatureName.Length == 0)" @onclick="() => { s.NatureName = string.Empty; BuildText(); }">指定しない</button>
+                            </div>
+                        }
                     </div>
                 }
                 @if (Has(Field.Ability))
                 {
                     <div class="cmd-f-ability">
-                        <label class="form-label" for="cmd-ability">特性（任意）</label>
-                        <select id="cmd-ability" class="form-select" value="@s.AbilityName" @onchange="@(e => { s.AbilityName = e.Value?.ToString() ?? ""; BuildText(); })">
-                            <option value="">指定しない</option>
-                            @if (s.Subject is not null)
-                            {
-                                @foreach (var ab in data.AbilitiesOf(s.Subject)) { <option value="@ab.Name">@ab.Name</option> }
-                            }
-                        </select>
+                        <label class="form-label">特性（任意）</label>
+                        <SearchableSelect TItem="Ability" Items="@(s.Subject is null ? Array.Empty<Ability>() : data.AbilitiesOf(s.Subject))" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Name)"
+                            SelectedValue="@s.AbilityName" SelectedValueChanged="@(v => { s.AbilityName = v; BuildText(); })"
+                            Disabled="@(s.Subject is null)" Dropdown="true" EmptyOption="指定しない" Placeholder="特性名を入力..." />
                     </div>
                 }
                 @if (Has(Field.EntryId))
@@ -233,7 +232,7 @@ else if (data is not null)
 {
 <label class="form-label" for="cmd-input">コマンド <Help Title="コマンド欄">Enter か「実行」で配信用BOTと同じ結果が返ります。接頭辞を省略すると選択中のゲーム（!@(App.CommandPrefix)）として実行します。オプション（努力値・性格・持ち物・急所など）は末尾に続けて書けます。</Help></label>
 <div class="input-group mb-2">
-    <input id="cmd-input" class="form-control" placeholder="!@(App.CommandPrefix) dmg ガブリアス じしん リザードン" value="@s.Input" @oninput="OnInput" @onkeydown="OnKeyDown" />
+    <input id="cmd-input" class="form-control" placeholder="!@(App.CommandPrefix) add -m ガブリアス 4 32 0 0 0 30 ようき" value="@s.Input" @oninput="OnInput" @onkeydown="OnKeyDown" />
     <button class="btn btn-primary" @onclick="Run" disabled="@running">実行</button>
 </div>
 
@@ -361,7 +360,7 @@ else if (data is not null)
     public sealed class State
     {
         public string DataSetKey { get; set; } = "";
-        public string Kind { get; set; } = "dmg";
+        public string Kind { get; set; } = "add -m";
         public Pokemon? Attacker { get; set; }
         public Move? Move { get; set; }
         public int MoveRank { get; set; }
@@ -510,7 +509,7 @@ else if (data is not null)
 
     private IEnumerable<IGrouping<string, KindDef>> KindGroups() => Kinds().OrderBy(k => OrderOf(k.Key)).GroupBy(k => k.Group);
 
-    private KindDef CurrentKind => Kinds().FirstOrDefault(k => k.Key == s.Kind) ?? Kinds().First(k => k.Key == "dmg");
+    private KindDef CurrentKind => Kinds().FirstOrDefault(k => k.Key == s.Kind) ?? Kinds().First();
 
     private bool Has(Field f) => CurrentKind.Fields.Contains(f);
 
@@ -634,6 +633,21 @@ else if (data is not null)
             if (data!.FindNature(token) is { } n) { s.NatureName = n.Name; continue; }
             if (s.Subject is not null && data.AbilitiesOf(s.Subject).FirstOrDefault(a => a.Name == token) is { } ab) s.AbilityName = ab.Name;
         }
+    }
+
+    /// <summary>その枠で選べる相手の技。選んだポケモンが覚える技から、ほかの枠で選んだ技を除く。</summary>
+    private IReadOnlyList<Move> RivalMoveChoices(int slot)
+    {
+        if (data is null || s.Subject is null) return Array.Empty<Move>();
+        var taken = s.RivalMoves.Where((m, i) => i != slot && m.Length > 0).ToHashSet();
+        return data.LearnableMoves(s.Subject.Id).Where(m => !taken.Contains(m.Name)).ToList();
+    }
+
+    /// <summary>ポイントの入力欄の文字を、空欄か 0〜最大の数字にそろえる。</summary>
+    private string EvText(object? value)
+    {
+        var max = EvRules.MaxPerStat(App.DataSet?.EvSystem ?? EvSystem.Classic);
+        return int.TryParse(value?.ToString(), out var v) ? Math.Clamp(v, 0, max).ToString() : "";
     }
 
     /// <summary>set -r 用: 名前の後ろに書かれた、相手が覚える技を読み取って欄に入れる。</summary>

@@ -359,9 +359,8 @@ else if (data is not null && dataSet is not null)
                         }
                         else
                         {
-                            <select class="form-select" value="@(build.Ability?.Id.ToString() ?? "")" @onchange="@(e => build.Ability = data.FindAbility(ParseId(e.Value)))">
-                                @foreach (var ab in abilities) { <option value="@ab.Id">@ab.Name</option> }
-                            </select>
+                            <SearchableSelect TItem="Ability" Items="abilities" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
+                                SelectedValue="@(build.Ability?.Id.ToString() ?? "")" SelectedValueChanged="@(v => build.Ability = data.FindAbility(ParseId(v)))" Dropdown="true" Placeholder="特性名を入力..." />
                         }
                     </div>
                     </div>
