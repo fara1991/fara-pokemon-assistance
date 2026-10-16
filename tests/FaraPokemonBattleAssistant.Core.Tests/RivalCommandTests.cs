@@ -290,6 +290,21 @@ public class RivalCommandTests
     }
 
     [Fact]
+    public async Task Registered_mega_rival_keeps_its_mega_stone_and_explicit_items_win()
+    {
+        var (command, _) = await NewAsync();
+        // 数値が分かっている相手（登録済み）でも、メガシンカ後の姿は持ち物がメガストーン
+        Assert.True((await command.ExecuteAsync("!pokech add -r メガリザードンX D32 おだやか")).Success);
+        var known = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし メガリザードンX");
+        Assert.True(known.Success, known.Message);
+        Assert.Equal("リザードナイトX", known.Request!.Defender.Item?.Name);
+        // 持ち物を書いたときは、そちらを優先する
+        var none = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし メガリザードンX 防:持ち物なし");
+        Assert.True(none.Success, none.Message);
+        Assert.Null(none.Request!.Defender.Item);
+    }
+
+    [Fact]
     public async Task Removed_calc_and_foe_are_unknown_commands()
     {
         var (command, _) = await NewAsync();

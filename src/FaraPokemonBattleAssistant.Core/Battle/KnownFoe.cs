@@ -22,9 +22,9 @@ public sealed class KnownFoe
 
     /// <summary>
     /// 相手ポケモンから、<paramref name="defense"/>（その技が使う防御。B か D）で計算するときの構成を作る。
-    /// 防御・HP・性格・特性のどれも分かっていなければ null（既定の構成で計算する）。
+    /// 防御・HP・性格・特性のどれも分かっていなければ null（既定の構成で計算する）。<paramref name="item"/> は、持ち物が分かっているとき（メガシンカ後のメガストーン）に渡す。
     /// </summary>
-    public static KnownFoe? FromRival(RivalPokemon rival, Pokemon pokemon, EvSystem system, IReadOnlyList<Nature> natures, Stat defense, Ability? ability)
+    public static KnownFoe? FromRival(RivalPokemon rival, Pokemon pokemon, EvSystem system, IReadOnlyList<Nature> natures, Stat defense, Ability? ability, Item? item = null)
     {
         var exactDefense = defense == Stat.Defense ? rival.Defense : rival.SpDefense;
         var scan = rival.Scans.FirstOrDefault(s => s.Defense == defense.ToString());
@@ -52,7 +52,7 @@ public sealed class KnownFoe
 
         PokemonBuild Make(double modifier, int defenseEv, int hpEv)
         {
-            var build = new PokemonBuild(pokemon, system) { Nature = NatureFor(modifier), Ability = ability };
+            var build = new PokemonBuild(pokemon, system) { Nature = NatureFor(modifier), Ability = ability, Item = item };
             build.EVs[Stat.HP] = hpEv;
             build.EVs[defense] = defenseEv;
             return build;

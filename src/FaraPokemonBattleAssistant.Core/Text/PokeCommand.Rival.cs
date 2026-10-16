@@ -463,7 +463,8 @@ public sealed partial class PokeCommand
         if (!baseline.Success || baseline.Request is null) return baseline;
 
         var request = baseline.Request;
-        request.Defender.Item = null; // 相手の持ち物は不明
+        // 相手の持ち物は不明（メガシンカ後の姿だけ、メガストーンで確定）
+        request.Defender.Item = request.Defender.Pokemon.MegaStoneId is { } megaStone ? data.FindItem(megaStone) : null;
         var estimator = new EvEstimator(data.TypeChart, ds.Generation);
         var attackerText = $"{request.Attacker.Pokemon.Name}({request.Attacker.DescribeShort()})";
         var pokemon = request.Defender.Pokemon;
