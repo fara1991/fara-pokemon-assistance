@@ -372,7 +372,9 @@ public sealed partial class PokeCommand
         if (FindRival(roster.Rivals, request.Defender.Pokemon, data) is { } rival)
         {
             var ability = rival.AbilityId is { } abilityId ? data.FindAbility(abilityId) : null;
-            foe = KnownFoe.FromRival(rival, request.Defender.Pokemon, ds.EvSystem, data.Natures, request.Move.DefenseStatUsed, ability);
+            // メガシンカ後の姿は、持ち物がメガストーンで確定している
+            var stone = request.Defender.Pokemon.MegaStoneId is { } stoneId ? data.FindItem(stoneId) : null;
+            foe = KnownFoe.FromRival(rival, request.Defender.Pokemon, ds.EvSystem, data.Natures, request.Move.DefenseStatUsed, ability, stone);
         }
         if (foe is null)
             return new DamageCommandResult { Success = true, Message = DamageCommand.Header(request, probe.Last!) + "\n" + probe.Body + probe.Note, Request = request, Damage = probe.Last };

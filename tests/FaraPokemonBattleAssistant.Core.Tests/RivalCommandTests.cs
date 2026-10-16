@@ -252,6 +252,9 @@ public class RivalCommandTests
         var rival = Assert.Single((await repo.GetAsync()).For(Ds).Rivals);
         Assert.Equal("メガリザードンX", rival.PokemonName);
         Assert.Equal(32, rival.SpDefense);
+        // メガシンカ後の姿は、持ち物がメガストーンで確定している
+        Assert.Contains("リザードナイトX", mega.Message);
+        Assert.Contains("リザードナイトX", (await command.ExecuteAsync("!pokech detail -r メガリザードンX")).Message);
 
         // 姿が変わらない・登録されていない相手の名前だけでは、何も更新しない
         Assert.False((await command.ExecuteAsync("!pokech set -r メガリザードンX")).Success);
@@ -275,6 +278,30 @@ public class RivalCommandTests
         var roster = (await repo.GetAsync()).For(Ds);
         Assert.Empty(roster.Rivals);
         Assert.Empty(roster.History);
+    }
+
+    [Fact]
+    public async Task Mega_defender_holds_its_mega_stone_in_dmg()
+    {
+        var (command, _) = await NewAsync();
+        var dmg = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし メガリザードンX");
+        Assert.True(dmg.Success, dmg.Message);
+        Assert.Equal("リザードナイトX", dmg.Request!.Defender.Item?.Name);
+    }
+
+    [Fact]
+    public async Task Registered_mega_rival_keeps_its_mega_stone_and_explicit_items_win()
+    {
+        var (command, _) = await NewAsync();
+        // 数値が分かっている相手（登録済み）でも、メガシンカ後の姿は持ち物がメガストーン
+        Assert.True((await command.ExecuteAsync("!pokech add -r メガリザードンX D32 おだやか")).Success);
+        var known = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし メガリザードンX");
+        Assert.True(known.Success, known.Message);
+        Assert.Equal("リザードナイトX", known.Request!.Defender.Item?.Name);
+        // 持ち物を書いたときは、そちらを優先する
+        var none = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし メガリザードンX 防:持ち物なし");
+        Assert.True(none.Success, none.Message);
+        Assert.Null(none.Request!.Defender.Item);
     }
 
     [Fact]

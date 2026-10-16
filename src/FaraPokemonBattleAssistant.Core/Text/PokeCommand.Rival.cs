@@ -406,6 +406,8 @@ public sealed partial class PokeCommand
         if (exact.Count > 0) parts.Add(string.Join("", exact));
         if (r.Nature is { } nature) parts.Add(data.FindNature(nature)?.Summary() ?? nature);
         if (r.AbilityId is { } aid && data.FindAbility(aid) is { } ability) parts.Add(ability.Name);
+        // メガシンカ後の姿は、持ち物がメガストーンで確定している
+        if (data.FindPokemon(r.PokemonId)?.MegaStoneId is { } stoneId && data.FindItem(stoneId) is { } stone) parts.Add("持ち物:" + stone.Name);
         var moveNames = r.MoveIds.Select(id => data.FindMove(id)?.Name).Where(n => n is not null).ToList();
         if (moveNames.Count > 0) parts.Add("技:" + string.Join("/", moveNames));
         foreach (var scan in r.Scans)
@@ -461,7 +463,8 @@ public sealed partial class PokeCommand
         if (!baseline.Success || baseline.Request is null) return baseline;
 
         var request = baseline.Request;
-        request.Defender.Item = null; // 相手の持ち物は不明
+        // 相手の持ち物は不明（メガシンカ後の姿だけ、メガストーンで確定）
+        request.Defender.Item = request.Defender.Pokemon.MegaStoneId is { } megaStone ? data.FindItem(megaStone) : null;
         var estimator = new EvEstimator(data.TypeChart, ds.Generation);
         var attackerText = $"{request.Attacker.Pokemon.Name}({request.Attacker.DescribeShort()})";
         var pokemon = request.Defender.Pokemon;

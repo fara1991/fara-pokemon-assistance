@@ -711,7 +711,8 @@ else if (data is not null && dataSet is not null)
     {
         if (data is null || s.Defender is null) return null;
         var ability = rival.AbilityId is { } id ? data.FindAbility(id) : null;
-        return KnownFoe.FromRival(rival, s.Defender.Pokemon, data.Info.EvSystem, data.Natures, s.Move?.DefenseStatUsed ?? Stat.Defense, ability);
+        return KnownFoe.FromRival(rival, s.Defender.Pokemon, data.Info.EvSystem, data.Natures, s.Move?.DefenseStatUsed ?? Stat.Defense, ability,
+            s.Defender.Pokemon.MegaStoneId is { } stoneId ? data.FindItem(stoneId) : null);
     }
 
     private string RivalSummary(RivalPokemon rival)
