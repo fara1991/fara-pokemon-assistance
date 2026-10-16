@@ -41,7 +41,7 @@
 
 @code {
     /// <summary>結果を出さないページ（ホーム・タイプ相性表など）で、スイッチがオンのときの案内。</summary>
-    private static readonly WaitingScene NoResultScene = new("対戦画面です。結果は、ダメージ計算機・素早さ比較・自分のポケモンのページで出ます。オフにすると、このページの内容が見えます。");
+    private static readonly WaitingScene NoResultScene = new("対戦画面です。結果は、ダメージ計算機・素早さ比較・「自分のポケモン」のページで出ます。オフにすると、このページの内容が見えます。");
 
     protected override void OnInitialized() => Stage.Changed += OnStageChanged;
 

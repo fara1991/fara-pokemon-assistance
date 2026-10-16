@@ -17,7 +17,7 @@
 //   GET    /api/my/rival   → 200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "rivals": [...], "nextMatchId": n, "history": [...]}, ...}}
 //   PUT    /api/my/rival   ← {"baseRevision": n, "dataSets": {"Champions": {"rivals": [...], "nextId"?: n, "history": [...], "nextMatchId"?: n}}}
 //                           → 200 {"revision": n+1} / 409 {"revision": 現在, "dataSets": 現在}
-//          対戦中の相手ポケモン（rivals）と、終わった試合の記録（history。1 試合に相手ポケモンの配列 Foes）を、書いたゲームの分だけ置き換える。
+//          対戦中の相手のポケモン（rivals）と、終わった試合の記録（history。1 試合に相手のポケモンの配列 Foes）を、書いたゲームの分だけ置き換える。
 //   DELETE /api/my/access-key  → 204（アクセスキーの作り直しで、古いキーを使えなくしてその置き場を消す。以後そのキーは 410）
 //
 // revision は登録データ全体で 1 つ（どの PUT でも増える）。
@@ -400,7 +400,7 @@ export class RosterSlot extends DurableObject {
     return this.#save(s.revision, s.roster);
   }
 
-  /** 対戦中の相手ポケモンと試合の履歴を置き換える（ID は使い回さない）。 */
+  /** 対戦中の相手のポケモンと試合の履歴を置き換える（ID は使い回さない）。 */
   async putRivals(baseRevision, values) {
     const s = await this.#read();
     if (s.deleted) return this.#gone();

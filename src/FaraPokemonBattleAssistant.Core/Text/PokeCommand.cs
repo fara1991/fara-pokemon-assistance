@@ -599,8 +599,8 @@ public sealed partial class PokeCommand
                 if (who) mine.Status = StatusCondition.Paralysis; else opponentParalyzed = true;
                 continue;
             }
-            if (n is "まひ" or "相手まひ" or "相手:まひ" or "防:まひ") { opponentParalyzed = true; continue; }
-            if (n is "自まひ" or "自分まひ" or "自:まひ" or "攻:まひ" or "自分:まひ") { mine.Status = StatusCondition.Paralysis; continue; }
+            if (n is "まひ" or "相手まひ" or "相手:まひ") { opponentParalyzed = true; continue; }
+            if (n is "自まひ" or "自分まひ" or "自:まひ" or "自分:まひ") { mine.Status = StatusCondition.Paralysis; continue; }
             if (n is "晴れ" or "はれ") weather = Weather.Sun;
             else if (n is "雨" or "あめ") weather = Weather.Rain;
             else if (n is "砂" or "すなあらし" or "砂嵐") weather = Weather.Sand;

@@ -4,7 +4,7 @@ using Xunit;
 
 namespace FaraPokemonBattleAssistant.Core.Tests;
 
-/// <summary>相手ポケモン（-r）・履歴（-h）・set・scan のコマンド。</summary>
+/// <summary>相手のポケモン（-r）・履歴（-h）・set・scan のコマンド。</summary>
 public class RivalCommandTests
 {
     private const string Ds = "Champions";
@@ -342,7 +342,7 @@ public class RivalCommandTests
         var observed = (int)Math.Round((probe.Damage!.MinDamage + probe.Damage.MaxDamage) / 2.0);
         var plainScan = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}");
         Assert.True(plainScan.Success, plainScan.Message);
-        Assert.Contains("持ち物: 不明", plainScan.Message);
+        Assert.EndsWith("持ち物: 不明", plainScan.Message.Split((char)10)[1]);
         // scan でも、書いた持ち物（防:たべのこし）は捨てずに、その持ち物として推定する
         var heldScan = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed} 防:たべのこし");
         Assert.True(heldScan.Success, heldScan.Message);
