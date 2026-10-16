@@ -1,15 +1,34 @@
-@* 持ち物のアイコンと名前を 1 行で表示する。画像が無ければ名前だけ。 *@
+@* 持ち物のアイコンと名前を 1 行で表示する。
+   アイコンの場所は、画像が無い持ち物でも同じ幅で空けて、名前の位置がそろうようにする。
+   メガストーンの画像が無いときは、共通のメガシンカ用アイコン（キーストーン）で代わりにする。 *@
 @if (Item is not null)
 {
     <span class="item-label">
-        @if (!string.IsNullOrEmpty(Item.Identifier))
-        {
-            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/@(Item.Identifier).png" alt="" loading="lazy" class="item-icon" onerror="this.style.visibility='hidden'" />
-        }
+        <span class="item-icon-slot">
+            @* 持ち物が変わったら画像の要素も作り直す（前の持ち物の 404 の状態を引き継がない） *@
+            @if (!string.IsNullOrEmpty(Item.Identifier))
+            {
+                <img @key="Item.Identifier" src="@IconUrl" alt="" loading="lazy" class="item-icon" onerror="@OnError" />
+            }
+            else if (Item.IsMegaStone)
+            {
+                @* 画像の名前が決まっていないメガストーンも、共通のメガシンカ用アイコンにする *@
+                <img @key="Item.Id" src="@(SpriteBase)key-stone.png" alt="" loading="lazy" class="item-icon" onerror="this.style.visibility='hidden'" />
+            }
+        </span>
         <span>@Item.Name</span>
     </span>
 }
 
 @code {
+    private const string SpriteBase = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/";
+
     [Parameter] public Item? Item { get; set; }
+
+    private string IconUrl => $"{SpriteBase}{Item?.Identifier}.png";
+
+    /// <summary>画像が読めないとき: メガストーンはキーストーンの画像に（1 回だけ）、それ以外は画像だけ隠す（場所は残す）。</summary>
+    private string OnError => Item?.IsMegaStone == true
+        ? $"this.onerror=function(){{this.style.visibility='hidden'}};this.src='{SpriteBase}key-stone.png'"
+        : "this.style.visibility='hidden'";
 }
