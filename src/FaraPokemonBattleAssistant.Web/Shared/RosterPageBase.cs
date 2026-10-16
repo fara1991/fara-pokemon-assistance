@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Components;
 namespace FaraPokemonBattleAssistant.Web.Shared;
 
 /// <summary>
-/// 「ポケモン登録」「チーム登録」ページの共通部分。ゲームのデータと登録データを読み込み、変更の結果をトーストで知らせる。
+/// 「自分のポケモン」「チーム」ページの共通部分。ゲームのデータと登録データを読み込み、変更の結果をトーストで知らせる。
 /// </summary>
 public abstract class RosterPageBase : AppPageBase
 {

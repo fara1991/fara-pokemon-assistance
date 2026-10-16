@@ -48,7 +48,7 @@ public sealed class DamageCommandResult
 /// <item><c>A252 C252 S4</c> … 攻撃側の努力値、<c>H252 B4 D252</c> … 防御側の努力値</item>
 /// <item>性格名（いじっぱり 等）… 上昇補正が攻撃/特攻/素早さなら攻撃側、防御/特防なら防御側</item>
 /// <item>持ち物名（こだわりメガネ 等）… チョッキ・しんかのきせきは防御側、それ以外は攻撃側</item>
-/// <item><c>攻:</c> / <c>防:</c> を前に付けると側を明示（例: <c>防:ずぶとい 防:たべのこし</c>）</item>
+/// <item><c>攻:</c> / <c>防:</c>（<c>攻撃:</c> <c>防御:</c> <c>こうげき:</c> <c>ぼうぎょ:</c> <c>A:</c> <c>B:</c> <c>C:</c> <c>D:</c>、全角の「：」も可）を前に付けると側を明示（例: <c>防:ずぶとい 防:たべのこし</c>）</item>
 /// <item><c>+1</c>〜<c>+6</c>、<c>-1</c>〜<c>-6</c> … 攻撃側の攻撃ランク（<c>防:+1</c> で防御側の防御ランク）</item>
 /// <item><c>急所</c>、<c>ダブル</c> / <c>シングル</c>、<c>Lv100</c>、<c>無振り</c>（防御側の努力値を 0 に）</item>
 /// <item>特性名（ちからもち 等）… そのポケモンが持てる側に付く。両方持てるなら防御的な特性は防御側</item>
@@ -201,16 +201,8 @@ public sealed class DamageCommand
         foreach (var rawToken in tokens.Skip(3))
         {
             var token = rawToken;
-            bool? forcedAttacker = null;
-            foreach (var (prefix, side) in SidePrefixes)
-            {
-                if (token.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    forcedAttacker = side;
-                    token = token[prefix.Length..];
-                    break;
-                }
-            }
+            var (forcedAttacker, bareToken) = SplitSide(token);
+            token = bareToken;
             if (token.Length == 0) continue;
 
             var normalized = NameNormalizer.Normalize(token);
@@ -577,11 +569,28 @@ public sealed class DamageCommand
         return false;
     }
 
+    // 攻撃側・防御側を明示する前置き（全角・半角のコロン、英字は大文字小文字を問わない）。
+    // 攻撃側: 攻 / 攻撃 / こうげき / A / C / atk、防御側: 防 / 防御 / ぼうぎょ / B / D / def
+    private static readonly string[] AttackerWords = { "攻", "攻撃", "こうげき", "a", "c", "atk" };
+    private static readonly string[] DefenderWords = { "防", "防御", "ぼうぎょ", "b", "d", "def" };
+
     private static readonly (string Prefix, bool IsAttacker)[] SidePrefixes =
+        AttackerWords.SelectMany(w => new[] { (w + ":", true), (w + "：", true) })
+            .Concat(DefenderWords.SelectMany(w => new[] { (w + ":", false), (w + "：", false) }))
+            .OrderByDescending(x => x.Item1.Length)
+            .ToArray();
+
+    /// <summary>
+    /// 「防:たべのこし」「防御:たべのこし」「B：たべのこし」のように、側を明示する前置きを外す。
+    /// 前置きが無ければ <c>IsAttacker</c> は null で、<c>Remainder</c> は元の文字列。
+    /// </summary>
+    public static (bool? IsAttacker, string Remainder) SplitSide(string token)
     {
-        ("攻:", true), ("攻：", true), ("a:", true), ("atk:", true), ("こうげき:", true),
-        ("防:", false), ("防：", false), ("d:", false), ("def:", false), ("ぼうぎょ:", false),
-    };
+        foreach (var (prefix, side) in SidePrefixes)
+            if (token.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return (side, token[prefix.Length..]);
+        return (null, token);
+    }
 
     private static Dictionary<string, string> DataSetWords(IEnumerable<DataSetInfo> dataSets)
     {

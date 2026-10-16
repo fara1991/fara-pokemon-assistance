@@ -33,7 +33,7 @@
         <button type="button" class="btn btn-sm btn-outline-light w-100 mt-2" @onclick="App.ToggleThemeAsync">
             @(App.Theme == "dark" ? "☀ ライトモード" : "🌙 ダークモード")
         </button>
-        @* 対戦画面（背景のフィールドに結果を重ねて出す）。ダメージ計算機・素早さ比較・ポケモン登録で使え、全ページ共通のスイッチ *@
+        @* 対戦画面（背景のフィールドに結果を重ねて出す）。ダメージ計算機・素早さ比較・自分のポケモンで使え、全ページ共通のスイッチ *@
         <BattleViewSwitch InputId="side-battle-view" Class="side-battle mt-2" OnChanged="CollapseNavMenu" />
     </div>
     <nav class="flex-column side-nav" @onclick="CollapseNavMenu">
@@ -84,9 +84,9 @@
         new("登録", new[]
         {
             ("data-share", "データ共有", "bi-cloud-arrow-up", false),
-            ("my-pokemon", "ポケモン登録", "bi-person-plus", true),
-            ("my-team", "チーム登録", "bi-people", true),
-            ("my-rival", "相手ポケモン", "bi-person-bounding-box", true),
+            ("my-pokemon", "自分のポケモン", "bi-person-plus", true),
+            ("my-team", "チーム", "bi-people", true),
+            ("my-rival", "相手のポケモン", "bi-person-bounding-box", true),
         }),
         new("情報", new[]
         {

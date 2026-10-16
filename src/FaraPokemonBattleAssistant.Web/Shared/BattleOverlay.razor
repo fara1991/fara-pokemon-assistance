@@ -41,7 +41,7 @@
 
 @code {
     /// <summary>結果を出さないページ（ホーム・タイプ相性表など）で、スイッチがオンのときの案内。</summary>
-    private static readonly WaitingScene NoResultScene = new("対戦画面です。結果は、ダメージ計算機・素早さ比較・ポケモン登録のページで出ます。オフにすると、このページの内容が見えます。");
+    private static readonly WaitingScene NoResultScene = new("対戦画面です。結果は、ダメージ計算機・素早さ比較・自分のポケモンのページで出ます。オフにすると、このページの内容が見えます。");
 
     protected override void OnInitialized() => Stage.Changed += OnStageChanged;
 
@@ -139,7 +139,7 @@
         </div>
     };
 
-    /// <summary>ポケモン登録：左下に登録するポケモン、右上に相手（背景に立っている方）、右下に選んだ技 4 つ。</summary>
+    /// <summary>自分のポケモン：左下に登録するポケモン、右上に相手（背景に立っている方）、右下に選んだ技 4 つ。</summary>
     private RenderFragment RenderRegister(RegisterScene r) => __builder =>
     {
         <div class="bv-box bv-foe">

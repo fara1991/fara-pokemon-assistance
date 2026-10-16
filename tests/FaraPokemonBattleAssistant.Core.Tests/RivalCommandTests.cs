@@ -342,14 +342,14 @@ public class RivalCommandTests
         var observed = (int)Math.Round((probe.Damage!.MinDamage + probe.Damage.MaxDamage) / 2.0);
         var plainScan = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}");
         Assert.True(plainScan.Success, plainScan.Message);
-        Assert.Contains("持ち物: 不明（なしとして推定）", plainScan.Message);
+        Assert.Contains("持ち物: 不明", plainScan.Message);
         // scan でも、書いた持ち物（防:たべのこし）は捨てずに、その持ち物として推定する
         var heldScan = await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed} 防:たべのこし");
         Assert.True(heldScan.Success, heldScan.Message);
         Assert.Equal("たべのこし", heldScan.Request!.Defender.Item?.Name);
         Assert.Contains("持ち物: たべのこし", heldScan.Message);
         Assert.Contains("防:たべのこし を書いてください", heldScan.Message);
-        Assert.DoesNotContain("不明（なしとして推定）", heldScan.Message);
+        Assert.DoesNotContain("持ち物: 不明", heldScan.Message);
 
         // 範囲の相手の 1 行目にも、書いた持ち物が出る。持ち物なしを書けば出ない
         var held = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし フシギバナ 防:たべのこし");
@@ -362,6 +362,48 @@ public class RivalCommandTests
         Assert.DoesNotContain("たべのこし", none.Message.Split('\n')[0].Split('→')[1]);
     }
 
+    [Theory]
+    [InlineData("防:")]
+    [InlineData("防：")]
+    [InlineData("防御:")]
+    [InlineData("防御：")]
+    [InlineData("ぼうぎょ:")]
+    [InlineData("ぼうぎょ：")]
+    [InlineData("B:")]
+    [InlineData("B：")]
+    [InlineData("d:")]
+    [InlineData("D：")]
+    [InlineData("def:")]
+    public async Task Defender_side_prefix_accepts_many_spellings(string prefix)
+    {
+        var (command, _) = await NewAsync();
+        var reply = await command.ExecuteAsync($"!pokech dmg マニューラ つららおとし リザードン {prefix}たべのこし");
+        Assert.True(reply.Success, reply.Message);
+        Assert.Equal("たべのこし", reply.Request!.Defender.Item?.Name);
+        Assert.Contains("たべのこし", reply.Message.Split('\n')[0].Split('→')[1]);
+        Assert.NotEqual("たべのこし", reply.Request.Attacker.Item?.Name);
+    }
+
+    [Theory]
+    [InlineData("攻:")]
+    [InlineData("攻：")]
+    [InlineData("攻撃:")]
+    [InlineData("攻撃：")]
+    [InlineData("こうげき:")]
+    [InlineData("こうげき：")]
+    [InlineData("A:")]
+    [InlineData("C：")]
+    [InlineData("atk:")]
+    public async Task Attacker_side_prefix_accepts_many_spellings(string prefix)
+    {
+        var (command, _) = await NewAsync();
+        // たべのこしは防御側に付くのが既定。攻撃側の前置きで、攻撃側に付く
+        var reply = await command.ExecuteAsync($"!pokech dmg マニューラ つららおとし リザードン {prefix}たべのこし");
+        Assert.True(reply.Success, reply.Message);
+        Assert.Equal("たべのこし", reply.Request!.Attacker.Item?.Name);
+        Assert.NotEqual("たべのこし", reply.Request.Defender.Item?.Name);
+    }
+
     [Fact]
     public async Task Scan_faster_and_dmg_replies_put_the_input_on_the_first_line_and_the_result_after()
     {
@@ -372,7 +414,7 @@ public class RivalCommandTests
         var scan = (await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}")).Message.Split('\n');
         Assert.Contains("→ フシギバナ（", scan[0]);
         Assert.Contains($"{observed}ダメージ", scan[0]);
-        Assert.StartsWith("結果 B実数値:", scan[1]);
+        Assert.StartsWith("結果 フシギバナB実数値:", scan[1]);
         // 性格が不明なときは、3 つの補正の範囲が出る
         Assert.Contains("B上昇補正", scan[2]);
         Assert.Contains("B補正無し", scan[2]);
@@ -388,7 +430,7 @@ public class RivalCommandTests
         // 性格が分かると、その補正の範囲だけを出し、結果の行に B↑ のように出す。実数値の範囲も、その補正の分だけに絞る
         Assert.True((await command.ExecuteAsync("!pokech set -r フシギバナ ずぶとい")).Success);
         var known = (await command.ExecuteAsync($"!pokech scan マニューラ つららおとし フシギバナ {observed}")).Message.Split('\n');
-        Assert.Contains("（B↑）", known[1]);
+        Assert.Contains("(B↑)", known[1]);
         Assert.Contains("B上昇補正", known[2]);
         Assert.DoesNotContain("B下降補正", known[2]);
         Assert.DoesNotContain("B補正無し", known[2]);

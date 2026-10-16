@@ -18,13 +18,9 @@
             <div class="card-body">
                 <h6 class="card-title">対応しているゲーム <Help Title="ゲームの切り替え">左のメニューの「ゲーム」で切り替えます。選んだゲームは全ページとチャットコマンドの接頭辞に反映されます。</Help></h6>
                 <ul class="mb-0 small">
-                    <li>第1・第2世代（赤・緑・青・ピカチュウ 〜 金・銀・クリスタル）: その世代のポケモン・技・タイプ相性を見られます。ダメージ計算は未対応です</li>
-                    <li>第3〜第5世代（ルビー・サファイア 〜 ブラック2・ホワイト2）: その世代の計算式と補正でダメージを計算します</li>
-                    <li>第6世代（X・Y・オメガルビー・アルファサファイア）: その世代の計算式と補正でダメージを計算します。メガシンカに対応します</li>
-                    <li>第7世代（サン・ムーン・ウルトラサン・ウルトラムーン）: その世代の計算式と補正でダメージを計算します。Z 技とメガシンカに対応します</li>
-                    <li>第8世代（ソード・シールド）: 鎧の孤島・冠の雪原を含みます。ダイマックスに対応します</li>
-                    <li>第9世代（スカーレット・バイオレット）: DLC を含みます。テラスタルに対応します</li>
-                    <li>ポケモンチャンピオンズ: 収録ポケモン（231 種とメガシンカ・フォルム違い）を計算できます。メガシンカとポイント制の努力値に対応します</li>
+                    <li>第1・第2世代: その世代のポケモン・技・タイプ相性を見られます。ダメージ計算は未対応です</li>
+                    <li>第3世代以降: その世代の計算式と補正でダメージを計算します<br /><span class="text-muted">※メガシンカ、Z 技、ダイマックス、テラスタルに対応しています</span></li>
+                    <li>ポケモンチャンピオンズ: 収録ポケモンのダメージ計算、努力値のポイント制に対応しています</li>
                 </ul>
             </div>
         </div>
@@ -56,11 +52,11 @@
             <div class="home-tool-actions"><a href="chat-commands" class="btn btn-outline-primary btn-sm">コマンドを試す</a></div>
         </li>
         <li>
-            <div class="home-tool-text"><b>ポケモン・チーム登録</b><p>育成済みのポケモンとチームを登録しておくと、計算のときに自分の構成が自動で入ります（<code>!@(App.CommandPrefix) add -m / add -t / use -t</code>）。</p></div>
-            <div class="home-tool-actions"><a href="my-pokemon" class="btn btn-outline-primary btn-sm">ポケモン登録</a><a href="my-team" class="btn btn-outline-primary btn-sm">チーム登録</a></div>
+            <div class="home-tool-text"><b>自分のポケモン・チーム</b><p>育成済みのポケモンとチームを登録しておくと、計算のときに自分の構成が自動で入ります（<code>!@(App.CommandPrefix) add -m / add -t / use -t</code>）。</p></div>
+            <div class="home-tool-actions"><a href="my-pokemon" class="btn btn-outline-primary btn-sm">自分のポケモン</a><a href="my-team" class="btn btn-outline-primary btn-sm">チーム</a></div>
         </li>
         <li>
-            <div class="home-tool-text"><b>相手ポケモン</b><p>対戦中の相手を登録して、分かった振り方・性格・特性や推定をダメージ計算に使います。試合を終えると履歴に残ります（<code>!@(App.CommandPrefix) add -r / scan / clear -r</code>）。</p></div>
+            <div class="home-tool-text"><b>相手のポケモン</b><p>対戦中の相手を登録して、分かった振り方・性格・特性や推定をダメージ計算に使います。試合を終えると履歴に残ります（<code>!@(App.CommandPrefix) add -r / scan / clear -r</code>）。</p></div>
             <div class="home-tool-actions"><a href="my-rival" class="btn btn-outline-primary btn-sm">開く</a></div>
         </li>
         <li>

@@ -2,17 +2,17 @@
 @inherits RosterPageBase
 @using FaraPokemonBattleAssistant.Core.Roster
 
-<PageTitle>チーム登録 | Pokémon Battle Assistant</PageTitle>
+<PageTitle>チーム | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>チーム登録 <Help Title="チーム登録">登録したポケモンをチームにまとめ、持ち物を決めます。チームを「使用中」にすると、ダメージ計算機・素早さ比較・チャットコマンドでその構成が自動で使われます。データはゲームごとに分かれています。</Help></h3>
-    <p class="text-muted mb-0">チームが 0 体になると自動で削除されます。先に<a href="my-pokemon">ポケモン登録</a>でポケモンを登録してください。</p>
+    <h3>チーム <Help Title="チーム">登録したポケモンをチームにまとめ、持ち物を決めます。チームを「使用中」にすると、ダメージ計算機・素早さ比較・チャットコマンドでその構成が自動で使われます。データはゲームごとに分かれています。</Help></h3>
+    <p class="text-muted mb-0">チームが 0 体になると自動で削除されます。先に<a href="my-pokemon">自分のポケモン</a>でポケモンを登録してください。</p>
     <RegistrationStorageNote />
 </div>
 
 @if (dataSet is { CalcSupported: false })
 {
-    <CalcUnsupported DataSet="dataSet" Feature="チーム登録" />
+    <CalcUnsupported DataSet="dataSet" Feature="チーム" />
 }
 else if (data is not null && roster is not null && dataSet is not null)
 {
@@ -21,7 +21,7 @@ else if (data is not null && roster is not null && dataSet is not null)
         <div class="reg-col">
             @if (roster.Pokemon.Count == 0)
             {
-                <Notice Empty="true" Class="mb-3">登録したポケモンがまだありません。先に<a href="my-pokemon">ポケモン登録</a>で登録してください。</Notice>
+                <Notice Empty="true" Class="mb-3">登録したポケモンがまだありません。先に<a href="my-pokemon">自分のポケモン</a>で登録してください。</Notice>
             }
             <div class="card mb-3">
                 <div class="card-header"><h5>チームに追加 <Help Title="チーム">1 チーム 6 体まで。同じ登録 ID をもう一度追加すると持ち物だけ更新します。メガシンカ後のポケモンはメガストーンが自動で付きます。</Help></h5></div>
