@@ -16,7 +16,7 @@ public sealed class DamageCommandOptions
     public int DefaultDefenderHpEv { get; set; } = 252;
     /// <summary>防御側の既定 B/D 努力値（技の分類に応じた方）。</summary>
     public int DefaultDefenderDefenseEv { get; set; } = 0;
-    /// <summary>使用率データから性格・持ち物の既定値を埋めるか。</summary>
+    /// <summary>使用率データから、性格・特性と攻撃側の持ち物の既定値を埋めるか（防御側の持ち物は入れない）。</summary>
     public bool UseUsageDefaults { get; set; } = true;
     /// <summary>2〜5 回当たる連続技の回数（2 や 5。null なら既定）。</summary>
     public int? HitCount { get; set; }
@@ -410,10 +410,9 @@ public sealed class DamageCommand
             attacker.Item = attackerStoneItem;
         else if (!attackerItemSet && usage is not null)
             attacker.Item = usage.TopItem(attacker.Pokemon.Id);
+        // 防御側は対戦中の相手なので、使用率の持ち物は入れない（書いた持ち物かメガストーンだけ。不明なら持ち物なしで計算し、表示にも出さない）
         if (!defenderItemSet && defender.Pokemon.MegaStoneId is { } defenderStone && data.FindItem(defenderStone) is { } defenderStoneItem)
             defender.Item = defenderStoneItem;
-        else if (!defenderItemSet && usage is not null)
-            defender.Item = usage.TopItem(defender.Pokemon.Id);
         if (!attackerAbilitySet)
             attacker.Ability = usage?.DefaultAbility(attacker.Pokemon) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(attacker.Pokemon), null);
         if (!defenderAbilitySet)

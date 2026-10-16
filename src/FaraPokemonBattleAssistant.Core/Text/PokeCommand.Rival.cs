@@ -463,8 +463,11 @@ public sealed partial class PokeCommand
         if (!baseline.Success || baseline.Request is null) return baseline;
 
         var request = baseline.Request;
-        // 相手の持ち物は不明（メガシンカ後の姿だけ、メガストーンで確定）
-        request.Defender.Item = request.Defender.Pokemon.MegaStoneId is { } megaStone ? data.FindItem(megaStone) : null;
+        // 相手の持ち物は、書いたもの（防:たべのこし など）かメガストーンだけ。不明なら持ち物なしとして推定する（使用率の持ち物は入れない）
+        // 持ち物は相手に保存されないので、推定の根拠に残し、返信でも dmg で同じ持ち物を書くよう案内する
+        var itemNote = request.Defender.Item is { } heldItem
+            ? $"相手の持ち物は{heldItem.Name}として推定（持ち物は保存されないので、dmg でも 防:{heldItem.Name} を書いてください）"
+            : "相手は持ち物なし想定";
         var estimator = new EvEstimator(data.TypeChart, ds.Generation);
         var attackerText = $"{request.Attacker.Pokemon.Name}({request.Attacker.DescribeShort()})";
         var pokemon = request.Defender.Pokemon;
@@ -487,11 +490,11 @@ public sealed partial class PokeCommand
         var found = results.Where(r => r.Estimate.HasResult).ToList();
         var observedText = asPercent ? $"{observed:0.#}%" : $"{observed:0}";
         if (found.Count == 0)
-            return new DamageCommandResult { Success = false, Message = $"{attackerText}の{request.Move.Name}で{pokemon.Name}に{observedText}ダメージになる振り方が見つかりません。持ち物・特性・ランク・天候・フィールドが違うか、ダメージを見直してください（相手は持ち物なし想定）", Request = request };
+            return new DamageCommandResult { Success = false, Message = $"{attackerText}の{request.Move.Name}で{pokemon.Name}に{observedText}ダメージになる振り方が見つかりません。持ち物・特性・ランク・天候・フィールドが違うか、ダメージを見直してください（{itemNote}）", Request = request };
 
         // 特性ごとの結果は、重なる範囲ではなく「どれかの特性なら成り立つ範囲」（和）にまとめて反映する
         var merged = MergeEstimates(found.Select(r => r.Estimate).ToList());
-        var note = $"{scanText}";
+        var note = request.Defender.Item is { } noteItem && request.Defender.Pokemon.MegaStoneId is null ? $"{scanText} 防:{noteItem.Name}" : $"{scanText}";
         var now = DateTimeOffset.Now;
         (bool Applied, string? Problem) applied = (false, null);
         var rivalText = "";
@@ -534,7 +537,7 @@ public sealed partial class PokeCommand
         return new DamageCommandResult
         {
             Success = true,
-            Message = $"{head} ※相手は持ち物なし想定。{pokemon.Name}を{(rivalAdded ? "相手に登録" : "絞り込み")}: {rivalText}",
+            Message = $"{head} ※{itemNote}。{pokemon.Name}を{(rivalAdded ? "相手に登録" : "絞り込み")}: {rivalText}",
             Request = request,
         };
     }
