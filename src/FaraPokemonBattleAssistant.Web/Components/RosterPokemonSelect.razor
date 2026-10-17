@@ -1,0 +1,39 @@
+@using FaraPokemonBattleAssistant.Core.Roster
+@* 登録済みのポケモンから選ぶ入力欄（「登録から選ぶ」がオンのときの、ポケモンの入力欄）。
+   候補はチームごとのメンバー（チームで持たせた持ち物つき）と、チームに入っていない登録。選んだ構成は写しで、登録データは変わらない。 *@
+<SearchableSelect TItem="Option"
+    Items="options"
+    DisplayText="@(o => o.Text)"
+    ValueSelector="@(o => o.Choice.Key)"
+    SelectedValue="@(SelectedKey ?? "")"
+    SelectedValueChanged="OnChanged"
+    Placeholder="登録したポケモンから選ぶ...">
+    <ItemTemplate Context="o">
+        <PokemonIcon Pokemon="o.Pokemon" Small="true" /><span>@o.Choice.Label</span><PokemonTypes Pokemon="o.Pokemon" Small="true" /><span class="text-muted ms-auto small text-nowrap">@o.GroupShort</span>
+    </ItemTemplate>
+</SearchableSelect>
+
+@code {
+    private sealed record Option(RosterChoice Choice, Pokemon? Pokemon, string GroupShort)
+    {
+        public string Text => $"{Choice.Label}（{GroupShort}）";
+    }
+
+    [Parameter] public IReadOnlyList<RosterChoiceGroup> Groups { get; set; } = Array.Empty<RosterChoiceGroup>();
+    [Parameter, EditorRequired] public PokemonDataSet Data { get; set; } = default!;
+    /// <summary>いま選んでいる登録の Key（<see cref="RosterChoice.Key"/>）。</summary>
+    [Parameter] public string? SelectedKey { get; set; }
+    [Parameter] public EventCallback<RosterChoice> OnPick { get; set; }
+
+    private IReadOnlyList<Option> options = Array.Empty<Option>();
+
+    protected override void OnParametersSet() =>
+        options = Groups.SelectMany(g => g.Choices.Select(c =>
+            new Option(c, Data.FindPokemon(c.Entry.PokemonId), g.Label.Replace("（使用中）", "") is var l && l.StartsWith("チームに入っていない") ? "チーム外" : g.Label.Replace("（使用中）", "")))).ToList();
+
+    private async Task OnChanged(string key)
+    {
+        var option = options.FirstOrDefault(o => o.Choice.Key == key);
+        if (option is not null) await OnPick.InvokeAsync(option.Choice);
+    }
+}

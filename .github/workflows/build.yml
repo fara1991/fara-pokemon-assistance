@@ -17,21 +17,43 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore FaraPokemonAssistance.sln
+        run: dotnet restore FaraPokemonBattleAssistant.sln
 
       - name: Build
-        run: dotnet build FaraPokemonAssistance.sln --configuration Release --no-restore
+        run: dotnet build FaraPokemonBattleAssistant.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test tests/FaraPokemonAssistance.Core.Tests --configuration Release --no-build --logger "trx;LogFileName=results.trx"
+        run: dotnet test tests/FaraPokemonBattleAssistant.Core.Tests --configuration Release --no-build --logger "trx;LogFileName=results.trx"
 
       - name: Publish web (sanity check)
-        run: dotnet publish src/FaraPokemonAssistance.Web --configuration Release --no-build --output artifacts/web
+        run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --no-build --output artifacts/web
 
       - name: Pack Core
-        run: dotnet pack src/FaraPokemonAssistance.Core --configuration Release --no-build --output artifacts/nuget
+        run: dotnet pack src/FaraPokemonBattleAssistant.Core --configuration Release --no-build --output artifacts/nuget
 
       - uses: actions/upload-artifact@v4
         with:
-          name: FaraPokemonAssistance.Core-nupkg
+          name: FaraPokemonBattleAssistant.Core-nupkg
           path: artifacts/nuget/*.nupkg
+
+  worker:
+    # データ共有 API（worker/index.js）を wrangler dev で起動して確認する
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Dry run (production / develop)
+        run: |
+          mkdir -p publish/wwwroot && echo '<!doctype html><title>ci</title>' > publish/wwwroot/index.html
+          npx wrangler deploy --dry-run --env=""
+          npx wrangler deploy --dry-run --env develop
+
+      - name: API test
+        run: npm run test:worker

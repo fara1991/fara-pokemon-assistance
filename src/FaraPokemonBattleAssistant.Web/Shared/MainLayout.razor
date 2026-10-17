@@ -1,0 +1,67 @@
+@inherits LayoutComponentBase
+@inject BattleStage Stage
+@inject NavigationManager Nav
+@implements IDisposable
+
+@* 背景のバトルフィールド（Shared/BattleStageBackground.razor） *@
+<BattleStageBackground />
+
+@* 対戦画面（結果をフィールドの上に重ねて出す。Shared/BattleOverlay.razor）。出している間は main（入力欄）を隠す *@
+<BattleOverlay />
+
+<div class="page @(Stage.BattleActive ? "battle-active" : "")">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<Toasts />
+
+@code {
+    private string currentGroup = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Stage.Changed += OnStageChanged;
+        currentGroup = GroupOf(Nav.ToBaseRelativePath(Nav.Uri));
+        Nav.LocationChanged += OnLocationChanged;
+        await Stage.InitializeAsync();
+    }
+
+    /// <summary>サイドバーの見出し（計算・登録・情報など）が変わるページの切り替えでは、対戦画面をオフにする。</summary>
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        var next = GroupOf(Nav.ToBaseRelativePath(e.Location));
+        if (next != currentGroup && Stage.BattleView) Stage.SetBattleView(false);
+        currentGroup = next;
+    }
+
+    /// <summary>ページ（パス）が、サイドバーのどの見出しに入るか（NavMenu の見出しと同じ分け方）。</summary>
+    private static string GroupOf(string relativePath)
+    {
+        var path = relativePath.Split('?', '#')[0].Trim('/').ToLowerInvariant();
+        return path switch
+        {
+            "" => "home",
+            "damage-calculator" or "speed-comparison" => "calc",
+            "data-share" or "my-pokemon" or "my-team" or "my-rival" => "register",
+            "type-chart" or "pokemon-list" or "battle-terms" or "api-docs" => "info",
+            "chat-commands" => "stream",
+            _ => path,
+        };
+    }
+
+    private void OnStageChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Stage.Changed -= OnStageChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}

@@ -1,0 +1,165 @@
+// 昔の世代のダメージ計算の期待値を、公開されているダメージ計算ツール（@smogon/calc）で付ける。
+//
+//   npm i --no-save @smogon/calc@0.12.0
+//   node tools/calc_vectors/expected.js scenarios.json > tests/FaraPokemonBattleAssistant.Core.Tests/Data/calc_vectors.json
+//
+// make_scenarios.py が作った条件を読み、サイトのデータとツールのデータ（種族値・タイプ・技の威力など）が
+// 一致する条件だけを残して、乱数 16 通りのダメージを expected に入れる。データが違う条件や、
+// ツールが特別に扱う（この計算機では未対応の）技は除き、除いた理由の件数を標準エラーに出す。
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const { calculate, Generations, Pokemon, Move, Field } = require('@smogon/calc');
+
+const root = path.resolve(__dirname, '..', '..');
+const dataDir = path.join(root, 'src', 'FaraPokemonBattleAssistant.Web', 'wwwroot', 'data');
+const toID = (s) => ('' + s).toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+function readCsv(file) {
+  const text = fs.readFileSync(file, 'utf8').replace(/\r/g, '');
+  const lines = text.split('\n').filter((l) => l.length > 0);
+  const parse = (line) => {
+    const out = []; let cur = ''; let q = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (q) { if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+      else if (c === '"') q = true; else if (c === ',') { out.push(cur); cur = ''; } else cur += c;
+    }
+    out.push(cur); return out;
+  };
+  const header = parse(lines[0]);
+  return lines.slice(1).map((l) => { const v = parse(l); const o = {}; header.forEach((h, i) => { o[h] = v[i]; }); return o; });
+}
+
+// ツールが特別に扱う技（威力・分類・使う能力などが変わる）。この計算機では対応していないので比べない。
+// からげんき・はたきおとす・ソーラービーム・かわらわり・サイコファング・じしん・じならし・サイコショックなどは対応しているので含めない。
+const SPECIAL_MOVES = new Set([
+  'payback', 'pursuit', 'electroball', 'gyroball', 'punishment', 'storedpower', 'powertrip', 'acrobatics',
+  'assurance', 'wakeupslap', 'smellingsalts', 'fling', 'retaliate',
+  'fusionbolt', 'fusionflare', 'eruption', 'waterspout', 'flail', 'reversal', 'crushgrip', 'wringout',
+  'grassknot', 'lowkick', 'heatcrash', 'heavyslam', 'return', 'frustration', 'trumpcard', 'naturalgift',
+  'naturepower', 'judgment', 'technoblast', 'multiattack', 'revelationdance', 'hiddenpower', 'spitup',
+  'beatup', 'rollout', 'iceball', 'furycutter', 'echoedvoice', 'round', 'avalanche', 'revenge', 'magnitude',
+  'present', 'psywave', 'nightshade', 'seismictoss', 'dragonrage',
+  'sonicboom', 'superfang', 'endeavor', 'finalgambit', 'counter', 'mirrorcoat', 'metalburst', 'bide',
+  'naturesmadness', 'guardianofalola', 'spectralthief', 'skydrop', 'synchronoise', 'dreameater',
+  'photongeyser',
+  'lightthatburnsthesky', 'moongeistbeam', 'sunsteelstrike', 'menacingmoonrazemaelstrom', 'searingsunrazesmash',
+  'thousandarrows', 'freezedry', 'flyingpress', 'pledge', 'grasspledge', 'firepledge', 'waterpledge', 'shellsidearm',
+  'pikapapow', 'veeveevolley', 'struggle', 'futuresight', 'doomdesire', 'stompingtantrum', 'burnup',
+  'fishiousrend', 'boltbeak',
+  'steelroller', 'grassyglide', 'lashout', 'poltergeist', 'gravapple', 'snore', 'sleeptalk',
+  'fakeout', 'lastresort', 'belch', 'stuffcheeks', 'waterShuriken', 'watershuriken',
+]);
+
+// 条件の Hail は、第 9 世代では雪（Snow）
+const smogonWeather = (w, gen) => (w === 'Hail' && gen >= 9 ? 'Snow' : w || undefined);
+const STATS = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'];
+
+function main() {
+  const scenarios = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+  const skip = {};
+  const bump = (k) => { skip[k] = (skip[k] || 0) + 1; };
+  const cache = {};
+  const out = [];
+  for (const s of scenarios) {
+    const gen = Generations.get(s.gen);
+    if (!cache[s.key]) {
+      cache[s.key] = {
+        pokemon: Object.fromEntries(readCsv(path.join(dataDir, s.key, 'pokemon.csv')).map((r) => [r.Id, r])),
+        moves: Object.fromEntries(readCsv(path.join(dataDir, s.key, 'moves.csv')).map((r) => [r.Id, r])),
+      };
+    }
+    const ours = cache[s.key];
+    const mon = (side) => {
+      const species = gen.species.get(toID(side.smogon)) || gen.species.get(toID(side.smogon.replace(/-(normal|ordinary|altered|land|plant|average|aria|standard|incarnate|red-striped|shield|baile|midday|disguised|solo|meteor|50)$/, '')));
+      if (!species) { bump('species-unknown'); return null; }
+      const row = ours.pokemon[side.id];
+      const bs = species.baseStats;
+      const mine = [row.HP, row.Attack, row.Defense, row.SpAttack, row.SpDefense, row.Speed].map(Number);
+      if (STATS.some((st, i) => bs[st] !== mine[i])) { bump('species-stats'); return null; }
+      const types = [row.Type1, row.Type2].filter((t) => t);
+      if (species.types.length !== types.length || species.types.some((t, i) => t !== types[i])) { bump('species-types'); return null; }
+      const ability = gen.abilities.get(toID(side.abilitySmogon));
+      if (!ability) { bump('ability-unknown'); return null; }
+      let item;
+      if (side.itemSmogon) {
+        const it = gen.items.get(toID(side.itemSmogon));
+        if (!it) { bump('item-unknown'); return null; }
+        item = it.name;
+        if (toID(item) === 'eviolite' && !!species.nfe !== (row.NotFullyEvolved === '1')) { bump('nfe-mismatch'); return null; }
+      }
+      // チャンピオンズの努力値はポイント。Lv50 では 1 ポイント = 実数値 +1 = 努力値 8
+      const evs = {}; STATS.forEach((st, i) => { evs[st] = side.evs[i] * (s.key === 'Champions' ? 8 : 1); });
+      const boosts = { atk: side.boosts[0], def: side.boosts[1], spa: side.boosts[2], spd: side.boosts[3], spe: side.boosts[4] };
+      // こだいかっせい・クォークチャージは、ツールでは上がる能力（boostedStat）を指定したときだけ効く。auto は一番高い能力
+      const paradox = ['protosynthesis', 'quarkdrive'].includes(toID(ability.name));
+      const p = new Pokemon(gen, species.name, {
+        level: side.level, ability: ability.name, item, nature: side.natureSmogon, evs, boosts,
+        status: side.status || '', curHP: side.hp || undefined, boostedStat: paradox ? 'auto' : undefined,
+      });
+      return p;
+    };
+    const attacker = mon(s.attacker);
+    if (!attacker) continue;
+    const defender = mon(s.defender);
+    if (!defender) continue;
+    const mid = toID(s.move.smogon);
+    const md = gen.moves.get(mid);
+    if (!md) { bump('move-unknown'); continue; }
+    if (SPECIAL_MOVES.has(mid)) { bump('move-special'); continue; }
+    // 第 3 世代のウェザーボール: 天候がない（ノーてんき・エアロックで消えたときも）と、ツールは特殊技として計算する。
+    // ゲームではノーマルタイプのままなので物理技（この計算機はゲームに合わせている）。天候があるとき（タイプが変わり、ダメージが 2 倍）は比べる
+    if (mid === 'weatherball' && s.gen === 3) {
+      const airLock = [s.attacker, s.defender].some((side) => ['airlock', 'cloudnine'].includes(toID(side.abilitySmogon)));
+      if (!s.weather || airLock) { bump('weatherball-gen3-no-weather'); continue; }
+    }
+    // 連続技でツールの計算と扱いが違うもの（この計算機の方がゲームに合わせている）:
+    // ・第 5・6 世代のツールは、2 回目以降の急所・天候・複数対象の補正を掛けていない
+    // ・ツールはタラプのみ・アッキのみ・ひかりごけが毎回発動する（ゲームでは 1 回だけ）
+    if (md.multihit) {
+      if ((s.gen === 5 || s.gen === 6) && (s.crit || ['Sun', 'Rain'].includes(s.weather) || s.doubles)) { bump('multihit-tool-differs'); continue; }
+      if (['kee-berry', 'maranga-berry', 'luminous-moss'].includes(s.defender.itemSmogon)) { bump('multihit-tool-differs'); continue; }
+    }
+    // ツールの第 3〜6 世代の計算は、トリプルキックの威力を回ごとに上げていない（この計算機は 10・20・30 と上げる）
+    if (mid === 'triplekick' && s.gen <= 6) { bump('move-special'); continue; }
+    // はたきおとすの威力: チャンピオンズの「〜Z」のメガストーンは、ツールでは Z クリスタル扱い（だれが持っても はたきおとせない）になるので比べない
+    if (mid === 'knockoff' && s.defender.itemSmogon && /-z$/.test(s.defender.itemSmogon)) { bump('knockoff-unremovable-item'); continue; }
+    // ツールは はっきんだま を「ギラティナ（オリジンフォルム）」が持つときだけ はたきおとせないとする（ゲームではアナザーフォルムが持っても はたきおとせない）
+    if (mid === 'knockoff' && /^griseous/.test(s.defender.itemSmogon || '') && /^giratina/.test(s.defender.smogon)) { bump('knockoff-unremovable-item'); continue; }
+    const om = ours.moves[s.move.id];
+    const cat = new Move(gen, md.name).category;
+    if (md.basePower !== Number(om.Power) || md.type !== om.Type || cat !== om.Category) { bump('move-data'); continue; }
+    // 複数対象かどうか（第 3 世代は相手 2 体だけの技かどうか）もデータと合っているものだけ
+    const target = md.target === 'allAdjacentFoes' ? 'AllFoes' : md.target === 'allAdjacent' ? 'AllOthers' : 'Single';
+    const ourTarget = om.Target === 'AllFoes' || om.Target === 'AllOthers' ? om.Target : 'Single';
+    if (s.doubles && (s.gen === 3 ? (target === 'AllFoes') !== (ourTarget === 'AllFoes') : (target === 'Single') !== (ourTarget === 'Single'))) { bump('move-target'); continue; }
+    const useZ = !!s.z && !!(md.zMove && md.zMove.basePower);
+    // 連続技の回数は特性（スキルリンク）で変わるので、技にも特性を渡す
+    const move = new Move(gen, md.name, { isCrit: s.crit, useZ, item: s.attacker.itemSmogon ? attacker.item : undefined, ability: attacker.ability });
+    const field = new Field({
+      gameType: s.doubles ? 'Doubles' : 'Singles',
+      weather: smogonWeather(s.weather, s.gen),
+      terrain: s.terrain || undefined,
+      defenderSide: { isReflect: s.reflect, isLightScreen: s.lightScreen },
+    });
+    let result;
+    try {
+      result = calculate(gen, attacker, defender, move, field);
+    } catch (e) { bump('calc-error'); continue; }
+    let damage = result.damage;
+    if (typeof damage === 'number') damage = Array(16).fill(damage);
+    // 連続技は回ごとの乱数 16 通り。この計算機は同じ乱数の番号どうしを足した合計を返すので、それと比べる
+    if (Array.isArray(damage) && Array.isArray(damage[0])) {
+      if (move.hits <= 1) { bump('damage-shape'); continue; }
+      damage = damage[0].map((_, i) => damage.reduce((sum, hit) => sum + hit[i], 0));
+    }
+    if (!Array.isArray(damage)) { bump('damage-shape'); continue; }
+    if (attacker.maxHP() <= 0) { bump('hp'); continue; }
+    out.push({ ...s, z: useZ, expected: damage, expectedMaxHp: defender.maxHP() });
+  }
+  process.stderr.write(`kept ${out.length} / ${scenarios.length}; skipped ${JSON.stringify(skip)}\n`);
+  process.stdout.write(JSON.stringify(out));
+}
+
+main();

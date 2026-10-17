@@ -1,0 +1,54 @@
+{
+  // Cloudflare Workers で公開する設定。
+  // サイト本体は dotnet publish の出力（publish/wwwroot）を静的アセットとして配信し、
+  // /api/my/*（登録データのデータ共有）だけ Worker スクリプト（worker/index.js）を通す。
+  // ゲームデータ（CSV）の /api/game/* は wwwroot/api/game をそのまま静的アセットとして配る（Worker は通らない）。
+  //   本番:   npx wrangler deploy               → https://pokemon.fara-labs.com/          （deploy.yml・master への push）
+  //   確認用: npx wrangler deploy --env develop → https://pokemon-dev.fara-labs.com/  （deploy-develop.yml・develop への push）
+  // 本番と確認用は Worker が別なので、登録データ（Durable Object）も別々。
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fara-pokemon",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./publish/wwwroot",
+    "binding": "ASSETS",
+    // /speed-comparison・/my-pokemon・/my-team などを直接開いたときも index.html を返す（Blazor 側でページを切り替える。以前の /speed・/pokemon・/roster・/team・/my-teams などは Blazor 側で新しい URL に転送）
+    "not_found_handling": "single-page-application",
+    // 登録データの API（/api/my/pokemon・/api/my/team・/api/my/access-key）だけ Worker スクリプトに渡す。
+    // ゲームデータの /api/game/* は先頭 ! の除外で静的アセットのまま（それ以外のパスも今までどおり静的アセット）
+    "run_worker_first": ["/api/*", "!/api/game/*"]
+  },
+  // アクセスキーごとの置き場。SQLite ストレージの Durable Object（無料プランで使える）
+  "durable_objects": {
+    "bindings": [{ "name": "ROSTER", "class_name": "RosterSlot" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RosterSlot"] }],
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "pokemon.fara-labs.com", "custom_domain": true }
+  ],
+  "env": {
+    "develop": {
+      // Worker 名（ダッシュボードで変更した名前に合わせる）
+      "name": "fara-pokemon-dev",
+      "assets": {
+        "directory": "./publish/wwwroot",
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api/*", "!/api/game/*"]
+      },
+      // durable_objects はトップレベルから引き継がれないので、環境ごとに書く
+      "durable_objects": {
+        "bindings": [{ "name": "ROSTER", "class_name": "RosterSlot" }]
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RosterSlot"] }],
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [
+        { "pattern": "pokemon-dev.fara-labs.com", "custom_domain": true }
+      ]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+@inject CloudSync Sync
+@implements IDisposable
+@* 登録データの保存先を 1 行で知らせる。データ共有のページへの入口も兼ねる。 *@
+@if (!Sync.IsSyncing)
+{
+    <Notice Class="mt-2">このブラウザだけに保存しています。ほかの端末や配信用BOTと共有するには<a href="data-share">データ共有</a>を使います。</Notice>
+}
+
+@code {
+    protected override void OnInitialized() => Sync.Changed += OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Sync.Changed -= OnChanged;
+}

@@ -1,0 +1,71 @@
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+main {
+    flex: 1;
+    min-width: 0;
+}
+
+/* 後ろの宇宙の背景（app.css の .bg-scene）がわずかに透けるよう、少しだけ半透明にする */
+.sidebar {
+    background-image: linear-gradient(180deg, rgba(20, 10, 38, 0.92) 0%, rgba(36, 18, 67, 0.92) 60%, rgba(45, 27, 78, 0.92) 100%);
+    border-right: 1px solid rgba(200, 170, 255, 0.14);
+}
+
+.content {
+    padding-top: 1.1rem;
+}
+
+@media (max-width: 767.98px) {
+    main {
+        width: 100%;
+    }
+
+    /* スマホでは上のメニューのバーをスクロールしても上に固定する */
+    .sidebar {
+        position: sticky;
+        top: 0;
+        z-index: 1030;
+    }
+}
+
+@media (min-width: 768px) {
+    /* PC: ページ全体はスクロールさせず、画面の高さに収める。
+       中身は各ページの .pane-fill / .pane-scroll（app.css）が受け持ち、一覧や長い表の中だけがスクロールする */
+    .page {
+        flex-direction: row;
+        height: 100vh;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    main {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        min-height: 0;
+    }
+
+    /* 収まらない画面（高さが低いとき）は、ここがスクロールして何も切れないようにする */
+    .content {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        padding-bottom: 1rem;
+    }
+
+    .sidebar {
+        width: 230px;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        flex-shrink: 0;
+        overflow-y: auto;
+    }
+}

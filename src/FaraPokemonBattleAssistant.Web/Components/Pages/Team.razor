@@ -1,0 +1,211 @@
+@page "/my-team"
+@inherits RosterPageBase
+@using FaraPokemonBattleAssistant.Core.Roster
+
+<PageTitle>自分チーム | Pokémon Battle Assistant</PageTitle>
+
+<div class="page-header">
+    <h3>自分チーム <Help Title="自分チーム">登録したポケモンをチームにまとめ、持ち物を決めます。チームを「使用中」にすると、ダメージ計算機・素早さ比較・チャットコマンドでその構成が自動で使われます。データはゲームごとに分かれています。</Help></h3>
+    <p class="text-muted mb-0">チームが 0 体になると自動で削除されます。先に<a href="my-pokemon">育成ポケモン</a>でポケモンを登録してください。</p>
+    <RegistrationStorageNote />
+</div>
+
+@if (dataSet is { CalcSupported: false })
+{
+    <CalcUnsupported DataSet="dataSet" Feature="「自分チーム」ページ" />
+}
+else if (data is not null && roster is not null && dataSet is not null)
+{
+    @* PC: 左（チームへの追加）と右（チーム一覧）がそれぞれ画面内に収まり、中だけがスクロールする *@
+    <div class="reg-layout pane-fill">
+        <div class="reg-col">
+            @if (roster.Pokemon.Count == 0)
+            {
+                <Notice Empty="true" Class="mb-3">登録したポケモンがまだありません。先に<a href="my-pokemon">育成ポケモン</a>で登録してください。</Notice>
+            }
+            <div class="card mb-3">
+                <div class="card-header"><h5>チームに追加 <Help Title="チーム">1 チーム 6 体まで。同じ登録 ID をもう一度追加すると持ち物だけ更新します。メガシンカ後のポケモンはメガストーンが自動で付きます。</Help></h5></div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-4">
+                            <label class="form-label">チーム番号</label>
+                            <input type="number" class="form-control" min="1" value="@s.TeamNumber" @onchange="@(e => s.TeamNumber = Math.Max(1, ParseId(e.Value)))" />
+                        </div>
+                        <div class="col-8">
+                            <label class="form-label">登録ポケモン</label>
+                            <SearchableSelect TItem="RegisteredPokemon" Items="roster.Pokemon" DisplayText="@(e => $"#{e.Id} {e.PokemonName}（{e.Nature}）")" ValueSelector="@(e => e.Id.ToString())"
+                                SelectedValue="@(s.TeamEntryId == 0 ? "" : s.TeamEntryId.ToString())" SelectedValueChanged="@OnTeamEntryChanged" Dropdown="true" Placeholder="登録ポケモンを選ぶ...">
+                                <ItemTemplate Context="e">
+                                    @{ var entryPokemon = data.FindPokemon(e.PokemonId); }
+                                    <PokemonIcon Pokemon="entryPokemon" Small="true" /><span>#@e.Id @e.PokemonName（@e.Nature）</span><PokemonTypes Pokemon="entryPokemon" Small="true" />
+                                </ItemTemplate>
+                            </SearchableSelect>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">持ち物</label>
+                            @if (TeamEntryIsMega)
+                            {
+                                <FixedField Value="@s.TeamItem?.Name" Item="s.TeamItem" Reason="@FixedField.MegaReason" />
+                            }
+                            else
+                            {
+                                <div class="with-desc">
+                                    <SearchableSelect TItem="Item"
+                                        Items="data.Items.Where(i => !i.IsMegaStone)"
+                                        DisplayText="@(i => i.Name)"
+                                        ValueSelector="@(i => i.Id.ToString())"
+                                        SelectedValue="@(s.TeamItem?.Id.ToString() ?? "")"
+                                        SelectedValueChanged="@(v => s.TeamItem = data.FindItem(ParseId(v)))"
+                                        Dropdown="true"
+                                        EmptyOption="持ち物なし"
+                                        Placeholder="持ち物なし（入力して検索）">
+                                        <ItemTemplate Context="held"><ItemLabel Item="held" /></ItemTemplate>
+                                    </SearchableSelect>
+                                    <DescHelp Name="@(s.TeamItem?.Name)" Description="@(s.TeamItem?.Description)" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <button class="btn btn-primary mt-3" @onclick="AddToTeamAsync" disabled="@(s.TeamEntryId == 0 || s.TeamNumber < 1)">チームに追加</button>
+                </div>
+            </div>
+        </div>
+        <div class="reg-col">
+            @if (roster.Teams.Count == 0)
+            {
+                <Notice Empty="true" Class="mb-3">まだチームがありません。左のフォームからチームに追加すると、ここに表示されます。</Notice>
+            }
+            @foreach (var team in roster.Teams)
+            {
+                var isActive = roster.ActiveTeam == team.Number;
+                <div class="card mb-3 @(isActive ? "border-primary" : "")">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">チーム@(team.Number) @(isActive ? "（使用中）" : "")</h5>
+                        <div>
+                            @if (!isActive)
+                            {
+                                <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => UseTeamAsync(team.Number)">このチームを使用</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-outline-secondary btn-sm me-1" @onclick="UnuseTeamAsync">使用を解除</button>
+                            }
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveTeamAsync(team.Number)">チーム削除</button>
+                        </div>
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var slot in team.Slots)
+                        {
+                            var entry = roster.Pokemon.FirstOrDefault(p => p.Id == slot.EntryId);
+                            var item = slot.ItemId is { } iid ? data.FindItem(iid) : null;
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="min-w-0"><span>#@slot.EntryId <PokemonLabel Pokemon="entry is null ? null : data.FindPokemon(entry.PokemonId)" Small="true" /> <small class="text-muted">@(entry is null ? "" : NatureText(entry.Nature)) @(entry?.EVs.ToShortString())</small> <ItemLabel Item="item" /></span>
+                                    @if (entry is { MoveIds.Count: > 0 })
+                                    {
+                                        <div class="small reg-moves">技：@foreach (var mid in entry.MoveIds)
+                                        {
+                                            if (data.FindMove(mid) is { } mv) { <span class="reg-move"><TypeIcon Type="@mv.Type" Small="true" />@mv.Name</span> }
+                                        }</div>
+                                    }
+                                </div>
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => RemoveFromTeamAsync(team.Number, slot.EntryId)">外す</button>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    public sealed class State
+    {
+        public string DataSetKey { get; set; } = "";
+        public int TeamNumber { get; set; } = 1;
+        public int TeamEntryId { get; set; }
+        public Item? TeamItem { get; set; }
+    }
+
+    private State s = new();
+
+    protected override string StateKey => "team";
+
+    protected override async Task OnAppReadyAsync()
+    {
+        s = PageStates.Get<State>(StateKey);
+        await base.OnAppReadyAsync();
+    }
+
+    protected override void OnDataLoaded()
+    {
+        if (s.DataSetKey != App.DataSetKey)
+        {
+            s.DataSetKey = App.DataSetKey;
+            s.TeamItem = null;
+            s.TeamEntryId = 0;
+        }
+    }
+
+    private bool TeamEntryIsMega =>
+        roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId) is { } entry && data?.FindPokemon(entry.PokemonId)?.IsMega == true;
+
+    private void OnTeamEntryChanged(string value)
+    {
+        s.TeamEntryId = ParseId(value);
+        var entry = roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId);
+        var pokemon = entry is null ? null : data?.FindPokemon(entry.PokemonId);
+        if (pokemon?.IsMega == true)
+            s.TeamItem = data?.FindItem(pokemon.MegaStoneId!.Value);
+        else if (s.TeamItem?.IsMegaStone == true)
+            s.TeamItem = null;
+    }
+
+    private async Task AddToTeamAsync()
+    {
+        await MutateAsync(async () =>
+        {
+            var (team, _, replaced) = await Repo.AddToTeamAsync(App.DataSetKey, s.TeamNumber, s.TeamEntryId, s.TeamItem);
+            Show($"チーム{team.Number} に{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6）", false);
+        });
+    }
+
+    private async Task RemoveFromTeamAsync(int teamNo, int entryId)
+    {
+        await MutateAsync(async () =>
+        {
+            await Repo.RemoveFromTeamAsync(App.DataSetKey, teamNo, e => e.Id == entryId);
+            if ((await Repo.GetAsync()).For(App.DataSetKey).Teams.All(t => t.Number != teamNo))
+                Show($"チーム{teamNo} は 0 体になったので削除しました", false);
+        });
+    }
+
+    private async Task RemoveTeamAsync(int teamNo)
+    {
+        await MutateAsync(async () =>
+        {
+            await Repo.RemoveTeamAsync(App.DataSetKey, teamNo);
+            Show($"チーム{teamNo} を削除しました", false);
+        });
+    }
+
+    private async Task UnuseTeamAsync()
+    {
+        await MutateAsync(async () =>
+        {
+            await Repo.ClearActiveTeamAsync(App.DataSetKey);
+            Show("使用チームを解除しました", false);
+        });
+    }
+
+    private async Task UseTeamAsync(int teamNo)
+    {
+        await MutateAsync(async () =>
+        {
+            if (await Repo.UseTeamAsync(App.DataSetKey, teamNo))
+                Show($"チーム{teamNo} を使用します", false);
+            else
+                Toast.Warning($"チーム{teamNo} はありません（他の場所で削除された可能性があります）");
+        });
+    }
+}

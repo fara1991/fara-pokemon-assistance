@@ -1,0 +1,137 @@
+@inject AppState App
+@implements IDisposable
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/" title="ホームへ" @onclick="CollapseNavMenu">Pokémon Battle Assistant</a>
+        @* スマホでは、メニューを開かずに切り替えられるよう、タイトルの横（ハンバーガーの左）に置く。PC では、下のサイドバーのスイッチを使う *@
+        <BattleViewSwitch InputId="top-battle-view" Class="top-battle" Compact="true" />
+        <button title="メニュー" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable">
+    <div class="side-settings px-3 pt-3">
+        <label class="side-label" for="side-dataset">ゲーム <Help Title="ゲーム（データ）">計算に使うポケモン・技・持ち物のデータを切り替えます。チャットコマンドの接頭辞（!pokech など）もこれに合わせて変わります。全ページ共通です。</Help></label>
+        <select id="side-dataset" class="form-select form-select-sm" value="@App.DataSetKey" @onchange="@(e => App.SetDataSetAsync(e.Value?.ToString() ?? ""))">
+            @foreach (var ds in App.DataSets)
+            {
+                <option value="@ds.Key">@ds.Name</option>
+            }
+        </select>
+        @if (UsageFallbackName is { } fallbackName)
+        {
+            <div class="side-note">使用率は公開されていないため、@(fallbackName) の使用率で並べています</div>
+        }
+        <label class="side-label mt-2" for="side-format">バトル形式 <Help Title="バトル形式">ダブルバトルでは全体技の威力が 0.75 倍になります。使用率の既定値（技・持ち物・性格）もシングル / ダブルで切り替わります。</Help></label>
+        <select id="side-format" class="form-select form-select-sm" value="@App.Format" @onchange="@(e => App.SetFormatAsync(Enum.TryParse<BattleFormat>(e.Value?.ToString(), out var f) ? f : BattleFormat.Singles))">
+            <option value="@BattleFormat.Singles">シングル</option>
+            <option value="@BattleFormat.Doubles">ダブル</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-outline-light w-100 mt-2" @onclick="App.ToggleThemeAsync">
+            @(App.Theme == "dark" ? "☀ ライトモード" : "🌙 ダークモード")
+        </button>
+        @* 対戦画面（背景のフィールドに結果を重ねて出す）。ダメージ計算機・素早さ比較・育成ポケモンで使え、全ページ共通のスイッチ *@
+        <BattleViewSwitch InputId="side-battle-view" Class="side-battle mt-2" OnChanged="CollapseNavMenu" />
+    </div>
+    <nav class="flex-column side-nav" @onclick="CollapseNavMenu">
+        @* 選択中の印。項目の間を滑って動く（位置は wwwroot/js/motion.js が決める） *@
+        <span class="nav-indicator" aria-hidden="true"></span>
+        @foreach (var group in Groups)
+        {
+            @if (group.Title is not null)
+            {
+                <div class="nav-section px-3">@group.Title</div>
+            }
+            @foreach (var (href, label, icon, needsCalc) in group.Items)
+            {
+                <div class="nav-item px-3">
+                    @if (needsCalc && CalcDisabled)
+                    {
+                        @* 未対応の世代: href を持たず、フォーカスもしない。押してもメニューを閉じない（何も起きない） *@
+                        <span class="nav-link nav-disabled" role="link" aria-disabled="true" tabindex="-1" title="@DisabledHint"
+                              @onclick:preventDefault @onclick:stopPropagation><i class="bi @icon" aria-hidden="true"></i>@label</span>
+                    }
+                    else
+                    {
+                        <NavLink class="nav-link" href="@href" Match="@(href.Length == 0 ? NavLinkMatch.All : NavLinkMatch.Prefix)"><i class="bi @icon" aria-hidden="true"></i>@label</NavLink>
+                    }
+                </div>
+            }
+        }
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private sealed record NavGroup(string? Title, (string Href, string Label, string Icon, bool NeedsCalc)[] Items);
+
+    /// <summary>メニューの項目（needsCalc: 計算・登録に対応していないゲームでは選べない）。見出しで分ける。</summary>
+    private static readonly NavGroup[] Groups =
+    {
+        new(null, new[]
+        {
+            ("", "ホーム", "bi-house-door", false),
+        }),
+        new("計算", new[]
+        {
+            ("damage-calculator", "ダメージ計算機", "bi-calculator", true),
+            ("speed-comparison", "素早さ比較", "bi-speedometer2", true),
+        }),
+        new("登録", new[]
+        {
+            ("data-share", "データ共有", "bi-cloud-arrow-up", false),
+            ("my-pokemon", "育成ポケモン", "bi-person-plus", true),
+            ("my-team", "自分チーム", "bi-people", true),
+            ("my-rival", "相手チーム", "bi-person-bounding-box", true),
+        }),
+        new("情報", new[]
+        {
+            ("type-chart", "タイプ相性表", "bi-grid-3x3-gap", false),
+            ("pokemon-list", "ポケモン一覧", "bi-list-ul", false),
+            ("battle-terms", "用語・略語", "bi-journal-text", false),
+            ("api-docs", "API", "bi-code-slash", false),
+        }),
+        new("配信", new[]
+        {
+            ("chat-commands", "チャットコマンド", "bi-chat-dots", true),
+        }),
+        new("サポート", new[]
+        {
+            ("about-author", "作者・問い合わせ", "bi-person", false),
+        }),
+    };
+
+    // 計算・登録に対応していないゲーム（昔の世代）では、使えない項目を選べなくする。
+    // 設定を読み終えるまで（DataSet が決まるまで）も選べなくし、未対応のゲームで一瞬押せてしまうのを防ぐ
+    private bool CalcDisabled => App.DataSet is not { CalcSupported: true };
+
+    private string DisabledHint => App.DataSet is null
+        ? "読み込み中です"
+        : $"{App.DataSet.Name}は未対応です（ポケモン一覧とタイプ相性表のみ）";
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await App.InitializeAsync();
+        App.Changed += OnChanged;
+    }
+
+    private Task OnChanged() => InvokeAsync(StateHasChanged);
+
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
+
+    private void CollapseNavMenu() => collapseNavMenu = true;
+
+    public void Dispose() => App.Changed -= OnChanged;
+
+    // 使用率データの無いゲームでは、代わりに使っているゲームの名前（並び順の根拠を示す）
+    private string? UsageFallbackName =>
+        App.DataSet is { UsageFallback.Length: > 0 } ds
+            ? App.DataSets.FirstOrDefault(d => d.Key == ds.UsageFallback)?.Name ?? ds.UsageFallback
+            : null;
+}

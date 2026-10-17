@@ -1,0 +1,16 @@
+@* サイト共通の「お知らせ」「空の状態」の表示。文字は本文と同じ色・大きさ、リンクは通常のリンク色。
+   Empty=false: お知らせ（背景やや濃い）/ Empty=true: 空の状態（背景を薄く）。余白は Class で足す（例: mb-3）。 *@
+<div class="@CssClass" role="status">
+    <i class="@IconClass" aria-hidden="true"></i>
+    <div class="app-notice-body">@ChildContent</div>
+</div>
+
+@code {
+    /// <summary>true なら空の状態（まだ何も無い・該当なし）、false ならお知らせ。</summary>
+    [Parameter] public bool Empty { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string CssClass => string.Join(' ', new[] { "app-notice", Empty ? "app-notice-empty" : "", Class ?? "" }.Where(c => c.Length > 0));
+    private string IconClass => Empty ? "bi bi-inbox" : "bi bi-info-circle";
+}

@@ -1,0 +1,27 @@
+@* 変えられない項目（メガシンカ後のメガストーン・特性が 1 つしかないポケモンなど）。
+   入力欄と見分けが付くよう、鍵のアイコンと「固定」を付ける（固定の理由は画面には出さず、マウスを乗せたときの title だけ）。 *@
+<div class="fixed-field @(Small ? "fixed-field-sm" : "")" title="@Reason">
+    <svg class="fixed-lock" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7H4a1.5 1.5 0 0 0-1.5 1.5v5A1.5 1.5 0 0 0 4 15h8a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 12 7h-.5V4.5A3.5 3.5 0 0 0 8 1Zm2 6H6V4.5a2 2 0 1 1 4 0V7Z" />
+    </svg>
+    <span class="fixed-value">
+        @if (Item is not null) { <ItemLabel Item="Item" /> }
+        else { @(string.IsNullOrEmpty(Value) ? "なし" : Value) }
+    </span>
+    <DescHelp Name="@(Item?.Name ?? Value)" Description="@(Item?.Description ?? Ability?.Description)" />
+    <span class="fixed-badge">固定</span>
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    /// <summary>持ち物の固定欄（メガストーン）のとき、アイコンと名前で出す（Value より優先する）。</summary>
+    [Parameter] public Item? Item { get; set; }
+    /// <summary>特性の固定欄のとき、説明文を出すための特性。</summary>
+    [Parameter] public Ability? Ability { get; set; }
+    /// <summary>固定の理由（例: メガシンカのため固定）。マウスを乗せたときの title にだけ使う。</summary>
+    [Parameter] public string? Reason { get; set; }
+    [Parameter] public bool Small { get; set; }
+
+    public const string MegaReason = "メガシンカのため固定";
+    public const string SingleAbilityReason = "特性が 1 つのため固定";
+}

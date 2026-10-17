@@ -1,0 +1,35 @@
+@* 項目の説明を出す「?」ボタン。押すと Excel のコメントのような吹き出しを表示する。 *@
+<span class="help-wrap">
+    <button type="button" class="help-btn" title="説明を見る" aria-label="説明を見る" @onclick="Toggle" @onclick:stopPropagation="true">?</button>
+    @if (open)
+    {
+        <span class="help-note" role="note" id="@noteId">
+            @if (!string.IsNullOrEmpty(Title))
+            {
+                <strong class="d-block mb-1">@Title</strong>
+            }
+            @ChildContent
+            <button type="button" class="help-close" aria-label="閉じる" @onclick="Toggle">×</button>
+        </span>
+    }
+</span>
+
+@inject IJSRuntime JS
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool open;
+    private readonly string noteId = "hp-" + Guid.NewGuid().ToString("N")[..8];
+
+    // PC ではスクロール枠で切れないよう、画面基準で置く（wwwroot/index.html）
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!open) return;
+        try { await JS.InvokeVoidAsync("faraPlaceNote", noteId); }
+        catch (JSException) { }
+    }
+
+    private void Toggle() => open = !open;
+}

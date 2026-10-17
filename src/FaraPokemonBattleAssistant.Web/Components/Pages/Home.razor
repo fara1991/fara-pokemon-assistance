@@ -1,0 +1,127 @@
+@page "/"
+@inherits AppPageBase
+@inject HttpClient Http
+
+<PageTitle>ホーム | Pokémon Battle Assistant</PageTitle>
+
+<div class="page-header">
+    <h1 class="home-title">Pokémon Battle Assistant</h1>
+    <p class="text-muted mb-0 home-lead">ダメージ計算・素早さ比較・育成済みポケモンとチームの管理・タイプ相性をまとめたサイトです。配信中は Twitch のチャットコマンドからも同じ機能を使えます。</p>
+</div>
+
+@* PC: 見出しは固定にして、カードの並びの中だけがスクロールする *@
+<div class="pane-scroll">
+@* 上に対応ゲームと更新日、下に機能の一覧（どの機能も同じ大きさで並べる） *@
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">対応しているゲーム <Help Title="ゲームの切り替え">左のメニューの「ゲーム」で切り替えます。選んだゲームは全ページとチャットコマンドの接頭辞に反映されます。</Help></h6>
+                <ul class="mb-0 small">
+                    <li>第1・第2世代: その世代のポケモン・技・タイプ相性を見られます。ダメージ計算は未対応です</li>
+                    <li>第3世代以降: その世代の計算式と補正でダメージを計算します<br /><span class="text-muted">※メガシンカ、Z 技、ダイマックス、テラスタルに対応しています（それぞれ登場した世代のみ）</span></li>
+                    <li>ポケモンチャンピオンズ: 収録ポケモンのダメージ計算、努力値のポイント制に対応しています</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">サイト内ポケモンデータの更新 <Help Title="サイト内ポケモンデータの更新">ポケモン・技・持ち物・使用率のデータは毎週月曜の昼に自動で更新されます。更新後にページを再読み込みすると新しいデータになります。</Help></h6>
+                <table class="table table-sm mb-0 small">
+                    <tbody>
+                        <tr><th class="text-nowrap">最終更新</th><td>@(lastUpdated ?? "取得中…")</td></tr>
+                        <tr><th class="text-nowrap">次回更新</th><td>@nextUpdate</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header fw-bold">機能</div>
+    <ul class="home-tools home-tools-2col">
+        <li>
+            <div class="home-tool-text"><b>ダメージ計算機</b><p>努力値・性格・持ち物・特性・ランク補正・天候・フィールドなどを指定して、乱数 16 通りのダメージと確定数を出します。受けたダメージから相手の振り方を推定することもできます。</p></div>
+            <div class="home-tool-actions"><a href="damage-calculator" class="btn btn-outline-primary btn-sm">開く</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>チャットコマンド</b><p>配信中に <code>!@(App.CommandPrefix) dmg ガブリアス じしん リザードン</code> のように打つと、配信用BOTが結果を 1 行で返します。ブラウザでも試せます。</p></div>
+            <div class="home-tool-actions"><a href="chat-commands" class="btn btn-outline-primary btn-sm">コマンドを試す</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>育成ポケモン・自分チーム</b><p>育成済みのポケモンとチームを登録しておくと、計算のときに自分の構成が自動で入ります（<code>!@(App.CommandPrefix) add -m / add -t / use -t</code>）。</p></div>
+            <div class="home-tool-actions"><a href="my-pokemon" class="btn btn-outline-primary btn-sm">育成ポケモン</a><a href="my-team" class="btn btn-outline-primary btn-sm">自分チーム</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>相手チーム</b><p>対戦中の相手を登録して、分かった振り方・性格・特性や推定をダメージ計算に使います。試合を終えると履歴に残ります（<code>!@(App.CommandPrefix) add -r / scan / clear -r</code>）。</p></div>
+            <div class="home-tool-actions"><a href="my-rival" class="btn btn-outline-primary btn-sm">開く</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>素早さ比較</b><p>2 体のポケモンの S を比べて、どちらが先に動くかを確認します（チャットでは <code>!@(App.CommandPrefix) faster</code>）。</p></div>
+            <div class="home-tool-actions"><a href="speed-comparison" class="btn btn-outline-primary btn-sm">開く</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>タイプ相性表</b><p>18 タイプの相性をアイコンで一覧できます。</p></div>
+            <div class="home-tool-actions"><a href="type-chart" class="btn btn-outline-primary btn-sm">開く</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>ポケモン一覧</b><p>選んでいるゲームのポケモンを全国図鑑順に一覧し、タイプ・特性・覚える技で絞り込んだり、種族値で並べ替えたりできます。</p></div>
+            <div class="home-tool-actions"><a href="pokemon-list" class="btn btn-outline-primary btn-sm">開く</a></div>
+        </li>
+        <li>
+            <div class="home-tool-text"><b>用語・略語</b><p>H・A・B・C・D・S などの略語と、種族値・努力値・確定数などの用語の意味をまとめています。</p></div>
+            <div class="home-tool-actions"><a href="battle-terms" class="btn btn-outline-primary btn-sm">開く</a></div>
+        </li>
+    </ul>
+</div>
+
+
+</div>
+
+@code {
+    // update-data.yml の cron（17 3 * * 1 UTC = 毎週月曜 12:17 JST）
+    private static readonly TimeSpan UpdateTimeUtc = new(3, 17, 0);
+    private static readonly TimeSpan Jst = TimeSpan.FromHours(9);
+
+    private string? lastUpdated;
+    private string nextUpdate = "";
+
+    protected override async Task OnAppReadyAsync()
+    {
+        nextUpdate = FormatJst(NextUpdateUtc(DateTime.UtcNow));
+        try
+        {
+            // データと同じ読み方にする（ファイルが無いと SPA のフォールバックで index.html が 200 で返るため）
+            var text = (await new HttpDataSource(Http, HttpDataSource.GameDataPath).ReadTextAsync("updated.txt"))?.Trim();
+            lastUpdated = string.IsNullOrEmpty(text) ? "不明" : DateTime.TryParse(text, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var dt)
+                ? FormatJst(dt)
+                : text;
+        }
+        catch
+        {
+            lastUpdated = "不明";
+        }
+    }
+
+    private static DateTime NextUpdateUtc(DateTime nowUtc)
+    {
+        var candidate = nowUtc.Date + UpdateTimeUtc;
+        while (candidate.DayOfWeek != DayOfWeek.Monday || candidate <= nowUtc)
+            candidate = candidate.AddDays(1);
+        return DateTime.SpecifyKind(candidate, DateTimeKind.Utc);
+    }
+
+    private static string FormatJst(DateTime utc)
+    {
+        var jst = utc + Jst;
+        var day = jst.DayOfWeek switch
+        {
+            DayOfWeek.Monday => "月", DayOfWeek.Tuesday => "火", DayOfWeek.Wednesday => "水", DayOfWeek.Thursday => "木",
+            DayOfWeek.Friday => "金", DayOfWeek.Saturday => "土", _ => "日",
+        };
+        return $"{jst:yyyy/MM/dd}（{day}）{jst:HH:mm} 日本時間";
+    }
+}

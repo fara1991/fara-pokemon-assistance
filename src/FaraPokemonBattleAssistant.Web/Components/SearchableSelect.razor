@@ -1,0 +1,253 @@
+@typeparam TItem
+@inject IJSRuntime JS
+
+@* 検索できるセレクト。
+   - クリック / フォーカスで候補を開く。選択中なら、その名前を含む候補（リザードン → メガリザードンX など）だけを出し、
+     いま選んでいるものを強調して見えるところまでスクロールする。入力欄が空なら全部出す
+   - 入力欄の文字は選択中の名前のまま残し、全選択しておくので、打ち始めればそのまま置き換わる
+   - カタカナ・ひらがな・ローマ字（ie → イエッサン）で絞り込める。↑↓ で候補を移動、Enter で決定、Esc で閉じる
+   - Dropdown="true" のときはセレクトと同じ見た目（右端に ∨）にし、開いたときは選択中でも全件を出す（持ち物・性格など候補の少ないもの）。
+     EmptyOption を渡すと先頭に「なし」の候補を出す *@
+<div class="searchable-select" @onfocusout="OnFocusOut">
+    <input type="text"
+           class="@(Dropdown ? "form-select searchable-select-combo" : "form-control")"
+           placeholder="@Placeholder"
+           value="@searchText"
+           @oninput="OnTyped"
+           @onfocusin="OnFocusIn"
+           @onclick="OnClicked"
+           @onkeydown="@OnKeyDown"
+           onfocus="this.select()"
+           disabled="@Disabled"
+           autocomplete="off" />
+    @if (showDropdown && !Disabled && (visible.Count > 0 || ShowEmptyOption))
+    {
+        <div class="searchable-select-dropdown" id="@listId">
+            @if (ShowEmptyOption)
+            {
+                <div class="searchable-select-item text-muted @(HasSelection ? "" : "active")"
+                     @onmousedown="SelectEmpty" @onmousedown:preventDefault>@EmptyOption</div>
+            }
+            @for (var i = 0; i < visible.Count; i++)
+            {
+                var item = visible[i];
+                var index = i;
+                <div class="searchable-select-item @(index == highlight ? "active" : "")"
+                     id="@ItemId(index)"
+                     @onmousedown="() => SelectItem(item)" @onmousedown:preventDefault
+                     @onmouseenter="() => highlight = index">
+                    @if (ItemTemplate is not null)
+                    {
+                        @ItemTemplate(item)
+                    }
+                    else
+                    {
+                        @DisplayText(item)
+                    }
+                </div>
+            }
+            @if (hiddenCount > 0)
+            {
+                <div class="searchable-select-item text-muted">…ほか @hiddenCount 件。入力して絞り込んでください</div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IEnumerable<TItem> Items { get; set; } = Enumerable.Empty<TItem>();
+    /// <summary>入力欄に出す文字列。検索にも使う。</summary>
+    [Parameter] public Func<TItem, string> DisplayText { get; set; } = _ => "";
+    /// <summary>候補一覧での表示（省略時は DisplayText）。</summary>
+    [Parameter] public RenderFragment<TItem>? ItemTemplate { get; set; }
+    [Parameter] public Func<TItem, string> ValueSelector { get; set; } = _ => "";
+    [Parameter] public string SelectedValue { get; set; } = "";
+    [Parameter] public EventCallback<string> SelectedValueChanged { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "入力して検索...";
+    [Parameter] public bool Disabled { get; set; }
+    /// <summary>セレクト風（右端に ∨、開いたら全件）にする。</summary>
+    [Parameter] public bool Dropdown { get; set; }
+    /// <summary>先頭に出す「選択なし」の候補の文字（例: 持ち物なし）。null なら出さない。</summary>
+    [Parameter] public string? EmptyOption { get; set; }
+    /// <summary>一度に表示する最大件数。</summary>
+    [Parameter] public int MaxVisible { get; set; } = 400;
+
+    private readonly string listId = "ss-" + Guid.NewGuid().ToString("N")[..8];
+    private string searchText = "";
+    private bool showDropdown;
+    private bool userTyped;
+    private List<TItem> visible = new();
+    private int hiddenCount;
+    private int highlight = -1;
+    private bool scrollPending;
+
+    private string ItemId(int index) => $"{listId}-{index}";
+
+    private bool HasSelection => !string.IsNullOrEmpty(SelectedValue) && SelectedValue != "0";
+
+    private TItem? Selected => HasSelection ? Items.FirstOrDefault(item => ValueSelector(item) == SelectedValue) : default;
+
+    protected override void OnParametersSet()
+    {
+        if (showDropdown) return;
+        searchText = Selected is { } selected ? DisplayText(selected) : "";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!showDropdown) return;
+        // PC ではスクロール枠で切れないよう、画面基準で置く（wwwroot/index.html）
+        try { await JS.InvokeVoidAsync("faraPlaceDropdown", listId); }
+        catch (JSException) { }
+        if (!scrollPending) return;
+        scrollPending = false;
+        if (highlight >= 0)
+        {
+            try { await JS.InvokeVoidAsync("faraScrollIntoView", ItemId(highlight)); }
+            catch (JSException) { }
+        }
+    }
+
+    /// <summary>候補を作り直す。入力欄が空なら全件、文字があればそれを含むものだけ（開いた直後は選択中の名前で絞る）。</summary>
+    private void Rebuild()
+    {
+        var matches = KanaSearch.Create(searchText);
+        // セレクト風のときは、文字を打つまでは全件（選択中のものを強調）
+        var all = !string.IsNullOrWhiteSpace(searchText) && (userTyped || !Dropdown)
+            ? Items.Where(item => matches(DisplayText(item))).ToList()
+            : Items.ToList();
+        visible = all.Take(MaxVisible).ToList();
+        hiddenCount = all.Count - visible.Count;
+        highlight = HasSelection ? visible.FindIndex(item => ValueSelector(item) == SelectedValue) : -1;
+        if (highlight < 0 && userTyped && visible.Count > 0) highlight = 0;
+        scrollPending = true;
+    }
+
+    private bool ShowEmptyOption => EmptyOption is not null && (!userTyped || string.IsNullOrWhiteSpace(searchText));
+
+    private async Task SelectEmpty()
+    {
+        searchText = "";
+        showDropdown = false;
+        userTyped = false;
+        if (HasSelection) await SelectedValueChanged.InvokeAsync("");
+    }
+
+    private void Open()
+    {
+        if (Disabled) return;
+        showDropdown = true;
+        userTyped = false;
+        Rebuild();
+    }
+
+    private void OnTyped(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? "";
+        userTyped = true;
+        showDropdown = !Disabled;
+        Rebuild();
+    }
+
+    // フォーカスで開いた直後のクリック（同じ操作）では閉じない
+    private bool openedByFocus;
+
+    // フォーカスが外れてから閉じるまでの間に戻ってきたら閉じない
+    private int focusCount;
+
+    private void OnFocusIn()
+    {
+        focusCount++;
+        Open();
+        openedByFocus = true;
+    }
+
+    /// <summary>選んだ後も入力欄にフォーカスが残るので、もう一度クリックしたら候補を開き直す。</summary>
+    private void OnClicked()
+    {
+        if (!showDropdown) Open();
+        else if (openedByFocus) openedByFocus = false;
+        else if (Dropdown && !userTyped) showDropdown = false; // セレクトと同じく、もう一度押すと閉じる
+    }
+
+    private async Task SelectItem(TItem item)
+    {
+        searchText = DisplayText(item);
+        showDropdown = false;
+        userTyped = false;
+        if (ValueSelector(item) != SelectedValue)
+            await SelectedValueChanged.InvokeAsync(ValueSelector(item));
+    }
+
+    private async Task OnFocusOut()
+    {
+        var count = focusCount;
+        await Task.Delay(200);
+        if (count != focusCount) return;
+        showDropdown = false;
+
+        if (!userTyped)
+        {
+            // 文字を打たずに離れたときは何も変えない
+            searchText = Selected is { } sel ? DisplayText(sel) : "";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            // 文字を消して離れたときだけ解除する
+            await SelectedValueChanged.InvokeAsync("");
+            return;
+        }
+
+        // 名前を打ち切って離れたとき（または候補が 1 件に絞れたとき）は、それを選ぶ
+        // 同じ表示名の候補があっても、いま選ばれているものを優先する
+        var match = Items.FirstOrDefault(item => ValueSelector(item) == SelectedValue && DisplayText(item) == searchText)
+            ?? Items.FirstOrDefault(item => DisplayText(item) == searchText);
+        if (match == null)
+        {
+            var matches = KanaSearch.Create(searchText);
+            var candidates = Items.Where(item => matches(DisplayText(item))).Take(2).ToList();
+            if (candidates.Count == 1) match = candidates[0];
+        }
+        if (match != null)
+        {
+            await SelectItem(match);
+        }
+        else
+        {
+            searchText = Selected is { } sel ? DisplayText(sel) : "";
+        }
+        userTyped = false;
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        // ↑↓・Enter の既定動作（スクロールなど）は index.html の keydown で止めている
+        openedByFocus = false;
+        switch (e.Key)
+        {
+            case "Escape":
+                showDropdown = false;
+                searchText = Selected is { } sel ? DisplayText(sel) : "";
+                userTyped = false;
+                break;
+            case "ArrowDown":
+                if (!showDropdown) { Open(); break; }
+                if (visible.Count > 0) { highlight = Math.Min(highlight + 1, visible.Count - 1); scrollPending = true; }
+                break;
+            case "ArrowUp":
+                if (showDropdown && visible.Count > 0) { highlight = Math.Max(highlight - 1, 0); scrollPending = true; }
+                break;
+            case "Enter":
+                if (showDropdown && !Disabled)
+                {
+                    // 「なし」を選んでいる（強調が無い）ときに Enter を押したら、そのまま「なし」にする
+                    if (highlight < 0 && ShowEmptyOption && !HasSelection) { await SelectEmpty(); break; }
+                    var pick = highlight >= 0 && highlight < visible.Count ? visible[highlight] : visible.FirstOrDefault();
+                    if (pick != null) await SelectItem(pick);
+                }
+                break;
+        }
+    }
+}

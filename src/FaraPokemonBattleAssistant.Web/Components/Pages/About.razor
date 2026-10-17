@@ -1,0 +1,40 @@
+@page "/about-author"
+@using FaraPokemonBattleAssistant.Core
+
+<PageTitle>作者・問い合わせ | Pokémon Battle Assistant</PageTitle>
+
+<div class="page-header">
+    <h3>作者・問い合わせ</h3>
+    <p class="text-muted mb-0">このサイトの作者と、不具合の報告・問い合わせ先です。</p>
+</div>
+
+@* PC: 見出しは固定にして、カードの中だけがスクロールする *@
+<div class="pane-scroll">
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">作者</h5>
+        <p class="card-text mb-0">このサイトは Fara が作っています。</p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">問い合わせ・不具合の報告</h5>
+        <p class="card-text">不具合の報告やご意見は、Fara の Twitter へお願いします。</p>
+        <a class="btn btn-primary" href="https://twitter.com/game_fara" target="_blank" rel="noopener noreferrer">@@game_fara（Twitter）</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">ほかの作品</h5>
+        <p class="card-text">Fara のほかの作品は、こちらにまとめています。</p>
+        <a class="btn btn-outline-primary" href="@SiteLinks.Localize("https://fara-labs.com/")" target="_blank" rel="noopener noreferrer">ホームページ</a>
+    </div>
+</div>
+
+<p class="text-muted small mt-4 mb-0">
+    このサイトは個人が作った非公式のファンサイトで、任天堂・株式会社クリーチャーズ・株式会社ゲームフリーク・株式会社ポケモンとは関係ありません。
+    ポケモン・Pokémon は任天堂・クリーチャーズ・ゲームフリークの登録商標です。
+</p>
+</div>

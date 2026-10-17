@@ -1,0 +1,155 @@
+.navbar-toggler {
+    appearance: none;
+    cursor: pointer;
+    width: 3.5rem;
+    height: 2.5rem;
+    color: white;
+    position: absolute;
+    top: 0.5rem;
+    right: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") no-repeat center/1.75rem rgba(255, 255, 255, 0.1);
+}
+
+.navbar-toggler:checked {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+.top-row {
+    height: 3.5rem;
+    background-color: rgba(0, 0, 0, 0.4);
+    position: relative;
+}
+
+/* サイト名の下の線。紫からピンクへのグラデーションがゆっくり流れる */
+.top-row::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #c084fc, #e879f9, #818cf8, #c084fc);
+    background-size: 200% 100%;
+    animation: brand-shimmer 6s linear infinite;
+}
+
+@keyframes brand-shimmer {
+    to { background-position: 200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .top-row::after { animation: none; }
+}
+
+.navbar-brand {
+    font-size: 1.1rem;
+    color: white;
+}
+
+.navbar-brand:hover,
+.navbar-brand:focus-visible {
+    color: white;
+    text-decoration: none;
+}
+
+.nav-item {
+    font-size: 0.9rem;
+    padding-bottom: 0.15rem;
+}
+
+.nav-item:first-of-type {
+    padding-top: 0.75rem;
+}
+
+.nav-item:last-of-type {
+    padding-bottom: 0.5rem;
+}
+
+/* グループの見出し（配信 など）。小さな文字で、項目より控えめに */
+.nav-section {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    margin-top: 0.4rem;
+    margin-bottom: 0.2rem;
+}
+
+.nav-item ::deep .bi {
+    flex: none;
+    width: 1.1rem;
+    margin-right: 0.65rem;
+    font-size: 1rem;
+    line-height: 1;
+    text-align: center;
+}
+
+.nav-item ::deep a {
+    color: #d7d7d7;
+    border-radius: 4px;
+    height: 2.3rem;
+    display: flex;
+    align-items: center;
+    line-height: 2.3rem;
+    padding-left: 1rem;
+    text-decoration: none;
+}
+
+.nav-item ::deep a.active {
+    background-color: rgba(255, 255, 255, 0.25);
+    color: white;
+}
+
+.nav-item ::deep a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+/* この世代では使えない項目: 選べないことが分かる見た目にする（クリックしても何も起きない） */
+.nav-item .nav-disabled {
+    color: #d7d7d7;
+    opacity: 0.4;
+    border-radius: 4px;
+    height: 2.3rem;
+    display: flex;
+    align-items: center;
+    line-height: 2.3rem;
+    padding-left: 1rem;
+    cursor: not-allowed;
+    user-select: none;
+    -webkit-user-select: none;
+    /* スマホでタップしたときの反応（ハイライト）も出さない */
+    -webkit-tap-highlight-color: transparent;
+}
+
+.nav-scrollable {
+    display: none;
+}
+
+.nav-scrollable:not(.collapse) {
+    display: block;
+    /* 上に固定したバーから開くので、長いときはメニューの中でスクロールする */
+    max-height: calc(100vh - 3.5rem);
+    overflow-y: auto;
+}
+
+@media (min-width: 768px) {
+    /* サイドバー(230px)の中で左右の余白がそろうよう、少し小さくして 1 行に収める */
+    .navbar-brand {
+        font-size: 0.98rem;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        margin-right: 0;
+    }
+
+    .navbar-toggler {
+        display: none;
+    }
+
+    .nav-scrollable {
+        display: block;
+        height: calc(100vh - 3.5rem);
+        overflow-y: auto;
+    }
+}

@@ -1,0 +1,87 @@
+@* 性格の選択。能力ごとに、数値入力の上下ボタンのような「▲（上昇）・▼（下降）」を押して選ぶ（もう一度押すと外れる）。名前で探す欄も残す。
+   片方だけ選んだときは、もう片方を技の分類（Physical）に合わせて補う（NatureSelection 参照）。
+   Partial="true" のとき（相手の性格など）は、補わない。上がる能力・下がる能力を別々に選べて、分からない方は決めないままにする。
+   OnClear を渡すと、能力のボタンの右に「不明にする」などのボタンを出す。 *@
+<div class="nature-picker">
+    <SearchableSelect TItem="Nature"
+        Items="Natures"
+        DisplayText="@(n => n.Describe())"
+        ValueSelector="@(n => n.Name)"
+        SelectedValue="@(Value?.Name ?? "")"
+        SelectedValueChanged="@(v => Change(Natures.FirstOrDefault(n => n.Name == v)))"
+        Dropdown="true"
+        Placeholder="性格名で探す..." />
+    <div class="nature-steppers" role="group" aria-label="性格の補正（▲ 上昇・▼ 下降）">
+        @foreach (var stat in NatureSelection.Stats)
+        {
+            var st = stat;
+            var isUp = CurrentUp == st;
+            var isDown = CurrentDown == st;
+            @* 表記はポイント欄と同じ A/B/C/D/S（性格は HP に関係しないので H は無い）。名前は title・読み上げで補う *@
+            <div class="nature-stat @(isUp ? "is-up" : isDown ? "is-down" : "")" title="@StatNames.Japanese(st)">
+                <span class="nature-stat-letter">@StatNames.Letter(st)</span>
+                <span class="nature-stat-arrows">
+                    <button type="button" class="nature-arrow up @(isUp ? "active" : "")" aria-pressed="@(isUp ? "true" : "false")"
+                            aria-label="@(StatNames.Japanese(st))を上昇" title="@(StatNames.Japanese(st))が上がる（@OffHint）"
+                            @onclick="() => Toggle(true, st)">▲</button>
+                    <button type="button" class="nature-arrow down @(isDown ? "active" : "")" aria-pressed="@(isDown ? "true" : "false")"
+                            aria-label="@(StatNames.Japanese(st))を下降" title="@(StatNames.Japanese(st))が下がる（@OffHint）"
+                            @onclick="() => Toggle(false, st)">▼</button>
+                </span>
+            </div>
+        }
+    </div>
+    @if (OnClear.HasDelegate)
+    {
+        <button type="button" class="btn btn-sm btn-outline-secondary nature-clear" disabled="@ClearDisabled" @onclick="OnClear">@ClearText</button>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<Nature> Natures { get; set; } = Array.Empty<Nature>();
+    [Parameter] public Nature? Value { get; set; }
+    [Parameter] public EventCallback<Nature?> ValueChanged { get; set; }
+    /// <summary>片方だけ選んだとき、物理技向け（C を下げる）に補うか。false なら特殊技向け（A を下げる）。</summary>
+    [Parameter] public bool Physical { get; set; } = true;
+
+    /// <summary>Partial="true" のとき、上がる能力・下がる能力として現在選んでいるもの。</summary>
+    [Parameter] public bool Partial { get; set; }
+    [Parameter] public Stat? Up { get; set; }
+    [Parameter] public Stat? Down { get; set; }
+    /// <summary>Partial="true" のとき、上がる能力・下がる能力のボタンを押したときに、新しい組を渡す（もう片方は補わない）。</summary>
+    [Parameter] public EventCallback<(Stat? Up, Stat? Down)> PairChanged { get; set; }
+
+    /// <summary>能力のボタンの右に出すボタン（「不明にする」など）。渡さなければ出さない。</summary>
+    [Parameter] public EventCallback OnClear { get; set; }
+    [Parameter] public string ClearText { get; set; } = "選択解除";
+    [Parameter] public bool ClearDisabled { get; set; }
+
+    private string OffHint => Partial ? "もう一度押すと外す" : "もう一度押すと補正なし";
+
+    private Stat? CurrentUp => Partial ? Up : Value?.IncreasedStat;
+    private Stat? CurrentDown => Partial ? Down : Value?.DecreasedStat;
+
+    /// <summary>▲ / ▼ を押す。いま選んでいる能力をもう一度押したら外す。</summary>
+    private Task Toggle(bool increased, Stat stat) =>
+        Press(increased, (increased ? CurrentUp : CurrentDown) == stat ? null : stat);
+
+    private async Task Press(bool increased, Stat? stat)
+    {
+        if (Partial)
+        {
+            var up = increased ? stat : Up;
+            var down = increased ? Down : stat;
+            // 同じ能力を上がる側・下がる側の両方にはできない（あとから押した方を優先する）
+            if (up is not null && up == down) { if (increased) down = null; else up = null; }
+            await PairChanged.InvokeAsync((up, down));
+            return;
+        }
+        await Change(increased ? NatureSelection.WithIncreased(Natures, Value, stat, Physical) : NatureSelection.WithDecreased(Natures, Value, stat, Physical));
+    }
+
+    private async Task Change(Nature? nature)
+    {
+        if (nature is null || nature == Value) return;
+        await ValueChanged.InvokeAsync(nature);
+    }
+}

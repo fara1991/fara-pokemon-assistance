@@ -1,0 +1,190 @@
+@* 対戦画面。背景のバトルフィールド（BattleStageBackground）を止めて向きを固定し、その上に結果を重ねて出す。
+   自分側（攻撃側／ポケモン1／登録するポケモン）の枠は左下、相手側（防御側／ポケモン2）の枠は右上。ページの入力欄は隠れる（入力した内容は残る）。
+   オン・オフはサイドバーのスイッチ（Components/BattleViewSwitch.razor） *@
+@inject BattleStage Stage
+@inject AppState App
+@using FaraPokemonBattleAssistant.Core.Roster
+@implements IDisposable
+
+@if (Stage.BattleActive)
+{
+    var scene = Stage.Scene ?? NoResultScene;
+    <div class="battle-ui" role="region" aria-label="対戦画面">
+        @if (Stage.Weather != Weather.None || Stage.Terrain != Terrain.None)
+        {
+            @* 入力している天候・フィールド（背景のフィールドにも見た目で出る） *@
+            <div class="bv-conditions">
+                @if (Stage.Weather != Weather.None) { <span class="badge bv-cond bv-cond-weather">@FieldNames.Japanese(Stage.Weather, App.DataSet?.Generation ?? 9)</span> }
+                @if (Stage.Terrain != Terrain.None) { <span class="badge bv-cond bv-cond-terrain">@FieldNames.Japanese(Stage.Terrain)</span> }
+            </div>
+        }
+        @switch (scene)
+        {
+            case DamageScene d:
+                @RenderDamage(d)
+                break;
+            case SpeedScene sp:
+                @RenderSpeed(sp)
+                break;
+            case RegisterScene r:
+                @RenderRegister(r)
+                break;
+            case EstimateScene es:
+                @RenderEstimate(es)
+                break;
+            case WaitingScene w:
+                <div class="bv-bottom"><div class="bv-msg"><div class="bv-msg-move">@w.Hint</div></div></div>
+                break;
+        }
+    </div>
+}
+
+@code {
+    /// <summary>結果を出さないページ（ホーム・タイプ相性表など）で、スイッチがオンのときの案内。</summary>
+    private static readonly WaitingScene NoResultScene = new("対戦画面です。結果は、ダメージ計算機・素早さ比較・「育成ポケモン」のページで出ます。オフにすると、このページの内容が見えます。");
+
+    protected override void OnInitialized() => Stage.Changed += OnStageChanged;
+
+    private void OnStageChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Stage.Changed -= OnStageChanged;
+
+    private static string Inv(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Pct(double v) => Inv(Math.Clamp(v, 0, 100)) + "%";
+
+    /// <summary>ダメージ計算機：右上に防御側の HP（減る幅つき）、左下に攻撃側の HP、下に「〜の 技！」とダメージ。</summary>
+    private RenderFragment RenderDamage(DamageScene d) => __builder =>
+    {
+        var start = d.DefenderStartHp;
+        var minD = d.Immune ? 0 : Math.Min(d.MinDamage, start);
+        var maxD = d.Immune ? 0 : Math.Min(d.MaxDamage, start);
+        double P(int hp) => hp * 100.0 / d.DefenderMaxHp;
+        var keep = P(start - maxD);
+        var level = keep > 50 ? "high" : keep > 20 ? "mid" : "low";
+        var mineLevel = d.AttackerHp * 100.0 / d.AttackerMaxHp is > 50 ? "high" : d.AttackerHp * 100.0 / d.AttackerMaxHp > 20 ? "mid" : "low";
+        <div class="bv-box bv-foe">
+            <div class="bv-name">@d.DefenderName</div>
+            <div class="hp-calc-bar bv-bar" role="img" aria-label="@(d.Immune ? $"{d.DefenderName} の HP は減りません" : $"{d.DefenderName} の HP は残り {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)}（最大 {d.DefenderMaxHp}）")">
+                <div class="hp-calc-gone" style="left:@Pct(P(start - minD));width:@Pct(P(minD))"></div>
+                <div class="hp-calc-fill" data-level="@level" style="left:0%;width:@Pct(keep)"></div>
+                <div class="hp-calc-range" style="left:@Pct(keep);width:@Pct(P(maxD - minD));@(d.Immune ? "display:none" : "")"></div>
+            </div>
+            <div class="bv-hp">@(d.Immune ? $"{start} / {d.DefenderMaxHp}（減らない）" : $"残り {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)} / {d.DefenderMaxHp}")</div>
+        </div>
+        <div class="bv-bottom">
+        <div class="bv-box bv-mine">
+            <div class="bv-name">@d.AttackerName</div>
+            <div class="hp-calc-bar bv-bar" role="img" aria-label="@d.AttackerName の HP @d.AttackerHp / @d.AttackerMaxHp">
+                <div class="hp-calc-fill" data-level="@mineLevel" style="left:0%;width:@Pct(d.AttackerHp * 100.0 / d.AttackerMaxHp)"></div>
+            </div>
+            <div class="bv-hp">@d.AttackerHp / @d.AttackerMaxHp</div>
+        </div>
+        <div class="bv-msg">
+            <div class="bv-msg-move"><strong>@d.AttackerName</strong> の <TypeIcon Type="@d.MoveType" Small="true" /> <strong>@d.MoveName</strong>！</div>
+            @* 急所なし・ありを並べて出す *@
+            <div class="bv-msg-dmg">
+                <span class="bv-msg-kind">通常</span>
+                <span class="bv-msg-range">@d.RangeText</span>
+                <span class="badge @(d.KnockOutGuaranteed ? "bg-danger" : "bg-warning text-dark")">@d.KnockOut</span>
+            </div>
+            @if (d.CritRangeText is not null)
+            {
+                <div class="bv-msg-dmg">
+                    <span class="bv-msg-kind bv-msg-kind-crit">急所</span>
+                    <span class="bv-msg-range">@d.CritRangeText</span>
+                    <span class="badge @(d.CritKnockOutGuaranteed ? "bg-danger" : "bg-warning text-dark")">@d.CritKnockOut</span>
+                </div>
+            }
+        </div>
+        </div>
+    };
+
+    /// <summary>
+    /// 相手の振り方の推定：左下に攻撃側、右上に相手（ポイント・性格は不明で、推定した実数値の範囲）、下に技と受けたダメージ、
+    /// 性格補正ごとのポイントの範囲。
+    /// </summary>
+    private RenderFragment RenderEstimate(EstimateScene e) => __builder =>
+    {
+        <div class="bv-box bv-foe">
+            <div class="bv-name">@e.DefenderName</div>
+            <div class="bv-unknown">@(e.StatRange is null ? "推定できませんでした" : $"{e.StatLetter} 実数値 {e.StatRange}")</div>
+            <div class="bv-hp">ポイント・性格は不明（推定）</div>
+        </div>
+        <div class="bv-bottom">
+            <div class="bv-box bv-mine">
+                <div class="bv-name">@e.AttackerName</div>
+                <div class="hp-calc-bar bv-bar"><div class="hp-calc-fill" data-level="high" style="left:0%;width:@Pct(e.AttackerHp * 100.0 / Math.Max(1, e.AttackerMaxHp))"></div></div>
+                <div class="bv-hp">@e.AttackerHp / @e.AttackerMaxHp</div>
+            </div>
+            <div class="bv-msg">
+                <div class="bv-msg-move"><strong>@e.AttackerName</strong> の <TypeIcon Type="@e.MoveType" Small="true" /> <strong>@e.MoveName</strong>！ <span class="bv-nowrap">受けたダメージ <strong>@e.Observed</strong></span></div>
+                @if (e.Bands.Count == 0)
+                {
+                    <div class="bv-msg-dmg"><span class="text-muted small">そのダメージになる振り方は見つかりませんでした（持ち物・特性・ランクが違う可能性）</span></div>
+                }
+                @foreach (var b in e.Bands)
+                {
+                    <div class="bv-msg-dmg">
+                        <span class="bv-msg-kind bv-kind-@b.Mod">@b.Label</span>
+                        <span class="bv-msg-range">@b.Text</span>
+                        @if (b.StatText != "") { <small class="bv-msg-sub">@b.StatText</small> }
+                    </div>
+                }
+                @if (e.HpText is not null)
+                {
+                    <div class="bv-msg-dmg"><span class="bv-msg-kind">HP</span><span class="bv-msg-range">@e.HpText</span></div>
+                }
+            </div>
+        </div>
+    };
+
+    /// <summary>育成ポケモン：左下に登録するポケモン、右上に相手（背景に立っている方）、右下に選んだ技 4 つ。</summary>
+    private RenderFragment RenderRegister(RegisterScene r) => __builder =>
+    {
+        <div class="bv-box bv-foe">
+            <div class="bv-name">@(Stage.Foe?.Name ?? "")</div>
+            <div class="hp-calc-bar bv-bar"><div class="hp-calc-fill" data-level="high" style="left:0%;width:100%"></div></div>
+        </div>
+        <div class="bv-bottom bv-bottom-moves">
+            <div class="bv-box bv-mine">
+                <div class="bv-name">@r.MineName</div>
+                <div class="hp-calc-bar bv-bar"><div class="hp-calc-fill" data-level="high" style="left:0%;width:100%"></div></div>
+                <div class="bv-hp">@r.MaxHp / @r.MaxHp</div>
+            </div>
+            <div class="bv-moves" role="list" aria-label="選んだ技">
+                @for (var i = 0; i < RegisteredPokemon.MaxMoves; i++)
+                {
+                    if (i < r.Moves.Count)
+                    {
+                        var m = r.Moves[i];
+                        <div class="bv-move" role="listitem"><TypeIcon Type="@m.Type" Small="true" /><span class="bv-move-name">@m.Name</span></div>
+                    }
+                    else
+                    {
+                        <div class="bv-move bv-move-empty" role="listitem">ー</div>
+                    }
+                }
+            </div>
+        </div>
+    };
+
+    /// <summary>素早さ比較：それぞれの枠に S と棒、下に先に動く方。</summary>
+    private RenderFragment RenderSpeed(SpeedScene sp) => __builder =>
+    {
+        @* S の数値だけを出す（棒は HP のように見えるので出さない）。先に動く方の数値は緑 *@
+        <div class="bv-box bv-foe">
+            <div class="bv-name">@sp.FoeName</div>
+            <div class="bv-unknown @(sp.FoeFirst ? "bv-first" : "")">S @sp.FoeSpeed</div>
+        </div>
+        <div class="bv-bottom">
+        <div class="bv-box bv-mine">
+            <div class="bv-name">@sp.MineName</div>
+            <div class="bv-unknown @(sp.MineFirst ? "bv-first" : "")">S @sp.MineSpeed</div>
+        </div>
+        <div class="bv-msg">
+            <div class="bv-msg-move"><strong>@sp.Verdict</strong></div>
+        </div>
+        </div>
+    };
+}

@@ -1,0 +1,15 @@
+@* タイプのアイコン。alt / title に日本語名を入れるので、画像が無い環境でも意味が分かる。 *@
+@if (Type == TypeNames.Unknown)
+{
+    @* タイプ「？？？」（第 2〜4 世代の のろい）は画像が無いので文字で出す *@
+    <span class="type-icon type-icon-unknown @(Small ? "type-icon-sm" : "")" title="？？？（タイプなし）" role="img" aria-label="？？？">?</span>
+}
+else if (!string.IsNullOrEmpty(Type))
+{
+    <img src="img/types/@(Type).png" alt="@TypeNames.ToJapanese(Type)" title="@TypeNames.ToJapanese(Type)" class="type-icon @(Small ? "type-icon-sm" : "")" />
+}
+
+@code {
+    [Parameter] public string? Type { get; set; }
+    [Parameter] public bool Small { get; set; }
+}

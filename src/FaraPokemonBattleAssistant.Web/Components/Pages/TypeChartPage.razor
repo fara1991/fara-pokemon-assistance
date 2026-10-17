@@ -1,0 +1,538 @@
+@page "/type-chart"
+@inherits AppPageBase
+@using FaraPokemonBattleAssistant.Core.Battle
+@inject DataCatalog Catalog
+@inject NavigationManager Nav
+
+<PageTitle>タイプ相性表 | Pokémon Battle Assistant</PageTitle>
+
+<div class="page-header">
+    <h3>タイプ相性表 <Help Title="タイプ相性表の見方">縦が攻撃する技のタイプ、横が受けるポケモンのタイプです。2 つのタイプを持つポケモンは、両方の倍率を掛け合わせます（例: ○2 × △½ = 等倍）。マスにカーソルを合わせると、その行と列が強調されます。右でポケモンを選ぶと、そのポケモンのタイプの列（受ける側）が強調され、右端に特性も含めた最終的な倍率の列が出ます。特性で倍率が変わるマスには「特」が付きます（カーソルを合わせると理由が出ます）。ポケモンを選んでいる間は、左端の攻撃タイプのアイコンを押すと（2 つまで）、そのタイプのポケモンと、選んだポケモンに抜群を取れる技が右に出ます。</Help></h3>
+    <p class="text-muted mb-0">縦が攻撃側、横が防御側です。</p>
+</div>
+
+<div class="type-chart-layout @(s.ShowTable ? "show-table" : "")">
+@* スマホでは表の代わりに、選んだポケモン（またはタイプ）の受ける倍率を一覧で出す。表も切り替えて見られる *@
+<div class="type-view-toggle">
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => s.ShowTable = !s.ShowTable">@(s.ShowTable ? "一覧で見る" : "表で見る")</button>
+</div>
+<div class="type-chart-main">
+<div class="type-legend mb-2">
+    @* 記号は表・スマホの一覧で共通（TypeMarks）。ポケモンを選んでいないときの表は ○ △ × だけ *@
+    @foreach (var (symbol, label) in TypeMarks.Legend.Where(x => selected is not null || x.Symbol is "○" or "△" or "×"))
+    {
+        <span><span class="type-mark @LegendClass(symbol)">@symbol</span> @LegendText(symbol, label)</span>
+    }
+    <span><span class="type-mark">&nbsp;</span> 空欄は等倍</span>
+    @if (selected is not null)
+    {
+        <span><span class="type-mark"><span class="ability-badge">特</span></span> 特性で倍率が変わる</span>
+    }
+</div>
+
+@if (chart is not null)
+{
+    <div class="table-responsive type-chart-wrap">
+        <table class="table table-bordered table-sm type-chart mb-0 @(selected is null ? "" : "type-chart-focus")" style="--tc-cols:@(Types.Count + 1 + (selected is null ? 0 : 1))" @onmouseleave="() => { hoverRow = null; hoverCol = null; }">
+            <thead>
+                <tr>
+                    <th class="type-corner">攻＼防</th>
+                    @foreach (var d in Types)
+                    {
+                        <th class="type-head @ColumnClass(d) @HoverClass(hoverCol == d)"><TypeIcon Type="@d" /></th>
+                    }
+                    @if (selected is not null)
+                    {
+                        <th class="type-head type-total-head type-selected" title="@selected.Name に当たったときの倍率（特性込み）"><PokemonIcon Pokemon="selected" Small="true" /></th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var a in Types)
+            {
+                var total = selected is null ? null : AbilityMatchup.Against(chart, a, selected.Types.ToList(), selectedAbility);
+                var picked = selected is not null && s.AttackTypes.Contains(a);
+                <tr class="@(picked ? "type-row-picked" : "")">
+                    @if (selected is null)
+                    {
+                        <th class="type-head @HoverClass(hoverRow == a)"><TypeIcon Type="@a" /></th>
+                    }
+                    else
+                    {
+                        @* ポケモンを選んでいる間は、攻撃タイプを押して（2 つまで）そのタイプのポケモンを探せる *@
+                        var blocked = !picked && AttackFull;
+                        <th class="type-head type-head-toggle">
+                            <button type="button" class="type-toggle @(picked ? "active" : "") @(blocked ? "blocked" : "")" aria-pressed="@(picked ? "true" : "false")" disabled="@blocked"
+                                    title="@(picked ? $"{TypeNames.ToJapanese(a)} の選択を外す" : blocked ? FullHint : $"{TypeNames.ToJapanese(a)} タイプのポケモンと、{selected.Name} に抜群を取れる技を出す")"
+                                    @onclick="() => ToggleAttackType(a)"><TypeIcon Type="@a" /></button>
+                        </th>
+                    }
+                    @foreach (var d in Types)
+                    {
+                        var m = chart.Against(a, d);
+                        var badge = total is { ChangedByAbility: true } && selected!.HasType(d);
+                        <td class="@CellClass(m) @ColumnClass(d) @HoverClass(hoverRow == a || hoverCol == d) @(picked ? "type-row-picked" : "")"
+                            title="@CellTitle(a, d, m, badge ? total : null)"
+                            @onmouseover="() => { hoverRow = a; hoverCol = d; }"><span class="mk">@TypeMarks.Symbol(m)</span>@if (badge) { <span class="ability-badge">特</span> }</td>
+                    }
+                    @if (total is not null)
+                    {
+                        <td class="type-total type-selected @CellClass(total.Multiplier) @(total.ChangedByAbility ? "type-total-ability" : "") @(picked ? "type-row-picked" : "")"
+                            title="@TotalTitle(a, total)"><span class="mk">@TypeMarks.Symbol(total.Multiplier)</span>@if (total.ChangedByAbility) { <span class="ability-badge">特</span> }</td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+</div>
+
+<div class="matchup-panel">
+    <div class="card">
+        <div class="card-header"><h5>ポケモンとの相性 <Help Title="ポケモンとの相性">ポケモンを選ぶと、左の表でそのポケモンのタイプの列（受ける側）が強調され、右端に特性も含めた倍率の列が出ます。特性（あついしぼう・ふゆう・ちょすい・フィルターなど）で倍率が変わるときは、ここにも内容を出します。左の表で攻撃タイプのアイコンを押すと（2 つまで。2 つ選んでいるときは、どちらかを外してから選び直します）、そのタイプを持つポケモン（2 つなら両方を持つポケモン）と、それぞれが覚える技のうち選んだポケモンに抜群を取れる技（威力×倍率の高い順。倍率は特性込み、タイプ一致は考えません。同点は使用率の高い順）を出します。ひでり・サイコメイカー・ハドロンエンジンなど、自分の特性で天候・フィールドを作るポケモンは、その補正（晴れのほのお技 1.5 倍、フィールドの技 1.3 倍（第 7 世代は 1.5 倍）、サイコフィールドのワイドフォース、ウェザーボール・だいちのはどうのタイプ変化など）も込みで並べ、「サイコフィールド込み」のように出します。ひひいろのこどう（晴れで A が 1.33 倍）・ハドロンエンジン（エレキフィールドで C が 1.33 倍）は、物理技・特殊技の威力を 1.33 倍したものとして並べ、「ひひいろのこどう込み」のように出します。有利なポケモンは「タイプ一致技で抜群を取れて、選んだポケモンのタイプ一致技で抜群を取られない」ポケモン（足りなければ、選んだポケモンのタイプ一致技を半減以下で受けられるポケモン）を最大 9 匹、使用率の高い順に出します。どちらの特性（きもったま・いろめがね・ふゆう・もらいび・かたやぶりなど）も含めます。相手の特性は計算機の既定と同じ選び方です。持ち物・テラスタルやタイプ一致でない技は考えていません。</Help></h5></div>
+        <div class="card-body">
+            <div class="form-group mb-2">
+                <label>ポケモン</label>
+                <SearchableSelect TItem="Pokemon"
+                    Items="pokemonList"
+                    DisplayText="@(p => p.Name)"
+                    ValueSelector="@(p => p.Id.ToString())"
+                    SelectedValue="@(selected?.Id.ToString() ?? "")"
+                    SelectedValueChanged="@OnSelectedChanged"
+                    Placeholder="ポケモン名を入力...">
+                    <ItemTemplate Context="p">
+                        <PokemonIcon Pokemon="p" Small="true" />
+                        <span>@p.Name</span>
+                        <PokemonTypes Pokemon="p" Small="true" />
+                    </ItemTemplate>
+                </SearchableSelect>
+            </div>
+            @* 結果だけを中でスクロールさせる（候補一覧がパネルに切られないよう、選ぶ欄はスクロールの外に置く） *@
+            <div class="matchup-results">
+            @if (selected is not null && chart is not null && data is not null)
+            {
+                var abilities = data.AbilitiesOf(selected);
+                <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                    <PokemonLabel Pokemon="selected" />
+                    @if (abilities.Count > 0)
+                    {
+                    <div class="flex-grow-1 type-ability">
+                        <label class="form-label mb-0 small">特性</label>
+                        @if (abilities.Count <= 1)
+                        {
+                            <FixedField Value="@selectedAbility?.Name" Ability="selectedAbility" Reason="@FixedField.SingleAbilityReason" Small="true" />
+                        }
+                        else
+                        {
+                            <div class="with-desc">
+                                <SearchableSelect TItem="Ability" Items="abilities" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
+                                    SelectedValue="@(selectedAbility?.Id.ToString() ?? "")" SelectedValueChanged="@OnAbilityChanged" Dropdown="true" Placeholder="特性名を入力..." />
+                                <DescHelp Name="@(selectedAbility?.Name)" Description="@(selectedAbility?.Description)" />
+                            </div>
+                        }
+                    </div>
+                    }
+                </div>
+                <div class="type-compact mb-2">@RenderCompact(selected.Types.ToList(), selectedAbility, true)</div>
+                @if (s.AttackTypes.Count == 0)
+                {
+                    <p class="type-pick-hint small mb-2">表の左端（スマホでは上の一覧）の攻撃タイプのアイコンを押すと（2 つまで）、そのタイプのポケモンと @selected.Name に抜群を取れる技を出します。</p>
+                }
+                else
+                {
+                    <div class="type-attackers mb-3">
+                        <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
+                            @foreach (var t in s.AttackTypes)
+                            {
+                                <button type="button" class="btn btn-sm type-chip" title="選択を外す" @onclick="() => ToggleAttackType(t)"><TypeIcon Type="@t" Small="true" /> @TypeNames.ToJapanese(t) <span aria-hidden="true">×</span></button>
+                            }
+                            <h6 class="mb-0 ms-1">@(s.AttackTypes.Count == 2 ? "両方を持つ" : "を持つ")ポケモン <span class="text-muted small">（@typeAttackers.Count 匹）</span></h6>
+                        </div>
+                        @if (AttackFull)
+                        {
+                            <p class="type-full-hint small mb-1">@FullHint</p>
+                        }
+                        <p class="text-muted small mb-1">@selected.Name に抜群を取れる技（技ごとに 威力×倍率の高い順。倍率は特性込み、威力は自分の特性で作る天候・フィールドの補正（ひひいろのこどう・ハドロンエンジンの 1.33 倍、ちからもち・ヨガパワーの物理技 2 倍も）込み。ポケモンは@(usageSorted ? "使用率の高い順" : "種族値合計の高い順")）</p>
+                        @if (typeAttackers.Count == 0)
+                        {
+                            <Notice Empty="true">該当するポケモンはいません。</Notice>
+                        }
+                        else
+                        {
+                            <ul class="matchup-list type-attacker-list mb-0">
+                                @foreach (var ta in typeAttackers.Take(MaxTypeAttackers))
+                                {
+                                    <li>
+                                        <PokemonIcon Pokemon="ta.Pokemon" Small="true" />
+                                        <div class="type-attacker-body">
+                                            <div class="counter-name"><span>@ta.Pokemon.Name</span><PokemonTypes Pokemon="ta.Pokemon" Small="true" /></div>
+                                            @if (ta.Moves.Count == 0)
+                                            {
+                                                <div class="small text-muted">抜群を取れる技はありません</div>
+                                            }
+                                            else
+                                            {
+                                                <div class="type-attacker-moves">
+                                                    @foreach (var mv in ta.Moves)
+                                                    {
+                                                        <span class="type-attacker-move" title="@MoveTitle(mv)"><TypeIcon Type="@mv.Type" Small="true" />@mv.Move.Name <span class="text-muted">@mv.DisplayPower</span> <span class="counter-good">@Times(mv.Multiplier)</span>@if (mv.Field is not null) { <span class="field-note">@(mv.Field)込み</span> }</span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </li>
+                                }
+                                @if (typeAttackers.Count > MaxTypeAttackers)
+                                {
+                                    <li class="text-muted small">…ほか @(typeAttackers.Count - MaxTypeAttackers) 匹</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                }
+                @if (abilityChanges.Count > 0)
+                {
+                    <div class="ability-effects mb-2">
+                        <div class="small fw-bold">@selectedAbility!.Name で変わる相性</div>
+                        @foreach (var (type, r) in abilityChanges)
+                        {
+                            <div class="small"><TypeIcon Type="@type" Small="true" /> @TypeNames.ToJapanese(type) @Times(r.TypeMultiplier) → <strong>@Times(r.Multiplier)</strong></div>
+                        }
+                    </div>
+                }
+                <h6 class="mb-1">有利なポケモン <span class="text-muted small">（@counters.Count 匹）</span></h6>
+                <p class="text-muted small mb-2">@selected.Name に抜群を取れて、抜群を取られにくい相手（@(usageSorted ? "使用率の高い順" : "種族値合計の高い順")・特性込み）</p>
+                @if (counters.Count == 0)
+                {
+                    <Notice Empty="true">該当するポケモンはいません。</Notice>
+                }
+                else
+                {
+                    <ul class="matchup-list counter-list mb-0">
+                        @foreach (var c in counters)
+                        {
+                            <li title="@(c.Notes.Count > 0 ? string.Join("、", c.Notes) : "")">
+                                <PokemonIcon Pokemon="c.Pokemon" Small="true" />
+                                <div class="counter-name">
+                                    <span>@c.Pokemon.Name</span>
+                                    <PokemonTypes Pokemon="c.Pokemon" Small="true" />
+                                    @if (c.Notes.Count > 0)
+                                    {
+                                        <span class="counter-note">@string.Join("、", c.Notes)</span>
+                                    }
+                                </div>
+                                <span class="ms-auto small text-nowrap text-end">
+                                    <span class="@(c.Offense > 1 ? "counter-good" : "text-muted")">与 @Times(c.Offense)</span><br />
+                                    <span class="@(c.Defense < 1 ? "counter-good" : "text-muted")">受 @Times(c.Defense)</span>
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+            else
+            {
+                @* スマホ: ポケモンを選んでいないときは、受けるタイプ（2 つまで）を選んで倍率を見られる *@
+                @if (chart is not null)
+                {
+                    <div class="type-compact mb-2">
+                        <div class="small fw-bold mb-1">またはタイプを選ぶ（2 つまで）</div>
+                        @if (s.DefenseTypes.Count >= 2)
+                        {
+                            <p class="type-full-hint small mb-1">@FullHint</p>
+                        }
+                        <div class="compact-grid mb-2">
+                            @foreach (var t in Types)
+                            {
+                                var on = s.DefenseTypes.Contains(t);
+                                var defBlocked = !on && s.DefenseTypes.Count >= 2;
+                                <button type="button" class="compact-cell compact-pick @(on ? "active" : "") @(defBlocked ? "blocked" : "")" aria-pressed="@(on ? "true" : "false")" disabled="@defBlocked" title="@(defBlocked ? FullHint : TypeNames.ToJapanese(t))" @onclick="() => ToggleDefenseType(t)">
+                                    <TypeIcon Type="@t" /><span class="compact-name">@TypeNames.ToJapanese(t)</span>
+                                </button>
+                            }
+                        </div>
+                        @if (s.DefenseTypes.Count > 0)
+                        {
+                            @RenderCompact(s.DefenseTypes, null, false)
+                        }
+                    </div>
+                }
+                <p class="text-muted small mb-0">ポケモンを選ぶと、表でそのポケモンのタイプが強調され、特性込みの倍率と、そのポケモンにタイプ相性で有利なポケモンが表示されます。</p>
+            }
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+@code {
+    private sealed class State
+    {
+        public string DataSetKey { get; set; } = "";
+        public int PokemonId { get; set; }
+        /// <summary>選んだ特性（0 なら既定）。</summary>
+        public int AbilityId { get; set; }
+        /// <summary>表の左端で選んだ攻撃タイプ（2 つまで。古い順）。</summary>
+        public List<string> AttackTypes { get; set; } = new();
+        /// <summary>スマホでポケモンを選んでいないときに選んだ受けるタイプ（2 つまで。古い順）。</summary>
+        public List<string> DefenseTypes { get; set; } = new();
+        /// <summary>スマホで一覧の代わりに表を出すか。</summary>
+        public bool ShowTable { get; set; }
+    }
+
+    /// <summary>攻撃タイプで探したポケモンを一度に出す数。</summary>
+    private const int MaxTypeAttackers = 40;
+
+    private State s = new();
+    private TypeChart? chart;
+    private PokemonDataSet? data;
+    private UsageData? usage;
+    private string? hoverRow;
+    private string? hoverCol;
+    private IReadOnlyList<Pokemon> pokemonList = Array.Empty<Pokemon>();
+    private Pokemon? selected;
+    private Ability? selectedAbility;
+    private IReadOnlyList<(string AttackType, AbilityMatchup.Result Result)> abilityChanges = Array.Empty<(string, AbilityMatchup.Result)>();
+    private IReadOnlyList<TypeMatchup.Counter> counters = Array.Empty<TypeMatchup.Counter>();
+    private IReadOnlyList<TypeMatchup.TypeAttacker> typeAttackers = Array.Empty<TypeMatchup.TypeAttacker>();
+    /// <summary>有利な相手を探す順番（使用率順。使用率が無ければ種族値合計の高い順）。</summary>
+    private IReadOnlyList<Pokemon> counterCandidates = Array.Empty<Pokemon>();
+    /// <summary>相手の特性（計算機の既定と同じ選び方）。何度も求めないよう覚えておく。</summary>
+    private readonly Dictionary<int, Ability?> defaultAbilities = new();
+    private bool usageSorted;
+
+    protected override async Task OnAppReadyAsync()
+    {
+        s = PageStates.Get<State>("types");
+        await LoadAsync();
+        // ポケモン一覧から開いたとき（?pokemon=ID）は、そのポケモンを選んでから URL を戻す
+        if (PokemonQuery is > 0 and var id)
+        {
+            OnSelectedChanged(id.ToString());
+            Nav.NavigateTo("type-chart", replace: true);
+        }
+    }
+
+    [SupplyParameterFromQuery(Name = "pokemon")] public int? PokemonQuery { get; set; }
+
+    protected override Task OnAppChangedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        data = await Catalog.GetDataSetAsync(App.DataSetKey);
+        usage = await data.GetUsageAsync(App.Format);
+        chart = data.TypeChart;
+        defaultAbilities.Clear();
+        // 未収録（他データで補完した）ポケモンは、このゲームでは出てこないので除く
+        var listed = data.Pokemon.Where(p => !p.IsProvisional);
+        pokemonList = usage.IsEmpty ? listed.ToList() : listed.OrderBy(p => usage.RankOf(p.Id)).ToList();
+        usageSorted = !usage.IsEmpty;
+        counterCandidates = usage.IsEmpty ? listed.OrderByDescending(p => p.BaseStats.Total).ToList() : pokemonList;
+        if (s.DataSetKey != App.DataSetKey)
+        {
+            s.DataSetKey = App.DataSetKey;
+            s.PokemonId = 0;
+            s.AbilityId = 0;
+            s.AttackTypes.Clear();
+        }
+        Refresh();
+    }
+
+    private Ability? DefaultAbility(Pokemon p)
+    {
+        if (data is null) return null;
+        if (!defaultAbilities.TryGetValue(p.Id, out var ability))
+        {
+            // 受ける側・攻める側の両方に使うので、受けで効く特性（よびみずなど）も使用率 1 位なら残す
+            ability = usage is { IsEmpty: false } ? usage.DefaultAbility(p, AbilityEffects.Side.Either) : AbilityEffects.ChooseDefault(data.AbilitiesOf(p), null, AbilityEffects.Side.Either);
+            defaultAbilities[p.Id] = ability;
+        }
+        return ability;
+    }
+
+    private void OnSelectedChanged(string value)
+    {
+        s.PokemonId = int.TryParse(value, out var id) ? id : 0;
+        s.AbilityId = 0;
+        Refresh();
+    }
+
+    private void OnAbilityChanged(string value)
+    {
+        if (value.Length == 0) return;   // 文字を消して離れたときは、選択を変えない
+        s.AbilityId = int.TryParse(value, out var id) ? id : 0;
+        Refresh();
+    }
+
+    private void Refresh()
+    {
+        selected = pokemonList.FirstOrDefault(p => p.Id == s.PokemonId);
+        if (selected is null || chart is null || data is null)
+        {
+            selectedAbility = null;
+            abilityChanges = Array.Empty<(string, AbilityMatchup.Result)>();
+            counters = Array.Empty<TypeMatchup.Counter>();
+            typeAttackers = Array.Empty<TypeMatchup.TypeAttacker>();
+            return;
+        }
+        var abilities = data.AbilitiesOf(selected);
+        selectedAbility = abilities.FirstOrDefault(a => a.Id == s.AbilityId) ?? DefaultAbility(selected);
+        abilityChanges = AbilityMatchup.ChangedByDefensiveAbility(chart, selected.Types.ToList(), selectedAbility);
+        counters = TypeMatchup.Counters(chart, selected, counterCandidates, 9, selectedAbility, DefaultAbility);
+        typeAttackers = TypeMatchup.WithTypes(chart, selected, selectedAbility, counterCandidates, s.AttackTypes,
+            p => data.LearnableMoves(p.Id), DefaultAbility, generation: data.Info.Generation);
+    }
+
+    /// <summary>受けるタイプの選択を切り替える（2 つまで。2 つ選んでいるときは、外すまで新しく選べない）。</summary>
+    private void ToggleDefenseType(string type)
+    {
+        if (!s.DefenseTypes.Remove(type) && s.DefenseTypes.Count < 2) s.DefenseTypes.Add(type);
+    }
+
+    private static readonly (string Label, Func<double, bool> Match)[] CompactGroups =
+    {
+        ("弱点", m => m > 1),
+        ("等倍", m => m == 1),
+        ("半減", m => m > 0 && m < 1),
+        ("無効", m => m == 0),
+    };
+
+    /// <summary>
+    /// スマホ向けの一覧: 18 の攻撃タイプを、受ける倍率（特性込み）で 弱点 → 等倍 → 半減 → 無効 に分けて並べる。
+    /// <paramref name="pickAttack"/> なら、押すと攻撃タイプを選べる（表の左端と同じ）。
+    /// </summary>
+    private RenderFragment RenderCompact(IReadOnlyList<string> defenseTypes, Ability? ability, bool pickAttack) => __builder =>
+    {
+        var results = Types.Select(a => (Type: a, Result: AbilityMatchup.Against(chart!, a, defenseTypes, ability))).ToList();
+        <div class="compact-matchup" data-flip-group>
+            <div class="compact-legend small text-muted mb-1">
+                @foreach (var (symbol, text) in TypeMarks.Legend)
+                {
+                    <span><span class="@LegendClass(symbol)">@symbol</span>@text</span>
+                }
+            </div>
+            @foreach (var (label, match) in CompactGroups)
+            {
+                var group = results.Where(x => match(x.Result.Multiplier)).OrderByDescending(x => x.Result.Multiplier).ToList();
+                if (group.Count == 0) continue;
+                <div class="compact-group">
+                    <div class="compact-group-label">@label <span class="text-muted">@group.Count</span></div>
+                    <div class="compact-grid">
+                        @foreach (var (type, r) in group)
+                        {
+                            var title = $"{TypeNames.ToJapanese(type)}: {Times(r.Multiplier)}" + (r.ChangedByAbility ? $"（{string.Join("、", r.Notes)}）" : "");
+                            if (pickAttack)
+                            {
+                                var on = s.AttackTypes.Contains(type);
+                                var cellBlocked = !on && AttackFull;
+                                <button type="button" data-flip-key="@type" class="compact-cell @CellClass(r.Multiplier) @(on ? "active" : "") @(cellBlocked ? "blocked" : "")" title="@(cellBlocked ? $"{title}。{FullHint}" : title)" aria-pressed="@(on ? "true" : "false")" disabled="@cellBlocked" @onclick="() => ToggleAttackType(type)">
+                                    <TypeIcon Type="@type" /><span class="compact-mult">@CompactTimes(r.Multiplier)</span>
+                                    @if (r.ChangedByAbility) { <span class="ability-badge">特</span> }
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="compact-cell @CellClass(r.Multiplier)" data-flip-key="@type" title="@title">
+                                    <TypeIcon Type="@type" /><span class="compact-mult">@CompactTimes(r.Multiplier)</span>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    };
+
+    /// <summary>スマホの一覧のマスに出す記号（表と同じ。等倍は空欄）。</summary>
+    private static string CompactTimes(double m) => TypeMarks.Symbol(m);
+
+    /// <summary>抜群を取れる技のツールチップ。天候・フィールドで威力が変わったときは元の威力も出す。</summary>
+    private static string MoveTitle(TypeMatchup.SuperEffectiveMove mv)
+    {
+        var power = mv.Field is null || mv.DisplayPower == mv.Move.Power
+            ? $"威力 {mv.DisplayPower}"
+            : $"威力 {mv.Move.Power} → {mv.DisplayPower}（{mv.Field}込み）";
+        var field = mv.Field is not null && mv.DisplayPower == mv.Move.Power ? $"（{mv.Field}込み）" : "";
+        return $"{mv.Move.Name}（{TypeNames.ToJapanese(mv.Type)}・{power}）→ {Times(mv.Multiplier)}{field}。威力×倍率 {TypeMatchup.Strength(mv):0.#}";
+    }
+
+    private const string FullHint = "2 つまで。外してから選び直してください";
+
+    /// <summary>攻撃タイプを 2 つ選んでいる（ほかは外すまで選べない）。</summary>
+    private bool AttackFull => s.AttackTypes.Count >= 2;
+
+    /// <summary>
+    /// 攻撃タイプの選択を切り替える。選んでいるものを押すと外す。2 つ選んでいるときは、
+    /// どちらかを外すまで新しく選べない（勝手に入れ替えない）。
+    /// </summary>
+    private void ToggleAttackType(string type)
+    {
+        if (!s.AttackTypes.Remove(type))
+        {
+            if (AttackFull) return;
+            s.AttackTypes.Add(type);
+        }
+        Refresh();
+    }
+
+    /// <summary>このゲームにあるタイプ（第 1 世代はあく・はがね・フェアリーが無いなど）。</summary>
+    private IReadOnlyList<string> Types => chart?.Types ?? (IReadOnlyList<string>)TypeNames.All.ToList();
+
+    /// <summary>選んだポケモンのタイプの列は強調、それ以外は薄くする。</summary>
+    private string ColumnClass(string defenseType) =>
+        selected is null ? "" : selected.HasType(defenseType) ? "type-selected" : "type-dim";
+
+    /// <summary>ポケモンを選んでいる間は、カーソルの行・列の枠を出さない。</summary>
+    private string HoverClass(bool hovered) => hovered && selected is null ? "type-hover" : "";
+
+    private static string CellTitle(string attack, string defense, double m, AbilityMatchup.Result? total) =>
+        $"{TypeNames.ToJapanese(attack)} → {TypeNames.ToJapanese(defense)}: {Describe(m)}"
+        + (total is null ? "" : $"。{string.Join("、", total.Notes)} → 合計 {Times(total.Multiplier)}");
+
+    private string TotalTitle(string attack, AbilityMatchup.Result total) =>
+        $"{TypeNames.ToJapanese(attack)} → {selected?.Name}: {Times(total.Multiplier)}"
+        + (total.ChangedByAbility ? $"（タイプだけなら {Times(total.TypeMultiplier)}。{string.Join("、", total.Notes)}）" : "");
+
+    /// <summary>倍率の表記（×4・×2・×1・×1/2・×1/4・×0。特性で 1.5 倍などになったときは小数）。</summary>
+    private static string Times(double m) => m switch
+    {
+        0.125 => "×1/8",
+        0.25 => "×1/4",
+        0.5 => "×1/2",
+        _ => $"×{m:0.##}",
+    };
+
+    /// <summary>凡例の記号の色（表のマスと同じ）。</summary>
+    private static string LegendClass(string symbol) => symbol switch
+    {
+        "◎" or "○" => "type-weak",
+        "×" => "type-immune",
+        _ => "type-resist",
+    };
+
+    /// <summary>凡例の説明（○ △ × は言葉も添える）。</summary>
+    private static string LegendText(string symbol, string label) => symbol switch
+    {
+        "○" => $"効果抜群（{label}）",
+        "△" => $"いまひとつ（{label}）",
+        "×" => $"効果なし（{label}）",
+        _ => label,
+    };
+
+    private static string Describe(double m) => m switch
+    {
+        0.0 => "効果なし（0 倍）",
+        < 1.0 => $"いまひとつ（{m:0.##} 倍）",
+        > 1.0 => $"効果抜群（{m:0.##} 倍）",
+        _ => "等倍",
+    };
+
+    private static string CellClass(double m) => m switch
+    {
+        0.0 => "type-immune",
+        < 1.0 => "type-resist",
+        > 1.0 => "type-weak",
+        _ => "",
+    };
+}

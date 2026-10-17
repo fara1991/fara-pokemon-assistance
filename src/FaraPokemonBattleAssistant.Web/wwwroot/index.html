@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ja" data-bs-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pokémon Battle Assistant</title>
+    <base href="/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous" />
+    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="FaraPokemonBattleAssistant.Web.styles.css" rel="stylesheet" />
+    <script>
+        // 読み込み中の画面でもテーマを合わせる（保存済みの設定を先に反映する）
+        try {
+            // 名前を変える前のキー（fara-pokemon-assistance.*）の設定・登録ポケモンは引き継がずに削除する
+            localStorage.removeItem("fara-pokemon-assistance.settings");
+            localStorage.removeItem("fara-pokemon-assistance.roster");
+            var s = JSON.parse(localStorage.getItem("fara-pokemon-battle-assistant.settings") || "{}");
+            if (s.Theme === "dark") document.documentElement.setAttribute("data-bs-theme", "dark");
+        } catch (e) { }
+    </script>
+</head>
+<body>
+    <button type="button" id="scroll-top" class="scroll-top" aria-label="いちばん上へ" title="いちばん上へ">↑</button>
+    <div id="app">
+        <div class="loading-screen">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p>読み込み中...</p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        エラーが発生しました。ページを再読み込みしてください。
+        <a href="" class="reload">再読み込み</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <script>
+        // 検索付きセレクトで、選択中の候補が見えるところまでスクロールする
+        window.faraFocus = function (id) { var el = document.getElementById(id); if (el) el.focus({ preventScroll: true }); };
+        window.faraScrollIntoView = function (id) { var el = document.getElementById(id); if (el) el.scrollIntoView({ block: "nearest" }); };
+        // PC では、一覧・カードの中だけがスクロールする（app.css の .pane-scroll など）。
+        // スクロール枠の中にある候補リスト・ヘルプの吹き出しが枠で切れないよう、画面基準（position: fixed）で置く。
+        // 狭い画面（スマホ。ページ全体がスクロールする）では何もしない
+        (function () {
+            var wide = window.matchMedia("(min-width: 768px)");
+            var tracked = [];
+            function refresh() { tracked = tracked.filter(function (t) { return t.el.isConnected && (t.place(), true); }); }
+            ["scroll", "resize"].forEach(function (type) { window.addEventListener(type, function () { if (tracked.length) refresh(); }, true); });
+            function track(el, place) {
+                if (!tracked.some(function (t) { return t.el === el; })) tracked.push({ el: el, place: place });
+                place();
+            }
+            // 検索付きセレクトの候補リスト: 入力欄の真下（下に余裕がなければ真上）に、入る高さで出す
+            window.faraPlaceDropdown = function (id) {
+                var el = document.getElementById(id);
+                if (!el || !wide.matches) return;
+                var anchor = el.parentElement;
+                track(el, function () {
+                    var r = anchor.getBoundingClientRect(), vh = window.innerHeight;
+                    var below = vh - r.bottom - 6, above = r.top - 6;
+                    var up = below < 180 && above > below;
+                    el.classList.add("is-floating");
+                    el.classList.toggle("is-up", up);
+                    el.style.left = r.left + "px";
+                    el.style.width = r.width + "px";
+                    el.style.maxHeight = Math.max(120, Math.min(320, up ? above : below)) + "px";
+                    el.style.top = up ? "auto" : r.bottom + "px";
+                    el.style.bottom = up ? (vh - r.top) + "px" : "auto";
+                });
+            };
+            // ヘルプの吹き出し: ? ボタンの右（入らなければ左）に、画面からはみ出さないように出す
+            // 背景のバトルフィールド：ポケモンの画像を、画面に描かれた足場の真ん中に足元を合わせて置く。
+            // 大きさは足場の幅に比例させるので、奥の足場のポケモンは遠近で小さくなる
+            window.faraPlaceStage = function () {
+                var sides = ["foe", "mine"].map(function (name) {
+                    var pad = document.querySelector(".field-pad-" + name);
+                    return { img: document.querySelector(".field-mon-" + name), r: pad ? pad.getBoundingClientRect() : null };
+                });
+                sides.forEach(function (s, i) {
+                    if (!s.img || !s.r) return;
+                    var r = s.r, w = r.width * 1.3, cx = r.left + r.width / 2;
+                    var other = sides[1 - i].r;
+                    // 2 体を向き合わせる。画像はもともと左向きなので、相手より左にいるときだけ左右反転して右を向かせる
+                    var faceRight = other ? cx < other.left + other.width / 2 : i === 1;
+                    var img = s.img;
+                    img.style.transform = faceRight ? "scaleX(-1)" : "none";
+                    // フィールドが回って手前に来た足場のポケモンほど、前に重ねる
+                    img.style.zIndex = String(Math.round(r.top + r.height / 2));
+                    img.style.width = w + "px";
+                    img.style.left = (cx - w / 2) + "px";
+                    img.style.top = (r.top + r.height / 2 - w * 0.92) + "px";
+                    img.style.visibility = "visible";
+                });
+            };
+            window.addEventListener("resize", function () { window.faraPlaceStage(); });
+            // フィールドは回り続けるので、毎フレーム合わせ直す（視差効果を減らす設定では回らないので、描き直しと画面の大きさが変わったときだけ）
+            if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+                // 対戦画面ではコートが止まっているので、毎フレームは合わせない（0.5 秒ごと。画面の大きさ・スクロールは別のイベントで合わせる）
+                var lastPlaced = 0;
+                (function follow(t) {
+                    var battle = !!document.querySelector(".bg-scene.battle");
+                    if (!battle || t - lastPlaced > 500) { window.faraPlaceStage(); lastPlaced = t; }
+                    requestAnimationFrame(follow);
+                })(0);
+            }
+
+            // 背景の天候（雨・砂嵐・雪）とフィールド（エレキ・グラス・サイコ・ミスト）の動き。細かい粒・光・輪・もやをキャンバスに描く。
+            // weather: "rain" | "sand" | "snow" | ""、strong: 対戦画面のとき true（多く・濃く）、terrain: "electric" | "grassy" | "psychic" | "misty" | ""。
+            // 同じ指定なら何もしない。フィールドの動きは、コート（.field-plane）の範囲に出す
+            (function () {
+                var kind = "", tkind = "", strong = false, parts = [], tparts = [], spawnT = 0, raf = 0, last = 0, W = 0, H = 0, canvas = null, ctx = null;
+                var reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+                // スマホ（タッチ操作）では、粒を減らし、30 fps にし、光のにじみ（shadowBlur）・やわらかいもやの毎回の作り直しをやめて軽くする
+                var touch = window.matchMedia("(pointer: coarse)").matches;
+                var lastDraw = 0, mistSprite = null;
+                function rnd(a, b) { return a + Math.random() * (b - a); }
+                function mistImage(c) {
+                    // もやの 1 つぶんを、先に小さな画像に描いておき、毎フレームは貼るだけにする
+                    if (mistSprite && mistSprite.c === c) return mistSprite.cv;
+                    var cv = document.createElement("canvas"); cv.width = cv.height = 128;
+                    var g = cv.getContext("2d"), grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+                    grad.addColorStop(0, "rgba(" + c + ",1)"); grad.addColorStop(1, "rgba(" + c + ",0)");
+                    g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+                    mistSprite = { c: c, cv: cv };
+                    return cv;
+                }
+                function plane() {
+                    var el = document.querySelector(".field-plane");
+                    if (!el) return { x: 0, y: H * 0.34, w: W, h: H * 0.66 };
+                    var r = el.getBoundingClientRect();
+                    return { x: r.left, y: r.top, w: r.width, h: r.height };
+                }
+                function make() {
+                    var area = W * H, k = strong ? 1 : 0.5, n;
+                    if (touch) area *= 0.6;   // 粒を減らす（面積を小さく見積もる）
+                    parts = [];
+                    if (kind) {
+                        if (kind === "rain") n = area / (strong ? 16000 : 30000);
+                        else if (kind === "sand") n = area / (strong ? 8000 : 16000);
+                        else n = area / (strong ? 11000 : 22000);
+                        n = Math.min(Math.round(n), 140);
+                        for (var i = 0; i < n; i++) {
+                            var p = { x: rnd(0, W), y: rnd(0, H), a: rnd(0.35, 0.8) * (0.6 + 0.4 * k) };
+                            if (kind === "rain") { p.len = rnd(9, 20); p.vy = rnd(650, 950); p.vx = -p.vy * 0.12; }
+                            else if (kind === "sand") { p.s = rnd(1.4, 3); p.vx = rnd(260, 520); p.vy = rnd(-18, 30); }
+                            else { p.r = rnd(1.2, 3); p.vy = rnd(24, 60); p.vx = rnd(-12, 12); p.ph = rnd(0, 6.28); }
+                            parts.push(p);
+                        }
+                    }
+                    tparts = [];
+                    if (tkind === "misty") {
+                        // もや: コートの手前（下寄り）を、ゆっくり横に流れるやわらかい塊
+                        var a = plane(), m = touch ? (strong ? 4 : 2) : (strong ? 8 : 4);
+                        for (var j = 0; j < m; j++) tparts.push({ t: "mist", x: rnd(a.x - 60, a.x + a.w + 60), y: a.y + a.h * rnd(0.5, 1.05), r: rnd(110, 220), vx: rnd(10, 26) * (Math.random() < 0.5 ? -1 : 1), a: rnd(0.28, 0.42) * (0.6 + 0.4 * k) });
+                    }
+                }
+                function spawn(dt) {
+                    if (!tkind || tkind === "misty") return;
+                    spawnT -= dt;
+                    if (spawnT > 0) return;
+                    var a = plane(), k = strong ? 1 : 0.5;
+                    var x = a.x + rnd(0.1, 0.9) * a.w, y = a.y + rnd(0.1, 0.9) * a.h;
+                    if (tkind === "electric") {
+                        spawnT = rnd(0.15, 0.45) / k;
+                        var pts = [[x, y]], px = x, py = y;
+                        for (var i = 0; i < 7; i++) { px += rnd(-16, 16); py += rnd(10, 20); pts.push([px, py]); }
+                        tparts.push({ t: "bolt", pts: pts, age: 0, life: 0.28 });
+                    } else if (tkind === "grassy") {
+                        spawnT = rnd(0.08, 0.22) / k;
+                        tparts.push({ t: "leaf", x: x, y: y, vx: rnd(-14, 14), vy: rnd(-50, -26), rot: rnd(0, 6.28), sz: rnd(6, 11), age: 0, life: rnd(1.8, 3) });
+                    } else if (tkind === "psychic") {
+                        spawnT = rnd(0.45, 0.9) / k;
+                        tparts.push({ t: "ring", x: x, y: y, age: 0, life: 1.8 });
+                    }
+                }
+                function drawTerrain(dt, light) {
+                    var k = strong ? 1 : 0.65;
+                    for (var i = tparts.length - 1; i >= 0; i--) {
+                        var q = tparts[i];
+                        if (q.t === "mist") {
+                            q.x += q.vx * dt;
+                            var a = plane();
+                            if (q.x > a.x + a.w + 120) q.x = a.x - 120; else if (q.x < a.x - 120) q.x = a.x + a.w + 120;
+                            var c = light ? "212,120,196" : "255,215,240";
+                            ctx.globalAlpha = Math.min(0.9, q.a * (light ? 0.95 : 0.8));
+                            ctx.drawImage(mistImage(c), q.x - q.r, q.y - q.r, q.r * 2, q.r * 2);
+                            ctx.globalAlpha = 1;
+                            continue;
+                        }
+                        q.age += dt;
+                        if (q.age >= q.life) { tparts.splice(i, 1); continue; }
+                        var f = q.age / q.life;
+                        if (q.t === "bolt") {
+                            var al = (1 - f) * 0.95 * k;
+                            ctx.save();
+                            ctx.strokeStyle = "rgba(" + (light ? "235,170,0" : "255,235,90") + "," + al + ")";
+                            ctx.lineWidth = 3;
+                            if (!touch) { ctx.shadowColor = "rgba(255,220,60," + al + ")"; ctx.shadowBlur = 12; }
+                            ctx.beginPath(); ctx.moveTo(q.pts[0][0], q.pts[0][1]);
+                            for (var j = 1; j < q.pts.length; j++) ctx.lineTo(q.pts[j][0], q.pts[j][1]);
+                            ctx.stroke(); ctx.restore();
+                        } else if (q.t === "leaf") {
+                            q.x += (q.vx + Math.sin(q.age * 3 + q.rot) * 14) * dt; q.y += q.vy * dt; q.rot += dt * 1.5;
+                            ctx.fillStyle = "rgba(" + (light ? "40,150,60" : "110,220,120") + "," + Math.min(1, Math.sin(Math.PI * f) * 1.1) * k + ")";
+                            ctx.beginPath(); ctx.ellipse(q.x, q.y, q.sz, q.sz * 0.5, q.rot, 0, 6.2832); ctx.fill();
+                        } else if (q.t === "ring") {
+                            var r = 14 + f * 110;
+                            ctx.strokeStyle = "rgba(" + (light ? "200,50,170" : "240,120,220") + "," + (1 - f) * 0.95 * k + ")";
+                            ctx.lineWidth = 3;
+                            ctx.beginPath(); ctx.ellipse(q.x, q.y, r, r * 0.45, 0, 0, 6.2832); ctx.stroke();
+                        }
+                    }
+                }
+                function draw(dt) {
+                    ctx.clearRect(0, 0, W, H);
+                    // ライトモード（明るい背景）では、粒を濃い色にして見えるようにする
+                    var light = document.documentElement.getAttribute("data-bs-theme") !== "dark";
+                    var rainRgb = light ? "70,110,190" : "190,215,255", sandRgb = light ? "175,128,60" : "232,200,140", snowRgb = light ? "150,185,235" : "255,255,255";
+                    for (var i = 0; i < parts.length; i++) {
+                        var p = parts[i];
+                        p.x += p.vx * dt; p.y += p.vy * dt;
+                        if (kind === "snow") p.x += Math.sin(p.ph += dt * 1.4) * 0.3;
+                        if (p.y > H + 24) { p.y = -24; p.x = rnd(0, W); }
+                        if (p.y < -30) p.y = H + 20;
+                        if (p.x > W + 24) { p.x = -24; p.y = rnd(0, H); }
+                        if (p.x < -24) p.x = W + 24;
+                        if (kind === "rain") {
+                            ctx.strokeStyle = "rgba(" + rainRgb + "," + Math.min(1, p.a * (light ? 1.1 : 0.8)) + ")";
+                            ctx.lineWidth = 1;
+                            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + p.vx / p.vy * p.len, p.y - p.len); ctx.stroke();
+                        } else if (kind === "sand") {
+                            ctx.fillStyle = "rgba(" + sandRgb + "," + Math.min(1, p.a * (light ? 1.0 : 0.85)) + ")";
+                            ctx.fillRect(p.x, p.y, p.s, p.s);
+                        } else {
+                            ctx.fillStyle = "rgba(" + snowRgb + "," + p.a + ")";
+                            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
+                        }
+                    }
+                    if (tkind) { spawn(dt); drawTerrain(dt, light); }
+                }
+                function frame(t) {
+                    raf = requestAnimationFrame(frame);
+                    if (touch && t - lastDraw < 33) return;   // スマホは 30 fps
+                    lastDraw = t;
+                    var dt = Math.min(0.05, (t - last) / 1000 || 0.016);
+                    last = t;
+                    draw(dt);
+                }
+                function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; if (ctx) ctx.clearRect(0, 0, W, H); parts = []; tparts = []; }
+                function size() {
+                    if (!canvas) return;
+                    W = canvas.width = canvas.clientWidth;
+                    H = canvas.height = canvas.clientHeight;
+                }
+                window.faraWeather = function (nextKind, nextStrong, nextTerrain) {
+                    nextKind = nextKind || ""; nextStrong = !!nextStrong; nextTerrain = nextTerrain || "";
+                    if (nextKind === kind && nextStrong === strong && nextTerrain === tkind && (!(kind || tkind) || raf || reduce.matches)) return;
+                    kind = nextKind; strong = nextStrong; tkind = nextTerrain;
+                    stop();
+                    if (!kind && !tkind) return;
+                    canvas = document.querySelector(".wx-canvas");
+                    if (!canvas) { kind = ""; tkind = ""; return; }
+                    ctx = canvas.getContext("2d");
+                    size();
+                    make();
+                    if (reduce.matches) { draw(0); return; }   // 視差効果を減らす設定では、動かさず 1 枚だけ描く
+                    last = performance.now();
+                    raf = requestAnimationFrame(frame);
+                };
+                window.addEventListener("resize", function () { if (kind || tkind) { size(); make(); if (reduce.matches) draw(0); } });
+            })();
+
+            // スマホでスクロールしたとき（アドレスバーの出し入れ・キーボードで表示領域が変わるときも）、ポケモンの位置を合わせ直す
+            window.addEventListener("scroll", function () { window.faraPlaceStage(); }, { passive: true });
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener("resize", function () { window.faraPlaceStage(); });
+                window.visualViewport.addEventListener("scroll", function () { window.faraPlaceStage(); });
+            }
+
+            // スマホ: スクロールしたら、右下に「いちばん上へ」ボタンを出す（結果のバーがあるときはその上。対戦画面では出さない）
+            (function () {
+                var btn = document.getElementById("scroll-top");
+                if (!btn) return;
+                var reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+                function update() {
+                    btn.classList.toggle("show", window.scrollY > 400 && !document.querySelector(".battle-ui"));
+                    btn.classList.toggle("above-bar", !!document.querySelector(".result-bar"));
+                }
+                btn.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: reduce.matches ? "auto" : "smooth" }); });
+                window.addEventListener("scroll", update, { passive: true });
+                setInterval(update, 500);   // 画面の切り替え（対戦画面・結果のバー）に合わせる
+                update();
+            })();
+
+            window.faraPlaceNote = function (id) {
+                var el = document.getElementById(id);
+                if (!el || !wide.matches || el.closest(".sidebar")) return;
+                var btn = el.parentElement.querySelector(".help-btn");
+                track(el, function () {
+                    var r = btn.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight;
+                    var w = Math.min(288, vw - 16);
+                    el.classList.add("is-floating");
+                    el.style.width = w + "px";
+                    var left = r.right + 8, nudged = false;
+                    if (left + w > vw - 8) { left = r.left - 8 - w; nudged = true; }
+                    if (left < 8) { left = Math.max(8, vw - w - 8); nudged = true; }
+                    var top = Math.max(8, Math.min(r.top - 6, vh - el.offsetHeight - 8));
+                    el.classList.toggle("is-nudged", nudged || top !== r.top - 6);
+                    el.style.left = left + "px";
+                    el.style.top = top + "px";
+                });
+            };
+        })();
+        // 検索付きセレクトの ↑↓・Enter で、ページのスクロールなどを起こさない。
+        // Blazor の @onkeydown:preventDefault は前回の描画時の値で決まり、次のキーに効いてしまうので、ここで止める
+        document.addEventListener("keydown", function (e) {
+            if ((e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") && e.target.closest && e.target.closest(".searchable-select")) e.preventDefault();
+        }, true);
+        // 無効にした項目（aria-disabled="true"。未対応の世代のメニューなど）は、クリック・中クリック・タップ・Enter で何も起こさない
+        ["click", "auxclick", "mousedown", "mouseup", "keydown"].forEach(function (type) {
+            document.addEventListener(type, function (e) {
+                if (type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+                if (type.indexOf("mouse") === 0 && e.button !== 1) return; // 中クリックの自動スクロール・新しいタブを止める
+                var el = e.target.closest && e.target.closest('[aria-disabled="true"]');
+                if (!el) return;
+                e.preventDefault();
+                e.stopPropagation();
+            }, true);
+        });
+    </script>
+    <script src="js/motion.js"></script>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+</html>
