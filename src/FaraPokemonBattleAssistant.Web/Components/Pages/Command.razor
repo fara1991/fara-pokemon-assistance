@@ -70,7 +70,7 @@ else if (data is not null)
                     @for (var i = 0; i < RegisteredPokemon.MaxMoves; i++)
                     {
                         var idx = i;
-                        <div class="cmd-f-ability">
+                        <div class="cmd-f-rmove">
                             <label class="form-label">@($"見えた技 {idx + 1}（任意）")</label>
                             <SearchableSelect TItem="Move" Items="RivalMoveChoices(idx)" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Name)"
                                 SelectedValue="@s.RivalMoves[idx]" SelectedValueChanged="@(v => { s.RivalMoves[idx] = v; BuildText(); })"
