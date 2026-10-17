@@ -112,13 +112,10 @@ else if (data is not null)
                         }
                         else
                         {
-                            <NaturePicker Natures="data.Natures" Value="@data.FindNature(s.NatureName)" ValueChanged="@(n => { s.NatureName = n?.Name ?? ""; BuildText(); })" Physical="@(CmdPhysical)" />
+                            <NaturePicker Natures="data.Natures" Value="@data.FindNature(s.NatureName)" ValueChanged="@(n => { s.NatureName = n?.Name ?? ""; BuildText(); })" Physical="@(CmdPhysical)"
+                                OnClear="@(s.Kind == "add -m" ? default : EventCallback.Factory.Create(this, () => { s.NatureName = string.Empty; BuildText(); }))" ClearText="指定しない" ClearDisabled="@(s.NatureName.Length == 0)" />
                             <div class="small mt-1">
                                 <span class="text-muted">@(s.NatureName.Length == 0 ? (s.Kind == "add -m" ? "性格を選んでください" : "指定しない") : $"選択中: {data.FindNature(s.NatureName)?.Describe()}")</span>
-                                @if (s.Kind != "add -m")
-                                {
-                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" disabled="@(s.NatureName.Length == 0)" @onclick="() => { s.NatureName = string.Empty; BuildText(); }">指定しない</button>
-                                }
                             </div>
                         }
                     </div>

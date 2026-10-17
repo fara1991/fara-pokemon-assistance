@@ -21,11 +21,11 @@
             <div class="nature-stat @(isUp ? "is-up" : isDown ? "is-down" : "")" title="@StatNames.Japanese(st)">
                 <span class="nature-stat-letter">@StatNames.Letter(st)</span>
                 <span class="nature-stat-arrows">
-                    <button type="button" class="nature-arrow up @(isUp ? "active" : "")" aria-pressed="@(isUp)"
-                            aria-label="@(StatNames.Japanese(st))を上昇" title="@(StatNames.Japanese(st))が上がる（もう一度押すと外す）"
+                    <button type="button" class="nature-arrow up @(isUp ? "active" : "")" aria-pressed="@(isUp ? "true" : "false")"
+                            aria-label="@(StatNames.Japanese(st))を上昇" title="@(StatNames.Japanese(st))が上がる（@OffHint）"
                             @onclick="() => Toggle(true, st)">▲</button>
-                    <button type="button" class="nature-arrow down @(isDown ? "active" : "")" aria-pressed="@(isDown)"
-                            aria-label="@(StatNames.Japanese(st))を下降" title="@(StatNames.Japanese(st))が下がる（もう一度押すと外す）"
+                    <button type="button" class="nature-arrow down @(isDown ? "active" : "")" aria-pressed="@(isDown ? "true" : "false")"
+                            aria-label="@(StatNames.Japanese(st))を下降" title="@(StatNames.Japanese(st))が下がる（@OffHint）"
                             @onclick="() => Toggle(false, st)">▼</button>
                 </span>
             </div>
@@ -55,6 +55,8 @@
     [Parameter] public EventCallback OnClear { get; set; }
     [Parameter] public string ClearText { get; set; } = "不明にする";
     [Parameter] public bool ClearDisabled { get; set; }
+
+    private string OffHint => Partial ? "もう一度押すと外す" : "もう一度押すと補正なし";
 
     private Stat? CurrentUp => Partial ? Up : Value?.IncreasedStat;
     private Stat? CurrentDown => Partial ? Down : Value?.DecreasedStat;

@@ -468,6 +468,7 @@ body {
 
 .nature-steppers {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.35rem;
 }
 
@@ -508,7 +509,9 @@ body {
     cursor: pointer;
 }
 
-.nature-arrow:hover { background: var(--bs-tertiary-bg, #e9ecef); }
+.nature-arrow:hover { background: rgba(var(--bs-primary-rgb, 13, 110, 253), .15); }
+.nature-arrow:focus-visible { outline: 2px solid var(--bs-primary, #0d6efd); outline-offset: 1px; }
+@media (pointer: coarse) { .nature-arrow { padding: 0.3rem 0.6rem; font-size: 0.85rem; } }
 .nature-arrow.up.active { background: #dc3545; color: #fff; }
 .nature-arrow.down.active { background: #0d6efd; color: #fff; }
 
