@@ -3457,3 +3457,8 @@ html.vt-nav .sidebar {
 .hp-tick.active { background: var(--bs-primary); color: #fff; }
 .hp-tick:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
 .hit-details > summary { cursor: pointer; color: var(--app-muted); }
+
+/* 選んでいる持ち物・特性の名前の横に説明の「?」を出す */
+.with-desc { display: flex; align-items: center; gap: 0.35rem; }
+.with-desc > :first-child { flex: 1 1 auto; min-width: 0; }
+.fixed-field .help-wrap { margin-left: 0.1rem; }

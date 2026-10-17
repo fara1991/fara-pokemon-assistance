@@ -319,6 +319,28 @@ class Builder:
         vg = max(preferred) if preferred else max(texts)
         return " ".join(texts[vg].split())
 
+    def flavor_description(self, table: str, key: str, ident: str, version_groups: list[int]) -> str:
+        """持ち物・特性の説明文（PokeAPI のフレーバーテキスト。そのゲームの版に一番近いもの。日本語（漢字まじり）が無ければ、かな）。"""
+        cache = getattr(self, "_flavor_cache", None)
+        if cache is None:
+            cache = self._flavor_cache = {}
+        if table not in cache:
+            by_id: dict[str, dict[str, dict[int, str]]] = defaultdict(lambda: defaultdict(dict))
+            for r in self.api.table(table):
+                if r["language_id"] in (LANG_JA, LANG_JA_HRKT):
+                    by_id[r[key]][r["language_id"]][int(r["version_group_id"])] = r["flavor_text"]
+            cache[table] = by_id
+        langs = cache[table].get(ident)
+        if not langs:
+            return ""
+        for lang in (LANG_JA, LANG_JA_HRKT):
+            texts = langs.get(lang)
+            if texts:
+                preferred = [vg for vg in texts if vg in version_groups]
+                vg = max(preferred) if preferred else max(texts)
+                return " ".join(texts[vg].split())
+        return ""
+
     # -- per data set ----------------------------------------------------------------------
     # -- 昔のゲーム（historical）: その世代の時点の値 -----------------------------------------
     # PokeAPI の *_past.csv は「その世代までの値」（generation_id はその値だった最後の世代）。
@@ -568,9 +590,9 @@ class Builder:
 
         self.write_items(ds, out_dir, generation, mega_stones)
         self.write_type_chart(out_dir, generation if historical else None)
-        self.write_abilities(out_dir, used_abilities)
+        self.write_abilities(out_dir, used_abilities, [int(v) for v in vgs])
 
-    def write_abilities(self, out_dir: Path, used: set[str]) -> None:
+    def write_abilities(self, out_dir: Path, used: set[str], version_groups: list[int]) -> None:
         rows = []
         for aid in sorted(used, key=int):
             a = self.abilities.get(aid)
@@ -581,8 +603,8 @@ class Builder:
                 if not has_japanese(name):
                     log(f"  WARNING: 特性 {a['identifier']} の日本語名が無く英語のままです: {name}"
                         "（tools/ability_names_ja.csv に追加してください）")
-                rows.append([aid, a["identifier"], name])
-        write_csv(out_dir / "abilities.csv", ["Id", "Identifier", "Name"], rows)
+                rows.append([aid, a["identifier"], name, self.flavor_description("ability_flavor_text", "ability_id", aid, version_groups)])
+        write_csv(out_dir / "abilities.csv", ["Id", "Identifier", "Name", "Description"], rows)
 
     MEGA_STONE_CATEGORY = "44"
 
@@ -620,6 +642,7 @@ class Builder:
 
     def write_items(self, ds: dict, out_dir: Path, generation: int,
                     mega_stones: dict[str, tuple[str, str]] | None = None) -> None:
+        vgl = [int(v) for v in ds["version_groups"]]
         wanted: dict[str, dict] = {}
         for identifier, eff in self.item_effects.items():
             iid = self.item_by_identifier.get(identifier)
@@ -668,6 +691,7 @@ class Builder:
                 eff.get("SpAttackMultiplier", "1.0"), eff.get("SpDefenseMultiplier", "1.0"),
                 eff.get("DamageMultiplier", "1.0"), eff.get("TypeBoost", ""), eff.get("TypeBoostMultiplier", "1.0"),
                 self.items[iid]["identifier"],
+                self.flavor_description("item_flavor_text", "item_id", iid, vgl),
             ])
         # メガストーン（メガシンカ後のフォルム専用。計算には影響しない）
         seen = {row[0] for row in rows}
@@ -676,10 +700,11 @@ class Builder:
                 continue
             seen.add(iid)
             holder = self.display_name(pid) or ""
-            rows.append([iid, name, "MegaStone", f"{holder}のメガシンカに必要", "1.0", "1.0", "1.0", "1.0", "1.0", "", "1.0", self.items[iid]["identifier"]])
+            rows.append([iid, name, "MegaStone", f"{holder}のメガシンカに必要", "1.0", "1.0", "1.0", "1.0", "1.0", "", "1.0", self.items[iid]["identifier"] if iid in self.items else "",
+                         (self.flavor_description("item_flavor_text", "item_id", iid, vgl) if iid in self.items else "") or f"{holder}をメガシンカさせる石"])
         write_csv(out_dir / "items.csv",
                   ["Id", "Name", "Category", "Effect", "AttackMultiplier", "DefenseMultiplier", "SpAttackMultiplier",
-                   "SpDefenseMultiplier", "DamageMultiplier", "TypeBoost", "TypeBoostMultiplier", "Identifier"], rows)
+                   "SpDefenseMultiplier", "DamageMultiplier", "TypeBoost", "TypeBoostMultiplier", "Identifier", "Description"], rows)
 
     def write_type_chart(self, out_dir: Path, generation: int | None = None) -> None:
         """タイプ相性。generation を渡すと、その世代の相性（type_efficacy_past）にし、まだ無いタイプ（あく・はがね・フェアリー）を除く。"""

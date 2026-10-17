@@ -82,4 +82,12 @@ public class RosterChoiceTests
         Assert.Equal(StatusCondition.Burn, back.Status);
         Assert.Null(back.Item);
     }
+
+    [Fact]
+    public async Task Items_and_abilities_have_descriptions()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        Assert.NotEmpty(data.Items.First(i => i.Name == "こだわりスカーフ").Description);
+        Assert.NotEmpty(data.Abilities.First(a => a.Name == "いかく").Description);
+    }
 }
