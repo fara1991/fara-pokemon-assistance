@@ -1,5 +1,5 @@
 @* 変えられない項目（メガシンカ後のメガストーン・特性が 1 つしかないポケモンなど）。
-   入力欄と見分けが付くよう、鍵のアイコンと「固定」を付け、固定の理由を添える。 *@
+   入力欄と見分けが付くよう、鍵のアイコンと「固定」を付ける（固定の理由は画面には出さず、マウスを乗せたときの title だけ）。 *@
 <div class="fixed-field @(Small ? "fixed-field-sm" : "")" title="@Reason">
     <svg class="fixed-lock" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
         <path fill="currentColor" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7H4a1.5 1.5 0 0 0-1.5 1.5v5A1.5 1.5 0 0 0 4 15h8a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 12 7h-.5V4.5A3.5 3.5 0 0 0 8 1Zm2 6H6V4.5a2 2 0 1 1 4 0V7Z" />
@@ -9,10 +9,6 @@
         else { @(string.IsNullOrEmpty(Value) ? "なし" : Value) }
     </span>
     <span class="fixed-badge">固定</span>
-    @if (!string.IsNullOrEmpty(Reason))
-    {
-        <span class="fixed-reason">@Reason</span>
-    }
 </div>
 
 @code {
