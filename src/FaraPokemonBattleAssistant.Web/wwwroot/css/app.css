@@ -512,6 +512,18 @@ body {
 .nature-arrow:hover { background: rgba(var(--bs-primary-rgb, 13, 110, 253), .15); }
 .nature-arrow:focus-visible { outline: 2px solid var(--bs-primary, #0d6efd); outline-offset: 1px; }
 @media (pointer: coarse) { .nature-arrow { padding: 0.3rem 0.6rem; font-size: 0.85rem; } }
+/* スマホ: 5 つの能力を 1 行に等分で並べる（S だけ折り返さない） */
+@media (max-width: 575.98px) {
+    .nature-steppers { flex: 1 1 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.25rem; }
+    .nature-stat { justify-content: space-between; padding: 0.15rem 0.2rem 0.15rem 0.4rem; }
+    .nature-arrow { padding: 0.3rem 0.45rem; }
+}
+/* さらに狭い画面（幅 360px 未満）では、セルの余白を詰めて重ならないようにする */
+@media (max-width: 359.98px) {
+    .nature-stat { padding-left: 0.25rem; gap: 0.1rem; }
+    .nature-stat-letter { min-width: 0.75rem; }
+    .nature-arrow { padding: 0.3rem 0.3rem; }
+}
 .nature-arrow.up.active { background: #dc3545; color: #fff; }
 .nature-arrow.down.active { background: #0d6efd; color: #fff; }
 
