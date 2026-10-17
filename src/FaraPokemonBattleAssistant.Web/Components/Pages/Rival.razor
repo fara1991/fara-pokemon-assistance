@@ -96,7 +96,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                                                 <label class="form-label small mb-0">性格 <Help Title="性格">能力ごとの ▲（上昇）・▼（下降）を押して選びます。もう一度押すと外れます。能力を選ぶと性格が決まります。分からないときは「不明にする」を押します。</Help></label>
                                                 <NaturePicker Partial="true" Natures="data.Natures" Value="@data.FindNature(editNature)" ValueChanged="@OnEditNatureNamed"
                                                     Up="@EditNaturePair.Up" Down="@EditNaturePair.Down" PairChanged="@OnEditNaturePair"
-                                                    OnClear="@ClearEditNature" ClearText="不明にする" ClearDisabled="@(editNature.Length == 0 && editUp is null && editDown is null)" />
+                                                    OnClear="@ClearEditNature" ClearText="選択解除" ClearDisabled="@(editNature.Length == 0 && editUp is null && editDown is null)" />
                                                 <div class="small mt-1">
                                                     <span class="text-muted">@EditNatureText</span>
                                                 </div>

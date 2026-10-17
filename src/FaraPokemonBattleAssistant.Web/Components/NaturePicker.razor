@@ -53,7 +53,7 @@
 
     /// <summary>能力のボタンの右に出すボタン（「不明にする」など）。渡さなければ出さない。</summary>
     [Parameter] public EventCallback OnClear { get; set; }
-    [Parameter] public string ClearText { get; set; } = "不明にする";
+    [Parameter] public string ClearText { get; set; } = "選択解除";
     [Parameter] public bool ClearDisabled { get; set; }
 
     private string OffHint => Partial ? "もう一度押すと外す" : "もう一度押すと補正なし";
