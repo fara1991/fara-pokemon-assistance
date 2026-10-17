@@ -552,7 +552,9 @@ body {
 /* 性格は 1 行を使い、ボタンを大きくする（上昇と下降を左右に並べる） */
 .cmd-build .cmd-f-nature { flex: 1 1 100%; order: 4; }
 .cmd-build .cmd-f-ability { flex: 0 0 14rem; order: 2; }
-.cmd-build .cmd-f-item { flex: 1 1 11rem; }
+.cmd-build .cmd-f-item { flex: 1 1 11rem; order: 6; }
+/* set -r の見えた技: ポイント・性格のあとに、4 つを並べる（持ち物はその後ろ） */
+.cmd-build .cmd-f-rmove { flex: 1 1 10rem; order: 5; }
 .cmd-build .cmd-f-opt { flex: 1 1 10rem; }
 .cmd-build .cmd-f-evs { flex: 1 1 100%; order: 3; }
 .cmd-build .cmd-f-none { align-self: end; }
@@ -573,6 +575,8 @@ body {
     padding: 0.45rem 0;
     font-size: 0.95rem;
 }
+.cmd-build .nature-rows { max-width: 40rem; }
+/* ラベルの幅は、上の @container 内の指定（.nature-rows .nature-row-label）より後ろに書いて勝たせる（書く順を変えないこと） */
 .cmd-build .nature-row-label { font-size: 0.9rem; flex-basis: 3rem; }
 .cmd-build .cmd-f-poke { flex: 1 1 7rem; }
 .cmd-build .cmd-f-move { flex: 1 1 7rem; }
@@ -589,6 +593,11 @@ body {
     .cmd-build .cmd-f-weather,
     .cmd-build .cmd-f-terrain,
     .cmd-build .cmd-f-ability,
+    .cmd-build .cmd-f-rmove,
+    .cmd-build .cmd-f-poke,
+    .cmd-build .cmd-f-move,
+    .cmd-build .cmd-f-item,
+    .cmd-build .cmd-f-opt,
     .cmd-build .cmd-f-num,
     .cmd-build .cmd-f-damage,
     .cmd-build .cmd-f-evs {
