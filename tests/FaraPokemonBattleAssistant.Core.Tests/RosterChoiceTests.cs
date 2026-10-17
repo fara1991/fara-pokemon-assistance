@@ -90,4 +90,15 @@ public class RosterChoiceTests
         Assert.NotEmpty(data.Items.First(i => i.Name == "こだわりスカーフ").Description);
         Assert.NotEmpty(data.Abilities.First(a => a.Name == "いかく").Description);
     }
+
+    [Fact]
+    public async Task Type_boost_items_are_1_1x_before_gen4_and_describe_it()
+    {
+        var gen3 = (await TestData.Catalog().GetDataSetAsync("Gen3")).Items.First(i => i.Name == "ぎんのこな");
+        Assert.Equal(1.1, gen3.TypeBoostMultiplier);
+        Assert.Equal("むしタイプの技の威力が1.1倍になる。", gen3.Description);
+        var gen9 = (await TestData.Catalog().GetDataSetAsync("Gen9")).Items.First(i => i.Name == "ぎんのこな");
+        Assert.Equal(1.2, gen9.TypeBoostMultiplier);
+        Assert.Equal("むしタイプの技の威力が1.2倍になる。", gen9.Description);
+    }
 }
