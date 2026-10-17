@@ -52,4 +52,34 @@ public class RosterChoiceTests
         Assert.Equal(entry.Nature, stored.Nature);
         Assert.Null(stored.ItemId);
     }
+
+    [Fact]
+    public async Task Registered_pokemon_can_be_switched_to_its_mega_forms()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Champions");
+        var charizard = data.Pokemon.First(p => p.Name == "リザードン");
+        var forms = RosterRepository.MegaFormsOf(data, charizard);
+        Assert.Equal(new[] { "メガリザードンX", "メガリザードンY" }, forms.Select(f => f.Name).OrderBy(n => n));
+        Assert.Empty(RosterRepository.MegaFormsOf(data, forms[0]));   // メガシンカ後の姿からは、さらに切り替えない
+
+        var nature = data.Natures.First();
+        var build = new PokemonBuild(charizard, data.Info.EvSystem) { EVs = new StatSet { SpAttack = 32 }, Nature = nature, Item = data.Items.First() };
+        var mega = RosterRepository.ToMegaBuild(build, forms[0], data);
+        Assert.Equal(forms[0], mega.Pokemon);
+        Assert.Equal(32, mega.EVs.SpAttack);
+        Assert.NotSame(build.EVs, mega.EVs);
+        Assert.Equal(nature, mega.Nature);
+        Assert.Equal(forms[0].MegaStoneId, mega.Item?.Id);
+        Assert.Equal(charizard, build.Pokemon);   // 元の構成は変わらない
+
+        // 切り替えても、ランク補正などは引き継ぐ。メガシンカ前に戻すと、持ち物・特性は登録のもの
+        mega.Boosts = new StatSet { Attack = 2 };
+        mega.Status = StatusCondition.Burn;
+        var entry = new RegisteredPokemon { PokemonId = charizard.Id, PokemonName = charizard.Name, Nature = nature.Name };
+        var back = RosterRepository.ToBaseBuild(mega, entry, data, null);
+        Assert.Equal(charizard, back.Pokemon);
+        Assert.Equal(2, back.Boosts.Attack);
+        Assert.Equal(StatusCondition.Burn, back.Status);
+        Assert.Null(back.Item);
+    }
 }

@@ -46,10 +46,11 @@ else if (data is not null && dataSet is not null)
                 <div class="card-body">
                     <RosterSwitch Groups="rosterGroups" @bind-Enabled="s.UseRosterAttacker" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" />
                     <div class="form-group mb-2">
-                        <label>ポケモン <Help Title="ポケモン">名前の一部（ひらがな・ローマ字でも可。例: ie → イエッサン）で絞り込めます。使用率の高い順に並んでいます。「登録から選ぶ」をオンにすると、登録したポケモンだけから選べます。</Help></label>
+                        <label>ポケモン <Help Title="ポケモン">名前の一部（ひらがな・ローマ字でも可。例: ie → イエッサン）で絞り込めます。図鑑順に並んでいます。「登録から選ぶ」をオンにすると、登録したポケモンだけから選べます。</Help></label>
                         @if (s.UseRosterAttacker && rosterGroups.Count > 0)
                         {
                             <RosterPokemonSelect Groups="rosterGroups" Data="data" SelectedKey="@s.AttackerRosterKey" OnPick="@(c => PickFromRoster(c, true))" />
+                            <MegaSwitch Forms="@MegaFormsOf(s.AttackerRosterKey)" Current="s.AttackerMega" OnPick="@(m => SetMega(true, m))" />
                         }
                         else
                         {
@@ -111,6 +112,7 @@ else if (data is not null && dataSet is not null)
                         @if (s.UseRosterDefender && rosterGroups.Count > 0)
                         {
                             <RosterPokemonSelect Groups="rosterGroups" Data="data" SelectedKey="@s.DefenderRosterKey" OnPick="@(c => PickFromRoster(c, false))" />
+                            <MegaSwitch Forms="@MegaFormsOf(s.DefenderRosterKey)" Current="s.DefenderMega" OnPick="@(m => SetMega(false, m))" />
                         }
                         else
                         {
@@ -296,6 +298,9 @@ else if (data is not null && dataSet is not null)
         public bool UseRosterDefender { get; set; }
         public string? AttackerRosterKey { get; set; }
         public string? DefenderRosterKey { get; set; }
+        /// <summary>登録から選んだポケモンを、メガシンカ後の姿にしているとき、その姿。</summary>
+        public Pokemon? AttackerMega { get; set; }
+        public Pokemon? DefenderMega { get; set; }
         public bool Reflect { get; set; }
         public bool LightScreen { get; set; }
         public Weather Weather { get; set; }
@@ -401,13 +406,13 @@ else if (data is not null && dataSet is not null)
             usage = await data.GetUsageAsync(App.Format);
             (rosterGroups, rosterError) = await RosterReading.ChoiceGroupsAsync(Repo, App.DataSetKey, data);
             await RefreshRivalsAsync();
-            pokemonList = usage.IsEmpty
-                ? data.Pokemon
-                : data.Pokemon.OrderBy(p => usage.RankOf(p.Id)).ToList();
+            // 図鑑順（メガシンカ後の姿は元の姿のすぐ後ろ）
+            pokemonList = data.Pokemon.OrderBy(p => p, Comparer<Pokemon>.Create(Pokedex.CompareDex)).ToList();
             if (s.DataSetKey != App.DataSetKey)
             {
                 s.DataSetKey = App.DataSetKey;
                 s.AttackerRosterKey = s.DefenderRosterKey = null;
+                s.AttackerMega = s.DefenderMega = null;
                 s.Attacker = null;
                 s.Defender = null;
                 s.Move = null;
@@ -481,6 +486,7 @@ else if (data is not null && dataSet is not null)
     private void OnAttackerChanged(string value)
     {
         s.AttackerRosterKey = null;
+        s.AttackerMega = null;
         var pokemon = data?.FindPokemon(ParseId(value));
         if (pokemon is null)
         {
@@ -506,6 +512,7 @@ else if (data is not null && dataSet is not null)
     private void OnDefenderChanged(string value)
     {
         s.DefenderRosterKey = null;
+        s.DefenderMega = null;
         var pokemon = data?.FindPokemon(ParseId(value));
         if (pokemon is null)
         {
@@ -519,26 +526,46 @@ else if (data is not null && dataSet is not null)
     }
 
     /// <summary>登録済みの構成（チームのメンバーならチームで持たせた持ち物つき）を、その側の入力欄に写す。登録データ自体は変わらない。</summary>
-    private void PickFromRoster(RosterChoice choice, bool isAttacker)
+    private void PickFromRoster(RosterChoice choice, bool isAttacker, Pokemon? mega = null, bool keepMove = false)
     {
         if (data is null) return;
         var build = RosterRepository.ToBuild(choice.Entry, data, choice.Item);
         if (build is null) return;
+        // メガシンカの前後の切り替えでは、いまの入力（ランク補正・状態異常・HP など）を引き継ぐ
+        var current = isAttacker ? s.Attacker : s.Defender;
+        if (keepMove && current is not null)
+            build = mega is null ? RosterRepository.ToBaseBuild(current, choice.Entry, data, choice.Item) : RosterRepository.ToMegaBuild(current, mega, data);
+        else if (mega is not null) build = RosterRepository.ToMegaBuild(build, mega, data);
         ApplyFixedChoices(build);
         ApplyFieldFromAbility(build);
         if (isAttacker)
         {
             s.AttackerRosterKey = choice.Key;
+            s.AttackerMega = mega;
             s.Attacker = build;
             RefreshAttackerLists();
-            s.Move = DefaultMove(build.Pokemon.Id);
+            if (!keepMove) s.Move = DefaultMove(build.Pokemon.Id);
         }
         else
         {
             s.DefenderRosterKey = choice.Key;
+            s.DefenderMega = mega;
             s.Defender = build;
             RefreshDefenderLists();
         }
+    }
+
+    private RosterChoice? FindChoice(string? key) =>
+        key is null ? null : rosterGroups.SelectMany(g => g.Choices).FirstOrDefault(c => c.Key == key);
+
+    /// <summary>選んだ登録ポケモンのメガシンカ後の姿（メガシンカしないポケモンなら空）。</summary>
+    private IReadOnlyList<Pokemon> MegaFormsOf(string? key) =>
+        data is not null && FindChoice(key) is { } c && data.FindPokemon(c.Entry.PokemonId) is { } p ? RosterRepository.MegaFormsOf(data, p) : Array.Empty<Pokemon>();
+
+    /// <summary>登録ポケモンの、メガシンカする前・後を切り替える（技は今のまま）。</summary>
+    private void SetMega(bool isAttacker, Pokemon? mega)
+    {
+        if (FindChoice(isAttacker ? s.AttackerRosterKey : s.DefenderRosterKey) is { } choice) PickFromRoster(choice, isAttacker, mega, keepMove: true);
     }
 
     private string estimateKey = "";

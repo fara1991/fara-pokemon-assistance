@@ -154,6 +154,8 @@ else if (data is not null && dataSet is not null)
         /// <summary>「登録から選ぶ」のスイッチと、選んでいる登録の Key（それぞれの側）。</summary>
         public bool[] UseRoster { get; set; } = new bool[2];
         public string?[] RosterKey { get; set; } = new string?[2];
+        /// <summary>登録から選んだポケモンを、メガシンカ後の姿にしているとき、その姿。</summary>
+        public Pokemon?[] RosterMega { get; set; } = new Pokemon?[2];
     }
 
     private State s = new();
@@ -226,6 +228,7 @@ else if (data is not null && dataSet is not null)
             s.Builds = new PokemonBuild?[2];
             s.Tailwind = new bool[2];
             s.RosterKey = new string?[2];
+            s.RosterMega = new Pokemon?[2];
         }
         // そのゲームに無いフィールドは外す
         if (dataSet is { HasTerrain: false } || s.Terrain == Terrain.Psychic && dataSet is { HasPsychicTerrain: false }) s.Terrain = Terrain.None;
@@ -277,10 +280,15 @@ else if (data is not null && dataSet is not null)
     private void OnPokemonChanged(int side, string value)
     {
         s.RosterKey[side] = null;
+        s.RosterMega[side] = null;
         var pokemon = data?.FindPokemon(ParseId(value));
         if (pokemon is null || data is null || dataSet is null) { s.Builds[side] = null; return; }
         var member = teamMembers.FirstOrDefault(m => m.Entry.PokemonId == pokemon.Id);
+        // メガシンカ後の姿は登録しないので、元の姿で登録したチームのメンバーを探して、メガシンカ後にする
+        if (member.Entry is null && pokemon.IsMega)
+            member = teamMembers.FirstOrDefault(m => data.FindPokemon(m.Entry.PokemonId) is { IsMega: false } b && b.SpeciesId == pokemon.SpeciesId);
         var build = member.Entry is not null ? RosterRepository.ToBuild(member.Entry, data, member.Item) : null;
+        if (build is not null && pokemon.IsMega && build.Pokemon.Id != pokemon.Id) build = RosterRepository.ToMegaBuild(build, pokemon, data);
         var abilities = data.AbilitiesOf(pokemon);
         build ??= new PokemonBuild(pokemon, dataSet.EvSystem)
         {
@@ -294,11 +302,30 @@ else if (data is not null && dataSet is not null)
     }
 
     /// <summary>登録済みの構成（チームのメンバーならチームで持たせた持ち物つき）を、その側に写す。登録データ自体は変わらない。</summary>
-    private void OnRosterPicked(int side, RosterChoice choice)
+    private void OnRosterPicked(int side, RosterChoice choice, Pokemon? mega = null, bool keepCurrent = false)
     {
         if (data is null) return;
         s.RosterKey[side] = choice.Key;
-        s.Builds[side] = RosterRepository.ToBuild(choice.Entry, data, choice.Item);
+        s.RosterMega[side] = mega;
+        var build = RosterRepository.ToBuild(choice.Entry, data, choice.Item);
+        // メガシンカの前後の切り替えでは、いまの入力（S ランク・まひなど）を引き継ぐ
+        if (keepCurrent && s.Builds[side] is { } current && build is not null)
+            build = mega is null ? RosterRepository.ToBaseBuild(current, choice.Entry, data, choice.Item) : RosterRepository.ToMegaBuild(current, mega, data);
+        else if (mega is not null && build is not null) build = RosterRepository.ToMegaBuild(build, mega, data);
+        s.Builds[side] = build;
+    }
+
+    private RosterChoice? FindChoice(string? key) =>
+        key is null ? null : rosterGroups.SelectMany(g => g.Choices).FirstOrDefault(c => c.Key == key);
+
+    /// <summary>選んだ登録ポケモンのメガシンカ後の姿（メガシンカしないポケモンなら空）。</summary>
+    private IReadOnlyList<Pokemon> MegaFormsOf(string? key) =>
+        data is not null && FindChoice(key) is { } c && data.FindPokemon(c.Entry.PokemonId) is { } p ? RosterRepository.MegaFormsOf(data, p) : Array.Empty<Pokemon>();
+
+    /// <summary>登録ポケモンの、メガシンカする前・後を切り替える。</summary>
+    private void SetMega(int side, Pokemon? mega)
+    {
+        if (FindChoice(s.RosterKey[side]) is { } choice) OnRosterPicked(side, choice, mega, keepCurrent: true);
     }
 
     private RenderFragment RenderSide(int side) => __builder =>
@@ -314,6 +341,7 @@ else if (data is not null && dataSet is not null)
                     @if (s.UseRoster[side] && rosterGroups.Count > 0)
                     {
                         <RosterPokemonSelect Groups="rosterGroups" Data="data!" SelectedKey="@s.RosterKey[side]" OnPick="@(c => OnRosterPicked(side, c))" />
+                        <MegaSwitch Forms="@MegaFormsOf(s.RosterKey[side])" Current="s.RosterMega[side]" OnPick="@(m => SetMega(side, m))" />
                     }
                     else
                     {

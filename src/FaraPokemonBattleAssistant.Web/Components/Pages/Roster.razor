@@ -26,7 +26,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                     <div class="form-group mb-2">
                         <label>ポケモン</label>
                         <SearchableSelect TItem="Pokemon"
-                            Items="data.Pokemon"
+                            Items="@(data.Pokemon.Where(p => !p.IsMega || p.Id == s.NewPokemon?.Id).ToList())"
                             DisplayText="@(p => p.Name)"
                             ValueSelector="@(p => p.Id.ToString())"
                             SelectedValue="@(s.NewPokemon?.Id.ToString() ?? "")"
