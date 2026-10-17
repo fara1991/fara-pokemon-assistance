@@ -9,7 +9,7 @@
     SelectedValueChanged="OnChanged"
     Placeholder="登録したポケモンから選ぶ...">
     <ItemTemplate Context="o">
-        <PokemonIcon Pokemon="o.Pokemon" Small="true" /><span>@o.Choice.Label</span><span class="text-muted ms-auto small text-nowrap">@o.GroupShort</span>
+        <PokemonIcon Pokemon="o.Pokemon" Small="true" /><span>@o.Choice.Label</span><PokemonTypes Pokemon="o.Pokemon" Small="true" /><span class="text-muted ms-auto small text-nowrap">@o.GroupShort</span>
     </ItemTemplate>
 </SearchableSelect>
 

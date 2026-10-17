@@ -94,10 +94,11 @@ else if (data is not null && roster is not null && dataSet is not null)
                                             </div>
                                             <div class="form-group mb-2">
                                                 <label class="form-label small mb-0">性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります。分からないときは「不明にする」を押します。</Help></label>
-                                                <NaturePicker Natures="data.Natures" Value="@data.FindNature(editNature)" ValueChanged="@(n => editNature = n?.Name ?? "")" Physical="@EditPhysical" />
+                                                <NaturePicker Partial="true" Natures="data.Natures" Value="@data.FindNature(editNature)" ValueChanged="@OnEditNatureNamed"
+                                                    Up="@EditNaturePair.Up" Down="@EditNaturePair.Down" PairChanged="@OnEditNaturePair" />
                                                 <div class="small mt-1">
-                                                    <span class="text-muted">@(editNature.Length == 0 ? "性格は不明です" : $"選択中: {data.FindNature(editNature)?.Describe()}")</span>
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" disabled="@(editNature.Length == 0)" @onclick="() => editNature = string.Empty">不明にする</button>
+                                                    <span class="text-muted">@EditNatureText</span>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" disabled="@(editNature.Length == 0 && editUp is null && editDown is null)" @onclick="ClearEditNature">不明にする</button>
                                                 </div>
                                             </div>
                                             <div class="form-group mb-2">
@@ -198,6 +199,8 @@ else
     private int? editingId;
     private readonly Dictionary<Stat, string> editEvs = EditStats.ToDictionary(x => x, _ => "");
     private string editNature = "";
+    private Stat? editUp;
+    private Stat? editDown;
     private string editAbility = "";
     private string editItem = "";
     private readonly string[] editMoves = new string[RegisteredPokemon.MaxMoves];
@@ -213,8 +216,44 @@ else
 
     private int evVersion;
 
-    /// <summary>A の方が C 以上なら物理向け（性格を片方だけ選んだとき、C を下げる側に補う）。</summary>
-    private bool EditPhysical => (int.TryParse(editEvs[Stat.Attack], out var a) ? a : 0) >= (int.TryParse(editEvs[Stat.SpAttack], out var c) ? c : 0);
+    /// <summary>性格が決まっていればその性格の上がる・下がる能力。決まっていなければ、分かっている方だけ（もう片方は補わない）。</summary>
+    private (Stat? Up, Stat? Down) EditNaturePair =>
+        editNature.Length > 0 && data?.FindNature(editNature) is { } n ? (n.IncreasedStat, n.DecreasedStat) : (editUp, editDown);
+
+    private string EditNatureText
+    {
+        get
+        {
+            if (editNature.Length > 0) return $"選択中: {data?.FindNature(editNature)?.Describe()}";
+            if (editUp is null && editDown is null) return "性格は不明です";
+            var up = editUp is { } u ? $"{StatNames.Letter(u)}↑" : "上がる能力は不明";
+            var down = editDown is { } d ? $"{StatNames.Letter(d)}↓" : "下がる能力は不明";
+            return $"分かっている補正: {up}・{down}";
+        }
+    }
+
+    private void OnEditNatureNamed(Nature? nature)
+    {
+        if (nature is null) return;
+        editNature = nature.Name;
+        editUp = editDown = null;
+    }
+
+    /// <summary>上がる・下がる能力のボタン。片方だけ選んでも、もう片方は補わない。両方そろって性格が決まれば、その性格にする。</summary>
+    private void OnEditNaturePair((Stat? Up, Stat? Down) pair)
+    {
+        var found = pair.Up is not null && pair.Down is not null
+            ? data?.Natures.FirstOrDefault(n => n.IncreasedStat == pair.Up && n.DecreasedStat == pair.Down) : null;
+        editNature = found?.Name ?? "";
+        editUp = found is null ? pair.Up : null;
+        editDown = found is null ? pair.Down : null;
+    }
+
+    private void ClearEditNature()
+    {
+        editNature = "";
+        editUp = editDown = null;
+    }
 
     /// <summary>合計の上限（66 など）を超えない範囲で、その能力に振れる最大のポイント。</summary>
     private int EditMaxAllowed(Stat stat)
@@ -316,6 +355,8 @@ else
         editEvs[Stat.SpDefense] = rival.SpDefense?.ToString() ?? "";
         editEvs[Stat.Speed] = rival.Speed?.ToString() ?? "";
         editNature = rival.Nature ?? "";
+        editUp = rival.NatureUp;
+        editDown = rival.NatureDown;
         editAbility = rival.AbilityId?.ToString() ?? "";
         editItem = rival.ItemId?.ToString() ?? "";
         for (var i = 0; i < editMoves.Length; i++) editMoves[i] = i < rival.MoveIds.Count ? rival.MoveIds[i].ToString() : "";
@@ -357,7 +398,12 @@ else
             target.MoveIds = moveIds;
             target.HP = values[Stat.HP]; target.Attack = values[Stat.Attack]; target.Defense = values[Stat.Defense];
             target.SpAttack = values[Stat.SpAttack]; target.SpDefense = values[Stat.SpDefense]; target.Speed = values[Stat.Speed];
-            target.Nature = nature;
+            if (nature is not null)
+            {
+                target.Nature = nature;
+                target.NatureUp = target.NatureDown = null;
+            }
+            else PokeCommand.SetRivalNature(target, editUp, editDown, data!.Natures);
             target.AbilityId = abilityId;
             target.ItemId = form?.IsMega == true ? null : itemId;
             target.Updated = DateTimeOffset.Now.ToString("o");

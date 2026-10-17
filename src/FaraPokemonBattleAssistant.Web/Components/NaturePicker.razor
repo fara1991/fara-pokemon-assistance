@@ -1,5 +1,6 @@
 @* 性格の選択。「上昇」「下降」のボタンを 1 回押すだけで能力を選べる。名前で探す欄も残す。
-   片方だけ押したときは、もう片方を技の分類（Physical）に合わせて補う（NatureSelection 参照）。 *@
+   片方だけ押したときは、もう片方を技の分類（Physical）に合わせて補う（NatureSelection 参照）。
+   Partial="true" のとき（相手の性格など）は、補わない。上がる能力・下がる能力を別々に選べて、分からない方は「不明」のままにする。 *@
 <div class="nature-picker">
     <SearchableSelect TItem="Nature"
         Items="Natures"
@@ -12,15 +13,15 @@
     <div class="nature-rows">
     @foreach (var (label, increased) in new[] { ("上昇", true), ("下降", false) })
     {
-        var current = increased ? Value?.IncreasedStat : Value?.DecreasedStat;
+        var current = Partial ? (increased ? Up : Down) : (increased ? Value?.IncreasedStat : Value?.DecreasedStat);
         @* 性格が未選択のときは、「なし」も押した状態にしない（補正なしの性格を選んだ状態と区別する） *@
-        var noneSelected = Value is not null && current is null;
+        var noneSelected = Partial ? current is null : Value is not null && current is null;
         <div class="nature-row">
             <span class="nature-row-label @(increased ? "stat-up" : "stat-down")">@label</span>
             <div class="nature-buttons" role="group" aria-label="@(label)する能力">
                 <button type="button" class="btn btn-sm @(noneSelected ? "btn-primary" : "btn-outline-secondary")"
                         aria-pressed="@(noneSelected)"
-                        @onclick="() => Change(increased ? NatureSelection.WithIncreased(Natures, Value, null, Physical) : NatureSelection.WithDecreased(Natures, Value, null, Physical))">なし</button>
+                        @onclick="() => Press(increased, null)">@(Partial ? "不明" : "なし")</button>
                 @foreach (var stat in NatureSelection.Stats)
                 {
                     var st = stat;
@@ -28,7 +29,7 @@
                     <button type="button" class="btn btn-sm @(current == st ? "btn-primary" : "btn-outline-secondary")"
                             aria-pressed="@(current == st)"
                             title="@(label)する能力: @StatNames.Japanese(st)" aria-label="@StatNames.Japanese(st)"
-                            @onclick="() => Change(increased ? NatureSelection.WithIncreased(Natures, Value, st, Physical) : NatureSelection.WithDecreased(Natures, Value, st, Physical))">@StatNames.Letter(st)</button>
+                            @onclick="() => Press(increased, st)">@StatNames.Letter(st)</button>
                 }
             </div>
         </div>
@@ -42,6 +43,27 @@
     [Parameter] public EventCallback<Nature?> ValueChanged { get; set; }
     /// <summary>片方だけ選んだとき、物理技向け（C を下げる）に補うか。false なら特殊技向け（A を下げる）。</summary>
     [Parameter] public bool Physical { get; set; } = true;
+
+    /// <summary>Partial="true" のとき、上がる能力・下がる能力として現在選んでいるもの。</summary>
+    [Parameter] public bool Partial { get; set; }
+    [Parameter] public Stat? Up { get; set; }
+    [Parameter] public Stat? Down { get; set; }
+    /// <summary>Partial="true" のとき、上がる能力・下がる能力のボタンを押したときに、新しい組を渡す（もう片方は補わない）。</summary>
+    [Parameter] public EventCallback<(Stat? Up, Stat? Down)> PairChanged { get; set; }
+
+    private async Task Press(bool increased, Stat? stat)
+    {
+        if (Partial)
+        {
+            var up = increased ? stat : Up;
+            var down = increased ? Down : stat;
+            // 同じ能力を上がる側・下がる側の両方にはできない（あとから押した方を優先する）
+            if (up is not null && up == down) { if (increased) down = null; else up = null; }
+            await PairChanged.InvokeAsync((up, down));
+            return;
+        }
+        await Change(increased ? NatureSelection.WithIncreased(Natures, Value, stat, Physical) : NatureSelection.WithDecreased(Natures, Value, stat, Physical));
+    }
 
     private async Task Change(Nature? nature)
     {

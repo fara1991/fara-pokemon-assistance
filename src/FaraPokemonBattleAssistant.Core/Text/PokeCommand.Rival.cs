@@ -24,6 +24,9 @@ public sealed partial class PokeCommand
         public Pokemon Pokemon { get; init; } = null!;
         public Dictionary<Stat, int> Evs { get; } = new();
         public Nature? Nature { get; set; }
+        /// <summary>片方だけ書いた性格（<c>D↑</c> など）の、上がる能力・下がる能力。もう片方は補わない。</summary>
+        public Stat? NatureUp { get; set; }
+        public Stat? NatureDown { get; set; }
         public Ability? Ability { get; set; }
         /// <summary>「選出」と書いた（試合に出てきた）。</summary>
         public bool Picked { get; set; }
@@ -32,7 +35,18 @@ public sealed partial class PokeCommand
         /// <summary>相手が持っている持ち物（確定情報）。</summary>
         public Item? Item { get; set; }
 
-        public bool HasInfo => Evs.Count > 0 || Nature is not null || Ability is not null || Picked || Moves.Count > 0 || Item is not null;
+        /// <summary>
+        /// 育成ポケモン（-m）用: 上がる・下がる能力の片方だけ書かれたときは、もう片方を使わない攻撃能力にして、性格を 1 つに決める
+        /// （相手チームでは補わない）。
+        /// </summary>
+        public void CompleteNature(IReadOnlyList<Nature> natures)
+        {
+            if (Nature is not null) return;
+            if (NatureUp is not null) Nature = NatureSelection.WithIncreased(natures, null, NatureUp);
+            else if (NatureDown is not null) Nature = NatureSelection.WithDecreased(natures, null, NatureDown);
+        }
+
+        public bool HasInfo => Evs.Count > 0 || Nature is not null || NatureUp is not null || NatureDown is not null || Ability is not null || Picked || Moves.Count > 0 || Item is not null;
     }
 
     /// <summary>
@@ -94,12 +108,22 @@ public sealed partial class PokeCommand
                 current.Picked = true;
                 continue;
             }
-            // B↑A↓ のような性格
-            if (DamageCommand.TryParseNatureArrow(token, data.Natures, out var arrowNature))
+            // B↑A↓ のような性格（片方だけのときは、もう片方を補わず、分かっている方だけを覚える）
+            if (DamageCommand.TryParseArrowStats(token, out var arrowUp, out var arrowDown))
             {
                 if (current is null) return (specs, $"「{token}」の前に、ポケモン名を書いてください");
-                if (arrowNature is null) return (specs, $"「{token}」に合う性格がありません");
-                current.Nature = arrowNature;
+                if (arrowUp == Stat.HP || arrowDown == Stat.HP) return (specs, $"「{token}」に合う性格がありません");
+                if (arrowUp is not null && arrowDown is not null)
+                {
+                    var both = data.Natures.FirstOrDefault(n => n.IncreasedStat == arrowUp && n.DecreasedStat == arrowDown);
+                    if (both is null) return (specs, $"「{token}」に合う性格がありません");
+                    current.Nature = both;
+                }
+                else
+                {
+                    current.NatureUp = arrowUp ?? current.NatureUp;
+                    current.NatureDown = arrowDown ?? current.NatureDown;
+                }
                 continue;
             }
             // 性格の名前
@@ -169,7 +193,32 @@ public sealed partial class PokeCommand
     /// 指定した内容を相手のポケモンに反映する。ポイントは書いた能力だけ更新し、書いていない能力は今のまま（scan の推定も消さない）。
     /// 性格・特性は、書いたものだけ上書き。
     /// </summary>
-    private static void ApplySpec(RivalPokemon rival, RivalSpec spec, DateTimeOffset now)
+    /// <summary>相手の性格の、上がる能力・下がる能力（性格が決まっていればその性格から。決まっていなければ、分かっている方だけ）。</summary>
+    public static (Stat? Up, Stat? Down) RivalNatureStats(RivalPokemon rival, IReadOnlyList<Nature> natures)
+    {
+        if (rival.Nature is { } name && natures.FirstOrDefault(n => n.Name == name) is { } nature) return (nature.IncreasedStat, nature.DecreasedStat);
+        return (rival.NatureUp, rival.NatureDown);
+    }
+
+    /// <summary>
+    /// 相手の性格を、上がる能力・下がる能力で設定する。両方が分かって性格が 1 つに決まれば、その性格を入れる。
+    /// 片方だけのときは、もう片方を補わず、分かっている方だけ覚える。
+    /// </summary>
+    public static void SetRivalNature(RivalPokemon rival, Stat? up, Stat? down, IReadOnlyList<Nature> natures)
+    {
+        if (up is not null && down is not null && up != down
+            && natures.FirstOrDefault(n => n.IncreasedStat == up && n.DecreasedStat == down) is { } found)
+        {
+            rival.Nature = found.Name;
+            rival.NatureUp = rival.NatureDown = null;
+            return;
+        }
+        rival.Nature = null;
+        rival.NatureUp = up;
+        rival.NatureDown = down;
+    }
+
+    private static void ApplySpec(RivalPokemon rival, RivalSpec spec, DateTimeOffset now, IReadOnlyList<Nature> natures)
     {
         // 書いた能力だけ更新する（scan で推定した値や、前に書いた能力は消さない）
         if (spec.Evs.TryGetValue(Stat.HP, out var hp)) rival.HP = hp;
@@ -182,7 +231,17 @@ public sealed partial class PokeCommand
         // 技は、書いたものを足す（前に見えた技は消さない。4 つまで）
         foreach (var move in spec.Moves)
             if (!rival.MoveIds.Contains(move.Id) && rival.MoveIds.Count < RegisteredPokemon.MaxMoves) rival.MoveIds.Add(move.Id);
-        if (spec.Nature is not null) rival.Nature = spec.Nature.Name;
+        if (spec.Nature is not null)
+        {
+            rival.Nature = spec.Nature.Name;
+            rival.NatureUp = rival.NatureDown = null;
+        }
+        else if (spec.NatureUp is not null || spec.NatureDown is not null)
+        {
+            // 書いた方だけ更新し、もう片方は今の分かっている内容のまま
+            var (curUp, curDown) = RivalNatureStats(rival, natures);
+            SetRivalNature(rival, spec.NatureUp ?? curUp, spec.NatureDown ?? curDown, natures);
+        }
         if (spec.Ability is not null) rival.AbilityId = spec.Ability.Id;
         if (spec.Item is not null) rival.ItemId = spec.Item.Id;
         rival.Updated = now.ToString("o");
@@ -254,7 +313,7 @@ public sealed partial class PokeCommand
                     evolved = ChangeRivalForm(rival, spec.Pokemon, data);
                     if (evolved) lines.Add($"{before}→{spec.Pokemon.Name}");
                 }
-                ApplySpec(rival, spec, now);
+                ApplySpec(rival, spec, now, data.Natures);
                 rival.Updated = now.ToString("o");
                 var line = $"{(created ? "登録" : "更新")} {DescribeRival(rival, data, ds.EvSystem)}";
                 if (evolved) lines[^1] = $"{lines[^1]}（メガシンカ） {line}";
@@ -390,6 +449,7 @@ public sealed partial class PokeCommand
         var (specs, error) = ParseSpecs(new[] { pokemon.Name }.Concat(args.Skip(1)).ToList(), data, ds.EvSystem);
         if (error is not null) return Fail(error);
         var spec = specs.FirstOrDefault(s => s.Pokemon.Id == pokemon.Id);
+        spec?.CompleteNature(data.Natures);
         if (spec is null || !spec.HasInfo || specs.Count > 1) return Fail("更新する内容（振り方・性格・特性）を書いてください");
 
         // ポイントを書いたときは振り方全体の置き換え（書いていない能力は 0）。書かなければ今のまま
@@ -419,6 +479,8 @@ public sealed partial class PokeCommand
         if (r.Speed is { } s) exact.Add($"S{s}");
         if (exact.Count > 0) parts.Add(string.Join("", exact));
         if (r.Nature is { } nature) parts.Add(data.FindNature(nature)?.Summary() ?? nature);
+        else if (r.NatureUp is not null || r.NatureDown is not null)
+            parts.Add((r.NatureUp is { } up ? $"{StatNames.Letter(up)}↑" : "") + (r.NatureDown is { } down ? $"{StatNames.Letter(down)}↓" : ""));
         if (r.AbilityId is { } aid && data.FindAbility(aid) is { } ability) parts.Add(ability.Name);
         // 持ち物は、分かっていればその持ち物。メガシンカ後の姿は、メガストーンで確定している
         var heldItem = data.FindPokemon(r.PokemonId)?.MegaStoneId is { } stoneId ? data.FindItem(stoneId)
@@ -522,15 +584,15 @@ public sealed partial class PokeCommand
         var rivalAdded = false;
         string? tooMany = null;
         RivalScan? narrowed = null;
-        string? knownNatureName = null;
+        RivalPokemon? knownNatureSource = null;
         await _roster.ChangeRivalsAsync(ds.Key, r =>
         {
             tooMany = null;
             narrowed = null;
-            knownNatureName = null;
+            knownNatureSource = null;
             var rival = FindRival(r.Rivals, pokemon, data);
             if (rival is not null) ChangeRivalForm(rival, pokemon, data);   // メガシンカした姿で scan したら、姿も更新する
-            knownNatureName = rival?.Nature;
+            knownNatureSource = rival;
             if (rival is null)
             {
                 if (r.Rivals.Count >= MaxRivals) { tooMany = $"対戦中の相手が {MaxRivals} 体いるため登録できません（end で試合を終えてください）"; return (0, false); }
@@ -545,7 +607,7 @@ public sealed partial class PokeCommand
             if (writtenItem is not null) working.ItemId = writtenItem.Id;   // 書いた持ち物は確定情報として保存する
             r.Rivals[r.Rivals.IndexOf(rival)] = working;
             narrowed = working.Scans.FirstOrDefault(x => x.Defense == merged.DefenseStat.ToString());
-            knownNatureName = working.Nature;
+            knownNatureSource = working;
             return (0, true);
         }, ct).ConfigureAwait(false);
 
@@ -553,8 +615,9 @@ public sealed partial class PokeCommand
         var unit = ds.EvSystem == EvSystem.Points ? "pt" : "";
         var defenseStat = merged.DefenseStat;
         var letter = StatNames.Letter(defenseStat);
-        var knownNature = knownNatureName is null ? null : data.FindNature(knownNatureName);
-        var knownModifier = knownNature?.Modifier(defenseStat);
+        // 性格が決まっていなくても、防御の上がる・下がる能力が分かっていれば、その補正で絞る
+        var knownModifier = knownNatureSource is null ? null : KnownFoe.NatureModifier(knownNatureSource, data.Natures, defenseStat);
+        var knownNatureText = knownNatureSource is null ? "" : knownNatureSource.Nature ?? string.Concat(knownNatureSource.NatureUp is { } nu ? $"{StatNames.Letter(nu)}↑" : "", knownNatureSource.NatureDown is { } nd ? $"{StatNames.Letter(nd)}↓" : "");
         string Range(int lo, int hi) => lo == hi ? $"{lo}{unit}" : $"{lo}〜{hi}{unit}";
         string BandLabel(double modifier) => modifier > 1.0 ? "上昇補正" : modifier < 1.0 ? "下降補正" : "補正無し";
         // 表示する範囲のもと（前の推定と重ねて絞り込んだ範囲。なければ今回の推定）
@@ -601,8 +664,8 @@ public sealed partial class PokeCommand
             var hpRange = narrowed is { HpMin: { } hmin, HpMax: { } hmax } ? ((int, int)?)(hmin, hmax) : merged.HpEvRange;
             lines.Add(BandText(bandSource) + (hpRange is { } h ? $" | H: {Range(h.Item1, h.Item2)}" : ""));
         }
-        if (knownNature is not null && !natureApplies)
-            lines.Add($"※分かっている性格（{knownNature.Name}）と合う振り方がありません。性格か、ダメージを見直してください");
+        if (knownModifier is not null && !natureApplies)
+            lines.Add($"※分かっている性格（{knownNatureText}）と合う振り方がありません。性格か、ダメージを見直してください");
         if (tooMany is not null) { lines.Add($"※{tooMany}"); return new DamageCommandResult { Success = false, Message = string.Join("\n", lines), Request = request }; }
         if (!applied.Applied) { lines.Add($"※{applied.Problem}"); return new DamageCommandResult { Success = false, Message = string.Join("\n", lines), Request = request }; }
         return new DamageCommandResult { Success = true, Message = string.Join("\n", lines), Request = request };
