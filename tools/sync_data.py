@@ -717,6 +717,16 @@ class Builder:
             if generation <= 3 and eff.get("Category") == "TypeBoost":
                 eff["TypeBoostMultiplier"] = "1.1"
                 eff["Effect"] = eff.get("Effect", "").replace("1.2倍", "1.1倍")
+            # 世代で効果が違う持ち物（ダメージ計算 DamageCalculator / Legacy の世代ごとの扱いに合わせる）
+            cat = eff.get("Category")
+            if generation <= 3 and cat == "SitrusBerry":
+                eff["Effect"] = "HPが1/2以下になると、HPを30回復する（1回だけ）"
+            elif cat == "PinchBerry" and generation <= 6:
+                eff["Effect"] = "HPが1/2以下になると、最大HPの1/8を回復する（きらいな味だと混乱する）"
+            elif cat == "PinchBerry" and generation == 7:
+                eff["Effect"] = "HPが1/4以下になると、最大HPの1/2を回復する（きらいな味だと混乱する）"
+            elif generation <= 3 and cat == "LightBall":
+                eff["Effect"] = "ピカチュウの特攻が2倍"
             rows.append([
                 iid, name, eff.get("Category", "Other"), eff.get("Effect", ""),
                 eff.get("AttackMultiplier", "1.0"), eff.get("DefenseMultiplier", "1.0"),
