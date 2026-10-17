@@ -46,6 +46,9 @@ public sealed class BattleStage
     /// <summary>ダメージ計算機・素早さ比較で最後に選んだポケモン（自分側＝攻撃側／ポケモン1、相手側＝防御側／ポケモン2）。ランダムな 2 体は入らない。</summary>
     public Pokemon? PickedMine { get; private set; }
     public Pokemon? PickedFoe { get; private set; }
+    /// <summary>その 2 体に選んでいる性格（もう一方のページを開いたときに引き継ぐ）。</summary>
+    public Nature? PickedMineNature { get; private set; }
+    public Nature? PickedFoeNature { get; private set; }
 
     public event Action? Changed;
 
@@ -157,17 +160,18 @@ public sealed class BattleStage
         if (second >= first) second++;
         DataSetKey = dataSetKey;
         PickedMine = PickedFoe = null;
+        PickedMineNature = PickedFoeNature = null;
         Mine = candidates[first];
         Foe = candidates[second];
         Changed?.Invoke();
     }
 
     /// <summary>ページで選んでいる 2 体を出す。選んでいない側（null）は今のままにする。</summary>
-    public void Show(string dataSetKey, Pokemon? mine, Pokemon? foe)
+    public void Show(string dataSetKey, Pokemon? mine, Pokemon? foe, Nature? mineNature = null, Nature? foeNature = null)
     {
         if (dataSetKey != DataSetKey) return;
-        if (mine is not null) PickedMine = mine;
-        if (foe is not null) PickedFoe = foe;
+        if (mine is not null) { PickedMine = mine; PickedMineNature = mineNature; }
+        if (foe is not null) { PickedFoe = foe; PickedFoeNature = foeNature; }
         var next = (Mine: mine ?? Mine, Foe: foe ?? Foe);
         if (next.Mine?.Id == Mine?.Id && next.Foe?.Id == Foe?.Id) return;
         Mine = next.Mine;

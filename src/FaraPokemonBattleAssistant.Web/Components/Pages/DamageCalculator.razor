@@ -350,7 +350,7 @@ else if (data is not null && dataSet is not null)
     // 選んでいる攻撃側（手前）・防御側（奥）を、背景のバトルフィールドに立たせる
     protected override void OnAfterRender(bool firstRender)
     {
-        Stage.Show(s.DataSetKey, s.Attacker?.Pokemon, s.Defender?.Pokemon);
+        Stage.Show(s.DataSetKey, s.Attacker?.Pokemon, s.Defender?.Pokemon, s.Attacker?.Nature, s.Defender?.Nature);
         Stage.SetScene(this, BuildScene());
         Stage.SetConditions(this, s.Weather, s.Terrain);
         Stage.ShareField(s.Weather, s.Terrain);
@@ -423,6 +423,9 @@ else if (data is not null && dataSet is not null)
             {
                 if (!s.UseRosterAttacker && Stage.PickedMine is { } mine && s.Attacker?.Pokemon.Id != mine.Id) OnAttackerChanged(mine.Id.ToString());
                 if (!s.UseRosterDefender && Stage.PickedFoe is { } foe && s.Defender?.Pokemon.Id != foe.Id) OnDefenderChanged(foe.Id.ToString());
+                // 素早さ比較で選んだ性格も引き継ぐ
+                if (!s.UseRosterAttacker && Stage.PickedMineNature is { } mineNature && s.Attacker is { } a0 && a0.Pokemon.Id == Stage.PickedMine?.Id) a0.Nature = mineNature;
+                if (!s.UseRosterDefender && Stage.PickedFoeNature is { } foeNature && s.Defender is { } d0 && d0.Pokemon.Id == Stage.PickedFoe?.Id) d0.Nature = foeNature;
             }
         }
         catch (Exception ex)

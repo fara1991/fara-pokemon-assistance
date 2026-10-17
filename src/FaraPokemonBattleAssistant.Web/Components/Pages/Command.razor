@@ -106,17 +106,19 @@ else if (data is not null)
                             <NaturePicker Partial="true" Natures="data.Natures" Value="@data.FindNature(s.NatureName)" ValueChanged="@OnCmdNatureNamed"
                                 Up="@CmdNaturePair.Up" Down="@CmdNaturePair.Down" PairChanged="@OnCmdNaturePair"
                                 OnClear="@ClearCmdNature" ClearText="指定しない" ClearDisabled="@(s.NatureName.Length == 0 && s.NatureUp is null && s.NatureDown is null)" />
-                            <div class="small mt-1">
-                                <span class="text-muted">@CmdNatureText</span>
-                            </div>
+                            @if (CmdNatureText.Length > 0)
+                            {
+                                <div class="small mt-1 text-muted">@CmdNatureText</div>
+                            }
                         }
                         else
                         {
                             <NaturePicker Natures="data.Natures" Value="@data.FindNature(s.NatureName)" ValueChanged="@(n => { s.NatureName = n?.Name ?? ""; BuildText(); })" Physical="@(CmdPhysical)"
                                 OnClear="@(s.Kind == "add -m" ? default : EventCallback.Factory.Create(this, () => { s.NatureName = string.Empty; BuildText(); }))" ClearText="指定しない" ClearDisabled="@(s.NatureName.Length == 0)" />
-                            <div class="small mt-1">
-                                <span class="text-muted">@(s.NatureName.Length == 0 ? (s.Kind == "add -m" ? "性格を選んでください" : "指定しない") : $"選択中: {data.FindNature(s.NatureName)?.Describe()}")</span>
-                            </div>
+                            @if (s.Kind == "add -m" && s.NatureName.Length == 0)
+                            {
+                                <div class="small mt-1 text-muted">性格を選んでください</div>
+                            }
                         }
                     </div>
                 }
@@ -634,7 +636,7 @@ else if (data is not null)
     {
         get
         {
-            if (s.NatureName.Length > 0) return $"選択中: {data?.FindNature(s.NatureName)?.Describe()}";
+            if (s.NatureName.Length > 0) return "";
             if (s.NatureUp is null && s.NatureDown is null) return "指定しない";
             return $"分かっている補正: {(s.NatureUp is { } u ? $"{StatNames.Letter(u)}↑" : "上がる能力は不明")}・{(s.NatureDown is { } d ? $"{StatNames.Letter(d)}↓" : "下がる能力は不明")}";
         }
