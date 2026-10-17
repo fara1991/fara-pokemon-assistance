@@ -534,7 +534,7 @@ body {
     border-radius: 0.2rem;
 }
 
-/* コマンドを作る欄: 入力欄は 1 行に並べる（収まらない幅では折り返す）。PC でコマンド一覧の表示範囲を広く保つ */
+/* コマンドを作る欄: 1 行目は種類、2 行目以降に入力欄を並べる（収まらない幅では折り返す）。PC でコマンド一覧の表示範囲を広く保つ */
 .cmd-build {
     display: flex;
     flex-wrap: wrap;
@@ -545,7 +545,9 @@ body {
     min-width: 0;
 }
 
-.cmd-build .cmd-f-kind { flex: 0 0 15rem; }
+/* 種類だけで 1 行にして、そのあとの入力欄は 2 行目以降に並べる */
+.cmd-build .cmd-f-kind { flex: 0 0 100%; }
+.cmd-build .cmd-f-kind select { max-width: 15rem; }
 .cmd-build .cmd-f-num { flex: 0 0 8.5rem; }
 .cmd-build .cmd-f-nature { flex: 0 0 9.5rem; }
 .cmd-build .cmd-f-ability { flex: 0 0 10rem; }
