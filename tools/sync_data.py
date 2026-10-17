@@ -337,7 +337,12 @@ class Builder:
             texts = langs.get(lang)
             if texts:
                 preferred = [vg for vg in texts if vg in version_groups]
-                vg = max(preferred) if preferred else max(texts)
+                if preferred:
+                    vg = max(preferred)
+                else:
+                    # そのゲームの版に説明文が無いときは、対象より後で一番古い版（無ければ一番新しい版）
+                    later = [vg for vg in texts if vg > max(version_groups)]
+                    vg = min(later) if later else max(texts)
                 return " ".join(texts[vg].split())
         return ""
 
@@ -699,7 +704,7 @@ class Builder:
             if iid in seen:
                 continue
             seen.add(iid)
-            holder = self.display_name(pid) or ""
+            holder = pick_name(self.species_names, self.pokemon[pid]["species_id"]) or self.display_name(pid) or ""
             rows.append([iid, name, "MegaStone", f"{holder}のメガシンカに必要", "1.0", "1.0", "1.0", "1.0", "1.0", "", "1.0", self.items[iid]["identifier"] if iid in self.items else "",
                          (self.flavor_description("item_flavor_text", "item_id", iid, vgl) if iid in self.items else "") or f"{holder}をメガシンカさせる石"])
         write_csv(out_dir / "items.csv",

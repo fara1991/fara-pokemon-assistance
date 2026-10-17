@@ -16,9 +16,9 @@
     [Parameter] public string? Value { get; set; }
     /// <summary>持ち物の固定欄（メガストーン）のとき、アイコンと名前で出す（Value より優先する）。</summary>
     [Parameter] public Item? Item { get; set; }
-    /// <summary>固定の理由（例: メガシンカのため固定）。</summary>
     /// <summary>特性の固定欄のとき、説明文を出すための特性。</summary>
     [Parameter] public Ability? Ability { get; set; }
+    /// <summary>固定の理由（例: メガシンカのため固定）。マウスを乗せたときの title にだけ使う。</summary>
     [Parameter] public string? Reason { get; set; }
     [Parameter] public bool Small { get; set; }
 
