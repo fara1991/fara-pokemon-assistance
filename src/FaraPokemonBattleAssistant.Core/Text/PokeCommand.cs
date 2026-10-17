@@ -194,6 +194,7 @@ public sealed partial class PokeCommand
         if (specError is not null) return Fail(specError);
         if (specs.Count != 1) return Fail("育成ポケモンは 1 体ずつ登録してください");
         var spec = specs[0];
+        spec.CompleteNature(data.Natures);
         if (spec.Picked) return Fail("「選出」は相手チーム（-r）にだけ付けられます");
         if (spec.Evs.Count == 0) return Fail(usageText);
         if (spec.Nature is null) return Fail($"性格を書いてください（名前か B↑A↓ のように）。{usageText}");

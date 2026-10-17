@@ -34,7 +34,12 @@ else if (data is not null && roster is not null && dataSet is not null)
                         <div class="col-8">
                             <label class="form-label">登録ポケモン</label>
                             <SearchableSelect TItem="RegisteredPokemon" Items="roster.Pokemon" DisplayText="@(e => $"#{e.Id} {e.PokemonName}（{e.Nature}）")" ValueSelector="@(e => e.Id.ToString())"
-                                SelectedValue="@(s.TeamEntryId == 0 ? "" : s.TeamEntryId.ToString())" SelectedValueChanged="@OnTeamEntryChanged" Dropdown="true" Placeholder="登録ポケモンを選ぶ..." />
+                                SelectedValue="@(s.TeamEntryId == 0 ? "" : s.TeamEntryId.ToString())" SelectedValueChanged="@OnTeamEntryChanged" Dropdown="true" Placeholder="登録ポケモンを選ぶ...">
+                                <ItemTemplate Context="e">
+                                    @{ var entryPokemon = data.FindPokemon(e.PokemonId); }
+                                    <PokemonIcon Pokemon="entryPokemon" Small="true" /><span>#@e.Id @e.PokemonName（@e.Nature）</span><PokemonTypes Pokemon="entryPokemon" Small="true" />
+                                </ItemTemplate>
+                            </SearchableSelect>
                         </div>
                         <div class="col-12">
                             <label class="form-label">持ち物</label>

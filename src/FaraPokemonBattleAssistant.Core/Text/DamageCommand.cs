@@ -67,6 +67,21 @@ public sealed class DamageCommand
     /// <summary>上がる能力・下がる能力での性格指定（<c>B↑A↓</c>、<c>B↑</c>、<c>A↓</c>。↑は + 、↓は - でもよい）。</summary>
     private static readonly Regex NatureArrowToken = new(@"^(?:([ABCDSabcds])[↑＋+](?:([ABCDSabcds])[↓－\-])?|([ABCDSabcds])[↓－\-])$", RegexOptions.Compiled);
     /// <summary>
+    /// <c>B↑A↓</c>・<c>B↑</c>・<c>A↓</c> のような指定から、上がる能力・下がる能力を読み取る（片方だけでも、もう片方は補わない）。
+    /// その形でなければ false。
+    /// </summary>
+    public static bool TryParseArrowStats(string token, out Stat? up, out Stat? down)
+    {
+        up = down = null;
+        var arrow = NatureArrowToken.Match(token);
+        if (!arrow.Success) return false;
+        up = arrow.Groups[1].Success ? StatNames.Parse(arrow.Groups[1].Value.ToUpperInvariant()) : null;
+        var downText = arrow.Groups[2].Success ? arrow.Groups[2].Value : arrow.Groups[3].Success ? arrow.Groups[3].Value : null;
+        down = downText is not null ? StatNames.Parse(downText.ToUpperInvariant()) : null;
+        return true;
+    }
+
+    /// <summary>
     /// <c>B↑A↓</c>・<c>B↑</c>・<c>A↓</c> のような、上がる・下がる能力での性格指定か。その形なら true で、合う性格（無ければ null）を返す。
     /// 片方だけのときは、もう片方を使わない攻撃能力にした性格。
     /// </summary>

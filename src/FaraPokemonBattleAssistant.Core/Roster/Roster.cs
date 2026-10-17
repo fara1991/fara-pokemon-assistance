@@ -165,13 +165,19 @@ public sealed class RivalPokemon
     public List<int> MoveIds { get; set; } = new();
     /// <summary>相手が持っている持ち物の Id（確定情報。不明なら null。メガシンカ後の姿は、メガストーンで確定なので保存しなくてよい）。</summary>
     public int? ItemId { get; set; }
+    /// <summary>
+    /// 性格の上がる能力・下がる能力のうち、分かっている方だけ（性格が 1 つに決まっていないとき。片方だけ分かるときがある）。
+    /// 上がる・下がる能力の両方が分かって性格が決まったら <see cref="Nature"/> に入れて、ここは null に戻す。
+    /// </summary>
+    public Stat? NatureUp { get; set; }
+    public Stat? NatureDown { get; set; }
     /// <summary>最後に更新した日時（ISO 8601）。</summary>
     public string Updated { get; set; } = "";
 
     /// <summary>ポイントも性格も特性も推定も何も分かっていない（名前だけ）か。</summary>
     [JsonIgnore]
     public bool IsNameOnly => HP is null && Attack is null && Defense is null && SpAttack is null && SpDefense is null && Speed is null
-                              && Nature is null && AbilityId is null && ItemId is null && Scans.Count == 0 && MoveIds.Count == 0;
+                              && Nature is null && NatureUp is null && NatureDown is null && AbilityId is null && ItemId is null && Scans.Count == 0 && MoveIds.Count == 0;
 
     /// <summary>推定（scan）をしたことがあるか。</summary>
     [JsonIgnore]
@@ -181,7 +187,7 @@ public sealed class RivalPokemon
     {
         Id = Id, PokemonId = PokemonId, PokemonName = PokemonName,
         HP = HP, Attack = Attack, Defense = Defense, SpAttack = SpAttack, SpDefense = SpDefense, Speed = Speed,
-        Nature = Nature, AbilityId = AbilityId, Updated = Updated, Picked = Picked, MoveIds = MoveIds.ToList(), ItemId = ItemId,
+        Nature = Nature, AbilityId = AbilityId, Updated = Updated, Picked = Picked, MoveIds = MoveIds.ToList(), ItemId = ItemId, NatureUp = NatureUp, NatureDown = NatureDown,
         Scans = Scans.Select(scan => new RivalScan
         {
             Defense = scan.Defense, HpMin = scan.HpMin, HpMax = scan.HpMax, Count = scan.Count,

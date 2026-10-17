@@ -21,6 +21,18 @@ public sealed class KnownFoe
     public bool IsRange => Low.EVs.ToShortString() != High.EVs.ToShortString() || Low.Nature?.Id != High.Nature?.Id;
 
     /// <summary>
+    /// 相手の性格が、<paramref name="stat"/> に与える補正（上がる 1.1・下がる 0.9・補正なし 1.0）。分からなければ null。
+    /// 性格が決まっていれば、その性格から。決まっていなくても、その能力が上がる・下がるとだけ分かっていれば、その補正になる。
+    /// </summary>
+    public static double? NatureModifier(RivalPokemon rival, IReadOnlyList<Nature> natures, Stat stat)
+    {
+        if (rival.Nature is { } name && natures.FirstOrDefault(n => n.Name == name) is { } nature) return nature.Modifier(stat);
+        if (rival.NatureUp == stat) return 1.1;
+        if (rival.NatureDown == stat) return 0.9;
+        return null;
+    }
+
+    /// <summary>
     /// 相手のポケモンから、<paramref name="defense"/>（その技が使う防御。B か D）で計算するときの構成を作る。
     /// 防御・HP・性格・特性のどれも分かっていなければ null（既定の構成で計算する）。<paramref name="item"/> は、持ち物が分かっているとき（メガシンカ後のメガストーン）に渡す。
     /// </summary>
@@ -29,19 +41,21 @@ public sealed class KnownFoe
         var exactDefense = defense == Stat.Defense ? rival.Defense : rival.SpDefense;
         var scan = rival.Scans.FirstOrDefault(s => s.Defense == defense.ToString());
         var exactNature = rival.Nature is null ? null : natures.FirstOrDefault(n => n.Name == rival.Nature);
+        // 性格が決まっていなくても、防御の上がる・下がる能力が分かっていれば、その補正は分かる
+        var exactModifier = NatureModifier(rival, natures, defense);
         (int Min, int Max)? hp = rival.HP is { } exactHp ? (exactHp, exactHp) : ScanHp(rival);
-        if (exactDefense is null && scan is null && hp is null && exactNature is null && ability is null) return null;
+        if (exactDefense is null && scan is null && hp is null && exactNature is null && exactModifier is null && ability is null) return null;
 
         var full = EvRules.Full(system);
         // 分かっている防御のポイントの帯（性格補正ごと）。分からなければ帯なし（既定の全振り）
         var bands = new List<(double Modifier, int MinEv, int MaxEv)>();
-        if (exactDefense is { } ev) bands.Add((exactNature?.Modifier(defense) ?? 1.0, ev, ev));
+        if (exactDefense is { } ev) bands.Add((exactModifier ?? 1.0, ev, ev));
         else if (scan is not null)
         {
             var scanBands = scan.Bands.Select(b => (b.Modifier, b.MinEv, b.MaxEv)).ToList();
             // 性格が分かっているときは、その補正の帯だけ
-            if (exactNature is not null && scanBands.Any(b => b.Modifier == exactNature.Modifier(defense)))
-                scanBands = scanBands.Where(b => b.Modifier == exactNature.Modifier(defense)).ToList();
+            if (exactModifier is { } known && scanBands.Any(b => b.Modifier == known))
+                scanBands = scanBands.Where(b => b.Modifier == known).ToList();
             bands.AddRange(scanBands);
         }
 
@@ -60,8 +74,8 @@ public sealed class KnownFoe
 
         if (bands.Count == 0)
         {
-            if (exactNature is null && hp is null && ability is null) return null;
-            return new KnownFoe { Pokemon = pokemon, DefenseStat = defense, Low = Make(1.0, full, hp?.Min ?? full), High = Make(1.0, full, hp?.Max ?? full) };
+            if (exactNature is null && exactModifier is null && hp is null && ability is null) return null;
+            return new KnownFoe { Pokemon = pokemon, DefenseStat = defense, Low = Make(exactModifier ?? 1.0, full, hp?.Min ?? full), High = Make(exactModifier ?? 1.0, full, hp?.Max ?? full) };
         }
 
         // 耐久が最も低い帯（最小のポイント）と、最も高い帯（最大のポイント）を、実数値で選ぶ

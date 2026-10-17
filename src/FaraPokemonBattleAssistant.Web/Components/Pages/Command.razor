@@ -100,14 +100,27 @@ else if (data is not null)
                 {
                     <div class="cmd-f-nature">
                         <label class="form-label">@(s.Kind == "add -m" ? "性格" : "性格（任意）")</label>
-                        <NaturePicker Natures="data.Natures" Value="@data.FindNature(s.NatureName)" ValueChanged="@(n => { s.NatureName = n?.Name ?? ""; BuildText(); })" Physical="@(CmdPhysical)" />
-                        <div class="small mt-1">
-                            <span class="text-muted">@(s.NatureName.Length == 0 ? (s.Kind == "add -m" ? "性格を選んでください" : "指定しない") : $"選択中: {data.FindNature(s.NatureName)?.Describe()}")</span>
-                            @if (s.Kind != "add -m")
-                            {
-                                <button type="button" class="btn btn-sm btn-outline-secondary ms-2" disabled="@(s.NatureName.Length == 0)" @onclick="() => { s.NatureName = string.Empty; BuildText(); }">指定しない</button>
-                            }
-                        </div>
+                        @if (s.Kind == "set -r")
+                        {
+                            @* 相手の性格は、上がる能力だけ・下がる能力だけが分かることがあるので、片方を選んでももう片方は補わない *@
+                            <NaturePicker Partial="true" Natures="data.Natures" Value="@data.FindNature(s.NatureName)" ValueChanged="@OnCmdNatureNamed"
+                                Up="@CmdNaturePair.Up" Down="@CmdNaturePair.Down" PairChanged="@OnCmdNaturePair" />
+                            <div class="small mt-1">
+                                <span class="text-muted">@CmdNatureText</span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary ms-2" disabled="@(s.NatureName.Length == 0 && s.NatureUp is null && s.NatureDown is null)" @onclick="ClearCmdNature">指定しない</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <NaturePicker Natures="data.Natures" Value="@data.FindNature(s.NatureName)" ValueChanged="@(n => { s.NatureName = n?.Name ?? ""; BuildText(); })" Physical="@(CmdPhysical)" />
+                            <div class="small mt-1">
+                                <span class="text-muted">@(s.NatureName.Length == 0 ? (s.Kind == "add -m" ? "性格を選んでください" : "指定しない") : $"選択中: {data.FindNature(s.NatureName)?.Describe()}")</span>
+                                @if (s.Kind != "add -m")
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" disabled="@(s.NatureName.Length == 0)" @onclick="() => { s.NatureName = string.Empty; BuildText(); }">指定しない</button>
+                                }
+                            </div>
+                        }
                     </div>
                 }
                 @if (Has(Field.Ability))
@@ -378,6 +391,9 @@ else if (data is not null)
         public string[] RivalMoves { get; } = new string[RegisteredPokemon.MaxMoves] { "", "", "", "" };
         public string[] Evs { get; set; } = new string[6] { "", "", "", "", "", "" };
         public string NatureName { get; set; } = "";
+        /// <summary>set -r で、片方だけ分かっている性格の、上がる能力・下がる能力（もう片方は補わない）。</summary>
+        public Stat? NatureUp { get; set; }
+        public Stat? NatureDown { get; set; }
         public string AbilityName { get; set; } = "";
         public string EntryId { get; set; } = "";
         public string TeamNo { get; set; } = "";
@@ -605,7 +621,51 @@ else if (data is not null)
         for (var i = 0; i < 6; i++)
             if (!string.IsNullOrWhiteSpace(s.Evs[i])) parts.Add(StatNames.Letter((Stat)i) + s.Evs[i].Trim());
         if (!string.IsNullOrEmpty(s.NatureName)) parts.Add(s.NatureName);
+        else
+        {
+            if (s.NatureUp is { } up) parts.Add($"{StatNames.Letter(up)}↑");
+            if (s.NatureDown is { } down) parts.Add($"{StatNames.Letter(down)}↓");
+        }
         if (!string.IsNullOrEmpty(s.AbilityName)) parts.Add(s.AbilityName);
+    }
+
+    /// <summary>性格が決まっていればその性格の上がる・下がる能力。決まっていなければ、分かっている方だけ。</summary>
+    private (Stat? Up, Stat? Down) CmdNaturePair =>
+        s.NatureName.Length > 0 && data?.FindNature(s.NatureName) is { } n ? (n.IncreasedStat, n.DecreasedStat) : (s.NatureUp, s.NatureDown);
+
+    private string CmdNatureText
+    {
+        get
+        {
+            if (s.NatureName.Length > 0) return $"選択中: {data?.FindNature(s.NatureName)?.Describe()}";
+            if (s.NatureUp is null && s.NatureDown is null) return "指定しない";
+            return $"分かっている補正: {(s.NatureUp is { } u ? $"{StatNames.Letter(u)}↑" : "上がる能力は不明")}・{(s.NatureDown is { } d ? $"{StatNames.Letter(d)}↓" : "下がる能力は不明")}";
+        }
+    }
+
+    private void OnCmdNatureNamed(Nature? nature)
+    {
+        if (nature is null) return;
+        s.NatureName = nature.Name;
+        s.NatureUp = s.NatureDown = null;
+        BuildText();
+    }
+
+    private void OnCmdNaturePair((Stat? Up, Stat? Down) pair)
+    {
+        var found = pair.Up is not null && pair.Down is not null
+            ? data?.Natures.FirstOrDefault(n => n.IncreasedStat == pair.Up && n.DecreasedStat == pair.Down) : null;
+        s.NatureName = found?.Name ?? "";
+        s.NatureUp = found is null ? pair.Up : null;
+        s.NatureDown = found is null ? pair.Down : null;
+        BuildText();
+    }
+
+    private void ClearCmdNature()
+    {
+        s.NatureName = "";
+        s.NatureUp = s.NatureDown = null;
+        BuildText();
     }
 
     private static readonly System.Text.RegularExpressions.Regex EvPairToken = new(@"([HABCDS])(\d{1,3})");
@@ -615,6 +675,7 @@ else if (data is not null)
     {
         for (var i = 0; i < 6; i++) s.Evs[i] = "";
         s.NatureName = "";
+        s.NatureUp = s.NatureDown = null;
         s.AbilityName = "";
         var numbers = tokens.TakeWhile(t => int.TryParse(t, out _)).Take(6).ToList();
         if (numbers.Count == 6)
@@ -632,7 +693,28 @@ else if (data is not null)
                     if (StatNames.Parse(x.Groups[1].Value) is { } stat) s.Evs[(int)stat] = x.Groups[2].Value;
                 continue;
             }
-            if (data!.FindNature(token) is { } n) { s.NatureName = n.Name; continue; }
+            if (data!.FindNature(token) is { } n) { s.NatureName = n.Name; s.NatureUp = s.NatureDown = null; continue; }
+            // B↑A↓・D↑・A↓ のような書き方（相手の性格は、片方だけでも補わずに読み取る）
+            if (s.Kind == "set -r" && DamageCommand.TryParseArrowStats(token, out var arrowUp, out var arrowDown))
+            {
+                if (arrowUp is not null && arrowDown is not null && data.Natures.FirstOrDefault(x => x.IncreasedStat == arrowUp && x.DecreasedStat == arrowDown) is { } both)
+                {
+                    s.NatureName = both.Name;
+                    s.NatureUp = s.NatureDown = null;
+                }
+                else if (arrowUp is null || arrowDown is null)
+                {
+                    s.NatureUp = arrowUp ?? s.NatureUp;
+                    s.NatureDown = arrowDown ?? s.NatureDown;
+                    if (s.NatureUp is not null && s.NatureDown is not null && s.NatureUp != s.NatureDown
+                        && data.Natures.FirstOrDefault(x => x.IncreasedStat == s.NatureUp && x.DecreasedStat == s.NatureDown) is { } together)
+                    {
+                        s.NatureName = together.Name;
+                        s.NatureUp = s.NatureDown = null;
+                    }
+                }
+                continue;
+            }
             if (s.Subject is not null && data.AbilitiesOf(s.Subject).FirstOrDefault(a => a.Name == token) is { } ab) s.AbilityName = ab.Name;
         }
     }
