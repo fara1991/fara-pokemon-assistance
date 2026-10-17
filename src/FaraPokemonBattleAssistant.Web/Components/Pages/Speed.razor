@@ -235,6 +235,9 @@ else if (data is not null && dataSet is not null)
         // ダメージ計算機で選んだポケモンを入れる（攻撃側 → ポケモン1、防御側 → ポケモン2。「登録から選ぶ」の欄はそのまま）
         if (Stage.DataSetKey == App.DataSetKey)
         {
+            // 「登録から選ぶ」のオン・オフも引き継ぐ
+            if (Stage.UseRosterMine is { } rosterMine) s.UseRoster[0] = rosterMine;
+            if (Stage.UseRosterFoe is { } rosterFoe) s.UseRoster[1] = rosterFoe;
             if (!s.UseRoster[0] && Stage.PickedMine is { } mine && s.Builds[0]?.Pokemon.Id != mine.Id) OnPokemonChanged(0, mine.Id.ToString());
             if (!s.UseRoster[1] && Stage.PickedFoe is { } foe && s.Builds[1]?.Pokemon.Id != foe.Id) OnPokemonChanged(1, foe.Id.ToString());
             // ダメージ計算機で選んだ性格も引き継ぐ
@@ -246,6 +249,7 @@ else if (data is not null && dataSet is not null)
     // 選んでいるポケモン1（手前）・ポケモン2（奥）を、背景のバトルフィールドに立たせる
     protected override void OnAfterRender(bool firstRender)
     {
+        if (stageReady) Stage.ShareRosterMode(s.UseRoster[0], s.UseRoster[1]);
         if (stageReady) Stage.Show(s.DataSetKey, s.Builds[0]?.Pokemon, s.Builds[1]?.Pokemon, s.Builds[0]?.Nature, s.Builds[1]?.Nature);
         Stage.SetScene(this, BuildScene());
         Stage.SetConditions(this, s.Weather, s.Terrain);

@@ -359,6 +359,7 @@ else if (data is not null && dataSet is not null)
     // 選んでいる攻撃側（手前）・防御側（奥）を、背景のバトルフィールドに立たせる
     protected override void OnAfterRender(bool firstRender)
     {
+        if (stageReady) Stage.ShareRosterMode(s.UseRosterAttacker, s.UseRosterDefender);
         if (stageReady) Stage.Show(s.DataSetKey, s.Attacker?.Pokemon, s.Defender?.Pokemon, s.Attacker?.Nature, s.Defender?.Nature);
         Stage.SetScene(this, BuildScene());
         Stage.SetConditions(this, s.Weather, s.Terrain);
@@ -430,6 +431,9 @@ else if (data is not null && dataSet is not null)
             // 素早さ比較で選んだポケモンを入れる（ポケモン1 → 攻撃側、ポケモン2 → 防御側。「登録から選ぶ」の欄はそのまま）
             if (Stage.DataSetKey == App.DataSetKey)
             {
+                // 「登録から選ぶ」のオン・オフも引き継ぐ
+                if (Stage.UseRosterMine is { } rosterMine) s.UseRosterAttacker = rosterMine;
+                if (Stage.UseRosterFoe is { } rosterFoe) s.UseRosterDefender = rosterFoe;
                 if (!s.UseRosterAttacker && Stage.PickedMine is { } mine && s.Attacker?.Pokemon.Id != mine.Id) OnAttackerChanged(mine.Id.ToString());
                 if (!s.UseRosterDefender && Stage.PickedFoe is { } foe && s.Defender?.Pokemon.Id != foe.Id) OnDefenderChanged(foe.Id.ToString());
                 // 素早さ比較で選んだ性格も引き継ぐ
