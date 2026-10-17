@@ -548,8 +548,8 @@ body {
 /* 種類は先頭に置き、収まる幅ではポケモン・特性と同じ 1 行目に並べる（縦を取りすぎない） */
 .cmd-build .cmd-f-kind { flex: 0 0 15rem; }
 .cmd-build .cmd-f-num { flex: 0 0 8.5rem; }
-/* 性格はポイントの隣に置く。広さが足りるところでは、上昇と下降を左右に並べる（ボタンは押しやすい大きさ） */
-.cmd-build .cmd-f-nature { flex: 1 1 44rem; order: 4; }
+/* 性格は自分の行を使う。名前で探す欄と、上昇・下降のボタンを 1 行にそろえる（ボタンは押しやすい大きさ） */
+.cmd-build .cmd-f-nature { flex: 1 1 100%; order: 4; }
 .cmd-build .cmd-f-ability { flex: 0 0 14rem; order: 2; }
 .cmd-build .cmd-f-item { flex: 1 1 11rem; order: 6; }
 /* set -r の見えた技: ポイント・性格のあとに、4 つを並べる（持ち物はその後ろ） */
@@ -587,11 +587,6 @@ body {
 
 .cmd-build .form-label {
     white-space: nowrap;
-}
-
-/* 狭めの PC 幅では性格を 1 行にして、set -r の見えた技 4 つが 1 行にそろうようにする */
-@media (min-width: 768px) and (max-width: 1199.98px) {
-    .cmd-build .cmd-f-nature { flex-basis: 100%; }
 }
 
 @media (max-width: 767.98px) {
