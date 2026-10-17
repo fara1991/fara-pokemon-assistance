@@ -297,6 +297,11 @@ body {
     margin-bottom: 0 !important;
 }
 
+/* スマホ: 2 列だと持ち物の名前が折り返すので、1 列に縦に並べて左右の端を揃える */
+@media (max-width: 575.98px) {
+    .build-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 .build-grid .build-wide {
     grid-column: 1 / -1;
 }
