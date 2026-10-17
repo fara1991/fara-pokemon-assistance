@@ -555,7 +555,7 @@ public sealed class RosterRepository
         if (pokemon is null) return null;
         return new PokemonBuild(pokemon, data.Info.EvSystem)
         {
-            EVs = entry.EVs,
+            EVs = entry.EVs.Clone(),   // 画面で変えても登録データは変わらない
             Nature = data.FindNature(entry.Nature),
             Ability = entry.AbilityId is { } aid ? data.FindAbility(aid) : data.AbilitiesOf(pokemon).FirstOrDefault(),
             // メガシンカ後のポケモンは、メガストーンを持つ（持ち物は固定）
@@ -574,17 +574,21 @@ public sealed class RosterRepository
     /// </summary>
     public static PokemonBuild ToMegaBuild(PokemonBuild build, Pokemon mega, PokemonDataSet data)
     {
-        var abilities = data.AbilitiesOf(mega);
-        return new PokemonBuild(mega, build.EvSystem)
-        {
-            Level = build.Level,
-            IVs = build.IVs,
-            EVs = build.EVs,
-            Nature = build.Nature,
-            Item = mega.MegaStoneId is { } stone ? data.FindItem(stone) ?? build.Item : build.Item,
-            Ability = abilities.FirstOrDefault(),
-            TeraType = build.TeraType,
-        };
+        var result = build.WithPokemon(mega);
+        if (mega.MegaStoneId is { } stone) result.Item = data.FindItem(stone) ?? result.Item;
+        result.Ability = data.AbilitiesOf(mega).FirstOrDefault() ?? result.Ability;
+        return result;
+    }
+
+    /// <summary>メガシンカ後の構成を、登録したメガシンカ前の姿に戻す（持ち物・特性は登録・チームのもの。ランク補正などは今のまま）。</summary>
+    public static PokemonBuild ToBaseBuild(PokemonBuild current, RegisteredPokemon entry, PokemonDataSet data, Item? item)
+    {
+        var fresh = ToBuild(entry, data, item);
+        if (fresh is null) return current;
+        var result = current.WithPokemon(fresh.Pokemon);
+        result.Item = fresh.Item;
+        result.Ability = fresh.Ability;
+        return result;
     }
 
     /// <summary>

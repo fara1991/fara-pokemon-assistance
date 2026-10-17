@@ -115,7 +115,10 @@ public sealed class PokemonBuild
     public bool HasAbility(string identifier) =>
         Ability is not null && Ability.Identifier == identifier;
 
-    public PokemonBuild Clone() => new(Pokemon, EvSystem)
+    public PokemonBuild Clone() => WithPokemon(Pokemon);
+
+    /// <summary>ポケモンだけを替えた写し（ランク補正・状態異常・HP・ポイント・性格などは引き継ぐ。メガシンカの前後の切り替え用）。</summary>
+    public PokemonBuild WithPokemon(Pokemon pokemon) => new(pokemon, EvSystem)
     {
         hpPercent = hpPercent,
         exactHp = exactHp,

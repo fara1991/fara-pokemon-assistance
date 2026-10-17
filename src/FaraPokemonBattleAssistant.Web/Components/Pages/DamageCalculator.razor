@@ -406,7 +406,8 @@ else if (data is not null && dataSet is not null)
             usage = await data.GetUsageAsync(App.Format);
             (rosterGroups, rosterError) = await RosterReading.ChoiceGroupsAsync(Repo, App.DataSetKey, data);
             await RefreshRivalsAsync();
-            pokemonList = data.Pokemon;   // 図鑑順（育成ポケモン画面と同じ）
+            // 図鑑順（メガシンカ後の姿は元の姿のすぐ後ろ）
+            pokemonList = data.Pokemon.OrderBy(p => p, Comparer<Pokemon>.Create(Pokedex.CompareDex)).ToList();
             if (s.DataSetKey != App.DataSetKey)
             {
                 s.DataSetKey = App.DataSetKey;
@@ -530,7 +531,11 @@ else if (data is not null && dataSet is not null)
         if (data is null) return;
         var build = RosterRepository.ToBuild(choice.Entry, data, choice.Item);
         if (build is null) return;
-        if (mega is not null) build = RosterRepository.ToMegaBuild(build, mega, data);
+        // メガシンカの前後の切り替えでは、いまの入力（ランク補正・状態異常・HP など）を引き継ぐ
+        var current = isAttacker ? s.Attacker : s.Defender;
+        if (keepMove && current is not null)
+            build = mega is null ? RosterRepository.ToBaseBuild(current, choice.Entry, data, choice.Item) : RosterRepository.ToMegaBuild(current, mega, data);
+        else if (mega is not null) build = RosterRepository.ToMegaBuild(build, mega, data);
         ApplyFixedChoices(build);
         ApplyFieldFromAbility(build);
         if (isAttacker)

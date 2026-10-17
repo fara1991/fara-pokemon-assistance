@@ -66,9 +66,20 @@ public class RosterChoiceTests
         var build = new PokemonBuild(charizard, data.Info.EvSystem) { EVs = new StatSet { SpAttack = 32 }, Nature = nature, Item = data.Items.First() };
         var mega = RosterRepository.ToMegaBuild(build, forms[0], data);
         Assert.Equal(forms[0], mega.Pokemon);
-        Assert.Equal(build.EVs, mega.EVs);
+        Assert.Equal(32, mega.EVs.SpAttack);
+        Assert.NotSame(build.EVs, mega.EVs);
         Assert.Equal(nature, mega.Nature);
         Assert.Equal(forms[0].MegaStoneId, mega.Item?.Id);
         Assert.Equal(charizard, build.Pokemon);   // 元の構成は変わらない
+
+        // 切り替えても、ランク補正などは引き継ぐ。メガシンカ前に戻すと、持ち物・特性は登録のもの
+        mega.Boosts = new StatSet { Attack = 2 };
+        mega.Status = StatusCondition.Burn;
+        var entry = new RegisteredPokemon { PokemonId = charizard.Id, PokemonName = charizard.Name, Nature = nature.Name };
+        var back = RosterRepository.ToBaseBuild(mega, entry, data, null);
+        Assert.Equal(charizard, back.Pokemon);
+        Assert.Equal(2, back.Boosts.Attack);
+        Assert.Equal(StatusCondition.Burn, back.Status);
+        Assert.Null(back.Item);
     }
 }
