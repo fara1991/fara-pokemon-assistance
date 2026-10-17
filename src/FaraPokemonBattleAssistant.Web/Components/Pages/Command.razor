@@ -105,7 +105,7 @@ else if (data is not null)
                             @* 相手の性格は、上がる能力だけ・下がる能力だけが分かることがあるので、片方を選んでももう片方は補わない *@
                             <NaturePicker Partial="true" Natures="data.Natures" Value="@data.FindNature(s.NatureName)" ValueChanged="@OnCmdNatureNamed"
                                 Up="@CmdNaturePair.Up" Down="@CmdNaturePair.Down" PairChanged="@OnCmdNaturePair"
-                                OnClear="@ClearCmdNature" ClearText="指定しない" ClearDisabled="@(s.NatureName.Length == 0 && s.NatureUp is null && s.NatureDown is null)" />
+                                OnClear="@ClearCmdNature" ClearText="選択解除" ClearDisabled="@(s.NatureName.Length == 0 && s.NatureUp is null && s.NatureDown is null)" />
                             @if (CmdNatureText.Length > 0)
                             {
                                 <div class="small mt-1 text-muted">@CmdNatureText</div>
@@ -114,7 +114,7 @@ else if (data is not null)
                         else
                         {
                             <NaturePicker Natures="data.Natures" Value="@data.FindNature(s.NatureName)" ValueChanged="@(n => { s.NatureName = n?.Name ?? ""; BuildText(); })" Physical="@(CmdPhysical)"
-                                OnClear="@(s.Kind == "add -m" ? default : EventCallback.Factory.Create(this, () => { s.NatureName = string.Empty; BuildText(); }))" ClearText="指定しない" ClearDisabled="@(s.NatureName.Length == 0)" />
+                                OnClear="@(s.Kind == "add -m" ? default : EventCallback.Factory.Create(this, () => { s.NatureName = string.Empty; BuildText(); }))" ClearText="選択解除" ClearDisabled="@(s.NatureName.Length == 0)" />
                             @if (s.Kind == "add -m" && s.NatureName.Length == 0)
                             {
                                 <div class="small mt-1 text-muted">性格を選んでください</div>
@@ -637,7 +637,7 @@ else if (data is not null)
         get
         {
             if (s.NatureName.Length > 0) return "";
-            if (s.NatureUp is null && s.NatureDown is null) return "指定しない";
+            if (s.NatureUp is null && s.NatureDown is null) return "";
             return $"分かっている補正: {(s.NatureUp is { } u ? $"{StatNames.Letter(u)}↑" : "上がる能力は不明")}・{(s.NatureDown is { } d ? $"{StatNames.Letter(d)}↓" : "下がる能力は不明")}";
         }
     }

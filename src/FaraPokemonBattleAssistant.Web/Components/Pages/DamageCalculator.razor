@@ -331,6 +331,9 @@ else if (data is not null && dataSet is not null)
     private IReadOnlyList<Item> defenderItems = Array.Empty<Item>();
     private IReadOnlyList<RosterChoiceGroup> rosterGroups = Array.Empty<RosterChoiceGroup>();
 
+    /// <summary>読み込みと、もう一方のページで選んだポケモン・性格の引き継ぎが終わったか。終わる前の描画で、前回の内容を共有の Stage に書かない。</summary>
+    private bool stageReady;
+
     protected override async Task OnAppReadyAsync()
     {
         s = PageStates.Get<State>("damage");
@@ -338,6 +341,7 @@ else if (data is not null && dataSet is not null)
         s.Weather = Stage.SharedWeather;
         s.Terrain = Stage.SharedTerrain;
         await LoadDataSet();
+        stageReady = true;
         // ポケモン一覧から開いたとき（?attacker=ID / ?defender=ID）は、そのポケモンを入れてから URL を戻す
         if (AttackerQuery is > 0 || DefenderQuery is > 0)
         {
@@ -350,7 +354,7 @@ else if (data is not null && dataSet is not null)
     // 選んでいる攻撃側（手前）・防御側（奥）を、背景のバトルフィールドに立たせる
     protected override void OnAfterRender(bool firstRender)
     {
-        Stage.Show(s.DataSetKey, s.Attacker?.Pokemon, s.Defender?.Pokemon, s.Attacker?.Nature, s.Defender?.Nature);
+        if (stageReady) Stage.Show(s.DataSetKey, s.Attacker?.Pokemon, s.Defender?.Pokemon, s.Attacker?.Nature, s.Defender?.Nature);
         Stage.SetScene(this, BuildScene());
         Stage.SetConditions(this, s.Weather, s.Terrain);
         Stage.ShareField(s.Weather, s.Terrain);

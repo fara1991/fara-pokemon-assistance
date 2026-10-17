@@ -190,6 +190,9 @@ else if (data is not null && dataSet is not null)
         return all.Where(SpeedCalculator.IsSpeedItem).Concat(all.Where(i => !SpeedCalculator.IsSpeedItem(i))).ToList();
     }
 
+    /// <summary>読み込みと、もう一方のページで選んだポケモン・性格の引き継ぎが終わったか。終わる前の描画で、前回の内容を共有の Stage に書かない。</summary>
+    private bool stageReady;
+
     protected override async Task OnAppReadyAsync()
     {
         s = PageStates.Get<State>("speed2");
@@ -197,6 +200,7 @@ else if (data is not null && dataSet is not null)
         s.Weather = Stage.SharedWeather;
         s.Terrain = Stage.SharedTerrain;
         await LoadAsync();
+        stageReady = true;
         // ポケモン一覧から開いたとき（?p1=ID）は、ポケモン1 に入れてから URL を戻す
         if (P1Query is > 0 and var id)
         {
@@ -239,7 +243,7 @@ else if (data is not null && dataSet is not null)
     // 選んでいるポケモン1（手前）・ポケモン2（奥）を、背景のバトルフィールドに立たせる
     protected override void OnAfterRender(bool firstRender)
     {
-        Stage.Show(s.DataSetKey, s.Builds[0]?.Pokemon, s.Builds[1]?.Pokemon, s.Builds[0]?.Nature, s.Builds[1]?.Nature);
+        if (stageReady) Stage.Show(s.DataSetKey, s.Builds[0]?.Pokemon, s.Builds[1]?.Pokemon, s.Builds[0]?.Nature, s.Builds[1]?.Nature);
         Stage.SetScene(this, BuildScene());
         Stage.SetConditions(this, s.Weather, s.Terrain);
         Stage.ShareField(s.Weather, s.Terrain);
