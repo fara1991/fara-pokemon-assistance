@@ -95,10 +95,10 @@ else if (data is not null && roster is not null && dataSet is not null)
                                             <div class="form-group mb-2">
                                                 <label class="form-label small mb-0">性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります。分からないときは「不明にする」を押します。</Help></label>
                                                 <NaturePicker Partial="true" Natures="data.Natures" Value="@data.FindNature(editNature)" ValueChanged="@OnEditNatureNamed"
-                                                    Up="@EditNaturePair.Up" Down="@EditNaturePair.Down" PairChanged="@OnEditNaturePair" />
+                                                    Up="@EditNaturePair.Up" Down="@EditNaturePair.Down" PairChanged="@OnEditNaturePair"
+                                                    OnClear="@ClearEditNature" ClearText="不明にする" ClearDisabled="@(editNature.Length == 0 && editUp is null && editDown is null)" />
                                                 <div class="small mt-1">
                                                     <span class="text-muted">@EditNatureText</span>
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" disabled="@(editNature.Length == 0 && editUp is null && editDown is null)" @onclick="ClearEditNature">不明にする</button>
                                                 </div>
                                             </div>
                                             <div class="form-group mb-2">
