@@ -359,7 +359,7 @@ else if (data is not null && dataSet is not null)
     // 選んでいる攻撃側（手前）・防御側（奥）を、背景のバトルフィールドに立たせる
     protected override void OnAfterRender(bool firstRender)
     {
-        if (stageReady) Stage.ShareRosterMode(s.UseRosterAttacker, s.UseRosterDefender);
+        if (stageReady) Stage.ShareRosterMode(RosterOn(s.UseRosterAttacker), RosterOn(s.UseRosterDefender), s.AttackerRosterKey, s.AttackerMega, s.DefenderRosterKey, s.DefenderMega);
         if (stageReady) Stage.Show(s.DataSetKey, s.Attacker?.Pokemon, s.Defender?.Pokemon, s.Attacker?.Nature, s.Defender?.Nature);
         Stage.SetScene(this, BuildScene());
         Stage.SetConditions(this, s.Weather, s.Terrain);
@@ -434,11 +434,18 @@ else if (data is not null && dataSet is not null)
                 // 「登録から選ぶ」のオン・オフも引き継ぐ
                 if (Stage.UseRosterMine is { } rosterMine) s.UseRosterAttacker = rosterMine;
                 if (Stage.UseRosterFoe is { } rosterFoe) s.UseRosterDefender = rosterFoe;
-                if (!s.UseRosterAttacker && Stage.PickedMine is { } mine && s.Attacker?.Pokemon.Id != mine.Id) OnAttackerChanged(mine.Id.ToString());
-                if (!s.UseRosterDefender && Stage.PickedFoe is { } foe && s.Defender?.Pokemon.Id != foe.Id) OnDefenderChanged(foe.Id.ToString());
+                // オンのときは、素早さ比較で選んだ登録・メガシンカの姿も入れる
+                if (RosterOn(s.UseRosterAttacker) && Stage.RosterKeyMine is { } keyMine && FindChoice(keyMine) is { } choiceMine
+                    && (s.AttackerRosterKey != keyMine || s.AttackerMega?.Id != Stage.RosterMegaMine?.Id))
+                    PickFromRoster(choiceMine, true, Stage.RosterMegaMine);
+                if (RosterOn(s.UseRosterDefender) && Stage.RosterKeyFoe is { } keyFoe && FindChoice(keyFoe) is { } choiceFoe
+                    && (s.DefenderRosterKey != keyFoe || s.DefenderMega?.Id != Stage.RosterMegaFoe?.Id))
+                    PickFromRoster(choiceFoe, false, Stage.RosterMegaFoe);
+                if (!RosterOn(s.UseRosterAttacker) && Stage.PickedMine is { } mine && s.Attacker?.Pokemon.Id != mine.Id) OnAttackerChanged(mine.Id.ToString());
+                if (!RosterOn(s.UseRosterDefender) && Stage.PickedFoe is { } foe && s.Defender?.Pokemon.Id != foe.Id) OnDefenderChanged(foe.Id.ToString());
                 // 素早さ比較で選んだ性格も引き継ぐ
-                if (!s.UseRosterAttacker && Stage.PickedMineNature is { } mineNature && s.Attacker is { } a0 && a0.Pokemon.Id == Stage.PickedMine?.Id) a0.Nature = mineNature;
-                if (!s.UseRosterDefender && Stage.PickedFoeNature is { } foeNature && s.Defender is { } d0 && d0.Pokemon.Id == Stage.PickedFoe?.Id) d0.Nature = foeNature;
+                if (!RosterOn(s.UseRosterAttacker) && Stage.PickedMineNature is { } mineNature && s.Attacker is { } a0 && a0.Pokemon.Id == Stage.PickedMine?.Id) a0.Nature = mineNature;
+                if (!RosterOn(s.UseRosterDefender) && Stage.PickedFoeNature is { } foeNature && s.Defender is { } d0 && d0.Pokemon.Id == Stage.PickedFoe?.Id) d0.Nature = foeNature;
             }
         }
         catch (Exception ex)
@@ -558,6 +565,9 @@ else if (data is not null && dataSet is not null)
             RefreshDefenderLists();
         }
     }
+
+    /// <summary>「登録から選ぶ」が実際に効いているか（登録が 1 つも無いときは、スイッチが出ず、普通の入力欄になる）。</summary>
+    private bool RosterOn(bool use) => use && rosterGroups.Count > 0;
 
     private RosterChoice? FindChoice(string? key) =>
         key is null ? null : rosterGroups.SelectMany(g => g.Choices).FirstOrDefault(c => c.Key == key);

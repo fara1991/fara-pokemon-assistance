@@ -54,10 +54,20 @@ public sealed class BattleStage
     public bool? UseRosterMine { get; private set; }
     public bool? UseRosterFoe { get; private set; }
 
-    public void ShareRosterMode(bool mine, bool foe)
+    /// <summary>「登録から選ぶ」で選んでいる登録（RosterChoice.Key）と、メガシンカ後にしているときの姿。</summary>
+    public string? RosterKeyMine { get; private set; }
+    public string? RosterKeyFoe { get; private set; }
+    public Pokemon? RosterMegaMine { get; private set; }
+    public Pokemon? RosterMegaFoe { get; private set; }
+
+    public void ShareRosterMode(bool mine, bool foe, string? keyMine = null, Pokemon? megaMine = null, string? keyFoe = null, Pokemon? megaFoe = null)
     {
         UseRosterMine = mine;
         UseRosterFoe = foe;
+        RosterKeyMine = mine ? keyMine : null;
+        RosterMegaMine = mine ? megaMine : null;
+        RosterKeyFoe = foe ? keyFoe : null;
+        RosterMegaFoe = foe ? megaFoe : null;
     }
 
     public event Action? Changed;
@@ -172,6 +182,8 @@ public sealed class BattleStage
         PickedMine = PickedFoe = null;
         PickedMineNature = PickedFoeNature = null;
         UseRosterMine = UseRosterFoe = null;
+        RosterKeyMine = RosterKeyFoe = null;
+        RosterMegaMine = RosterMegaFoe = null;
         Mine = candidates[first];
         Foe = candidates[second];
         Changed?.Invoke();
