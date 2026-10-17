@@ -955,7 +955,7 @@ else if (data is not null && dataSet is not null)
         else
         {
         <div class="form-group mb-3">
-            <label>性格 <Help Title="性格">「上昇」「下降」のボタンで能力を選ぶと性格が決まります（片方だけ押したときは、もう片方を技の分類に合わせて補います）。名前で探すこともできます。上がる能力は 1.1 倍、下がる能力は 0.9 倍。実数値の赤が上昇、青が下降です。</Help></label>
+            <label>性格 <Help Title="性格">能力ごとの ▲（上昇）・▼（下降）を押して選びます。もう一度押すと外れます。能力を選ぶと性格が決まります（片方だけ押したときは、もう片方を技の分類に合わせて補います）。名前で探すこともできます。上がる能力は 1.1 倍、下がる能力は 0.9 倍。実数値の赤が上昇、青が下降です。</Help></label>
             <NaturePicker Natures="data.Natures" Value="build.Nature" ValueChanged="@(n => build.Nature = n)"
                 Physical="@(s.Move is null || s.Move.AttackStatUsed == Stat.Attack)" />
         </div>
