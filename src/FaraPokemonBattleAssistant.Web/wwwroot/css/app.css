@@ -1779,12 +1779,6 @@ body {
     line-height: 1.5;
 }
 
-.fixed-reason {
-    margin-left: auto;
-    color: var(--app-muted);
-    font-size: 0.75rem;
-}
-
 /* ---- 結果を見えたままにする ----
    PC（3 列）: 結果カードを列の中で固定。狭い画面: 画面の下に要点のバー（押すと詳細を開く） */
 .result-bar {
