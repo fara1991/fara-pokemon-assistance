@@ -564,6 +564,29 @@ public sealed class RosterRepository
         };
     }
 
+    /// <summary>そのポケモンがメガシンカした後の姿（メガリザードン X・Y のように複数ある）。メガシンカしないポケモン・メガシンカ後の姿自身なら空。</summary>
+    public static IReadOnlyList<Pokemon> MegaFormsOf(PokemonDataSet data, Pokemon pokemon) =>
+        pokemon.IsMega ? Array.Empty<Pokemon>() : data.Pokemon.Where(p => p.IsMega && p.SpeciesId == pokemon.SpeciesId).ToList();
+
+    /// <summary>
+    /// 構成を、メガシンカ後の姿にした構成にする（ポイント・性格・レベルなどは引き継ぎ、持ち物はメガストーン、特性はメガシンカ後のもの）。
+    /// 元の構成は変えない。
+    /// </summary>
+    public static PokemonBuild ToMegaBuild(PokemonBuild build, Pokemon mega, PokemonDataSet data)
+    {
+        var abilities = data.AbilitiesOf(mega);
+        return new PokemonBuild(mega, build.EvSystem)
+        {
+            Level = build.Level,
+            IVs = build.IVs,
+            EVs = build.EVs,
+            Nature = build.Nature,
+            Item = mega.MegaStoneId is { } stone ? data.FindItem(stone) ?? build.Item : build.Item,
+            Ability = abilities.FirstOrDefault(),
+            TeraType = build.TeraType,
+        };
+    }
+
     /// <summary>
     /// 計算機・素早さ比較の「登録から選ぶ」用に、登録済みの構成をチームごとにまとめて返す。
     /// チームのメンバー（チームで持たせた持ち物つき）と、どのチームにも入っていない登録ポケモンの順。
