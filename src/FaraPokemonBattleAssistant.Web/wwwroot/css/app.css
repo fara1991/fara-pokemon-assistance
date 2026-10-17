@@ -3457,3 +3457,16 @@ html.vt-nav .sidebar {
 .hp-tick.active { background: var(--bs-primary); color: #fff; }
 .hp-tick:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
 .hit-details > summary { cursor: pointer; color: var(--app-muted); }
+
+/* 選んでいる持ち物・特性の名前の横に説明の「?」を出す */
+.with-desc { display: flex; align-items: center; gap: 0.35rem; }
+.with-desc > :first-child { flex: 1 1 auto; min-width: 0; }
+.with-desc .help-wrap { margin-left: 0; }
+.fixed-field .help-wrap { margin-left: 0.1rem; }
+@media (max-width: 767.98px) {
+    /* スマホ: 吹き出しを、入力欄の幅いっぱいに、下に出す（右端の「?」から出すと画面の外にはみ出すため） */
+    .with-desc, .fixed-field { position: relative; }
+    .with-desc .help-wrap, .fixed-field .help-wrap { position: static; }
+    .with-desc .help-note, .fixed-field .help-note { left: 0; right: 0; top: 100%; width: auto; max-width: none; margin-top: 0.25rem; }
+    .with-desc .help-note::before, .fixed-field .help-note::before { display: none; }
+}

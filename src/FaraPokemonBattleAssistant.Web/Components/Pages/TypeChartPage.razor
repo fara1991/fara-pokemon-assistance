@@ -121,12 +121,15 @@
                         <label class="form-label mb-0 small">特性</label>
                         @if (abilities.Count <= 1)
                         {
-                            <FixedField Value="@selectedAbility?.Name" Reason="@FixedField.SingleAbilityReason" Small="true" />
+                            <FixedField Value="@selectedAbility?.Name" Ability="selectedAbility" Reason="@FixedField.SingleAbilityReason" Small="true" />
                         }
                         else
                         {
-                            <SearchableSelect TItem="Ability" Items="abilities" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
-                                SelectedValue="@(selectedAbility?.Id.ToString() ?? "")" SelectedValueChanged="@OnAbilityChanged" Dropdown="true" Placeholder="特性名を入力..." />
+                            <div class="with-desc">
+                                <SearchableSelect TItem="Ability" Items="abilities" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
+                                    SelectedValue="@(selectedAbility?.Id.ToString() ?? "")" SelectedValueChanged="@OnAbilityChanged" Dropdown="true" Placeholder="特性名を入力..." />
+                                <DescHelp Name="@(selectedAbility?.Name)" Description="@(selectedAbility?.Description)" />
+                            </div>
                         }
                     </div>
                     }

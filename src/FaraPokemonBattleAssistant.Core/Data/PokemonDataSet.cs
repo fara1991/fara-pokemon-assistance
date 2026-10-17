@@ -55,6 +55,7 @@ public sealed class PokemonDataSet
                 Id = abilityTable.GetInt(row, "Id"),
                 Identifier = abilityTable.Get(row, "Identifier"),
                 Name = abilityTable.Get(row, "Name"),
+                Description = abilityTable.Get(row, "Description"),
             });
         }
         Abilities = abilities;
@@ -147,6 +148,7 @@ public sealed class PokemonDataSet
                 Identifier = itemTable.Get(row, "Identifier"),
                 Category = Enum.TryParse<ItemCategory>(itemTable.Get(row, "Category"), true, out var ic) ? ic : ItemCategory.Other,
                 Effect = itemTable.Get(row, "Effect"),
+                Description = itemTable.Get(row, "Description"),
                 AttackMultiplier = itemTable.GetDouble(row, "AttackMultiplier", 1.0),
                 DefenseMultiplier = itemTable.GetDouble(row, "DefenseMultiplier", 1.0),
                 SpAttackMultiplier = itemTable.GetDouble(row, "SpAttackMultiplier", 1.0),

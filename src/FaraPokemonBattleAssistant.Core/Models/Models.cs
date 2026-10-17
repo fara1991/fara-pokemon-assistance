@@ -166,6 +166,8 @@ public sealed class Ability
     /// <summary>元データの英語識別子（例: <c>huge-power</c>）。計算ロジックはこれで判定する。</summary>
     public string Identifier { get; init; } = "";
     public string Name { get; init; } = "";
+    /// <summary>説明文（ゲーム内の説明）。無ければ空。</summary>
+    public string Description { get; init; } = "";
 
     public override string ToString() => Name;
 }
@@ -379,6 +381,8 @@ public sealed class Item
     public string Identifier { get; init; } = "";
     public ItemCategory Category { get; init; }
     public string Effect { get; init; } = "";
+    /// <summary>説明文（ゲーム内の説明）。無ければ空。</summary>
+    public string Description { get; init; } = "";
     public double AttackMultiplier { get; init; } = 1.0;
     public double DefenseMultiplier { get; init; } = 1.0;
     public double SpAttackMultiplier { get; init; } = 1.0;

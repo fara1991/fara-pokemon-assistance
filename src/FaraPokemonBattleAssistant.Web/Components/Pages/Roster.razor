@@ -68,13 +68,16 @@ else if (data is not null && roster is not null && dataSet is not null)
                         <label>特性</label>
                         @if (s.NewPokemon is not null && data.AbilitiesOf(s.NewPokemon).Count == 1)
                         {
-                            <FixedField Value="@s.NewAbility?.Name" Reason="@FixedField.SingleAbilityReason" />
+                            <FixedField Value="@s.NewAbility?.Name" Ability="s.NewAbility" Reason="@FixedField.SingleAbilityReason" />
                         }
                         else
                         {
-                            <SearchableSelect TItem="Ability" Items="@(s.NewPokemon is null ? Array.Empty<Ability>() : data.AbilitiesOf(s.NewPokemon))" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
-                                SelectedValue="@(s.NewAbility?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { if (v.Length > 0) OnAbilityChanged(data.FindAbility(ParseId(v))); })"
-                                Disabled="@(s.NewPokemon is null)" Dropdown="true" Placeholder="特性名を入力..." />
+                            <div class="with-desc">
+                                <SearchableSelect TItem="Ability" Items="@(s.NewPokemon is null ? Array.Empty<Ability>() : data.AbilitiesOf(s.NewPokemon))" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
+                                    SelectedValue="@(s.NewAbility?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { if (v.Length > 0) OnAbilityChanged(data.FindAbility(ParseId(v))); })"
+                                    Disabled="@(s.NewPokemon is null)" Dropdown="true" Placeholder="特性名を入力..." />
+                                <DescHelp Name="@(s.NewAbility?.Name)" Description="@(s.NewAbility?.Description)" />
+                            </div>
                         }
                     </div>
                     <div class="form-group mb-3">

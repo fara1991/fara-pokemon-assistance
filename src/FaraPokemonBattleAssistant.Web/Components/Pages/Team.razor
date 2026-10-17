@@ -49,17 +49,20 @@ else if (data is not null && roster is not null && dataSet is not null)
                             }
                             else
                             {
-                                <SearchableSelect TItem="Item"
-                                    Items="data.Items.Where(i => !i.IsMegaStone)"
-                                    DisplayText="@(i => i.Name)"
-                                    ValueSelector="@(i => i.Id.ToString())"
-                                    SelectedValue="@(s.TeamItem?.Id.ToString() ?? "")"
-                                    SelectedValueChanged="@(v => s.TeamItem = data.FindItem(ParseId(v)))"
-                                    Dropdown="true"
-                                    EmptyOption="持ち物なし"
-                                    Placeholder="持ち物なし（入力して検索）">
-                                    <ItemTemplate Context="held"><ItemLabel Item="held" /></ItemTemplate>
-                                </SearchableSelect>
+                                <div class="with-desc">
+                                    <SearchableSelect TItem="Item"
+                                        Items="data.Items.Where(i => !i.IsMegaStone)"
+                                        DisplayText="@(i => i.Name)"
+                                        ValueSelector="@(i => i.Id.ToString())"
+                                        SelectedValue="@(s.TeamItem?.Id.ToString() ?? "")"
+                                        SelectedValueChanged="@(v => s.TeamItem = data.FindItem(ParseId(v)))"
+                                        Dropdown="true"
+                                        EmptyOption="持ち物なし"
+                                        Placeholder="持ち物なし（入力して検索）">
+                                        <ItemTemplate Context="held"><ItemLabel Item="held" /></ItemTemplate>
+                                    </SearchableSelect>
+                                    <DescHelp Name="@(s.TeamItem?.Name)" Description="@(s.TeamItem?.Description)" />
+                                </div>
                             }
                         </div>
                     </div>

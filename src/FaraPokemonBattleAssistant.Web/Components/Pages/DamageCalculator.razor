@@ -1018,29 +1018,35 @@ else if (data is not null && dataSet is not null)
                 }
                 else
                 {
-                    <SearchableSelect TItem="Item"
-                        Items="items"
-                        DisplayText="@(i => i.Name)"
-                        ValueSelector="@(i => i.Id.ToString())"
-                        SelectedValue="@(build.Item?.Id.ToString() ?? "")"
-                        SelectedValueChanged="@(v => build.Item = data.FindItem(ParseId(v)))"
-                        Dropdown="true"
-                        EmptyOption="持ち物なし"
-                        Placeholder="持ち物なし">
-                        <ItemTemplate Context="held"><ItemLabel Item="held" /></ItemTemplate>
-                    </SearchableSelect>
+                    <div class="with-desc">
+                        <SearchableSelect TItem="Item"
+                            Items="items"
+                            DisplayText="@(i => i.Name)"
+                            ValueSelector="@(i => i.Id.ToString())"
+                            SelectedValue="@(build.Item?.Id.ToString() ?? "")"
+                            SelectedValueChanged="@(v => build.Item = data.FindItem(ParseId(v)))"
+                            Dropdown="true"
+                            EmptyOption="持ち物なし"
+                            Placeholder="持ち物なし">
+                            <ItemTemplate Context="held"><ItemLabel Item="held" /></ItemTemplate>
+                        </SearchableSelect>
+                        <DescHelp Name="@(build.Item?.Name)" Description="@(build.Item?.Description)" />
+                    </div>
                 }
             </div>
             <div class="form-group mb-3">
                 <label>特性 <Help Title="特性">そのポケモンが持てる特性だけを表示します。特性が 1 つしかないポケモン（メガシンカ後など）は固定です。</Help></label>
                 @if (abilities.Count <= 1)
                 {
-                    <FixedField Value="@build.Ability?.Name" Reason="@FixedField.SingleAbilityReason" />
+                    <FixedField Value="@build.Ability?.Name" Ability="build.Ability" Reason="@FixedField.SingleAbilityReason" />
                 }
                 else
                 {
-                    <SearchableSelect TItem="Ability" Items="abilities" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
-                        SelectedValue="@(build.Ability?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { if (v.Length > 0) SetAbility(build, ParseId(v)); })" Dropdown="true" Placeholder="特性名を入力..." />
+                    <div class="with-desc">
+                        <SearchableSelect TItem="Ability" Items="abilities" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
+                            SelectedValue="@(build.Ability?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { if (v.Length > 0) SetAbility(build, ParseId(v)); })" Dropdown="true" Placeholder="特性名を入力..." />
+                        <DescHelp Name="@(build.Ability?.Name)" Description="@(build.Ability?.Description)" />
+                    </div>
                 }
             </div>
             @if (dataSet!.HasTerastal)

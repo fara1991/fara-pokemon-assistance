@@ -1,0 +1,10 @@
+@* 選んでいる持ち物・特性の名前の横に出す「?」。押すとその説明文を表示する。説明文が無いときは何も出さない。 *@
+@if (!string.IsNullOrEmpty(Description))
+{
+    <Help Title="@Name">@Description</Help>
+}
+
+@code {
+    [Parameter] public string? Name { get; set; }
+    [Parameter] public string? Description { get; set; }
+}
