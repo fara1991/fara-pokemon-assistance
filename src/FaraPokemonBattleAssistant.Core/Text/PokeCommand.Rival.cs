@@ -123,6 +123,15 @@ public sealed partial class PokeCommand
                 {
                     current.NatureUp = arrowUp ?? current.NatureUp;
                     current.NatureDown = arrowDown ?? current.NatureDown;
+                    if (current.NatureUp is not null && current.NatureUp == current.NatureDown)
+                        return (specs, $"{current.Pokemon.Name}の「{StatNames.Letter(current.NatureUp.Value)}」を、上がる能力と下がる能力の両方にはできません");
+                    // 上がる・下がる能力を別々に書いて両方そろったら、その性格にまとめる
+                    if (current.NatureUp is not null && current.NatureDown is not null
+                        && data.Natures.FirstOrDefault(n => n.IncreasedStat == current.NatureUp && n.DecreasedStat == current.NatureDown) is { } together)
+                    {
+                        current.Nature = together;
+                        current.NatureUp = current.NatureDown = null;
+                    }
                 }
                 continue;
             }
@@ -189,10 +198,6 @@ public sealed partial class PokeCommand
         return (specs, null);
     }
 
-    /// <summary>
-    /// 指定した内容を相手のポケモンに反映する。ポイントは書いた能力だけ更新し、書いていない能力は今のまま（scan の推定も消さない）。
-    /// 性格・特性は、書いたものだけ上書き。
-    /// </summary>
     /// <summary>相手の性格の、上がる能力・下がる能力（性格が決まっていればその性格から。決まっていなければ、分かっている方だけ）。</summary>
     public static (Stat? Up, Stat? Down) RivalNatureStats(RivalPokemon rival, IReadOnlyList<Nature> natures)
     {
@@ -218,6 +223,10 @@ public sealed partial class PokeCommand
         rival.NatureDown = down;
     }
 
+    /// <summary>
+    /// 指定した内容を相手のポケモンに反映する。ポイントは書いた能力だけ更新し、書いていない能力は今のまま（scan の推定も消さない）。
+    /// 性格・特性は、書いたものだけ上書き。
+    /// </summary>
     private static void ApplySpec(RivalPokemon rival, RivalSpec spec, DateTimeOffset now, IReadOnlyList<Nature> natures)
     {
         // 書いた能力だけ更新する（scan で推定した値や、前に書いた能力は消さない）
@@ -240,7 +249,11 @@ public sealed partial class PokeCommand
         {
             // 書いた方だけ更新し、もう片方は今の分かっている内容のまま
             var (curUp, curDown) = RivalNatureStats(rival, natures);
-            SetRivalNature(rival, spec.NatureUp ?? curUp, spec.NatureDown ?? curDown, natures);
+            var up = spec.NatureUp ?? curUp;
+            var down = spec.NatureDown ?? curDown;
+            // 同じ能力が上がる・下がるの両方にはならない（今回書いた側を優先して、前の分かっていた反対側を外す）
+            if (up is not null && up == down) { if (spec.NatureUp is not null) down = null; else up = null; }
+            SetRivalNature(rival, up, down, natures);
         }
         if (spec.Ability is not null) rival.AbilityId = spec.Ability.Id;
         if (spec.Item is not null) rival.ItemId = spec.Item.Id;

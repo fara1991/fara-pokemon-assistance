@@ -724,6 +724,8 @@ else if (data is not null && dataSet is not null)
         if (rival.Defense is { } b) parts.Add($"B{b}");
         if (rival.SpDefense is { } d) parts.Add($"D{d}");
         if (rival.Nature is { } n) parts.Add(n);
+        else if (rival.NatureUp is not null || rival.NatureDown is not null)
+            parts.Add((rival.NatureUp is { } nu ? $"{StatNames.Letter(nu)}↑" : "") + (rival.NatureDown is { } nd ? $"{StatNames.Letter(nd)}↓" : ""));
         if (rival.AbilityId is { } a && data.FindAbility(a) is { } ability) parts.Add(ability.Name);
         foreach (var scan in rival.Scans)
         {

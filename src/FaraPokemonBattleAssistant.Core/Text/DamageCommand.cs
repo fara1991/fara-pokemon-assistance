@@ -67,10 +67,6 @@ public sealed class DamageCommand
     /// <summary>上がる能力・下がる能力での性格指定（<c>B↑A↓</c>、<c>B↑</c>、<c>A↓</c>。↑は + 、↓は - でもよい）。</summary>
     private static readonly Regex NatureArrowToken = new(@"^(?:([ABCDSabcds])[↑＋+](?:([ABCDSabcds])[↓－\-])?|([ABCDSabcds])[↓－\-])$", RegexOptions.Compiled);
     /// <summary>
-    /// <c>B↑A↓</c>・<c>B↑</c>・<c>A↓</c> のような、上がる・下がる能力での性格指定か。その形なら true で、合う性格（無ければ null）を返す。
-    /// 片方だけのときは、もう片方を使わない攻撃能力にした性格。
-    /// </summary>
-    /// <summary>
     /// <c>B↑A↓</c>・<c>B↑</c>・<c>A↓</c> のような指定から、上がる能力・下がる能力を読み取る（片方だけでも、もう片方は補わない）。
     /// その形でなければ false。
     /// </summary>
@@ -85,6 +81,10 @@ public sealed class DamageCommand
         return true;
     }
 
+    /// <summary>
+    /// <c>B↑A↓</c>・<c>B↑</c>・<c>A↓</c> のような、上がる・下がる能力での性格指定か。その形なら true で、合う性格（無ければ null）を返す。
+    /// 片方だけのときは、もう片方を使わない攻撃能力にした性格。
+    /// </summary>
     public static bool TryParseNatureArrow(string token, IReadOnlyList<Nature> natures, out Nature? nature)
     {
         nature = null;

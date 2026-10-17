@@ -695,7 +695,7 @@ else if (data is not null)
             }
             if (data!.FindNature(token) is { } n) { s.NatureName = n.Name; s.NatureUp = s.NatureDown = null; continue; }
             // B↑A↓・D↑・A↓ のような書き方（相手の性格は、片方だけでも補わずに読み取る）
-            if (DamageCommand.TryParseArrowStats(token, out var arrowUp, out var arrowDown) && arrowUp != Stat.HP && arrowDown != Stat.HP)
+            if (s.Kind == "set -r" && DamageCommand.TryParseArrowStats(token, out var arrowUp, out var arrowDown))
             {
                 if (arrowUp is not null && arrowDown is not null && data.Natures.FirstOrDefault(x => x.IncreasedStat == arrowUp && x.DecreasedStat == arrowDown) is { } both)
                 {
@@ -706,6 +706,12 @@ else if (data is not null)
                 {
                     s.NatureUp = arrowUp ?? s.NatureUp;
                     s.NatureDown = arrowDown ?? s.NatureDown;
+                    if (s.NatureUp is not null && s.NatureDown is not null && s.NatureUp != s.NatureDown
+                        && data.Natures.FirstOrDefault(x => x.IncreasedStat == s.NatureUp && x.DecreasedStat == s.NatureDown) is { } together)
+                    {
+                        s.NatureName = together.Name;
+                        s.NatureUp = s.NatureDown = null;
+                    }
                 }
                 continue;
             }

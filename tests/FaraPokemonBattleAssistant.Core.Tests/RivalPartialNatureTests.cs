@@ -78,4 +78,44 @@ public class RivalPartialNatureTests
         var entry = (await repo.GetAsync()).For(Ds).Pokemon.Last();
         Assert.False(string.IsNullOrEmpty(entry.Nature));
     }
+
+    [Fact]
+    public async Task Separate_arrows_are_merged_into_a_nature_and_conflicts_are_resolved_in_favour_of_what_was_just_written()
+    {
+        var (command, repo) = await NewAsync();
+        // 上がる・下がる能力を別々のトークンで書いても、両方そろえば性格にまとまる
+        Assert.True((await command.ExecuteAsync("!pokech add -r リザードン D↑ A↓")).Success);
+        var rival = Assert.Single((await repo.GetAsync()).For(Ds).Rivals);
+        Assert.Equal("おだやか", rival.Nature);
+        Assert.Null(rival.NatureUp);
+
+        // 性格が決まっている相手に片方だけ書くと、書いた方だけ入れ替わる（おだやか D↑A↓ に B↑ → ずぶとい B↑A↓）
+        Assert.True((await command.ExecuteAsync("!pokech set -r リザードン B↑")).Success);
+        Assert.Equal("ずぶとい", (await repo.GetAsync()).For(Ds).Rivals.Single().Nature);
+
+        // 前の分かっていた反対側と同じ能力を書いたら、書いた側を優先して、反対側を外す
+        Assert.True((await command.ExecuteAsync("!pokech set -r リザードン A↑")).Success);   // 今は B↑A↓ → 上がる A、下がる A は外れる
+        rival = (await repo.GetAsync()).For(Ds).Rivals.Single();
+        Assert.Null(rival.Nature);
+        Assert.Equal(Stat.Attack, rival.NatureUp);
+        Assert.Null(rival.NatureDown);
+
+        // 同じ能力を上がる・下がるの両方に書くのはエラー
+        var conflict = await command.ExecuteAsync("!pokech add -r ミミッキュ D↑ D↓");
+        Assert.False(conflict.Success);
+        Assert.Contains("両方にはできません", conflict.Message);
+    }
+
+    [Fact]
+    public async Task Own_pokemon_accept_the_two_arrows_as_separate_tokens()
+    {
+        var (command, repo) = await NewAsync();
+        Assert.True((await command.ExecuteAsync("!pokech add -m アシレーヌ 4 0 0 32 0 30 D↑ A↓")).Success);
+        Assert.Equal("おだやか", (await repo.GetAsync()).For(Ds).Pokemon.Last().Nature);
+        // 片方だけなら補って、上がる能力はその能力になる
+        Assert.True((await command.ExecuteAsync("!pokech add -m アシレーヌ 4 0 0 32 0 30 B↑")).Success);
+        var completed = (await repo.GetAsync()).For(Ds).Pokemon.Last().Nature;
+        var data = await TestData.Catalog().GetDataSetAsync(Ds);
+        Assert.Equal(Stat.Defense, data.Natures.First(n => n.Name == completed).IncreasedStat);
+    }
 }
