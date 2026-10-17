@@ -189,6 +189,27 @@ def load_ability_names_ja() -> dict[str, str]:
 ABILITY_NAMES_JA = load_ability_names_ja()
 
 
+def load_ability_descriptions_ja() -> dict[str, str]:
+    """PokeAPI に説明文が無い特性（新しいメガシンカの特性など）の説明文（tools/ability_descriptions_ja.csv）。"""
+    path = TOOLS / "ability_descriptions_ja.csv"
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8", newline="") as f:
+        return {r["Identifier"]: r["Description"] for r in csv.DictReader(f)}
+
+
+ABILITY_DESCRIPTIONS_JA = load_ability_descriptions_ja()
+
+
+def effect_sentence(effect: str) -> str:
+    """item_effects.csv の短い効果の文を、説明文の文末にそろえる（「…が1.2倍」→「…が1.2倍になる。」）。"""
+    if not effect:
+        return ""
+    if effect.endswith("倍"):
+        effect += "になる"
+    return effect if effect.endswith("。") else effect + "。"
+
+
 # --------------------------------------------------------------------------- PokeAPI → our CSVs
 
 class Builder:
@@ -608,7 +629,9 @@ class Builder:
                 if not has_japanese(name):
                     log(f"  WARNING: 特性 {a['identifier']} の日本語名が無く英語のままです: {name}"
                         "（tools/ability_names_ja.csv に追加してください）")
-                rows.append([aid, a["identifier"], name, self.flavor_description("ability_flavor_text", "ability_id", aid, version_groups)])
+                rows.append([aid, a["identifier"], name,
+                             self.flavor_description("ability_flavor_text", "ability_id", aid, version_groups)
+                             or ABILITY_DESCRIPTIONS_JA.get(a["identifier"], "")])
         write_csv(out_dir / "abilities.csv", ["Id", "Identifier", "Name", "Description"], rows)
 
     MEGA_STONE_CATEGORY = "44"
@@ -689,14 +712,19 @@ class Builder:
                 continue
             if allowed is None and self.item_first_generation.get(iid, 0) > generation:
                 continue  # そのゲームには存在しない持ち物
-            eff = wanted[iid] or {}
+            eff = dict(wanted[iid] or {})
+            # 第 2・第 3 世代のタイプ強化の持ち物は 1.1 倍（第 4 世代から 1.2 倍）
+            if generation <= 3 and eff.get("Category") == "TypeBoost":
+                eff["TypeBoostMultiplier"] = "1.1"
+                eff["Effect"] = eff.get("Effect", "").replace("1.2倍", "1.1倍")
             rows.append([
                 iid, name, eff.get("Category", "Other"), eff.get("Effect", ""),
                 eff.get("AttackMultiplier", "1.0"), eff.get("DefenseMultiplier", "1.0"),
                 eff.get("SpAttackMultiplier", "1.0"), eff.get("SpDefenseMultiplier", "1.0"),
                 eff.get("DamageMultiplier", "1.0"), eff.get("TypeBoost", ""), eff.get("TypeBoostMultiplier", "1.0"),
                 self.items[iid]["identifier"],
-                self.flavor_description("item_flavor_text", "item_id", iid, vgl),
+                # 計算に使っている効果（item_effects.csv）の文を先に。無い持ち物は、ゲーム内の説明文
+                effect_sentence(eff.get("Effect", "")) or self.flavor_description("item_flavor_text", "item_id", iid, vgl),
             ])
         # メガストーン（メガシンカ後のフォルム専用。計算には影響しない）
         seen = {row[0] for row in rows}
