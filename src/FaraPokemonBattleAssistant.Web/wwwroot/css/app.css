@@ -534,7 +534,7 @@ body {
     border-radius: 0.2rem;
 }
 
-/* コマンドを作る欄: 1 行目は種類、2 行目以降に入力欄を並べる（収まらない幅では折り返す）。PC でコマンド一覧の表示範囲を広く保つ */
+/* コマンドを作る欄: 種類から順に入力欄を並べる（収まらない幅では折り返す）。縦を取りすぎず、PC でコマンド一覧の表示範囲を広く保つ */
 .cmd-build {
     display: flex;
     flex-wrap: wrap;
@@ -545,24 +545,23 @@ body {
     min-width: 0;
 }
 
-/* 種類だけで 1 行にして、そのあとの入力欄は 2 行目以降に並べる */
-.cmd-build .cmd-f-kind { flex: 0 0 100%; }
-@media (min-width: 768px) { .cmd-build .cmd-f-kind select { max-width: 15rem; } }
+/* 種類は先頭に置き、収まる幅ではポケモン・特性と同じ 1 行目に並べる（縦を取りすぎない） */
+.cmd-build .cmd-f-kind { flex: 0 0 15rem; }
 .cmd-build .cmd-f-num { flex: 0 0 8.5rem; }
-/* 性格は 1 行を使い、ボタンを大きくする（上昇と下降を左右に並べる） */
-.cmd-build .cmd-f-nature { flex: 1 1 100%; order: 4; }
+/* 性格はポイントの隣に置く。広さが足りるところでは、上昇と下降を左右に並べる（ボタンは押しやすい大きさ） */
+.cmd-build .cmd-f-nature { flex: 1 1 26rem; order: 4; }
 .cmd-build .cmd-f-ability { flex: 0 0 14rem; order: 2; }
 .cmd-build .cmd-f-item { flex: 1 1 11rem; order: 6; }
 /* set -r の見えた技: ポイント・性格のあとに、4 つを並べる（持ち物はその後ろ） */
-.cmd-build .cmd-f-rmove { flex: 1 1 10rem; order: 5; }
+.cmd-build .cmd-f-rmove { flex: 1 1 7.5rem; order: 5; }
 .cmd-build .cmd-f-opt { flex: 1 1 10rem; }
-.cmd-build .cmd-f-evs { flex: 1 1 100%; order: 3; }
+.cmd-build .cmd-f-evs { flex: 0 0 auto; order: 3; }
 .cmd-build .cmd-f-none { align-self: end; }
 
 .cmd-evs {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 5rem));
-    gap: 0.4rem;
+    grid-template-columns: repeat(6, 3.6rem);
+    gap: 0.3rem;
 }
 
 .cmd-evs .form-control {
@@ -570,12 +569,14 @@ body {
 }
 
 /* コマンドを作る欄の性格: ボタンを押しやすい大きさにして、名前で探す欄は幅を抑える */
-.cmd-build .nature-picker .searchable-select { max-width: 22rem; }
+/* 名前で探す欄と、上昇・下降のボタンを横に並べて、縦を取りすぎない（収まらない幅では折り返す） */
+.cmd-build .nature-picker { flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 0.9rem; }
+.cmd-build .nature-picker .searchable-select { flex: 0 0 15rem; }
+.cmd-build .nature-picker .nature-rows { flex: 1 1 26rem; min-width: 0; max-width: 44rem; }
 .cmd-build .nature-buttons .btn {
-    padding: 0.45rem 0;
-    font-size: 0.95rem;
+    padding: 0.35rem 0;
+    font-size: 0.9rem;
 }
-.cmd-build .nature-rows { max-width: 40rem; }
 /* ラベルの幅は、上の @container 内の指定（.nature-rows .nature-row-label）より後ろに書いて勝たせる（書く順を変えないこと） */
 .cmd-build .nature-row-label { font-size: 0.9rem; flex-basis: 3rem; }
 .cmd-build .cmd-f-poke { flex: 1 1 7rem; }
@@ -588,8 +589,17 @@ body {
     white-space: nowrap;
 }
 
+/* 狭めの PC 幅では性格を 1 行にして、set -r の見えた技 4 つが 1 行にそろうようにする */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .cmd-build .cmd-f-nature { flex-basis: 100%; }
+}
+
 @media (max-width: 767.98px) {
+    .cmd-build .nature-picker .searchable-select { flex-basis: 100%; }
+
     .cmd-build > div,
+    .cmd-build .cmd-f-kind,
+    .cmd-build .cmd-f-nature,
     .cmd-build .cmd-f-weather,
     .cmd-build .cmd-f-terrain,
     .cmd-build .cmd-f-ability,
