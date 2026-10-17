@@ -50,6 +50,26 @@ public sealed class BattleStage
     public Nature? PickedMineNature { get; private set; }
     public Nature? PickedFoeNature { get; private set; }
 
+    /// <summary>「登録から選ぶ」のオン・オフ（自分側＝攻撃側／ポケモン1、相手側＝防御側／ポケモン2）。もう一方のページを開いたときに引き継ぐ。null はまだどちらのページでも決めていない。</summary>
+    public bool? UseRosterMine { get; private set; }
+    public bool? UseRosterFoe { get; private set; }
+
+    /// <summary>「登録から選ぶ」で選んでいる登録（RosterChoice.Key）と、メガシンカ後にしているときの姿。</summary>
+    public string? RosterKeyMine { get; private set; }
+    public string? RosterKeyFoe { get; private set; }
+    public Pokemon? RosterMegaMine { get; private set; }
+    public Pokemon? RosterMegaFoe { get; private set; }
+
+    public void ShareRosterMode(bool mine, bool foe, string? keyMine = null, Pokemon? megaMine = null, string? keyFoe = null, Pokemon? megaFoe = null)
+    {
+        UseRosterMine = mine;
+        UseRosterFoe = foe;
+        RosterKeyMine = mine ? keyMine : null;
+        RosterMegaMine = mine ? megaMine : null;
+        RosterKeyFoe = foe ? keyFoe : null;
+        RosterMegaFoe = foe ? megaFoe : null;
+    }
+
     public event Action? Changed;
 
     /// <summary>「対戦画面で表示」のスイッチ。オンで結果（Scene）があるとき、背景のフィールドを止めて結果を重ねて出す。</summary>
@@ -161,6 +181,9 @@ public sealed class BattleStage
         DataSetKey = dataSetKey;
         PickedMine = PickedFoe = null;
         PickedMineNature = PickedFoeNature = null;
+        UseRosterMine = UseRosterFoe = null;
+        RosterKeyMine = RosterKeyFoe = null;
+        RosterMegaMine = RosterMegaFoe = null;
         Mine = candidates[first];
         Foe = candidates[second];
         Changed?.Invoke();
