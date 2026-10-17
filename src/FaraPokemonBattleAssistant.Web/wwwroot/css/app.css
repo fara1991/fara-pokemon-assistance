@@ -534,7 +534,7 @@ body {
     border-radius: 0.2rem;
 }
 
-/* コマンドを作る欄: 1 行目は種類、2 行目以降に入力欄を並べる（収まらない幅では折り返す）。PC でコマンド一覧の表示範囲を広く保つ */
+/* コマンドを作る欄: 種類から順に入力欄を並べる（収まらない幅では折り返す）。縦を取りすぎず、PC でコマンド一覧の表示範囲を広く保つ */
 .cmd-build {
     display: flex;
     flex-wrap: wrap;
@@ -572,7 +572,7 @@ body {
 /* 名前で探す欄と、上昇・下降のボタンを横に並べて、縦を取りすぎない（収まらない幅では折り返す） */
 .cmd-build .nature-picker { flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 0.9rem; }
 .cmd-build .nature-picker .searchable-select { flex: 0 0 15rem; }
-.cmd-build .nature-picker .nature-rows { flex: 1 1 26rem; min-width: 0; }
+.cmd-build .nature-picker .nature-rows { flex: 1 1 26rem; min-width: 0; max-width: 44rem; }
 .cmd-build .nature-buttons .btn {
     padding: 0.35rem 0;
     font-size: 0.9rem;
@@ -589,7 +589,14 @@ body {
     white-space: nowrap;
 }
 
+/* 狭めの PC 幅では性格を 1 行にして、set -r の見えた技 4 つが 1 行にそろうようにする */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .cmd-build .cmd-f-nature { flex-basis: 100%; }
+}
+
 @media (max-width: 767.98px) {
+    .cmd-build .nature-picker .searchable-select { flex-basis: 100%; }
+
     .cmd-build > div,
     .cmd-build .cmd-f-kind,
     .cmd-build .cmd-f-nature,
